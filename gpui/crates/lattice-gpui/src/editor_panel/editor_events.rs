@@ -2,7 +2,8 @@
 //! status bar's line and column and Overleaf's caret follow the caret, the
 //! `.bib` list follows it, diagnostics know whether the text has the
 //! keyboard, a Markdown file's Split and a `.tex` file's highlights follow
-//! the scroll, and leaving the editor saves at once, as the Tauri app does.
+//! the scroll, both are kept as the file's place (`place_memory.rs`), and
+//! leaving the editor saves at once, as the Tauri app does.
 
 use editor::{Editor, EditorEvent, ToPoint as _};
 use gpui::{Context, Entity};
@@ -37,6 +38,7 @@ impl EditorPanel {
                     cx.emit(EditorPanelEvent::CaretLine);
                 }
                 cx.emit(EditorPanelEvent::CaretMoved);
+                self.place_changed(cx);
                 cx.notify();
             }
             EditorEvent::Focused => {
@@ -51,6 +53,7 @@ impl EditorPanel {
             EditorEvent::ScrollPositionChanged { .. } => {
                 self.markdown_source_scrolled(cx);
                 self.highlights_shown(cx);
+                self.place_changed(cx);
             }
             // Leaving the editor saves at once, as the Tauri app does.
             EditorEvent::Blurred => {

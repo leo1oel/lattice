@@ -12,7 +12,8 @@
 //! - [`tree`] — file-tree views, content classification, and reading text
 //!   files; [`moved_file`] finds where an open file was renamed to.
 //! - [`bibliography`] — BibTeX parsing, entry editing, and SyncTeX hops
-//!   between `.bib` and `.bbl`; [`citation_lookup`] resolves new citations.
+//!   between `.bib` and `.bbl`; [`citation_lookup`] resolves new citations;
+//!   [`bibliography_target`] picks the `.bib` new entries go to.
 //! - [`symbols`] and [`references`] — `\label`/`\cite` find, rename, and
 //!   removal, and the reference hover index; [`index_sources`] reads the
 //!   files they scan and names the ones it cannot.
@@ -31,6 +32,7 @@ mod annotations;
 mod archive;
 mod assets;
 mod bibliography;
+mod bibliography_target;
 mod build_pdf;
 mod citation_lookup;
 mod create;
@@ -78,8 +80,12 @@ pub(crate) use bibliography::{
     iter_bibliography_sources, normalize_doi, parse_bibliography, parse_bibliography_fields_raw,
     parse_bibliography_fields_syntax,
 };
+pub use bibliography_target::{citation_bibliography, BibliographyTarget};
 pub use build_pdf::default_root_pdf;
+#[cfg(test)]
+pub(crate) use citation_lookup::forget_doi_citations;
 pub use citation_lookup::resolve_citation_query;
+pub(crate) use citation_lookup::resolve_doi;
 pub use create::{create_tutorial, create_with_venue, Venue};
 pub use editable_figure::{
     figure_source_to_open, import_editable_figure, FigureManifest, FigureSourceOpening,
@@ -109,7 +115,7 @@ pub(crate) use manifest::ensure_ignore_line;
 pub use manifest::{
     choose_root_document, classify_open_error, folder_root, has_latexmkrc, latexmk_engine_arg,
     main_document_chosen, open, read_manifest, resolve_compile_root, set_compile_root,
-    tex_program_engine,
+    tex_program_engine, CompileRoot,
 };
 pub use manifest_settings::{
     set_deadline, set_grammar_ignores, set_spelling_words, set_submission_items,

@@ -22,21 +22,32 @@ use super::citation::{
     official_arxiv_citation, resolve_arxiv_title, unused_key, validate_resolved_identity,
     verify_title_citation,
 };
+use super::github_citation::{self, RepositoryCitation};
 use super::ids::{
     arxiv_base_id, explicit_arxiv_id, parse_arxiv_id, same_arxiv_work, validate_arxiv_id,
 };
 use super::is_web_url;
+use super::reference_search;
 use super::web_citation::{
     alphaxiv_bibtex, merge_supplied_bibtex, resolve_web_citation, WebCitation,
 };
 use crate::papers::ImportResult;
+use crate::ttl_cache::{TtlCache, DOI_RECORD_TTL};
 use crate::util::err;
-use crate::{alphaxiv, project};
+use crate::{alphaxiv, commands, project};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::LazyLock;
 use uuid::Uuid;
+
+mod notes;
+
+/// What cite resolved for recently cited DOIs (`ttl_cache` says why a DOI
+/// may be replayed): an Agent that cites the same DOI again, or retries after
+/// a failed turn, does not spend the shared lookup budget twice.
+static RESOLVED_DOIS: LazyLock<TtlCache<Resolved>> = LazyLock::new(|| TtlCache::new(256));
 
 /// The JSON report an import returns, in bibcite's shape.
 pub(super) fn import_report(key: &str, source: &str, action: &str) -> String {
@@ -54,6 +65,7 @@ pub(super) fn cancelled(title: &str) -> ImportResult {
         already_imported: false,
         fetch_error: None,
         cancelled: true,
+        note: None,
     }
 }
 
@@ -71,7 +83,8 @@ pub fn import_reference(
     root: &Path, query: &str, history: HistoryMode, full_text: FullText, progress: &dyn Fn(&str),
     cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
-    let manifest = &project::read_manifest(root)?;
+    // The file the document compiles against, never an internal copy.
+    let bibliography = project::citation_bibliography(root)?.path;
     // A numeric AlphaXiv URL is still an arXiv work and should retain the
     // semantic HTML/source conversion and existing arXiv cache identity.
     let arxiv_url = alphaxiv::paper_id_from_url(query.trim())
@@ -84,7 +97,7 @@ pub fn import_reference(
     if cancel.load(Ordering::Acquire) {
         return Ok(cancelled(query));
     }
-    let bibliography_path = project::safe_path(root, &manifest.primary_bibliography)?;
+    let bibliography_path = project::safe_path(root, &bibliography)?;
     let before = if bibliography_path.exists() {
         fs::read_to_string(&bibliography_path).map_err(err)?
     } else {
@@ -99,17 +112,43 @@ pub fn import_reference(
     // from its text, so it is converted whatever `full_text` asks.
     if is_pdf_url(query) && alphaxiv::paper_id_from_url(query).is_none() {
         return super::import_pdf::import_pdf_citation(
-            root, manifest, query, history, progress, cancel,
+            root,
+            &bibliography,
+            query,
+            history,
+            progress,
+            cancel,
         );
     }
 
+    reference_search::refuse_single_word(query)?;
     progress("resolving");
+    // A repository's own citation, or one built from GitHub's metadata;
+    // never the GitHub page's generic metadata, which describes the site.
+    let repository = github_citation::repository_from_url(query);
+    let mut source_note = None;
+    let repository_resolution = match &repository {
+        Some(repository) => {
+            let citation = github_citation::resolve(repository)?;
+            source_note = Some(citation.note(repository));
+            Some(match citation {
+                RepositoryCitation::Supplied { bibtex, .. } => Resolved::Supplied(bibtex),
+                RepositoryCitation::Built { bibtex, key, .. } => Resolved::Entry {
+                    report: json!({"key": key, "source": "github", "action": "added"}),
+                    raw: bibtex,
+                    key,
+                },
+            })
+        }
+        None => None,
+    };
     let bibcite_query = bibcite_query_for_input(query, &resolve_arxiv_title);
     let preferred_arxiv = explicit_arxiv_id(&bibcite_query);
     // Sources that supply their own citation: a webpage's citation block or
     // metadata, or alphaXiv's suggested entry for an exact title.
     let mut web_error = None;
-    let supplied = if preferred_arxiv.is_some()
+    let supplied = if repository_resolution.is_some()
+        || preferred_arxiv.is_some()
         || project::normalize_doi(query).is_some()
         || query.starts_with('@')
     {
@@ -130,13 +169,37 @@ pub fn import_reference(
         return Ok(cancelled(query));
     }
     let mut rendered_page = None;
-    let resolution = if let Some(citation) = supplied {
+    let resolution = if let Some(resolution) = repository_resolution {
+        resolution
+    } else if let Some(citation) = supplied {
         rendered_page = citation.page;
         Resolved::Supplied(citation.bibtex)
     } else {
         let resolution = match resolve_citation(&bibcite_query, cancel) {
             Ok(resolution) => resolution,
             Err(_) if cancel.load(Ordering::Acquire) => return Ok(cancelled(query)),
+            // A title search reads a reference's authors and year as part of
+            // its title; Crossref's reference search reads them as they are.
+            Err(error) if reference_search::is_free_text(query) => {
+                match reference_search::find_reference_doi(query) {
+                    Ok(Some(doi)) => resolve_citation(&doi, cancel).map_err(|doi_error| {
+                        format!(
+                            "{doi_error}
+{error}"
+                        )
+                    })?,
+                    Ok(None) => return Err(reference_search::not_found(query, &error)),
+                    Err(search_error) => {
+                        return Err(reference_search::not_found(
+                            query,
+                            &format!(
+                                "{search_error}
+{error}"
+                            ),
+                        ))
+                    }
+                }
+            }
             Err(error) => {
                 return Err(match &web_error {
                     Some(web_error) => format!("{web_error}\n{error}"),
@@ -161,9 +224,7 @@ pub fn import_reference(
     // fetched (no HTML rendering, network trouble) is still a full citation,
     // and failing the import after bibcite already resolved the entry threw
     // the user's citation away over a download problem.
-    let merged = commit_merged(root, &manifest.primary_bibliography, history, &|before| {
-        resolution.merge(before)
-    })?;
+    let merged = commit_merged(root, &bibliography, history, &|before| resolution.merge(before))?;
     let citation_key = merged.key;
     let citation_output = resolution.report(&citation_key, merged.existed);
     // Whether the work was already cited, asked of the bibliography rather
@@ -177,6 +238,11 @@ pub fn import_reference(
         .find(|entry| entry.key.eq_ignore_ascii_case(&citation_key))
         .ok_or_else(|| "bibcite reported a key absent from its bibliography.".to_string())?;
     let title = super::title_or_key(resolved_entry.title.clone(), &citation_key);
+    let existing_note = already_imported
+        .then(|| entry_text(&merged.after, &citation_key))
+        .flatten()
+        .map(|existing| notes::already_cited(&citation_key, existing, Some(resolution.bibtex())));
+    let note = notes::join([existing_note, source_note, commands::public_service_note()]);
     // bibcite deliberately preserves an existing entry verbatim. If that old
     // record came from OpenReview without an eprint, retain the arXiv identity
     // found from the title so re-importing repairs the missing full text too.
@@ -186,6 +252,7 @@ pub fn import_reference(
         citation_output,
         already_imported,
         cancelled: false,
+        note,
         ..cancelled(&title)
     };
     let resolved = ImportResult { citation_key: Some(citation_key), ..resolved };
@@ -201,8 +268,10 @@ pub fn import_reference(
         // scraped. A DOI'd journal article also carries a `url`, but that is
         // a publisher landing page — paywall chrome, not the work — and every
         // scrape spends shared Firecrawl quota.
-        None if bibcite_report_field(&resolved.citation_output, "source").as_deref()
-            == Some("webpage") =>
+        // A repository's text is its code, not a paper to read.
+        None if repository.is_none()
+            && bibcite_report_field(&resolved.citation_output, "source").as_deref()
+                == Some("webpage") =>
         {
             let entry_url = resolved_entry.url.as_deref().filter(|url| is_web_url(url));
             entry_url.or(Some(query).filter(|typed| is_web_url(typed))).map(|page_url| {
@@ -251,6 +320,8 @@ fn import_existing_arxiv_citation(
     let (arxiv_id, citation_key, entry_title) =
         existing_explicit_arxiv_citation(bibliography, query)?;
     let citation_output = import_report(&citation_key, "arxiv", "already-present");
+    let note = entry_text(bibliography, &citation_key)
+        .map(|existing| notes::already_cited(&citation_key, existing, None));
     let title = super::title_or_key(entry_title, &citation_key);
     if full_text == FullText::Skip {
         return Some(ImportResult {
@@ -259,6 +330,7 @@ fn import_existing_arxiv_citation(
             citation_output,
             already_imported: true,
             cancelled: false,
+            note,
             ..cancelled(&title)
         });
     }
@@ -275,7 +347,16 @@ fn import_existing_arxiv_citation(
         already_imported: true,
         fetch_error: fetched.err(),
         cancelled: cancel.load(Ordering::Acquire),
+        note,
     })
+}
+
+/// The text of the entry under `key` (any case).
+fn entry_text<'a>(bibliography: &'a str, key: &str) -> Option<&'a str> {
+    project::bibliography_entry_spans(bibliography)
+        .into_iter()
+        .find(|(candidate, _, _)| candidate.eq_ignore_ascii_case(key))
+        .map(|(_, start, end)| &bibliography[start..end])
 }
 
 /// Prefer an arXiv identity for a title before asking bibcite to choose the
@@ -315,6 +396,7 @@ fn bibcite_query_for_input(
 
 /// A resolved work, not yet merged: it merges into the bibliography as it is
 /// when the import commits, which may be after other imports committed.
+#[derive(Clone)]
 enum Resolved {
     /// A webpage's or alphaXiv's own entry, kept field for field.
     Supplied(String),
@@ -329,6 +411,13 @@ impl Resolved {
         match self {
             Self::Supplied(bibtex) => merge_supplied_bibtex(before, bibtex),
             Self::Entry { raw, key, .. } => merge_resolved_citation(before, raw, key),
+        }
+    }
+
+    /// The resolved record as BibTeX.
+    fn bibtex(&self) -> &str {
+        match self {
+            Self::Supplied(bibtex) | Self::Entry { raw: bibtex, .. } => bibtex,
         }
     }
 
@@ -356,7 +445,25 @@ impl Resolved {
 }
 
 /// Resolve `query` to exactly one checked entry, touching no bibliography.
+/// A DOI's resolution is replayed from `RESOLVED_DOIS` while it is fresh.
 fn resolve_citation(query: &str, cancel: &AtomicBool) -> Result<Resolved, String> {
+    let doi = project::normalize_doi(query);
+    if let Some(hit) = doi.as_deref().and_then(|doi| RESOLVED_DOIS.get(doi)) {
+        return Ok(hit);
+    }
+    let resolved = resolve_uncached(query, cancel)?;
+    if let Some(doi) = doi {
+        RESOLVED_DOIS.insert(doi, resolved.clone(), DOI_RECORD_TTL);
+    }
+    Ok(resolved)
+}
+
+#[cfg(test)]
+pub(super) fn forget_resolved_dois() {
+    RESOLVED_DOIS.clear();
+}
+
+fn resolve_uncached(query: &str, cancel: &AtomicBool) -> Result<Resolved, String> {
     if query.trim_start().starts_with('@') {
         // A chosen record keeps its identity; its fields are only verified.
         validate_resolved_identity("", query)?;
@@ -454,7 +561,15 @@ fn merge_resolved_citation(
         if same_id && !same_metadata {
             return Err(format!("Citation '{}' has the same identifier but conflicting metadata. Review it before importing.", entry.key));
         }
-        if same_metadata && (same_id || entry.year == incoming.year) {
+        // Without a shared id, the same title and authors in another year are
+        // another work (an edition, a yearly report), except a cited preprint
+        // and its later publication: citing the publication's DOI must not
+        // add the work twice. The answer says how to upgrade the entry.
+        if same_metadata
+            && (same_id
+                || entry.year == incoming.year
+                || super::upgrade::publishes(existing, raw.trim()))
+        {
             matches.push(entry);
         }
     }

@@ -28,6 +28,19 @@ impl Run {
         let root = self.root(cx).await?;
         let before = mock.version();
         mock.edit("refs.bib", REVISED);
+        // The writer syncs, as the toolbar's Sync does. Left to live mode,
+        // an edit to a file the channel does not carry waits for its next
+        // probe, which comes every 45 s once the channel carries documents
+        // (and a probe inside the 30 s sync floor waits for the one after),
+        // so whether it landed within the wait below depended on where in
+        // that cycle the edit fell. A sync running already queues this one.
+        self.wait_for(cx, Duration::from_secs(30), |shell, cx| {
+            !shell.read(cx).overleaf.read(cx).syncing()
+        })
+        .await;
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.sync_overleaf(window, cx))
+        })?;
         let synced = self
             .wait_for(cx, Duration::from_secs(40), |_, _| {
                 std::fs::read_to_string(root.join("refs.bib")).is_ok_and(|text| text == REVISED)

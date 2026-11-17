@@ -481,7 +481,7 @@ impl PapersPanel {
                             .rounded(px(4.))
                             .cursor_pointer()
                             .hover(|style| style.bg(palette.hover))
-                            .on_click(move |_, _, cx| model::open_link(&link, cx))
+                            .on_click(move |_, _, cx| model::open_notice_link(&link, cx))
                             .child(Icon::ARROW_UP_RIGHT.element(ICON_SMALL, ink));
                     }
                     div()

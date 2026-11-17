@@ -112,40 +112,52 @@ fn shown_rows(change: &FileChange) -> usize {
 pub struct LoadedDiff {
     pub change: FileChange,
     pub state: Option<Entity<DiffState>>,
+    /// Why a change with text to show cannot be drawn: its patch did not
+    /// parse (`Could not render these changes`).
+    pub error: Option<String>,
     rows: usize,
+}
+
+/// The change as Kit's diff files: `None` when there is nothing to show,
+/// an error when its patch does not parse.
+pub fn parse_change(change: &FileChange) -> Result<Option<Vec<DiffFile>>, String> {
+    let empty = change.before == change.after
+        || (change.before.is_none() && change.after.as_deref() == Some(""))
+        || (change.after.is_none() && change.before.as_deref() == Some(""));
+    if empty {
+        return Ok(None);
+    }
+    DiffFile::parse(&unified_patch(change))
+        .map(Some)
+        .map_err(|error| error.to_string())
 }
 
 impl LoadedDiff {
     pub fn new(change: FileChange, cx: &mut App) -> Self {
-        let empty = change.before == change.after
-            || (change.before.is_none() && change.after.as_deref() == Some(""))
-            || (change.after.is_none() && change.before.as_deref() == Some(""));
-        let state = (!empty)
-            .then(|| DiffFile::parse(&unified_patch(&change)).ok())
-            .flatten()
-            .map(|files| {
-                let language = language_of(&change.path);
-                let files: Vec<DiffFile> = files
-                    .into_iter()
-                    .map(|file| file.with_language(language))
-                    .collect();
-                let appearance = cx.palette().appearance;
-                cx.new(|cx| {
-                    DiffState::new(files, cx)
-                        .with_context_lines(Some(CONTEXT))
-                        .with_syntax_highlighter(move |language, text| {
-                            match language {
-                                "latex" => highlight_tex(text, appearance),
-                                "markdown" => highlight_markdown(text, appearance),
-                                _ => Vec::new(),
-                            }
-                        })
-                })
-            });
+        let parsed = parse_change(&change);
+        let error = parsed.as_ref().err().cloned();
+        let state = parsed.ok().flatten().map(|files| {
+            let language = language_of(&change.path);
+            let files: Vec<DiffFile> = files
+                .into_iter()
+                .map(|file| file.with_language(language))
+                .collect();
+            let appearance = cx.palette().appearance;
+            cx.new(|cx| {
+                DiffState::new(files, cx)
+                    .with_context_lines(Some(CONTEXT))
+                    .with_syntax_highlighter(move |language, text| match language {
+                        "latex" => highlight_tex(text, appearance),
+                        "markdown" => highlight_markdown(text, appearance),
+                        _ => Vec::new(),
+                    })
+            })
+        });
         let rows = shown_rows(&change);
         Self {
             change,
             state,
+            error,
             rows,
         }
     }
@@ -390,6 +402,31 @@ fn notice(text: &str, pad: gpui::Pixels, cx: &App) -> AnyElement {
 mod tests {
     use super::*;
 
+    #[test]
+    fn a_change_whose_patch_does_not_parse_says_why() {
+        // Text either side parses, empty says nothing.
+        let parsed = parse_change(&FileChange {
+            path: "main.tex".into(),
+            before: Some("a\n".into()),
+            after: Some("b\n".into()),
+        });
+        assert!(matches!(parsed, Ok(Some(ref files)) if files.len() == 1));
+        let same = parse_change(&FileChange {
+            path: "main.tex".into(),
+            before: Some("a\n".into()),
+            after: Some("a\n".into()),
+        });
+        assert!(matches!(same, Ok(None)));
+        // A name that breaks the patch's headers is a failure to draw, not
+        // a silent blank (`Could not render these changes`).
+        let broken = parse_change(&FileChange {
+            path: "notes\n@@ -1 +1 @@.tex".into(),
+            before: Some("a\n".into()),
+            after: Some("b\n".into()),
+        });
+        assert!(broken.is_err());
+    }
+
     fn change(before: Option<&str>, after: Option<&str>) -> FileChange {
         FileChange {
             path: "main.tex".into(),
@@ -433,14 +470,22 @@ mod tests {
     #[test]
     fn markdown_diffs_are_coloured_by_their_marks() {
         assert_eq!(super::language_of("notes/Plan.MD"), "markdown");
-        let text = "## Results\n- see `fit.py` and [the data](data.csv)\nIt is **clear** and *new*.";
+        let text =
+            "## Results\n- see `fit.py` and [the data](data.csv)\nIt is **clear** and *new*.";
         let spans: Vec<&str> = super::highlight_markdown(text, Appearance::Light)
             .into_iter()
             .map(|(range, _)| &text[range])
             .collect();
         assert_eq!(
             spans,
-            ["## Results", "- ", "`fit.py`", "](data.csv)", "**clear**", "*new*"]
+            [
+                "## Results",
+                "- ",
+                "`fit.py`",
+                "](data.csv)",
+                "**clear**",
+                "*new*"
+            ]
         );
     }
 }

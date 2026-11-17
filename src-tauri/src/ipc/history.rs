@@ -1,6 +1,6 @@
 //! Lattice's own edit history: the transaction records under `.research/history`.
 
-use super::{current_root, in_project, maybe_pinned_root, pinned_root, run_blocking};
+use super::{current_root, maybe_pinned_root, pinned_root, run_blocking, shared_scan};
 use crate::app_state::AppState;
 use crate::project;
 use crate::project::{HistoryItem, ReviewBases, TransactionRecord};
@@ -11,7 +11,7 @@ use tauri::{State, Window};
 pub async fn list_history(
     state: State<'_, AppState>, window: Window,
 ) -> Result<Vec<HistoryItem>, String> {
-    in_project(&state, &window, "History scan", project::history).await
+    shared_scan(&state, &window, "History scan", |scans| &scans.history, project::history).await
 }
 
 #[tauri::command]

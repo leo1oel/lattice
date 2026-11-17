@@ -157,7 +157,13 @@ renamed. They are not all Lattice code:
 | iOS Simulator | 15 | `device_list`, `device_boot`, `device_configure`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element`, `device_wait`, `device_logs` | **Upstream**, from the fork's `deviceTools.ts`, and **not offered**. They are still in the fork's allowlist, but the fork builds them, and the panel's device dock, only for a host that sets `LATTICE_DEVICE_CONTROL_ENABLED=true`. Lattice sets nothing and removes any inherited value when it starts the sidecar (`AgentEnvironment::apply` in `src-tauri/lattice-core/src/synara/environment.rs`), so the Lattice catalog has 43 tools. |
 
 `cite` and `upgrade_bibliography` run with `HistoryMode::Defer`, so agent bibliography edits fold into
-Lattice's own transaction history instead of committing independently. A removal the writer confirms
+Lattice's own transaction history instead of committing independently.
+The fork's bibliography broker abandons a request after 30 seconds, so Lattice passes the request's `expiresAt` to `agent_bibliography_mutation` as `deadline`.
+`upgrade_bibliography` checks each preprint on its own, three at a time, saves what it confirmed before that deadline, and reports the rest as `pending` with `complete: false`; calling it again continues with them.
+Every bibliography tool works on the `.bib` the root document uses, read from its `\bibliography{…}` or `\addbibresource{…}` (and the files it `\input`s) by `citation_bibliography` in `src-tauri/lattice-core/src/project/bibliography_target.rs`, and never on a file under a hidden folder such as Overleaf sync's `.research/overleaf-base/`; the result names it as `bibliography`, with a `bibliographyNote` when the document uses several.
+`cite` takes a GitHub repository URL to the repository's own citation (its `CITATION.cff`, else a BibTeX block in its README), else to an `@misc` built from its GitHub metadata (`src-tauri/lattice-core/src/papers/github_citation.rs`); its `note` says which.
+A single free-text word (an acronym, a dataset's name) is refused with what to give instead, and a reference written out with its authors and year is found through Crossref's bibliographic search and cited by its DOI (`src-tauri/lattice-core/src/papers/reference_search.rs`).
+`cite` never rewrites an entry the bibliography already has: its result carries a `note` saying the entry was left unchanged, which fields the resolved record differs in, and, for a preprint, that `upgrade_bibliography` applies the publication. A removal the writer confirms
 is recorded in History like one from the paper library.
 
 The agent panel receives every host-answered tool request (bibliography, canvas, spreadsheet, project
@@ -374,6 +380,11 @@ Keep the previous checkout available until the upgrade audit passes.
    Then run the regression that opens the slash menu above the Context bar a live editor selection shows, instead of behind it:
    ```sh
    bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t "Lattice's floating context bar"
+   ```
+   Then run the regressions for a context handover: the note it leaves above the composer must not raise the Agent panel's reported minimum width, the handover row must wrap in a narrow panel, and a thread handed over to Droid must start a fresh session instead of resuming one Droid deleted:
+   ```sh
+   bun run --cwd apps/web test:browser -- src/components/chat/latticeComposerLayout.browser.tsx src/components/chat/ProviderHandoffDivider.browser.tsx
+   bun run --cwd apps/server test -- src/provider/Layers/DroidAdapter.resume.test.ts src/provider/Layers/ProviderService.test.ts
    ```
    Then run the browser and unit regressions that keep a long draft's composer inside a short Agent panel:
    ```sh

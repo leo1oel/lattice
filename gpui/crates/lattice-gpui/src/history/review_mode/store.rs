@@ -81,7 +81,8 @@ pub fn store(cx: &mut App) -> Entity<ReviewModes> {
 }
 
 pub fn try_store(cx: &App) -> Option<Entity<ReviewModes>> {
-    cx.try_global::<ReviewGlobal>().map(|global| global.0.clone())
+    cx.try_global::<ReviewGlobal>()
+        .map(|global| global.0.clone())
 }
 
 /// The editor's text has `\n` line breaks whatever the file has; so must
@@ -273,7 +274,8 @@ impl ReviewModes {
             if let Err(message) = stopped.await {
                 this.update(cx, |this, cx| {
                     report(&message, cx);
-                    if this.projects.get(&root).map(|review| review.generation) == Some(generation) {
+                    if this.projects.get(&root).map(|review| review.generation) == Some(generation)
+                    {
                         this.load(&root, cx);
                     }
                 })
@@ -293,7 +295,12 @@ impl ReviewModes {
         }
     }
 
-    pub fn set_notice(&mut self, root: &Path, notice: Option<SharedString>, cx: &mut Context<Self>) {
+    pub fn set_notice(
+        &mut self,
+        root: &Path,
+        notice: Option<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(review) = self.projects.get_mut(root)
             && review.notice != notice
         {
@@ -329,7 +336,9 @@ impl ReviewModes {
                         .get(&save_root)
                         .and_then(|review| review.pending.get(&save_path))
                         == Some(&timer);
-                    waiting.then(|| this.flush_one(&save_root, &save_path, cx)).flatten()
+                    waiting
+                        .then(|| this.flush_one(&save_root, &save_path, cx))
+                        .flatten()
                 })
                 .ok()
                 .flatten();
@@ -350,9 +359,9 @@ impl ReviewModes {
         }
         let generation = review.generation;
         let (save_root, save_path) = (root.to_path_buf(), path.to_string());
-        let write = cx.background_executor().spawn(async move {
-            project::save_review_base(&save_root, &save_path, &base)
-        });
+        let write = cx
+            .background_executor()
+            .spawn(async move { project::save_review_base(&save_root, &save_path, &base) });
         let root = root.to_path_buf();
         Some(cx.spawn(async move |this, cx| {
             let written = write.await;
@@ -394,7 +403,14 @@ impl ReviewModes {
     /// A sync wrote a co-author's edits into `path`, which went from `before`
     /// to `after` on disk, while no editor has it open: its base moves with
     /// them (`advance`). An open file's editor carries its own base forward.
-    pub fn advance(&mut self, root: &Path, path: &str, before: &str, after: &str, cx: &mut Context<Self>) {
+    pub fn advance(
+        &mut self,
+        root: &Path,
+        path: &str,
+        before: &str,
+        after: &str,
+        cx: &mut Context<Self>,
+    ) {
         let Some(base) = self.base_for(root, path) else {
             return;
         };
@@ -414,8 +430,13 @@ pub fn reviewing(root: &Path, cx: &App) -> bool {
 
 /// Before an Overleaf sync, off the main thread: every reviewable file's
 /// text on disk, for [`after_sync`] to tell what the sync brought.
-pub fn before_sync(root: &Path, reviewing: bool) -> Option<std::collections::BTreeMap<String, String>> {
-    reviewing.then(|| project::reviewable_texts(root).ok()).flatten()
+pub fn before_sync(
+    root: &Path,
+    reviewing: bool,
+) -> Option<std::collections::BTreeMap<String, String>> {
+    reviewing
+        .then(|| project::reviewable_texts(root).ok())
+        .flatten()
 }
 
 /// After it: move the base of every file the sync pulled or merged forward

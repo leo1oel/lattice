@@ -12,6 +12,7 @@ impl Render for Shell {
         self.agent_follow_front(window, cx);
         // The revision rounds read the project and its open editors.
         self.sync_rounds(cx);
+        self.refresh_tab_texts(window, cx);
         let palette = cx.palette().clone();
         // The Emacs and Vim keymaps' bindings are loaded under a context of
         // their own (app.rs), which the shell carries while that keymap is
@@ -53,6 +54,7 @@ impl Render for Shell {
             .children(self.conflict.as_ref().map(|(resolver, _)| resolver.clone()))
             .children(self.sheets.arxiv.as_ref().map(|(sheet, _)| sheet.clone()))
             .children(self.rounds_sheet())
+            .children(self.review_sheet())
             .children(self.sheets.figures.as_ref().map(|(sheet, _)| sheet.clone()))
             .children(
                 self.sheets

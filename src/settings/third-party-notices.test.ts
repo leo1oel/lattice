@@ -102,6 +102,10 @@ describe("third-party notices", () => {
     expect(licenseGroupsFor(notices, notices.packages.find((pkg) => pkg.name === "unicount")!)).toEqual([]);
   });
 
+  it("reads a CRLF copy, as a Windows checkout has, the same as an LF one", () => {
+    expect(parseThirdPartyNotices(FIXTURE.replaceAll("\n", "\r\n"))).toEqual(notices);
+  });
+
   it("splits scoped ids at the version's @, and links each closure to its registry", () => {
     expect(splitPackageId("@scope/pkg@1.0.0-beta.6")).toEqual({ name: "@scope/pkg", version: "1.0.0-beta.6" });
     expect(splitPackageId("@scope/pkg")).toBeNull();

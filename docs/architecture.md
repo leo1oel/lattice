@@ -315,6 +315,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `build` | 31 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
+| `project_tab_drag` + `project_tabs` | 3 | `project_tab_drag_target`, `move_project_tab`, `receive_project_tab` |
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 21 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest` |
 | `papers` | 12 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
@@ -386,7 +387,13 @@ state). The PDF of the default root document, the one Build compiles
 copy's build and stays out of sync in both directions, at any depth
 (`BuildPdf` in `overleaf/files.rs`). Other root documents' PDFs sync like
 any other file, so after the writer builds another root document, a
-collaborator's PDF can come down over the previous one's. A build of a
+collaborator's PDF can come down over the previous one's. A PDF still
+byte-for-byte what this copy's last build of it left
+(`latex::built_pdfs`) never counts as a local edit when Overleaf's copy
+differs: Overleaf's comes down quietly, with no conflict and no
+`(local conflict …)` copy, which is what happens each time Build moves
+between root documents and the PDF no longer built rejoins sync with no
+agreed copy. A build of a
 document whose PDF no longer matches the hash its last build here recorded
 (`shown_pdf::replaced`) typesets again even when latexmk finds nothing to
 do, so the preview never shows that PDF as this copy's build.

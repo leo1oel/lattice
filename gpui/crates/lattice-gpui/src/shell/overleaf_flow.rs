@@ -73,6 +73,20 @@ impl Shell {
         let bridge = cx.new(OverleafBridge::new);
         let collab =
             cx.new(|cx| crate::overleaf::collab::OverleafCollabPanel::new(bridge.clone(), cx));
+        // The network coming back joins a waiting channel at once
+        // (`overleaf/network.rs`); the task ends with the bridge.
+        let mut returns = crate::overleaf::network::returns();
+        let listening = bridge.downgrade();
+        cx.spawn(async move |_, cx| {
+            use futures::StreamExt as _;
+            while returns.next().await.is_some() {
+                let heard = listening.update(cx, |bridge, _| bridge.network_came_back());
+                if heard.is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
         let subscriptions = vec![
             cx.subscribe_in(&collab, window, |this, _, event, window, cx| {
                 this.on_collab_event(event, window, cx)
@@ -89,9 +103,7 @@ impl Shell {
                 this.show_overleaf_review(cx);
                 this.show_editable(cx);
                 this.note_repair_writable(cx);
-                if this.pdf.read(cx).annotatable() == Some(bridge.read(cx).linked()) {
-                    this.give_pdf_notes(cx);
-                }
+                this.follow_overleaf_for_pdf_notes(cx);
                 super::menus::follow_front(cx);
                 cx.notify()
             }),
@@ -196,6 +208,11 @@ impl Shell {
                         .update(cx, |_, window, _| window.activate_window())
                         .ok();
                 } else {
+                    // An empty window opens the download in place: its welcome
+                    // screen says so until the project shows (`revealNewProject`).
+                    if self.project.is_none() {
+                        self.set_busy(Some(t!("Opening the Overleaf project…")), cx);
+                    }
                     self.reveal_project(root.clone(), *here, window, cx);
                 }
             }

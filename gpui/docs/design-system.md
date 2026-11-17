@@ -148,3 +148,8 @@ A new radius picks a step and, when nested, a `Nest`; never a value between the 
 ## Labels that change weight
 
 `weight::StableLabel::new(text).weight(w).reserve_weight(FontWeight::SEMIBOLD)` sizes its box by the heaviest weight (and any other text it may show, `reserve(text, weight)`), so a selected label getting heavier, or a status changing its words, never moves its neighbours.
+
+## Glyph rendering
+
+The Tauri app sets `-webkit-font-smoothing: antialiased` on its root, so WebKit draws all its text without font smoothing.
+GPUI draws every glyph the same way, with smoothing off and no colour-dependent dilation (`patches/gpui-fast-font-smoothing.diff`), so the editor's Latin and Chinese text has the Tauri app's weight in both appearances rather than a heavier, smoothed stem.

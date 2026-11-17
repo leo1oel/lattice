@@ -127,42 +127,39 @@ impl Render for ArxivExportSheet {
             );
         }
         let status = status_line(running, pack.is_some(), &rows);
-        let actions = div()
-            .mt(px(8.))
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .justify_end()
-            .gap(px(8.))
-            .child(
-                div()
-                    .mr_auto()
-                    .min_w_0()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(palette.text_secondary)
-                    .children(lattice_ui::parity::probe("arxiv/status"))
-                    .child(status),
-            )
-            .child(
-                Button::new("arxiv-cancel", t!("Cancel"))
-                    .ghost()
-                    .on_click(ModalLayer::closing("arxiv-export", cx, |this, _, cx| {
-                        this.close(cx)
-                    })),
-            )
-            .child(
-                Button::new(
-                    "arxiv-export",
-                    if self.exporting {
-                        t!("Exporting…")
-                    } else {
-                        t!("Export ZIP")
-                    },
+        let actions =
+            div()
+                .mt(px(8.))
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .justify_end()
+                .gap(px(8.))
+                .child(
+                    div()
+                        .mr_auto()
+                        .min_w_0()
+                        .text_role(TextRole::Caption, cx)
+                        .text_color(palette.text_secondary)
+                        .children(lattice_ui::parity::probe("arxiv/status"))
+                        .child(status),
                 )
-                .primary()
-                .disabled(pack.is_none() || running || failures > 0 || self.exporting)
-                .on_click(cx.listener(|this, _, _, cx| this.export(cx))),
-            );
+                .child(Button::new("arxiv-cancel", t!("Cancel")).ghost().on_click(
+                    ModalLayer::closing("arxiv-export", cx, |this, _, cx| this.close(cx)),
+                ))
+                .child(
+                    Button::new(
+                        "arxiv-export",
+                        if self.exporting {
+                            t!("Exporting…")
+                        } else {
+                            t!("Export ZIP")
+                        },
+                    )
+                    .primary()
+                    .disabled(pack.is_none() || running || failures > 0 || self.exporting)
+                    .on_click(cx.listener(|this, _, _, cx| this.export(cx))),
+                );
         body.push(actions.into_any_element());
         let card = div()
             .id("arxiv-export-card")

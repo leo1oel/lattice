@@ -52,7 +52,7 @@ pub(crate) struct SceneScale {
 impl SceneScale {
     /// The scale by `scale` about `origin`, then moved by `offset`, inside
     /// the content mask `clip`.
-    fn about(
+    pub(crate) fn about(
         scale: f32,
         origin: Point<ScaledPixels>,
         offset: Point<ScaledPixels>,
@@ -127,7 +127,7 @@ impl SceneScale {
         }
     }
 
-    fn map_primitive(&self, primitive: &mut Primitive) {
+    pub(crate) fn map_primitive(&self, primitive: &mut Primitive) {
         match primitive {
             Primitive::Shadow(shadow) => {
                 shadow.bounds = self.map_bounds(shadow.bounds);
@@ -170,6 +170,7 @@ impl SceneScale {
                 sprite.bounds = self.map_bounds(sprite.bounds);
                 self.map_mask(&mut sprite.content_mask);
                 self.map_corners(&mut sprite.corner_radii);
+                crate::fast::backdrop::scale_sigma(sprite, self.scale);
             }
             Primitive::Surface(surface) => {
                 surface.bounds = self.map_bounds(surface.bounds);

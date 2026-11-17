@@ -34,8 +34,7 @@ use std::{cell::Cell, rc::Rc};
 
 use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
-    Styled as _, Window, WindowControlArea, canvas, div,
-    prelude::FluentBuilder as _, px,
+    Styled as _, Window, WindowControlArea, canvas, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::InteractiveElementExt as _;
 use lattice_i18n::t;

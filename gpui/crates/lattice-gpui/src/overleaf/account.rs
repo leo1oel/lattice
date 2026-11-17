@@ -54,7 +54,8 @@ pub fn disconnect() -> Result<(), String> {
 /// The sign-in window, while it is open.
 struct LoginWindow {
     handle: AnyWindowHandle,
-    webview: Entity<WebView>,
+    /// `None` until it is built: on Windows, just after the window opens.
+    webview: Option<Entity<WebView>>,
 }
 
 #[derive(Default)]
@@ -115,22 +116,40 @@ fn open_login_window(cx: &mut App) -> Result<(), String> {
         focus: true,
         ..Default::default()
     };
-    let mut built: Result<Entity<WebView>, String> = Err(String::new());
+    let builder = wry::WebViewBuilder::new()
+        .with_url(&login)
+        .with_initialization_script_for_main_only(script, true)
+        // Signing out removes Lattice's saved session, not WebKit's
+        // cookies. A fresh store lets the next sign-in choose another
+        // account instead of silently capturing the previous one.
+        .with_incognito(true)
+        .with_accept_first_mouse(true);
+    #[cfg(not(target_os = "windows"))]
+    let mut builder = Some(builder);
+    #[cfg(target_os = "windows")]
+    let mut parent = None;
+    let mut built: Result<Option<Entity<WebView>>, String> = Ok(None);
     let handle = cx
         .open_window(options, |window, cx| {
-            let builder = wry::WebViewBuilder::new()
-                .with_url(&login)
-                .with_initialization_script_for_main_only(script, true)
-                // Signing out removes Lattice's saved session, not WebKit's
-                // cookies. A fresh store lets the next sign-in choose another
-                // account instead of silently capturing the previous one.
-                .with_incognito(true)
-                .with_accept_first_mouse(true);
-            built = WebView::build(builder, window, cx)
-                .map(|webview| cx.new(|_| webview))
-                .map_err(|error| error.to_string());
+            #[cfg(not(target_os = "windows"))]
+            if let Some(builder) = builder.take() {
+                built = WebView::build(builder, window, cx)
+                    .map(|webview| Some(cx.new(|_| webview)))
+                    .map_err(|error| error.to_string());
+            }
+            // WebView2 cannot be built inside this update: see
+            // `lattice_webview::detached`. The page comes once it is.
+            #[cfg(target_os = "windows")]
+            {
+                built = lattice_webview::detached::DetachedParent::of(window)
+                    .map(|of| {
+                        parent = Some(of);
+                        None
+                    })
+                    .map_err(|error| format!("{error:#}"));
+            }
             cx.new(|_| LoginPage {
-                webview: built.as_ref().ok().cloned(),
+                webview: built.as_ref().ok().cloned().flatten(),
             })
         })
         .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;
@@ -148,6 +167,39 @@ fn open_login_window(cx: &mut App) -> Result<(), String> {
         handle: any,
         webview,
     })));
+    #[cfg(target_os = "windows")]
+    if let Some(parent) = parent {
+        cx.spawn(async move |cx| {
+            // Closed before it was built: nothing to build it in.
+            if any.update(cx, |_, _, _| ()).is_err() {
+                return;
+            }
+            let raw = parent.build(builder);
+            handle
+                .update(cx, |page, window, cx| match raw {
+                    Ok(raw) => {
+                        let webview = cx.new(|cx| WebView::new(raw, window, cx));
+                        page.webview = Some(webview.clone());
+                        cx.notify();
+                        if let Some(open) = cx
+                            .default_global::<LoginWindowSlot>()
+                            .0
+                            .as_mut()
+                            .filter(|open| open.handle == any)
+                        {
+                            open.webview = Some(webview);
+                        }
+                    }
+                    // The sign-in's poll sees the window gone and ends it.
+                    Err(error) => {
+                        log::error!("Could not build the Overleaf sign-in page: {error}");
+                        window.remove_window();
+                    }
+                })
+                .ok();
+        })
+        .detach();
+    }
     Ok(())
 }
 
@@ -164,9 +216,9 @@ fn close_login_window(cx: &mut App) {
     }
 }
 
-/// The sign-in window's webview, to read its cookies from; `Err` when the
-/// window was closed.
-fn login_webview(cx: &mut App) -> Result<gpui_webview::WebViewHandle, ()> {
+/// The sign-in window's webview, to read its cookies from (`None` while it is
+/// still being built); `Err` when the window was closed.
+fn login_webview(cx: &mut App) -> Result<Option<gpui_webview::WebViewHandle>, ()> {
     let Some((handle, webview)) = cx
         .try_global::<LoginWindowSlot>()
         .and_then(|slot| slot.0.as_ref())
@@ -178,7 +230,7 @@ fn login_webview(cx: &mut App) -> Result<gpui_webview::WebViewHandle, ()> {
     if handle.update(cx, |_, _, _| ()).is_err() {
         return Err(());
     }
-    Ok(webview.read(cx).handle())
+    Ok(webview.map(|webview| webview.read(cx).handle()))
 }
 
 /// The session cookie header `webview` holds for Overleaf's host, once it
@@ -263,7 +315,7 @@ impl Login {
                 let attempt = LOGINS.current();
                 let cookie = cx
                     .update(login_webview)
-                    .map(|webview| login_cookie(&webview));
+                    .map(|webview| webview.and_then(|webview| login_cookie(&webview)));
                 let answer = match cookie {
                     Err(()) => None,
                     Ok(None) => Some(Err(None)),

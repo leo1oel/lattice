@@ -29,12 +29,14 @@ mod bibliography;
 mod bundle;
 mod citation;
 mod convert;
+mod github_citation;
 mod ids;
 mod import;
 mod import_pdf;
 mod library;
 mod library_search;
 mod markdown;
+mod reference_search;
 mod search_index;
 #[cfg(test)]
 mod test_support;
@@ -161,6 +163,11 @@ pub struct ImportResult {
     /// remains valid and is deliberately never rolled back.
     #[serde(default)]
     pub cancelled: bool,
+    /// For the Agent, in plain words: why the bibliography did not change
+    /// (the work was already cited, and with what it would take to update
+    /// it), or that lookups went around an exhausted shared service.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

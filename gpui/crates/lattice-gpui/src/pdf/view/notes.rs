@@ -48,10 +48,51 @@ pub struct PdfNotes {
     pub root: PathBuf,
     pub document: Option<String>,
     pub notes: Arc<Vec<EditorComment>>,
-    /// Whether text selected here may be annotated: the notes are local
-    /// annotations (a project linked to Overleaf comments there instead).
-    pub annotatable: bool,
+    /// For a project linked to Overleaf, where its comments can go now: a
+    /// note made here is an Overleaf comment on a file Overleaf holds.
+    pub overleaf: Option<OverleafNotes>,
 }
+
+/// What a PDF knows of a linked project's Overleaf side: the file open
+/// live with it, and the files it holds.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct OverleafNotes {
+    pub live_file: Option<String>,
+    pub doc_paths: Arc<Vec<String>>,
+}
+
+/// Where a note made on the PDF and placed in a file goes
+/// (`CommentDestination`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoteDestination {
+    /// A local annotation (a project not linked, or a file Overleaf does
+    /// not hold).
+    Annotation,
+    /// A comment on the file open live with Overleaf.
+    Overleaf,
+    /// A comment on another file Overleaf holds, which must open live first.
+    OtherFile,
+    /// Overleaf's live editing is not connected.
+    Offline,
+}
+
+/// Where a note placed in `path` goes now.
+pub fn note_destination(overleaf: Option<&OverleafNotes>, path: &str) -> NoteDestination {
+    let Some(overleaf) = overleaf else {
+        return NoteDestination::Annotation;
+    };
+    if !overleaf.doc_paths.is_empty() && !overleaf.doc_paths.iter().any(|doc| doc == path) {
+        return NoteDestination::Annotation;
+    }
+    match overleaf.live_file.as_deref() {
+        Some(live) if live == path => NoteDestination::Overleaf,
+        Some(_) => NoteDestination::OtherFile,
+        None => NoteDestination::Offline,
+    }
+}
+
+#[cfg(test)]
+mod destination_tests;
 
 /// Whether the PDF draws `note`: open and numbered, made on the PDF or in a
 /// .tex file, whose text TeX typesets (`drawnOnPdf`).
@@ -94,13 +135,15 @@ pub(in crate::pdf) struct NoteMarks {
     hovered: Option<String>,
     card: Option<String>,
     card_bounds: CardBounds,
+    /// Whether the project has local (numbered) notes, resolved ones too.
+    numbered: bool,
     /// Counts the notes handed over, so a new list is placed again.
     revision: usize,
 }
 
 /// Reads pages through the engine and SyncTeX through lattice-core, off the
 /// main thread.
-struct Reader {
+pub(in crate::pdf) struct Reader {
     engine: Arc<PdfEngine>,
     doc: DocId,
     generation: u64,
@@ -109,6 +152,35 @@ struct Reader {
     document: Option<String>,
     path: String,
     texts: HashMap<usize, Option<Arc<PageText>>>,
+}
+
+impl Reader {
+    /// A reader of copy `generation` of `doc`, whose pages are `sizes`
+    /// points, built from `root` (`document`: a root document's own PDF).
+    pub(in crate::pdf) fn new(
+        engine: Arc<PdfEngine>,
+        doc: DocId,
+        generation: u64,
+        sizes: Vec<(f32, f32)>,
+        root: PathBuf,
+        document: Option<String>,
+    ) -> Self {
+        Self {
+            engine,
+            doc,
+            generation,
+            sizes,
+            root,
+            document,
+            path: String::new(),
+            texts: HashMap::new(),
+        }
+    }
+
+    /// SyncTeX looks up lines of `path` (project-relative) from here on.
+    pub(in crate::pdf) fn set_path(&mut self, path: &str) {
+        self.path = path.to_string();
+    }
 }
 
 impl MarkReader for Reader {
@@ -150,6 +222,12 @@ impl MarkReader for Reader {
 }
 
 impl PdfView {
+    /// Whether Export review PDF… is offered (`None`: this PDF shows no
+    /// project's notes) and has local notes to export, resolved ones too.
+    pub(in crate::pdf) fn has_local_notes(&self) -> Option<bool> {
+        self.notes.source.as_ref().map(|_| self.notes.numbered)
+    }
+
     /// The project's notes, as the host last told them.
     pub(in crate::pdf) fn notes_source(&self) -> Option<&PdfNotes> {
         self.notes.source.as_ref()
@@ -159,6 +237,9 @@ impl PdfView {
     pub fn set_notes(&mut self, source: Option<PdfNotes>, cx: &mut Context<Self>) {
         let marks = &mut self.notes;
         marks.revision += 1;
+        marks.numbered = source
+            .as_ref()
+            .is_some_and(|source| source.notes.iter().any(|note| note.number > 0));
         marks.source = source.map(|source| PdfNotes {
             notes: Arc::new(
                 source

@@ -252,7 +252,15 @@ impl FileTreePanel {
         cx: &mut Context<Self>,
     ) {
         let keystroke = &event.keystroke;
-        if keystroke.key != "enter" || keystroke.modifiers.modified() || self.naming.is_some() {
+        // Enter in the filter field picks its match (`search.rs`); the
+        // field's own Enter action runs only after this bubbling listener,
+        // so the open search has to keep it from renaming the row selected
+        // before.
+        if keystroke.key != "enter"
+            || keystroke.modifiers.modified()
+            || self.naming.is_some()
+            || self.search.is_some()
+        {
             return;
         }
         if let [path] = self.selected_paths(cx).as_slice() {

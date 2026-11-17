@@ -43,6 +43,11 @@ export function isBuildOutput(path: string, rootDocuments: readonly string[]): b
   }
   return rootDocuments.some((document) => {
     const stem = normalizeProjectRelativePath(document)?.replace(/\.tex$/i, "") ?? "";
-    return stem !== "" && file.startsWith(stem) && GENERATED_FOR_DOCUMENT.test(file.slice(stem.length));
+    if (stem === "") return false;
+    if (file.startsWith(stem) && GENERATED_FOR_DOCUMENT.test(file.slice(stem.length))) return true;
+    // achemso (the ACS journals' class) writes `acs-main.bib` beside the
+    // document on every compile: a prefix, not a suffix, of the name.
+    const slash = stem.lastIndexOf("/");
+    return file === `${stem.slice(0, slash + 1)}acs-${stem.slice(slash + 1)}.bib`;
   });
 }

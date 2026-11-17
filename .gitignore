@@ -22,6 +22,8 @@ src-tauri/presentation-runtime/*
 .agents/skills/
 .tmp/
 skills-lock.json
+# Bytecode Python leaves beside a script it imports, e.g. gpui/script/make-fonts.
+__pycache__/
 # Written in no-mistakes run worktrees by scripts/run-worktree-cargo-guard.mjs;
 # ignored so gpui-build.mjs never mirrors it into the shared build tree.
 /.cargo/config.toml

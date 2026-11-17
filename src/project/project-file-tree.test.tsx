@@ -317,6 +317,18 @@ describe("ProjectFileTree", () => {
     expect(screen.queryByRole("menuitemcheckbox", { name: "Set as main document" })).toBeNull();
   });
 
+  it("copies an entry's path, whole or as the project names it, from its menu", async () => {
+    expandSections();
+    vi.mocked(writeText).mockResolvedValue(undefined);
+    renderTree();
+    fireEvent.contextMenu(await findTreeItem("sections/intro.tex"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Copy path" }));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith("/tmp/paper/sections/intro.tex"));
+    fireEvent.contextMenu(await findTreeItem("sections/intro.tex"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Copy relative path" }));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith("sections/intro.tex"));
+  });
+
   it("keeps a pressed row from scrolling itself into view, so a row cut off at the edge still opens", async () => {
     expandSections();
     const view = renderTree();

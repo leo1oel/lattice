@@ -82,8 +82,8 @@ mod selection;
 mod sticky;
 mod view;
 
-pub use dragged::DraggedEntry;
 use dragged::DragPreview;
+pub use dragged::DraggedEntry;
 use drop_aim::Aim;
 use git_marks::GitMarks;
 use naming::{Naming, NamingKind, insert_placeholder};
@@ -99,47 +99,26 @@ pub enum FileTreeEvent {
     /// A row's double-click: the file's tab kept.
     Keep(PathBuf),
     /// Rename the entry at `path` (project-relative) to `name`.
-    Rename {
-        path: String,
-        name: String,
-    },
+    Rename { path: String, name: String },
     /// Move `paths` into `target` ("" is the project's top level).
-    Move {
-        paths: Vec<String>,
-        target: String,
-    },
+    Move { paths: Vec<String>, target: String },
     /// Create an entry at `path`: a file (opened once made) or a folder.
-    Create {
-        path: String,
-        folder: bool,
-    },
+    Create { path: String, folder: bool },
     /// Create the slide deck `id` under `slides/`, and open it.
-    CreateDeck {
-        id: String,
-    },
+    CreateDeck { id: String },
     /// Open the project's find (the strip's Find in project).
     FindInProject,
     /// Delete `paths`, already confirmed.
     Delete(Vec<String>),
     /// Import files…: choose files and folders to bring into `target`.
-    Import {
-        target: String,
-    },
+    Import { target: String },
     /// Duplicate `paths` into `target` (⌘V after the tree's ⌘C).
-    Paste {
-        paths: Vec<String>,
-        target: String,
-    },
+    Paste { paths: Vec<String>, target: String },
     /// Save the clipboard's image into `target` (⌘V otherwise, or a
     /// folder's "Paste clipboard image as figure").
-    PasteImage {
-        target: String,
-    },
+    PasteImage { target: String },
     /// Files dropped from Finder on the folder `target`.
-    DropFiles {
-        paths: Vec<PathBuf>,
-        target: String,
-    },
+    DropFiles { paths: Vec<PathBuf>, target: String },
     /// The file row at `path` dragged out of the tree, the pointer at
     /// `pointer` (window coordinates): the shell may carry it on.
     DragOut {
@@ -442,9 +421,9 @@ impl Panel for FileTreePanel {
                         .radius(TAB_RADIUS)
                         .surface(Surface::Chrome)
                         .tooltip(t!("Find in project"))
-                        .on_click(cx.listener(|this, _, window, cx| {
-                            this.find_in_project(window, cx)
-                        })),
+                        .on_click(
+                            cx.listener(|this, _, window, cx| this.find_in_project(window, cx)),
+                        ),
                 ),
         )
     }

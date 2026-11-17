@@ -4635,8 +4635,14 @@ msgid "Copy log"
 msgstr "Copy log"
 
 #: src/project/project-file-tree.tsx
+#: src/trellis/trellis-document-tabs.tsx
 msgid "Copy path"
 msgstr "Copy path"
+
+#: src/project/project-file-tree.tsx
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Copy relative path"
+msgstr "Copy relative path"
 
 #: src/agent/agent-visual-dialog.tsx
 msgid "Copy source"
@@ -9783,6 +9789,10 @@ msgstr "Moved"
 msgid "Moved “{name}” to position {position} of {count}"
 msgstr "Moved “{name}” to position {position} of {count}"
 
+#: src/app/project-tab-transfer.ts
+msgid "Moving project tab…"
+msgstr "Moving project tab…"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Mu"
 msgstr "Mu"
@@ -11904,6 +11914,7 @@ msgstr "Paste your API key"
 
 #: src/project/project-file-tree.tsx
 #: src/project/project-tree-clipboard.ts
+#: src/trellis/trellis-document-tabs.tsx
 msgid "Path copied"
 msgstr "Path copied"
 
@@ -15918,10 +15929,6 @@ msgstr "The bibliography changed while removing {citationCommand} ({blocker}). T
 #: src/platform/host-errors-papers.ts
 msgid "The bibliography changed while resolving the citation. Retry the import."
 msgstr "The bibliography changed while resolving the citation. Retry the import."
-
-#: src/platform/host-errors-papers.ts
-msgid "The bibliography changed while upgrading. Retry the operation."
-msgstr "The bibliography changed while upgrading. Retry the operation."
 
 #: src/platform/host-errors-papers.ts
 msgid "The bibliography entry changed after the preview. Scan it again."

@@ -58,7 +58,8 @@ impl GotoLineDialog {
         };
         let view = cx.entity().downgrade();
         ModalLayer::leave("goto-line", window, cx, move |_, cx| {
-            view.update(cx, |_, cx| cx.emit(GotoLineEvent::Go(line))).ok();
+            view.update(cx, |_, cx| cx.emit(GotoLineEvent::Go(line)))
+                .ok();
         });
     }
 }
@@ -138,13 +139,9 @@ impl Render for GotoLineDialog {
                                 cx.emit(GotoLineEvent::Close)
                             })),
                     )
-                    .child(
-                        Button::new("goto-line-go", t!("Go"))
-                            .primary()
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.leave_and_submit(window, cx)
-                            })),
-                    ),
+                    .child(Button::new("goto-line-go", t!("Go")).primary().on_click(
+                        cx.listener(|this, _, window, cx| this.leave_and_submit(window, cx)),
+                    )),
             );
         let this = cx.entity().downgrade();
         ModalLayer::new(

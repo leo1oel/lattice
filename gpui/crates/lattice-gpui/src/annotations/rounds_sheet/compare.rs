@@ -59,7 +59,9 @@ impl Snapshots {
         let mut texts = BTreeMap::new();
         for files in self.rounds.values() {
             for file in files {
-                texts.entry(file.path.clone()).or_insert_with(|| file.before.clone());
+                texts
+                    .entry(file.path.clone())
+                    .or_insert_with(|| file.before.clone());
             }
         }
         let Version::Round(last) = version else {
@@ -126,13 +128,22 @@ pub fn changed_paragraphs(older: &str, newer: &str) -> Vec<(String, String)> {
     for op in capture_diff_slices(Algorithm::Myers, &a, &b) {
         match op {
             DiffOp::Equal { .. } => flush(&mut removed, &mut added),
-            DiffOp::Delete { old_index, old_len, .. } => {
+            DiffOp::Delete {
+                old_index, old_len, ..
+            } => {
                 removed.extend(&a[old_index..old_index + old_len]);
             }
-            DiffOp::Insert { new_index, new_len, .. } => {
+            DiffOp::Insert {
+                new_index, new_len, ..
+            } => {
                 added.extend(&b[new_index..new_index + new_len]);
             }
-            DiffOp::Replace { old_index, old_len, new_index, new_len } => {
+            DiffOp::Replace {
+                old_index,
+                old_len,
+                new_index,
+                new_len,
+            } => {
                 removed.extend(&a[old_index..old_index + old_len]);
                 added.extend(&b[new_index..new_index + new_len]);
             }
@@ -171,9 +182,9 @@ pub fn changes(
     let accepted: Vec<&EditorComment> = annotations
         .iter()
         .filter(|note| {
-            note.revision
-                .as_ref()
-                .is_some_and(|revision| revision.state == "accepted" && rounds.contains(&revision.round))
+            note.revision.as_ref().is_some_and(|revision| {
+                revision.state == "accepted" && rounds.contains(&revision.round)
+            })
         })
         .collect();
     let paths: BTreeSet<&String> = before.keys().chain(after.keys()).collect();
@@ -181,7 +192,11 @@ pub fn changes(
     let mut out = Vec::new();
     for path in paths {
         let read = |texts: &BTreeMap<String, Option<String>>| {
-            texts.get(path).unwrap_or(&empty).clone().unwrap_or_default()
+            texts
+                .get(path)
+                .unwrap_or(&empty)
+                .clone()
+                .unwrap_or_default()
         };
         for (older, newer) in changed_paragraphs(&read(&before), &read(&after)) {
             let mut numbers: Vec<u32> = accepted
@@ -213,7 +228,11 @@ pub fn outcome_counts(round: &AnnotationRound) -> (usize, usize, usize) {
     }
     let accepted = counts.get("accepted").copied().unwrap_or(0);
     let rejected = counts.get("rejected").copied().unwrap_or(0);
-    (accepted, rejected, round.outcomes.len() - accepted - rejected)
+    (
+        accepted,
+        rejected,
+        round.outcomes.len() - accepted - rejected,
+    )
 }
 
 /// The files to write to restore `version`: each that differs from now and
@@ -255,16 +274,26 @@ mod tests {
         // Round 1 touched a.tex; round 2 touched a.tex again and b.tex;
         // a.tex has been edited by hand since.
         let mut rounds = BTreeMap::new();
-        rounds.insert(1, vec![file("a.tex", "One.\n\nTwo.\n", "One, revised.\n\nTwo.\n")]);
+        rounds.insert(
+            1,
+            vec![file("a.tex", "One.\n\nTwo.\n", "One, revised.\n\nTwo.\n")],
+        );
         rounds.insert(
             2,
             vec![
-                file("a.tex", "One, revised.\n\nTwo.\n", "One, revised.\n\nTwo, revised.\n"),
+                file(
+                    "a.tex",
+                    "One, revised.\n\nTwo.\n",
+                    "One, revised.\n\nTwo, revised.\n",
+                ),
                 file("b.tex", "Bee.\n", "Bee, revised.\n"),
             ],
         );
         let now = [
-            ("a.tex".to_string(), Some("One, revised.\n\nTwo, edited by hand.\n".to_string())),
+            (
+                "a.tex".to_string(),
+                Some("One, revised.\n\nTwo, edited by hand.\n".to_string()),
+            ),
             ("b.tex".to_string(), Some("Bee, revised.\n".to_string())),
         ]
         .into_iter()
@@ -285,7 +314,12 @@ mod tests {
         assert!(snapshots.now_edited());
         assert_eq!(
             versions(&[round(2), round(1)]),
-            [Version::Now, Version::Round(2), Version::Round(1), Version::Before]
+            [
+                Version::Now,
+                Version::Round(2),
+                Version::Round(1),
+                Version::Before
+            ]
         );
     }
 
@@ -309,12 +343,27 @@ mod tests {
             "revision": { "round": 1, "state": "accepted" },
         }))
         .unwrap();
-        let found = changes(&snapshots, &[round(1), round(2)], &[note.clone()], &Version::Before, &Version::Round(1));
+        let found = changes(
+            &snapshots,
+            &[round(1), round(2)],
+            &[note.clone()],
+            &Version::Before,
+            &Version::Round(1),
+        );
         assert_eq!(found.len(), 1);
-        assert_eq!((found[0].older.as_str(), found[0].newer.as_str()), ("One.", "One, revised."));
+        assert_eq!(
+            (found[0].older.as_str(), found[0].newer.as_str()),
+            ("One.", "One, revised.")
+        );
         assert_eq!(found[0].numbers, [3]);
         // Its round lies outside round 1 → round 2.
-        let later = changes(&snapshots, &[round(1), round(2)], &[note], &Version::Round(1), &Version::Round(2));
+        let later = changes(
+            &snapshots,
+            &[round(1), round(2)],
+            &[note],
+            &Version::Round(1),
+            &Version::Round(2),
+        );
         assert!(later.iter().all(|change| change.numbers.is_empty()));
         assert_eq!(later.len(), 2);
     }
@@ -324,7 +373,10 @@ mod tests {
         let snapshots = snapshots();
         assert_eq!(
             restore_files(&snapshots, &Version::Round(2)),
-            [("a.tex".to_string(), "One, revised.\n\nTwo, revised.\n".to_string())]
+            [(
+                "a.tex".to_string(),
+                "One, revised.\n\nTwo, revised.\n".to_string()
+            )]
         );
     }
 }

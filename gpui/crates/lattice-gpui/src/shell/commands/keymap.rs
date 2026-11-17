@@ -119,6 +119,62 @@ fn default_bindings() -> Vec<KeyBinding> {
             crate::editor_panel::latex_format::WrapIfFalse,
             Some(LATEX_FORMAT_KEYS),
         ),
+        // Margin review's walk, from a pip or card that has focus
+        // (`overleaf-margin-review.tsx`'s `walk`): J or ↓ on, K or ↑ back,
+        // Escape back out.
+        KeyBinding::new(
+            "j",
+            crate::editor_panel::NextReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "shift-j",
+            crate::editor_panel::NextReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "down",
+            crate::editor_panel::NextReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "k",
+            crate::editor_panel::PreviousReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "shift-k",
+            crate::editor_panel::PreviousReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "up",
+            crate::editor_panel::PreviousReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "escape",
+            crate::editor_panel::LeaveReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            m!("alt-k"),
+            crate::editor_panel::citation_card::ShowCitationCard,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        // Tab and ⇧Tab in that card walk its actions, as a browser's focus
+        // order does in the Tauri card, over the window root's Tab, which
+        // walks every tab stop in the window.
+        KeyBinding::new(
+            "tab",
+            lattice_editor::hover::NextCardAction,
+            Some(lattice_editor::hover::KEYBOARD_CARD_CONTEXT),
+        ),
+        KeyBinding::new(
+            "shift-tab",
+            lattice_editor::hover::PreviousCardAction,
+            Some(lattice_editor::hover::KEYBOARD_CARD_CONTEXT),
+        ),
         KeyBinding::new(
             m!("alt-e"),
             crate::editor_panel::latex_format::WrapEquation,
@@ -162,6 +218,12 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(
             m!("alt-r"),
             crate::shell::RenameEnvironment,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        // ⌥⌘M, the math symbol palette (`symbolPalette`).
+        KeyBinding::new(
+            m!("alt-m"),
+            crate::editor_panel::symbol_palette::InsertMathSymbol,
             Some(LATEX_FORMAT_KEYS),
         ),
         // Ctrl-M is no ⌘ key, so on every platform Vim's normal and visual

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/Ethiraric/yaml-rust2",
+  "commit": "215f3fc67606ce8dcaca3a18ca9df2aa7bdbc189",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "Apache-LICENSE",
+    "MIT-LICENSE"
+  ]
+}

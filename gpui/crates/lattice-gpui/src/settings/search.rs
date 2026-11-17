@@ -471,4 +471,15 @@ mod tests {
         let with = entries(true, None);
         assert_eq!(search(&with, "engine")[0].id, Some("compile-engine"));
     }
+
+    #[test]
+    fn the_known_author_name_finds_the_your_name_row() {
+        let finds_author = |all: &[Entry]| {
+            search(all, "ada writer")
+                .iter()
+                .any(|entry| entry.id == Some("author-name"))
+        };
+        assert!(finds_author(&entries(true, Some("Ada Writer"))));
+        assert!(!finds_author(&entries(true, None)));
+    }
 }

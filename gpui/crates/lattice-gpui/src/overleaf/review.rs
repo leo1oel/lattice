@@ -203,6 +203,14 @@ impl OverleafReview {
         review
     }
 
+    /// Why the diffs cannot be drawn, when one cannot; Apply waits then, as
+    /// it does on the Tauri app's.
+    fn render_error(&self) -> Option<String> {
+        self.diffs
+            .iter()
+            .find_map(|(_, _, diff)| diff.error.clone())
+    }
+
     fn load(&mut self, cx: &mut Context<Self>) {
         self.loading = true;
         self.error = None;
@@ -600,7 +608,18 @@ impl Render for OverleafReview {
                     "overleaf-review-list-scroll",
                     &self.list_scroll,
                 ));
-            let diffs: AnyElement = if self.diffs.is_empty() {
+            // A diff that cannot be drawn says why, in place of them all.
+            let render_error = self.render_error();
+            let diffs: AnyElement = if let Some(error) = render_error {
+                div()
+                    .p(px(12.))
+                    .child(inline_message(
+                        t!("Could not render these changes: {0}", error),
+                        true,
+                        cx,
+                    ))
+                    .into_any_element()
+            } else if self.diffs.is_empty() {
                 div()
                     .py(px(24.))
                     .px(px(16.))
@@ -683,9 +702,11 @@ impl Render for OverleafReview {
             .child(
                 Button::new("overleaf-review-cancel", t!("Cancel"))
                     .disabled(self.applying)
-                    .on_click(ModalLayer::closing("overleaf-review-layer", cx, |this, _, cx| {
-                        this.close(cx)
-                    })),
+                    .on_click(ModalLayer::closing(
+                        "overleaf-review-layer",
+                        cx,
+                        |this, _, cx| this.close(cx),
+                    )),
             )
             .child(
                 Button::new(
@@ -697,7 +718,9 @@ impl Render for OverleafReview {
                     },
                 )
                 .variant(ButtonVariant::Primary)
-                .disabled(self.applying || self.loading || total == 0)
+                .disabled(
+                    self.applying || self.loading || total == 0 || self.render_error().is_some(),
+                )
                 .on_click(cx.listener(|this, _, _, cx| this.apply(cx))),
             );
 

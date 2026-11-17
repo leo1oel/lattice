@@ -39,16 +39,18 @@ use lattice_i18n::t;
 
 mod annotate;
 mod autoscroll;
+mod review;
+pub use review::ReviewSource;
 mod citation;
 mod column;
 mod compound;
 mod drafts;
 mod events;
-mod hover_card;
-mod notes;
 mod host;
+mod hover_card;
 mod links;
 mod live;
+mod notes;
 mod page_changes;
 mod pages;
 mod place;
@@ -59,13 +61,13 @@ mod window_wide;
 
 pub use citation::CitationLookup;
 pub use compound::CompoundSource;
-pub use notes::PdfNotes;
+pub use notes::{NoteDestination, OverleafNotes, PdfNotes, note_destination};
 
+pub use events::{HostLoad, OfferedSelection, PdfViewEvent, ToolbarAction};
 use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
 pub use place::ViewPlace;
 pub(super) use sync_mark::{SYNC_MARK_HOLD, SyncMark};
-pub use events::{PdfViewEvent, ToolbarAction};
 pub(super) use {drafts::DraftField, search::FindState};
 
 use super::{
@@ -122,10 +124,13 @@ pub struct PdfView {
     pub(super) focus_handle: FocusHandle,
     /// The window the view is in, to ask for and let go of page images
     /// outside a frame.
-    window: AnyWindowHandle,
+    pub(super) window: AnyWindowHandle,
     pub(super) engine: Result<Arc<PdfEngine>, SharedString>,
     doc: Option<DocId>,
     pub(super) source: Option<PathBuf>,
+    /// The SHA-256 of the bytes shown, which a review copy is checked
+    /// against (`review.rs`).
+    shown_digest: Option<String>,
     pub(super) document: Option<Document>,
     pub(super) pages: Vec<PageSlot>,
     pub(super) layout: Layout,
@@ -176,6 +181,10 @@ pub struct PdfView {
     pub(super) saving: bool,
     pub(super) dark: bool,
     pub(super) action: Option<ToolbarAction>,
+    /// The host's control at the toolbar's start (`toolbarStart`).
+    pub(super) start: Option<ToolbarAction>,
+    /// A PDF the host is still getting (`PdfPreviewLoading`).
+    pub(super) host_load: HostLoad,
     pub(super) outline: Option<super::OutlineState>,
     pub(super) can_reveal: bool,
     pub(super) offers_build: bool,
@@ -259,6 +268,7 @@ impl PdfView {
             engine,
             doc: None,
             source: None,
+            shown_digest: None,
             document: None,
             pages: Vec::new(),
             layout: Layout::default(),
@@ -309,6 +319,8 @@ impl PdfView {
             saving: false,
             dark: super::dark::enabled(),
             action: None,
+            start: None,
+            host_load: HostLoad::Ready,
             outline: None,
             can_reveal: false,
             offers_build: false,
@@ -345,6 +357,8 @@ impl PdfView {
         let Ok(engine) = self.engine.clone() else {
             return;
         };
+        // The host has the PDF now.
+        self.host_load = HostLoad::Ready;
         let reload = self.source.as_ref() == Some(&path) && self.document.is_some();
         if !reload {
             // Another file: what was shown goes at once.
@@ -386,7 +400,10 @@ impl PdfView {
             // PDFium's load, tells a rebuild's changed pages from the rest.
             let signing = cx.background_spawn({
                 let bytes = bytes.clone();
-                async move { lattice_core::pdf_pages::signatures(&bytes).ok() }
+                async move {
+                    let digest = lattice_core::review_pdf::digest(&bytes);
+                    (lattice_core::pdf_pages::signatures(&bytes).ok(), digest)
+                }
             });
             let naming = cited.then(|| {
                 let bytes = bytes.clone();
@@ -399,13 +416,16 @@ impl PdfView {
                 None => Default::default(),
             };
             let opened = engine.open_named(doc, bytes, names).await;
-            let signatures = signing.await;
+            let (signatures, digest) = signing.await;
             this.update_in(cx, |this, window, cx| {
                 if this.source.as_ref() != Some(&path) {
                     return;
                 }
                 match opened {
-                    Ok(Ok(info)) => this.set_document(info, signatures, reload, window, cx),
+                    Ok(Ok(info)) => {
+                        this.shown_digest = Some(digest);
+                        this.set_document(info, signatures, reload, window, cx)
+                    }
                     Ok(Err(error)) => this.failed(
                         t!("The PDF could not be read: {0}", format!("{error:#}")).into(),
                         cx,
@@ -430,6 +450,7 @@ impl PdfView {
         self.source = None;
         self.message = None;
         self.loading = false;
+        self.host_load = HostLoad::Ready;
         cx.notify();
     }
 

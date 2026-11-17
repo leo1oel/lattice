@@ -99,7 +99,8 @@ fn blank_comments(text: &str) -> String {
             out.push('\n');
         }
         let bytes = line.as_bytes();
-        let comment = (0..bytes.len()).find(|&at| bytes[at] == b'%' && (at == 0 || bytes[at - 1] != b'\\'));
+        let comment =
+            (0..bytes.len()).find(|&at| bytes[at] == b'%' && (at == 0 || bytes[at - 1] != b'\\'));
         match comment {
             Some(at) => {
                 out.push_str(&line[..at]);
@@ -216,7 +217,10 @@ pub fn missing_preamble_insertions(source: &str, packages: &[String], folder: &s
         .into_iter()
         .filter(|name| PACKAGE_NAME.is_match(name) && !loaded.contains(name))
         .collect();
-    let mut lines: Vec<String> = missing.iter().map(|name| format!("\\usepackage{{{name}}}")).collect();
+    let mut lines: Vec<String> = missing
+        .iter()
+        .map(|name| format!("\\usepackage{{{name}}}"))
+        .collect();
     let path = if folder.is_empty() {
         Some(PathAddition::Listed)
     } else {
@@ -291,7 +295,10 @@ pub fn figure_changes(
         // The float, the caret in its caption (the snippet's first stop).
         let head = format!("\\begin{{figure}}\n\t\\centering\n\t{line}\n\t\\caption{{");
         let caret = head.len();
-        (format!("{head}}}\n\t\\label{{fig:}}\n\\end{{figure}}"), caret)
+        (
+            format!("{head}}}\n\t\\label{{fig:}}\n\\end{{figure}}"),
+            caret,
+        )
     } else {
         let caret = line.len();
         (line, caret)
@@ -353,9 +360,14 @@ mod tests {
     fn an_empty_body_line_of_a_root_gets_the_float_and_the_preamble_lines() {
         let at = ROOT.find("Text.\n\n").unwrap() + "Text.\n".len();
         let changes = figure_changes(ROOT, at, at, "figures", "plot.tex", &[]);
-        assert!(changes.body.insert.starts_with("\\begin{figure}\n\t\\centering\n\t\\input{figures/plot}\n\t\\caption{"));
+        assert!(
+            changes.body.insert.starts_with(
+                "\\begin{figure}\n\t\\centering\n\t\\input{figures/plot}\n\t\\caption{"
+            )
+        );
         assert_eq!(&changes.body.insert[changes.caret..changes.caret + 1], "}");
-        let after_amsmath = ROOT.find("\\usepackage{amsmath}").unwrap() + "\\usepackage{amsmath}".len();
+        let after_amsmath =
+            ROOT.find("\\usepackage{amsmath}").unwrap() + "\\usepackage{amsmath}".len();
         assert_eq!(
             changes.preamble,
             vec![Edit {
@@ -377,12 +389,21 @@ mod tests {
         assert_eq!(changes.body.insert, "\\input{figures/a}");
         assert_eq!(changes.caret, changes.body.insert.len());
         let path_end = source.find("{{img/}}").unwrap() + "{{img/}".len();
-        let after_graphicx = source.find("\\usepackage{graphicx}").unwrap() + "\\usepackage{graphicx}".len();
+        let after_graphicx =
+            source.find("\\usepackage{graphicx}").unwrap() + "\\usepackage{graphicx}".len();
         assert_eq!(
             changes.preamble,
             vec![
-                Edit { from: path_end, to: path_end, insert: "{figures/}".into() },
-                Edit { from: after_graphicx, to: after_graphicx, insert: "\n\\usepackage{xcolor}".into() },
+                Edit {
+                    from: path_end,
+                    to: path_end,
+                    insert: "{figures/}".into()
+                },
+                Edit {
+                    from: after_graphicx,
+                    to: after_graphicx,
+                    insert: "\n\\usepackage{xcolor}".into()
+                },
             ]
         );
     }
@@ -396,7 +417,10 @@ mod tests {
         let changes = figure_changes(source, at, at, "figures", "a.tex", &[]);
         assert_eq!(changes.body.insert, "\\input{figures/a}");
         assert!(changes.preamble.is_empty());
-        assert_eq!(changes.unplaced, ["\\usepackage{graphicx}", "\\graphicspath{{figures/}}"]);
+        assert_eq!(
+            changes.unplaced,
+            ["\\usepackage{graphicx}", "\\graphicspath{{figures/}}"]
+        );
     }
 
     // A drop at the very start of a root document, in its preamble: the
@@ -429,6 +453,9 @@ mod tests {
         let source = "\\documentclass{article}\n% \\graphicspath{{figures/}}\n\\begin{document}\nx\n\\end{document}\n";
         let edits = missing_preamble_insertions(source, &[], "figures/");
         assert_eq!(edits.len(), 1);
-        assert_eq!(edits[0].insert, "\\usepackage{graphicx}\n\\graphicspath{{figures/}}\n");
+        assert_eq!(
+            edits[0].insert,
+            "\\usepackage{graphicx}\n\\graphicspath{{figures/}}\n"
+        );
     }
 }

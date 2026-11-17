@@ -147,7 +147,9 @@ fn every_translated_message_has_chinese() {
         ) {
             continue;
         }
-        let source = fs::read_to_string(file).unwrap();
+        // As rustc reads it: a Windows checkout's CRLF turned into LF, so a
+        // `\` line continuation joins its lines as it does in the binary.
+        let source = fs::read_to_string(file).unwrap().replace("\r\n", "\n");
         for (context, message) in translated_messages(&source) {
             used.insert(message.clone());
             if !has_words(&message)

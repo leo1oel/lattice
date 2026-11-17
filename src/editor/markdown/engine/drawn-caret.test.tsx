@@ -90,4 +90,28 @@ describe("the drawn caret in the editor", () => {
     act(() => editor.view.dom.blur());
     await waitFor(() => expect(caret().hidden).toBe(true));
   });
+
+  it("moves along a line with one style write, and rewinds its blink without another", async () => {
+    const editor = renderFocused("Body text");
+    vi.mocked(editor.view.coordsAtPos).mockImplementation((at) => ({ left: 10 * at, right: 10 * at + 1, top: 100, bottom: 120 }));
+    place(editor, 2);
+    await waitFor(() => expect(caret().hidden).toBe(false));
+    const rewound: number[] = [];
+    const blink = { set currentTime(time: number) { rewound.push(time); } };
+    // jsdom runs no CSS animations; the caret's blink stands in for WebKit's.
+    caret().getAnimations = () => [blink as unknown as Animation];
+    const records: MutationRecord[] = [];
+    const observer = new MutationObserver((batch) => records.push(...batch));
+    observer.observe(document.body, { attributes: true, subtree: true });
+    place(editor, 3);
+    await waitFor(() => expect(caret().style.transform).toContain("translate(30px"));
+    records.push(...observer.takeRecords());
+    observer.disconnect();
+    // Only the caret's style changed: the surface's flag and the caret's
+    // `hidden` were already set, and the height is the line's own. (The
+    // editor's other plugins mark the blocks they decorate.)
+    const caretWrites = records.filter((record) => record.target === caret() || record.attributeName === "data-drawn-caret");
+    expect(caretWrites.map((record) => [record.target, record.attributeName])).toEqual([[caret(), "style"]]);
+    expect(rewound).toEqual([0]);
+  });
 });

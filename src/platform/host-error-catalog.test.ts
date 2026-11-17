@@ -31,15 +31,21 @@ function unescapeRust(literal: string): string {
  */
 const RUST_ROOTS = ["src-tauri/src", "src-tauri/lattice-core/src"];
 
+/**
+ * A Rust file as rustc reads it: with CRLF turned into LF, so a Windows
+ * checkout's `\` line continuations and multi-line literals match too.
+ */
+const readRust = (file: string) => readFileSync(file, "utf8").replaceAll("\r\n", "\n");
+
 /** The source of `rustFile`, from whichever root holds it. */
 function rustSource(rustFile: string): string {
   const root = RUST_ROOTS.find((candidate) => existsSync(`${candidate}/${rustFile}`)) ?? RUST_ROOTS[0];
-  return readFileSync(`${root}/${rustFile}`, "utf8");
+  return readRust(`${root}/${rustFile}`);
 }
 
 /** Every root's copy of `rustFile`: `lib.rs` is in both. */
 function rustSources(rustFile: string): string[] {
-  return RUST_ROOTS.filter((root) => existsSync(`${root}/${rustFile}`)).map((root) => readFileSync(`${root}/${rustFile}`, "utf8"));
+  return RUST_ROOTS.filter((root) => existsSync(`${root}/${rustFile}`)).map((root) => readRust(`${root}/${rustFile}`));
 }
 
 const literalsByFile = new Map<string, Set<string>>();
@@ -112,6 +118,9 @@ describe("host error catalog", () => {
  */
 const UNTRANSLATED: Record<string, string> = {
   "latex/figure_preview.rs": "answers the agent's figure-preview tool, which reads and acts on it",
+  // The FlashTeX spike, behind a developer flag, ends quietly and logs why to the console.
+  "flashtex_preview/": "the developer-only FlashTeX preview never shows its errors; it falls back to the normal build",
+  "ipc/flashtex_preview.rs": "the developer-only FlashTeX preview never shows its errors; it falls back to the normal build",
   "linux_release_notice.rs": "background release checks discard errors and retry silently",
   "research_env.rs": "the research environment answers the agent, never the interface",
   "research_env/": "the research environment answers the agent, never the interface",
@@ -124,6 +133,7 @@ const UNTRANSLATED: Record<string, string> = {
   "git.rs: Invalid revision: expected a commit hash.": "the interface sends a hash from the history list",
   "ipc/build.rs: The PDF was not sent as binary data.": "the interface always sends the PDF's bytes",
   "ipc/live_preview.rs: Unknown live preview file kind {other:?}.": "the interface sends one of the known kinds",
+  "ipc/project_tab_drag.rs: Project tab drop is covered by another window.": "the drag controller treats an ambiguous native hit as a cancelled drop",
   "live_preview/session.rs: Live preview does not accept the command {command:?}.": "the interface sends one of the known commands",
   "app_state/overleaf_realtime.rs: Invalid Overleaf checkpoint version.": "the interface sends Overleaf's own version back",
   "synara.rs: Invalid agent task action.": "the agent panel sends one of the known actions",
@@ -153,7 +163,8 @@ function testOnlyFiles(files: string[]): Set<string> {
 
 /** Each `Err("…")` or `Err(format!("…"))` sentence a Rust file outside its tests returns, as the audit counted them. */
 function returnedErrors(): Array<{ file: string; literal: string }> {
-  const files = [...new Set(RUST_ROOTS.flatMap((root) => readdirSync(root, { recursive: true }) as string[]))]
+  // Named with `/`, as `UNTRANSLATED` names them; Windows lists them with `\`.
+  const files = [...new Set(RUST_ROOTS.flatMap((root) => (readdirSync(root, { recursive: true }) as string[]).map((file) => file.replaceAll("\\", "/"))))]
     .filter((file) => file.endsWith(".rs"));
   const tests = testOnlyFiles(files);
   return files.filter((file) => !tests.has(file) && ![...tests].some((test) => file.startsWith(test.replace(/\.rs$/, "/")))).flatMap((file) => {

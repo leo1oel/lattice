@@ -44,10 +44,8 @@ impl Shell {
         if self.margin_mode == MarginMode::Off {
             return;
         }
-        let opened = editor.update(cx, |editor, cx| editor.margin_review_here(cx));
-        if opened {
-            let focus = gpui::Focusable::focus_handle(editor.read(cx), cx);
-            window.focus(&focus, cx);
-        }
+        // The item takes focus (`margin_review/here.rs`), as the Tauri
+        // app's walk starts from it.
+        editor.update(cx, |editor, cx| editor.margin_review_here(window, cx));
     }
 }

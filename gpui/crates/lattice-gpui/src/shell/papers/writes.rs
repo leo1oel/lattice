@@ -24,7 +24,9 @@ impl Shell {
         let key = super::reader_key(&paper.arxiv_id);
         self.open_reader(paper, window, cx);
         if let Some(reader) = self.reader_of(&key, cx) {
-            reader.update(cx, |reader, cx| reader.open_pdf_page(page as usize, window, cx));
+            reader.update(cx, |reader, cx| {
+                reader.open_pdf_page(page as usize, window, cx)
+            });
         }
     }
 

@@ -13,7 +13,7 @@ use lattice_ui::Icon;
 
 use super::{PaperReader, ReaderView};
 use crate::papers::model;
-use crate::pdf::{PdfView, PdfViewEvent};
+use crate::pdf::{HostLoad, PdfView, PdfViewEvent};
 
 /// Where the paper's original PDF is (`paperPdfSource`).
 #[derive(Clone, Debug, PartialEq)]
@@ -54,9 +54,7 @@ pub(super) struct ShownPdf {
     /// The 0-based page a source link asked for, shown once pages load.
     pending_page: Option<usize>,
     _loaded: Subscription,
-    /// Still being fetched from the web.
-    pub(super) loading: bool,
-    pub(super) error: Option<gpui::SharedString>,
+    /// The fetch from the web, while the viewer shows its loading state.
     _fetch: Option<Task<()>>,
     _events: Subscription,
 }
@@ -65,6 +63,11 @@ impl PaperReader {
     /// Whether the original PDF is shown in the text's place.
     pub fn showing_pdf(&self) -> bool {
         self.pdf.is_some()
+    }
+
+    /// The PDF shown in the text's place (for scenarios).
+    pub fn pdf_view(&self) -> Option<Entity<PdfView>> {
+        self.pdf.as_ref().map(|pdf| pdf.view.clone())
     }
 
     /// The pages of the PDF shown, once it has loaded (for scenarios).
@@ -111,19 +114,24 @@ impl PaperReader {
         let view = cx.new(|cx| {
             let mut view = PdfView::new(window, cx);
             view.set_build(false, false, cx);
-            view.set_action(
+            // At the toolbar's start, before the page controls, as the Tauri
+            // reader's `toolbarStart`.
+            view.set_toolbar_start(
                 Some(crate::pdf::ToolbarAction {
                     label: back,
                     icon: Icon::ARROW_LEFT,
                 }),
                 cx,
             );
+            // A selection is offered Copy source link and Add to note
+            // (`selection.rs`) rather than Annotate.
+            view.set_offers_selection(true);
             view
         });
-        let events = cx.subscribe_in(&view, window, |this, _, event, window, cx| {
-            if let PdfViewEvent::Action = event {
-                this.show(this.view, window, cx);
-            }
+        let events = cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
+            PdfViewEvent::Start => this.show(this.view, window, cx),
+            PdfViewEvent::SelectionOffered(offered) => this.offer_quote(offered.clone(), cx),
+            _ => {}
         });
         // A page asked for before the pages had loaded is shown once they
         // have.
@@ -143,8 +151,6 @@ impl PaperReader {
             source: source.clone(),
             pending_page: None,
             _loaded: loaded,
-            loading: false,
-            error: None,
             _fetch: None,
             _events: events,
         };
@@ -154,7 +160,9 @@ impl PaperReader {
                 view.update(cx, |view, cx| view.open(path, window, cx));
             }
             PdfSource::Remote(url) => {
-                shown.loading = true;
+                // The viewer stands in for the PDF while it comes: the way
+                // back alone in its toolbar, over the page's skeleton.
+                view.update(cx, |view, cx| view.set_host_load(HostLoad::Fetching, cx));
                 shown._fetch = Some(self.fetch_pdf(url.clone(), view, window, cx));
             }
         }
@@ -172,28 +180,22 @@ impl PaperReader {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Task<()> {
-        let file = std::env::temp_dir()
-            .join("lattice-gpui-paper-pdfs")
-            .join(format!("{}.pdf", pdf_cache_name(&url)));
         cx.spawn_in(window, async move |this, cx| {
-            let fetched = cx
-                .background_spawn({
-                    let file = file.clone();
-                    async move {
-                        cache_pdf(&file, || lattice_core::paper_pdf_proxy::fetch_pdf(&url))
-                    }
-                })
-                .await;
+            let fetched = cx.background_spawn(async move { cached_pdf(&url) }).await;
             this.update_in(cx, |this, window, cx| {
-                let Some(pdf) = this.pdf.as_mut().filter(|pdf| pdf.view == view) else {
+                if !this.pdf.as_ref().is_some_and(|pdf| pdf.view == view) {
                     return;
-                };
-                pdf.loading = false;
+                }
                 match fetched {
-                    Ok(()) => view.update(cx, |view, cx| view.open(file, window, cx)),
+                    Ok(file) => view.update(cx, |view, cx| view.open(file, window, cx)),
                     Err(error) => {
                         log::warn!("paper PDF: {error}");
-                        pdf.error = Some(t!("Could not load PDF").into());
+                        view.update(cx, |view, cx| {
+                            view.set_host_load(
+                                HostLoad::Failed(t!("Could not load PDF").into()),
+                                cx,
+                            )
+                        });
                     }
                 }
                 cx.notify();
@@ -223,10 +225,23 @@ impl PaperReader {
 
     pub(super) fn close_pdf(&mut self, cx: &mut Context<Self>) {
         if self.pdf.take().is_some() {
+            // The PDF going ends its offer (`viewKey` in the component).
+            self.offer_quote(None, cx);
             self.remember_pdf_reading(false, cx);
             cx.notify();
         }
     }
+}
+
+/// The PDF at `url` in a file of the reader's cache, fetched the first
+/// time it is asked for: the reader shows it, and the full text's source
+/// links look passages up in it (`quote_page.rs`).
+pub(super) fn cached_pdf(url: &str) -> Result<std::path::PathBuf, String> {
+    let file = std::env::temp_dir()
+        .join("lattice-gpui-paper-pdfs")
+        .join(format!("{}.pdf", pdf_cache_name(url)));
+    cache_pdf(&file, || lattice_core::paper_pdf_proxy::fetch_pdf(url))?;
+    Ok(file)
 }
 
 /// A file name for the PDF at `url`, the same for the same address.

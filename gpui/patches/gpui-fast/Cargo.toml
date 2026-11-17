@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/gpui",
+    "crates/gpui_apple",
     "crates/gpui_macos",
 ]
 
@@ -27,7 +28,7 @@ bench_metrics = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6de
 collections = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", version = "0.1.0" }
 derive_refineable = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 gpui = { path = "crates/gpui", default-features = false }
-gpui_apple = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_apple = { path = "crates/gpui_apple" }
 gpui_ios = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 gpui_linux = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", default-features = false }
 gpui_macos = { path = "crates/gpui_macos", default-features = false }

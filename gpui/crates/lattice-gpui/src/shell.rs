@@ -23,8 +23,6 @@ mod agent_documents;
 mod agent_flow;
 mod agent_turn;
 mod annotations_flow;
-mod rounds_flow;
-mod rounds_sheet_flow;
 mod arrange;
 mod assets;
 mod build;
@@ -36,23 +34,23 @@ mod documents;
 mod drawing_drop;
 pub(crate) mod drops;
 mod editor_events;
-mod environment_flow;
 mod editors;
-mod export_zip;
-mod journal_export;
-mod focus_escape;
 mod entries;
+mod environment_flow;
+mod export_zip;
+mod focus_escape;
 mod get_started_flow;
 mod ground;
 mod help_flow;
 mod history_flow;
 pub(crate) mod import_conflict;
 mod imports;
-mod open_failure;
 mod insert_flow;
 mod insert_pickers_flow;
+mod journal_export;
 mod layers;
 pub(crate) mod menus;
+mod open_failure;
 mod opening;
 mod overleaf_collab;
 pub(crate) mod overleaf_flow;
@@ -70,10 +68,14 @@ mod pdf_figure;
 mod pdf_notes;
 mod pdf_sync;
 mod pdfs;
+pub(crate) mod project_tab_drag;
 mod references_flow;
-mod review_mode_flow;
 mod render;
 pub(crate) mod research_flow;
+mod review_mode_flow;
+mod review_pdf_flow;
+mod rounds_flow;
+mod rounds_sheet_flow;
 mod saving;
 mod settings_flow;
 mod shortcut_groups;
@@ -81,6 +83,7 @@ mod shortcut_sheet;
 mod skin;
 mod structured_docs;
 mod synctex;
+pub(crate) mod tab_names;
 mod tab_policy;
 mod terminal_flow;
 mod tools_flow;
@@ -111,10 +114,11 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use environment_flow::{RenameEnvironment, WrapInEnvironment};
+pub use export_zip::ExportProjectZip;
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
-pub use environment_flow::{RenameEnvironment, WrapInEnvironment};
 pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertReference};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use overleaf_collab::AnnotateSelection;
@@ -122,7 +126,6 @@ pub use overleaf_menus::ReviewHere;
 pub(crate) use palette_groups::init as init_recent_commands;
 pub(crate) use pdf_citations::PaperFetched;
 pub use references_flow::{FindReferences, RenameSymbol};
-pub use export_zip::ExportProjectZip;
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 pub(crate) use workspace_flow::LayoutState;
 
@@ -168,6 +171,8 @@ pub struct Shell {
     workspace: Entity<TrellisWorkspace>,
     /// The panel behind each of the workspace's views.
     views: views::Registry,
+    /// Each document tab's detail and tooltip, which the skin draws.
+    tab_texts: tab_names::TabTexts,
     /// The document as of the last committed change, for a close to keep
     /// its document panel.
     last_document: LayoutDocument,
@@ -348,9 +353,11 @@ impl Shell {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         crate::panels::present_tabs(cx);
         let views = views::Registry::default();
+        let tab_texts = tab_names::TabTexts::default();
         let skin = std::rc::Rc::new(skin::LatticeSkin::new(
             views.clone(),
             cx.entity().downgrade(),
+            tab_texts.clone(),
         ));
         let workspace = cx.new(|cx| {
             TrellisWorkspace::new(views::engine_options(), LayoutDocument::default(), skin, cx)
@@ -490,6 +497,7 @@ impl Shell {
             focus_handle: cx.focus_handle(),
             workspace,
             views,
+            tab_texts,
             last_document: LayoutDocument::default(),
             reset_undo: None,
             view_focus: Default::default(),

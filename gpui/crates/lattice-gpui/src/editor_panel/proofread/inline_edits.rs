@@ -86,7 +86,9 @@ pub fn spans(text: &str, edits: &[Shown]) -> Vec<Span> {
         if word_char(deleted.chars().next()) || word_char(edit.insert.chars().next()) {
             let mut widened = 0;
             while from > floor && widened < WORD_LIMIT {
-                let Some(c) = text[..from].chars().next_back() else { break };
+                let Some(c) = text[..from].chars().next_back() else {
+                    break;
+                };
                 if c.is_whitespace() {
                     break;
                 }
@@ -97,7 +99,9 @@ pub fn spans(text: &str, edits: &[Shown]) -> Vec<Span> {
         if word_char(deleted.chars().next_back()) || word_char(edit.insert.chars().next_back()) {
             let mut widened = 0;
             while to < ceiling && widened < WORD_LIMIT {
-                let Some(c) = text[to..].chars().next() else { break };
+                let Some(c) = text[to..].chars().next() else {
+                    break;
+                };
                 if c.is_whitespace() {
                     break;
                 }
@@ -110,7 +114,12 @@ pub fn spans(text: &str, edits: &[Shown]) -> Vec<Span> {
             from,
             to,
             deleted: text[from..to].to_string(),
-            inserted: format!("{}{}{}", &text[from..edit.from], edit.insert, &text[edit.to..to]),
+            inserted: format!(
+                "{}{}{}",
+                &text[from..edit.from],
+                edit.insert,
+                &text[edit.to..to]
+            ),
         });
     }
     out
@@ -152,7 +161,13 @@ pub fn render(
     for span in spans(text, edits) {
         flow = prose(flow, &text[cursor..span.from], cx);
         cursor = span.to;
-        flow = flow.child(edit_piece(id, &edits[span.edit], &span, on_toggle.clone(), cx));
+        flow = flow.child(edit_piece(
+            id,
+            &edits[span.edit],
+            &span,
+            on_toggle.clone(),
+            cx,
+        ));
     }
     prose(flow, &text[cursor..], cx).into_any_element()
 }
@@ -290,12 +305,18 @@ fn edit_piece(
             .rounded_full()
             .font_family(cx.lattice().fonts.ui.clone())
             .text_role(TextRole::Micro, cx)
-            .text_color(if held { palette.warning } else { palette.text_secondary })
+            .text_color(if held {
+                palette.warning
+            } else {
+                palette.text_secondary
+            })
             .when(edit.status == Status::Kept, |this| {
                 this.border_1().border_color(palette.line)
             })
             .when(edit.status != Status::Kept, |this| this.bg(palette.hover))
-            .when(held, |this| this.child(Icon::LOCK.element(px(12.), palette.warning)))
+            .when(held, |this| {
+                this.child(Icon::LOCK.element(px(12.), palette.warning))
+            })
             .children(edit.tag.clone())
     });
     let toggle = on_toggle.filter(|_| edit.status != Status::Held);
@@ -342,7 +363,10 @@ mod tests {
     #[test]
     fn an_edit_inside_a_word_widens_to_the_whole_word() {
         let text = "state of the art";
-        let spans = spans(text, &[edit(0, 5, 6, "-"), edit(1, 8, 9, "-"), edit(2, 12, 13, "-")]);
+        let spans = spans(
+            text,
+            &[edit(0, 5, 6, "-"), edit(1, 8, 9, "-"), edit(2, 12, 13, "-")],
+        );
         assert_eq!(spans[0].deleted, "state of");
         assert_eq!(spans[0].inserted, "state-of");
         // The second stops where the first ended.

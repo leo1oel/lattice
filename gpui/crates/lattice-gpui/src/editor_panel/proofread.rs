@@ -24,10 +24,11 @@ mod instruction_menu;
 
 use std::{collections::BTreeSet, mem::Discriminant, ops::Range, sync::Arc, time::Duration};
 
-use editor::{MultiBufferOffset, SelectionEffects, display_map::ToDisplayPoint as _, scroll::Autoscroll};
+use editor::{
+    MultiBufferOffset, SelectionEffects, display_map::ToDisplayPoint as _, scroll::Autoscroll,
+};
 use gpui::{
-    AppContext as _, Context, Entity, Focusable as _, IntoElement as _, Subscription, Task,
-    Window,
+    AppContext as _, Context, Entity, Focusable as _, IntoElement as _, Subscription, Task, Window,
 };
 use language::{Anchor, Point, ToOffset as _};
 use lattice_editor::{
@@ -62,8 +63,16 @@ gpui::actions!(
 
 /// ⌘⌥P in the editor, as the Tauri app's proofread keymap binds it.
 pub fn bindings() -> Vec<gpui::KeyBinding> {
-    let key = if cfg!(target_os = "macos") { "cmd-alt-p" } else { "ctrl-alt-p" };
-    vec![gpui::KeyBinding::new(key, ProofreadSelection, Some("LatticeEditor"))]
+    let key = if cfg!(target_os = "macos") {
+        "cmd-alt-p"
+    } else {
+        "ctrl-alt-p"
+    };
+    vec![gpui::KeyBinding::new(
+        key,
+        ProofreadSelection,
+        Some("LatticeEditor"),
+    )]
 }
 
 /// The span's mark and the card's block.
@@ -106,7 +115,12 @@ impl EditorPanel {
     }
 
     /// Proofread, polish or rewrite the selection.
-    pub(crate) fn start_proofread(&mut self, ask: Ask, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn start_proofread(
+        &mut self,
+        ask: Ask,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !self.can_proofread(cx) {
             return;
         }
@@ -179,10 +193,15 @@ impl EditorPanel {
             return;
         };
         let snapshot = self.buffer.read(cx).snapshot();
-        let range = session.range.start.to_offset(&snapshot)..session.range.end.to_offset(&snapshot);
+        let range =
+            session.range.start.to_offset(&snapshot)..session.range.end.to_offset(&snapshot);
         // A selection ending in a line break ends at the next line's start;
         // the card still belongs under the last line with selected text.
-        let last = if range.end > range.start { range.end - 1 } else { range.end };
+        let last = if range.end > range.start {
+            range.end - 1
+        } else {
+            range.end
+        };
         let line = snapshot.offset_to_point(last).row;
         let card = session.card.clone();
         let accent = cx.palette().accent;
@@ -216,8 +235,13 @@ impl EditorPanel {
             return;
         };
         let snapshot = self.buffer.read(cx).snapshot();
-        let range = session.range.start.to_offset(&snapshot)..session.range.end.to_offset(&snapshot);
-        let last = if range.end > range.start { range.end - 1 } else { range.end };
+        let range =
+            session.range.start.to_offset(&snapshot)..session.range.end.to_offset(&snapshot);
+        let last = if range.end > range.start {
+            range.end - 1
+        } else {
+            range.end
+        };
         let line = snapshot.offset_to_point(last).row;
         let line_len = snapshot.line_len(line);
         let below_last_line = line >= snapshot.max_point().row;
@@ -259,18 +283,26 @@ impl EditorPanel {
             return;
         };
         session.run = None;
-        let (original, ask, context) =
-            (session.original.clone(), session.ask.clone(), session.context.clone());
+        let (original, ask, context) = (
+            session.original.clone(),
+            session.ask.clone(),
+            session.context.clone(),
+        );
         session.card.update(cx, |card, cx| {
             card.set(original.clone(), ask.clone(), CardState::Loading, cx)
         });
         if !proofread::within_max_length(&original) {
             let limit = proofread::MAX_LENGTH.to_string();
             let state = CardState::Error {
-                message: t!("Select at most {limit} characters to proofread.", limit = limit),
+                message: t!(
+                    "Select at most {limit} characters to proofread.",
+                    limit = limit
+                ),
                 retryable: false,
             };
-            session.card.update(cx, |card, cx| card.set_state(state, cx));
+            session
+                .card
+                .update(cx, |card, cx| card.set_state(state, cx));
             return;
         }
         // The agent writes its notes in the interface's language.
@@ -287,7 +319,10 @@ impl EditorPanel {
                     None,
                     cx.background_executor().spawn(async move {
                         timer.timer(Duration::from_millis(300)).await;
-                        Ok(text_task::Answer { text: reply, model: None })
+                        Ok(text_task::Answer {
+                            text: reply,
+                            model: None,
+                        })
                     }),
                 )
             }
@@ -345,7 +380,9 @@ impl EditorPanel {
             CardEvent::Mode(ask) => self.retry_proofread(Some(ask), cx),
             CardEvent::Choose(id, accepted) => {
                 if let Some(session) = &self.proofread.session {
-                    session.card.update(cx, |card, cx| card.choose(id, accepted, cx));
+                    session
+                        .card
+                        .update(cx, |card, cx| card.choose(id, accepted, cx));
                 }
             }
         }
@@ -359,7 +396,8 @@ impl EditorPanel {
         let Some(session) = &mut self.proofread.session else {
             return;
         };
-        let range = session.range.start.to_offset(&snapshot)..session.range.end.to_offset(&snapshot);
+        let range =
+            session.range.start.to_offset(&snapshot)..session.range.end.to_offset(&snapshot);
         let (original, context) = anchored_text(&text, range);
         session.original = original;
         session.context = context;
@@ -374,7 +412,10 @@ impl EditorPanel {
         let Some(session) = &self.proofread.session else {
             return false;
         };
-        let CardState::Ready { review, rejected, .. } = session.card.read(cx).state().clone() else {
+        let CardState::Ready {
+            review, rejected, ..
+        } = session.card.read(cx).state().clone()
+        else {
             return false;
         };
         if self.editor.read(cx).read_only(cx) {
@@ -386,7 +427,13 @@ impl EditorPanel {
         let card = session.card.clone();
         let fail = |message: String, cx: &mut Context<Self>| {
             card.update(cx, |card, cx| {
-                card.set_state(CardState::Error { message, retryable: true }, cx)
+                card.set_state(
+                    CardState::Error {
+                        message,
+                        retryable: true,
+                    },
+                    cx,
+                )
             });
             true
         };
@@ -399,7 +446,11 @@ impl EditorPanel {
                 cx,
             );
         }
-        let edits = if all { review.edits.clone() } else { proofread::chosen_edits(&review, &rejected) };
+        let edits = if all {
+            review.edits.clone()
+        } else {
+            proofread::chosen_edits(&review, &rejected)
+        };
         if edits.is_empty() {
             self.dismiss_proofread(window, cx);
             return true;
@@ -447,7 +498,10 @@ impl EditorPanel {
                 );
                 buffer.finalize_last_transaction(cx);
             });
-            let (start, end) = (MultiBufferOffset(from), MultiBufferOffset(from + revised.len()));
+            let (start, end) = (
+                MultiBufferOffset(from),
+                MultiBufferOffset(from + revised.len()),
+            );
             editor.change_selections(
                 SelectionEffects::scroll(Autoscroll::fit()),
                 window,
@@ -481,7 +535,11 @@ impl EditorPanel {
     /// ⌘↵ while a card is open: accept the edits still made, or close a
     /// card with none, once the agent has answered. Whether the card took
     /// the key.
-    pub(super) fn proofread_accept_key(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+    pub(super) fn proofread_accept_key(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
         self.accept_proofread(false, window, cx)
     }
 
@@ -495,7 +553,12 @@ impl EditorPanel {
     }
 
     /// The palette's and the keys' asks.
-    pub(crate) fn proofread_action(&mut self, ask: Option<Ask>, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn proofread_action(
+        &mut self,
+        ask: Option<Ask>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         match ask {
             Some(ask) => self.start_proofread(ask, window, cx),
             None => self.open_rewrite_menu(window, cx),
@@ -549,7 +612,12 @@ impl EditorPanel {
     }
 
     /// Press one of the open card's actions, as a click would.
-    pub(crate) fn scripted_proofread(&mut self, action: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn scripted_proofread(
+        &mut self,
+        action: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let event = match action {
             "accept" => CardEvent::Accept,
             "accept-all" => CardEvent::AcceptAll,

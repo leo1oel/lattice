@@ -11,6 +11,32 @@ impl PdfView {
         cx.notify();
     }
 
+    /// The control at the toolbar's start, before the page controls, which
+    /// emits [`PdfViewEvent::Start`] (`toolbarStart`). It never folds into
+    /// the narrow toolbar's menu, and it stays while the host is still
+    /// getting the PDF.
+    pub fn set_toolbar_start(&mut self, start: Option<ToolbarAction>, cx: &mut Context<Self>) {
+        self.start = start;
+        cx.notify();
+    }
+
+    /// The PDF the host is still getting, or that it could not get; a
+    /// later [`PdfView::open`] shows the PDF it got.
+    pub fn set_host_load(&mut self, load: HostLoad, cx: &mut Context<Self>) {
+        if load == HostLoad::Fetching && !self.loading {
+            // The first load's skeleton waits on its clock from here.
+            self.loading_since = Instant::now();
+        }
+        self.loading = load == HostLoad::Fetching;
+        self.host_load = load;
+        cx.notify();
+    }
+
+    /// What the host is still getting, for scripted checks.
+    pub fn host_load(&self) -> &HostLoad {
+        &self.host_load
+    }
+
     /// Whether Reveal cursor in PDF can jump now, and whether a jump is
     /// being located (`canForwardSync`, `locatingPdf`).
     pub fn set_reveal(&mut self, enabled: bool, locating: bool, cx: &mut Context<Self>) {

@@ -5,7 +5,7 @@ use super::renames::{carry, hold, remote_renames};
 use super::{fetch, plan_sync, remote_copy, settle_destructive, sync_client, sync_stamp};
 use crate::overleaf::api::Remote;
 use crate::overleaf::case_collisions;
-use crate::overleaf::files::{is_excluded, read_base_copy, read_local_files};
+use crate::overleaf::files::{read_base_copy, read_local_files, retain_syncable};
 use serde::Serialize;
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -68,8 +68,7 @@ pub fn preview(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>,
 ) -> Result<OverleafPreview, String> {
     let mut linked = Remote::open(config_dir, root)?;
-    let build_pdf = &linked.build_pdf;
-    linked.state.files.retain(|path, _| !is_excluded(path) && !build_pdf.is(path));
+    retain_syncable(&mut linked.state.files, &linked.build_pdf);
     let client = sync_client()?;
     let mut local = read_local_files(root)?.files;
     let version = linked.version(&client);

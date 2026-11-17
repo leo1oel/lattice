@@ -15,8 +15,7 @@ use std::{collections::BTreeSet, rc::Rc};
 
 use gpui::{
     Animation, AnimationExt as _, AnyElement, App, Context, EventEmitter, InteractiveElement as _,
-    IntoElement,
-    ParentElement as _, Render, SharedString, Styled as _, Window, div,
+    IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use lattice_editor::{
@@ -134,9 +133,12 @@ impl ProofreadCard {
     /// How many edits are offered, and how many of them are still made.
     pub fn counts(&self) -> (usize, usize) {
         match &self.state {
-            CardState::Ready { review, rejected, .. } => {
-                (review.edits.len(), proofread::chosen_edits(review, rejected).len())
-            }
+            CardState::Ready {
+                review, rejected, ..
+            } => (
+                review.edits.len(),
+                proofread::chosen_edits(review, rejected).len(),
+            ),
             _ => (0, 0),
         }
     }
@@ -192,7 +194,9 @@ impl ProofreadCard {
             }
         };
         let model = match &self.state {
-            CardState::Ready { model: Some(model), .. } => Some(model.clone()),
+            CardState::Ready {
+                model: Some(model), ..
+            } => Some(model.clone()),
             _ => None,
         };
         let summary = div()
@@ -266,12 +270,17 @@ impl ProofreadCard {
             };
             skeleton = skeleton.child(div().h(px(16.)).w(width).rounded_full().bg(palette.line));
         }
-        skeleton.child(sheen("proofread-sheen", palette.raised)).into_any_element()
+        skeleton
+            .child(sheen("proofread-sheen", palette.raised))
+            .into_any_element()
     }
 
     /// The selection with the edits, offered and held.
     fn passage(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let CardState::Ready { review, rejected, .. } = &self.state else {
+        let CardState::Ready {
+            review, rejected, ..
+        } = &self.state
+        else {
             return None;
         };
         let keep_hint = t!("Click to keep the original");
@@ -290,7 +299,9 @@ impl ProofreadCard {
                     .map(|reason| {
                         reason
                             .note
-                            .trim_end_matches(|c: char| c.is_whitespace() || ".。!！?？".contains(c))
+                            .trim_end_matches(|c: char| {
+                                c.is_whitespace() || ".。!！?？".contains(c)
+                            })
                             .to_string()
                     })
                     .filter(|note| !note.is_empty());
@@ -316,15 +327,19 @@ impl ProofreadCard {
                 }
             })
             .collect();
-        shown.extend(proofread::held_runs(&self.original, review).into_iter().map(|run| Shown {
-            id: run.id,
-            from: run.from,
-            to: run.to,
-            insert: run.insert,
-            status: Status::Held,
-            tag: Some(held_tag(run.kind).into()),
-            detail: None,
-        }));
+        shown.extend(
+            proofread::held_runs(&self.original, review)
+                .into_iter()
+                .map(|run| Shown {
+                    id: run.id,
+                    from: run.from,
+                    to: run.to,
+                    insert: run.insert,
+                    status: Status::Held,
+                    tag: Some(held_tag(run.kind).into()),
+                    detail: None,
+                }),
+        );
         if shown.is_empty() {
             return None;
         }
@@ -332,9 +347,11 @@ impl ProofreadCard {
         let rejected = rejected.clone();
         let toggle: inline_edits::Toggle = Rc::new(move |id, _, cx| {
             let accepted = rejected.contains(&id);
-            card.update(cx, |_, cx| cx.emit(CardEvent::Choose(id, accepted))).ok();
+            card.update(cx, |_, cx| cx.emit(CardEvent::Choose(id, accepted)))
+                .ok();
         });
-        let passage = inline_edits::render("proofread-edit", &self.original, &shown, Some(toggle), cx);
+        let passage =
+            inline_edits::render("proofread-edit", &self.original, &shown, Some(toggle), cx);
         // The passage comes up first, then each edit arrives on it.
         Some(
             div()
@@ -362,10 +379,17 @@ impl ProofreadCard {
                 kinds.push(held.kind);
             }
         }
-        let changed = kinds.iter().map(|kind| held_name(*kind)).collect::<Vec<_>>().join(", ");
+        let changed = kinds
+            .iter()
+            .map(|kind| held_name(*kind))
+            .collect::<Vec<_>>()
+            .join(", ");
         let count = review.held.len();
         let text = if count == 1 {
-            t!("Held back 1 edit that would change {changed}", changed = changed)
+            t!(
+                "Held back 1 edit that would change {changed}",
+                changed = changed
+            )
         } else {
             t!(
                 "Held back {count} edits that would change {changed}",
@@ -373,12 +397,21 @@ impl ProofreadCard {
                 changed = changed
             )
         };
-        Some(message(Icon::TRIANGLE_ALERT, cx.palette().warning, text, cx))
+        Some(message(
+            Icon::TRIANGLE_ALERT,
+            cx.palette().warning,
+            text,
+            cx,
+        ))
     }
 
     fn actions(&self, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
-        let accept_keys = if cfg!(target_os = "macos") { "⌘↩" } else { "Ctrl+↩" };
+        let accept_keys = if cfg!(target_os = "macos") {
+            "⌘↩"
+        } else {
+            "Ctrl+↩"
+        };
         let emit = |event: CardEvent, cx: &mut Context<Self>| {
             let card = cx.entity().downgrade();
             move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
@@ -468,9 +501,12 @@ impl Render for ProofreadCard {
         let passage = self.passage(cx);
         let held = self.held_notice(cx);
         let error = match &self.state {
-            CardState::Error { message: text, .. } => {
-                Some(message(Icon::CIRCLE_ALERT, palette.danger, text.clone(), cx))
-            }
+            CardState::Error { message: text, .. } => Some(message(
+                Icon::CIRCLE_ALERT,
+                palette.danger,
+                text.clone(),
+                cx,
+            )),
             _ => None,
         };
         let actions = self.actions(cx);
@@ -519,7 +555,12 @@ fn message(icon: Icon, ink: gpui::Hsla, text: impl Into<SharedString>, cx: &App)
         .gap(px(6.))
         .text_role(TextRole::Caption, cx)
         .text_color(palette.text)
-        .child(div().flex_none().pt(px(1.5)).child(icon.element(px(13.), ink)))
+        .child(
+            div()
+                .flex_none()
+                .pt(px(1.5))
+                .child(icon.element(px(13.), ink)),
+        )
         .child(div().min_w_0().child(text.into()))
         .into_any_element()
 }

@@ -192,7 +192,19 @@ fn editor(
         ),
         row(
             dialog,
-            Row::new("author-name", t!("Your name")).control(name),
+            {
+                // A Git or Overleaf name signs comments ahead of this one, so
+                // the row says whose it is; without one, the field is the
+                // signature.
+                let row = Row::new("author-name", t!("Your name")).control(name);
+                match dialog.known_author.clone() {
+                    Some(known) => row.description(
+                        t!("Comments are signed {0}, from Git or Overleaf", known),
+                        cx,
+                    ),
+                    None => row,
+                }
+            },
             width,
             cx,
         ),

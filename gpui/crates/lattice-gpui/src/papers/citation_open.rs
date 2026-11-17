@@ -52,7 +52,7 @@ impl PapersPanel {
     ) {
         let Some(paper) = self.paper_cited(key).cloned() else {
             if let Some(url) = source {
-                cx.open_url(&url);
+                model::open_source(&url, cx);
             }
             return;
         };

@@ -20,6 +20,7 @@ use super::view::PdfView;
 /// pointer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Slot {
+    Start,
     Previous,
     Next,
     Back,
@@ -38,7 +39,8 @@ pub(super) enum Slot {
 
 impl Slot {
     /// Every slot, in the toolbar's order (each at its own index).
-    const ALL: [Slot; 14] = [
+    const ALL: [Slot; 15] = [
+        Slot::Start,
         Slot::Previous,
         Slot::Next,
         Slot::Back,
@@ -59,7 +61,7 @@ impl Slot {
     /// (and its columns) separate.
     fn section(self) -> usize {
         match self {
-            Slot::Previous | Slot::Next | Slot::Back | Slot::Forward => 0,
+            Slot::Start | Slot::Previous | Slot::Next | Slot::Back | Slot::Forward => 0,
             Slot::Outline => 1,
             Slot::ZoomOut | Slot::ZoomIn => 2,
             Slot::Locate => 3,
@@ -95,6 +97,12 @@ pub fn toolbar_section(index: usize) -> Option<usize> {
     Slot::ALL.get(index).map(|slot| slot.section())
 }
 
+/// The rows of the host's start control and of Previous page in the
+/// toolbar's hover, for a scripted check of their order.
+pub fn toolbar_start_rows() -> (usize, usize) {
+    (Slot::Start as usize, Slot::Previous as usize)
+}
+
 /// The toolbar's one hover fill: the sheet's 5% hover on a control's corner.
 pub(super) fn toolbar_hover(window: &mut Window, cx: &mut App) -> FluidHover {
     let fill = cx.palette().hover;
@@ -120,9 +128,13 @@ mod tests {
         for (ix, slot) in Slot::ALL.iter().enumerate() {
             assert_eq!(*slot as usize, ix);
         }
-        // Previous and Next glide; Zoom in and Reveal cursor are a divider
-        // apart, so the fill fades between them.
+        // The host's start, Previous and Next glide; Zoom in and Reveal
+        // cursor are a divider apart, so the fill fades between them.
         assert_eq!(toolbar_section(0), toolbar_section(1));
+        assert_eq!(
+            toolbar_section(Slot::Start as usize),
+            toolbar_section(Slot::Previous as usize)
+        );
         assert_ne!(
             toolbar_section(Slot::ZoomIn as usize),
             toolbar_section(Slot::Locate as usize)

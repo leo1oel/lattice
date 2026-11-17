@@ -361,6 +361,37 @@ impl Run {
         .context("the file did not open in an editor")
     }
 
+    /// Close `panel`'s view in the workspace, as its tab's X does.
+    async fn close_panel(&self, cx: &mut AsyncApp, panel: &Entity<EditorPanel>) -> Result<()> {
+        self.with_window(cx, {
+            let panel = panel.clone();
+            move |shell, _, cx| {
+                let view = shell.read(cx).view_of_editor(&panel);
+                let workspace = shell.read(cx).workspace().clone();
+                if let Some(view) = view {
+                    workspace.update(cx, |workspace, cx| workspace.close(&[view], cx));
+                }
+            }
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        Ok(())
+    }
+
+    /// With `LATTICE_E2E_SHOTS` set, the window with its open menu, as
+    /// `name.png` in that folder, for a reviewer to look at; a no-op off
+    /// macOS.
+    async fn completion_shot(&self, cx: &mut AsyncApp, name: &str) {
+        #[cfg(target_os = "macos")]
+        if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
+            let path = std::path::Path::new(&dir).join(format!("{name}.png"));
+            if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
+                log::warn!("no shot {name}: {error:#}");
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (cx, name);
+    }
+
     /// Build and wait for the result.
     async fn build(&self, cx: &mut AsyncApp) -> Result<(bool, Duration)> {
         let started = Instant::now();

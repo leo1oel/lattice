@@ -315,6 +315,7 @@ impl OverleafBridge {
         let Some(root) = self.root.clone() else {
             return;
         };
+        self.push_waiting = true;
         self.push_task = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(PUSH_DEBOUNCE).await;
             loop {
@@ -348,6 +349,7 @@ impl OverleafBridge {
                 .background_spawn(async move { sync::probe(&probe_root, Some(&live)) })
                 .await;
             this.update(cx, |this, cx| {
+                this.push_waiting = false;
                 if expired {
                     super::super::session_changed(cx);
                 }

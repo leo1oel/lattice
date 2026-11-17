@@ -6389,7 +6389,6 @@ dependencies = [
 [[package]]
 name = "gpui_apple"
 version = "0.1.0"
-source = "git+https://github.com/longbridge/gpui-fast?rev=bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa#bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa"
 dependencies = [
  "anyhow",
  "async-task",
@@ -6918,6 +6917,15 @@ dependencies = [
  "foldhash 0.2.0",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "hashlink"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
+dependencies = [
+ "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -8225,6 +8233,7 @@ dependencies = [
  "uuid",
  "walkdir",
  "windows-sys 0.61.2",
+ "yaml-rust2",
  "zip 9.4.1",
 ]
 
@@ -8272,6 +8281,7 @@ dependencies = [
  "chrono",
  "clock",
  "codebook-tree-sitter-latex",
+ "core-foundation 0.9.4",
  "dirs",
  "editor",
  "fancy-regex",
@@ -8312,6 +8322,7 @@ dependencies = [
  "settings",
  "similar",
  "smallvec",
+ "system-configuration 0.7.0",
  "tar",
  "task",
  "tempfile",
@@ -8380,6 +8391,7 @@ dependencies = [
  "objc2 0.6.3",
  "objc2-foundation 0.3.2",
  "percent-encoding",
+ "raw-window-handle",
  "serde",
  "serde_json",
  "tempfile",
@@ -12869,7 +12881,7 @@ dependencies = [
  "bitflags 2.13.1",
  "fallible-iterator",
  "fallible-streaming-iterator",
- "hashlink",
+ "hashlink 0.12.2",
  "libsqlite3-sys 0.38.2",
  "smallvec",
  "sqlite-wasm-rs",
@@ -18742,6 +18754,16 @@ name = "y4m"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
+
+[[package]]
+name = "yaml-rust2"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2462ea039c445496d8793d052e13787f2b90e750b833afee748e601c17621ed9"
+dependencies = [
+ "arraydeque",
+ "hashlink 0.10.0",
+]
 
 [[package]]
 name = "yansi"

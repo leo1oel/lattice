@@ -10,7 +10,10 @@ pub(super) fn open_round(rounds: &[AnnotationRound]) -> Option<&AnnotationRound>
 }
 
 fn state(comment: &EditorComment) -> Option<&str> {
-    comment.revision.as_ref().map(|revision| revision.state.as_str())
+    comment
+        .revision
+        .as_ref()
+        .map(|revision| revision.state.as_str())
 }
 
 /// A local annotation the agent can be asked about now.
@@ -21,9 +24,10 @@ pub fn revisable(comment: &EditorComment, running: &dyn Fn(&str) -> bool) -> boo
     match comment.revision.as_ref() {
         Some(revision) if revision.state == "proposed" => false,
         // A question waits for its answer.
-        Some(revision) if revision.state == "asked" => {
-            revision.answer.as_deref().is_some_and(|answer| !answer.trim().is_empty())
-        }
+        Some(revision) if revision.state == "asked" => revision
+            .answer
+            .as_deref()
+            .is_some_and(|answer| !answer.trim().is_empty()),
         _ => true,
     }
 }
@@ -59,7 +63,10 @@ pub fn round_progress(
         .filter(|comment| {
             ids.contains(&&comment.id)
                 && !running(&comment.id)
-                && comment.revision.as_ref().is_some_and(|revision| revision.round == round.number)
+                && comment
+                    .revision
+                    .as_ref()
+                    .is_some_and(|revision| revision.round == round.number)
         })
         .count();
     let still = ids.iter().filter(|id| running(id)).count();

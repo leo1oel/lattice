@@ -209,6 +209,9 @@ pub struct OverleafBridge {
     channel_retry: Option<mpsc::UnboundedSender<()>>,
     whole_files: live::WholeFiles,
     push_task: Option<Task<()>>,
+    /// A push is waiting out its quiet period and the sync gap, or its
+    /// probe is still out.
+    push_waiting: bool,
     badge_task: Option<Task<()>>,
     channel_task: Option<Task<()>>,
     link_task: Option<Task<()>>,
@@ -266,6 +269,7 @@ impl OverleafBridge {
             channel_retry: None,
             whole_files: Default::default(),
             push_task: None,
+            push_waiting: false,
             badge_task: None,
             channel_task: None,
             link_task: None,
@@ -295,6 +299,13 @@ impl OverleafBridge {
 
     pub fn syncing(&self) -> bool {
         self.syncing
+    }
+
+    /// Whether a push of ours is still to probe, for a scenario that counts
+    /// the live poll's own probes.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn push_waiting(&self) -> bool {
+        self.push_waiting
     }
 
     pub fn remote_changes(&self) -> bool {
@@ -364,6 +375,14 @@ impl OverleafBridge {
         }
     }
 
+    /// The network came back (`network.rs`): a channel waiting to join
+    /// does so now, as when the window comes forward.
+    pub fn network_came_back(&mut self) {
+        if let Some(retry) = &self.channel_retry {
+            retry.unbounded_send(()).ok();
+        }
+    }
+
     /// The channel carries documents (it is up, in live mode).
     fn channel_live(&self) -> bool {
         self.mode == OverleafSyncMode::Live && self.channel == ChannelStatus::Live
@@ -400,6 +419,7 @@ impl OverleafBridge {
         self.poll_task = None;
         self.poll_wake = None;
         self.push_task = None;
+        self.push_waiting = false;
         self.badge_task = None;
         self.channel_task = None;
         self.channel_retry = None;
@@ -524,6 +544,7 @@ impl OverleafBridge {
                 self.poll_task = None;
                 self.poll_wake = None;
                 self.push_task = None;
+                self.push_waiting = false;
                 self.whole_files.stop_timers();
                 if self.badge_task.is_none() {
                     self.badge_task = Some(self.badge_poll(root, cx));
@@ -712,7 +733,10 @@ impl OverleafBridge {
         let run = cx.background_spawn(async move {
             // Track changes reads the files the sync may change, first.
             let reviewed = crate::history::review_mode::store::before_sync(&run_root, reviewing);
-            (sync::sync(&run_root, &run_live, observed, entities), reviewed)
+            (
+                sync::sync(&run_root, &run_live, observed, entities),
+                reviewed,
+            )
         });
         self.sync_task = Some(cx.spawn(async move |this, cx| {
             let ((result, expired), reviewed) = run.await;
@@ -733,7 +757,9 @@ impl OverleafBridge {
                 match result {
                     Ok(result) => {
                         let brought = [result.pulled.clone(), result.merged.clone()].concat();
-                        crate::history::review_mode::store::after_sync(&root, reviewed, &brought, cx);
+                        crate::history::review_mode::store::after_sync(
+                            &root, reviewed, &brought, cx,
+                        );
                         this.synced(root, result, options, cx)
                     }
                     Err(error) => this.failed(error, options, cx),

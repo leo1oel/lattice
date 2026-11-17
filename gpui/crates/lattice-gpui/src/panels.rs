@@ -79,6 +79,20 @@ pub fn present_tabs(cx: &mut App) {
                 },
                 _ => look(Icon::FILE_TEXT, Surface::Sheet),
             }
+        } else if view
+            .clone()
+            .downcast::<crate::papers::reader::PaperReader>()
+            .is_ok()
+        {
+            // A paper is a document, with the `.bib` glyph the app gives a
+            // paper's tab (trellis-icons.tsx `documentGlyphKind`).
+            TabLook {
+                icon: TabIcon::Glyph(GlyphKind::Bib),
+                dirty: false,
+                surface: Surface::Sheet,
+                document: true,
+                frosted: false,
+            }
         } else if view.clone().downcast::<BuildPanel>().is_ok() {
             look(Icon::HAMMER, Surface::Sheet)
         } else if view

@@ -234,7 +234,11 @@ pub fn pdf_url(paper: &PaperSummary) -> Option<String> {
 /// What a citation's entry points at on the web, for Open paper when the
 /// library has no paper for it (`citationSourceUrl`): its url, else its
 /// DOI's resolver, else its arXiv PDF.
-pub fn citation_source_url(url: Option<&str>, doi: Option<&str>, arxiv: Option<&str>) -> Option<String> {
+pub fn citation_source_url(
+    url: Option<&str>,
+    doi: Option<&str>,
+    arxiv: Option<&str>,
+) -> Option<String> {
     if let Some(url) = web_url(url) {
         return Some(url.href);
     }

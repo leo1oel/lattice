@@ -19,8 +19,10 @@ mod named_links;
 mod outline_menu;
 mod overflow;
 mod panel;
-mod review_marking;
 pub(crate) mod preferences;
+mod review_marking;
+pub(crate) mod review_place;
+pub(crate) mod review_sheet;
 mod sheet;
 pub(crate) mod source_anchor;
 mod text;
@@ -38,7 +40,8 @@ pub(crate) use named_links::citation_keys;
 pub use outline_menu::OutlineState;
 pub use panel::{PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label};
 pub use text::LinkTarget;
-pub use toolbar_hover::toolbar_section;
+pub use toolbar_hover::{toolbar_section, toolbar_start_rows};
 pub use view::{
-    CitationLookup, CompoundSource, PdfNotes, PdfView, PdfViewEvent, ToolbarAction, ViewPlace,
+    CitationLookup, CompoundSource, HostLoad, NoteDestination, OfferedSelection, OverleafNotes,
+    PdfNotes, PdfView, PdfViewEvent, ReviewSource, ToolbarAction, ViewPlace, note_destination,
 };

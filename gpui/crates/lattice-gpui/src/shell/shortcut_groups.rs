@@ -171,6 +171,18 @@ pub(super) const LATEX_ROWS: ActionTable = &[
         &[("editor::FindAllReferences", None)],
     ),
     (n!("Rename label or citation"), &[("editor::Rename", None)]),
+    (
+        n!("Show the citation card"),
+        &[("lattice::ShowCitationCard", None)],
+    ),
+    (
+        n!("Insert a math symbol…"),
+        &[("lattice::InsertMathSymbol", None)],
+    ),
+    (
+        n!("Proofread the selection"),
+        &[("lattice_proofread::ProofreadSelection", None)],
+    ),
 ];
 
 /// Check references' review queue (`REFERENCE_CHECK_SHORTCUTS`, in its

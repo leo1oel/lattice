@@ -4635,8 +4635,14 @@ msgid "Copy log"
 msgstr "复制日志"
 
 #: src/project/project-file-tree.tsx
+#: src/trellis/trellis-document-tabs.tsx
 msgid "Copy path"
 msgstr "复制路径"
+
+#: src/project/project-file-tree.tsx
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Copy relative path"
+msgstr "复制相对路径"
 
 #: src/agent/agent-visual-dialog.tsx
 msgid "Copy source"
@@ -9783,6 +9789,10 @@ msgstr "已移动"
 msgid "Moved “{name}” to position {position} of {count}"
 msgstr "“{name}”已移到第 {position} 位（共 {count} 个）"
 
+#: src/app/project-tab-transfer.ts
+msgid "Moving project tab…"
+msgstr "正在移动项目标签页…"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Mu"
 msgstr "缪"
@@ -11904,6 +11914,7 @@ msgstr "粘贴密钥"
 
 #: src/project/project-file-tree.tsx
 #: src/project/project-tree-clipboard.ts
+#: src/trellis/trellis-document-tabs.tsx
 msgid "Path copied"
 msgstr "已复制路径"
 
@@ -15918,10 +15929,6 @@ msgstr "删除 {citationCommand} 时文献被改动（{blocker}），请重试"
 #: src/platform/host-errors-papers.ts
 msgid "The bibliography changed while resolving the citation. Retry the import."
 msgstr "解析引用时参考文献文件被修改了，请重新导入"
-
-#: src/platform/host-errors-papers.ts
-msgid "The bibliography changed while upgrading. Retry the operation."
-msgstr "升级时参考文献文件被修改了，请重试"
 
 #: src/platform/host-errors-papers.ts
 msgid "The bibliography entry changed after the preview. Scan it again."

@@ -127,16 +127,20 @@ class DrawnCaretView {
     }
     const place = caretPlacement(coords, this.host.getBoundingClientRect(), metrics);
     const key = `${place.left}:${place.top}:${place.height}`;
-    view.dom.setAttribute("data-drawn-caret", "");
-    this.caret.hidden = false;
+    // This runs on every keystroke, and each attribute or style write is a DOM
+    // mutation (perf:bench's markdown-visual-typing budgets them), so only a
+    // change is written: typing along a line moves the caret's x and nothing else.
+    if (!view.dom.hasAttribute("data-drawn-caret")) view.dom.setAttribute("data-drawn-caret", "");
+    if (this.caret.hidden) this.caret.hidden = false;
     if (key === this.placed) return;
     this.placed = key;
+    const height = `${place.height}px`;
     this.caret.style.transform = `translate(${place.left}px, ${place.top}px)`;
-    this.caret.style.height = `${place.height}px`;
+    if (this.caret.style.height !== height) this.caret.style.height = height;
     // A caret that moved shows solid for a full beat before it blinks again.
-    this.caret.style.animation = "none";
-    void this.caret.offsetWidth;
-    this.caret.style.animation = "";
+    // Rewinding the blink's CSS animation restarts it without a style write;
+    // a caret that has just been shown starts its blink from the top anyway.
+    for (const animation of this.caret.getAnimations?.() ?? []) animation.currentTime = 0;
   }
 }
 

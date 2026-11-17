@@ -4,7 +4,7 @@
  */
 import type { ReactNode } from "react";
 import {
-  ArrowRightLeft, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCheck, FileCode2,
+  ArrowRightLeft, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Copy, Crosshair, EyeOff, FileCheck, FileCode2,
   FileText, FolderInput, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
   Minimize2, PenLine, PictureInPicture2, Pin, PinOff, Presentation, RefreshCw, RotateCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
   X, XCircle,
@@ -73,6 +73,8 @@ export const MENU_ICONS: Partial<Record<string, ReactNode>> = {
   "keep-open": <FileCheck />,
   pin: <Pin />,
   unpin: <PinOff />,
+  "copy-path": <Copy />,
+  "copy-relative-path": <Copy />,
   build: <Hammer />,
   "clean-build": <RefreshCw />,
   "stop-build": <Square />,

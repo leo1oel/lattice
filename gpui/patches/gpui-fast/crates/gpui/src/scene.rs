@@ -91,6 +91,11 @@ impl Scene {
         self.paint_operations.push(PaintOperation::EndLayer);
     }
 
+    /// Whether a layer is open, so that what is inserted shares its order.
+    pub(crate) fn in_layer(&self) -> bool {
+        !self.layer_stack.is_empty()
+    }
+
     pub fn insert_primitive(&mut self, primitive: impl Into<Primitive>) {
         let mut primitive = primitive.into();
         crate::fast::scale::transform_primitive(self, &mut primitive);

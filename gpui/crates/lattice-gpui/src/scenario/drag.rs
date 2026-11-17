@@ -3,8 +3,9 @@
 
 use std::{cell::Cell, rc::Rc, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use gpui::{AsyncApp, Pixels, Point};
+use lattice_ui::components::{TAB_CLOSE, TAB_CLOSE_INSET, TAB_INSET};
 use serde_json::{Value, json};
 
 use super::{Run, sleep};
@@ -85,5 +86,50 @@ impl Run {
             window.draw(cx).clear(cx);
         })?;
         Ok(false)
+    }
+}
+
+impl Run {
+    /// Where to press to drag `view` by its tab in `panel`: its icon, read
+    /// from the strip as last drawn. A fixed offset from the panel's edge
+    /// assumes the tab is first and the strip unscrolled; a narrow panel
+    /// scrolls its strip to the selected tab and shrinks the tabs. So the
+    /// point comes from the tab's own box, kept inside the list's visible
+    /// part and clear of the close square at the tab's end.
+    pub(super) fn tab_grip(
+        &self,
+        cx: &mut AsyncApp,
+        panel: &str,
+        view: &str,
+    ) -> Result<Point<Pixels>> {
+        let (tabs, list) = cx.update(|cx| {
+            let workspace = self.shell.read(cx).workspace().read(cx);
+            (
+                workspace.tab_bounds(panel),
+                workspace.tab_list_bounds(panel),
+            )
+        });
+        let tab = tabs
+            .iter()
+            .find(|(id, _)| id == view)
+            .map(|(_, bounds)| *bounds)
+            .with_context(|| format!("{view} has no tab drawn in {panel}: {tabs:?}"))?;
+        let (left, right) = match list {
+            Some(list) => (tab.left().max(list.left()), tab.right().min(list.right())),
+            None => (tab.left(), tab.right()),
+        };
+        // The close square and its inset end the tab (`PanelTab`).
+        let grip_end = right - (TAB_CLOSE + TAB_CLOSE_INSET);
+        anyhow::ensure!(
+            grip_end > left,
+            "{view}'s tab shows no grip: tab {tab:?}, list {list:?}"
+        );
+        let icon = tab.left() + TAB_INSET + lattice_ui::icons::ICON / 2.;
+        let x = if icon >= left && icon < grip_end {
+            icon
+        } else {
+            left + (grip_end - left) / 2.
+        };
+        Ok(gpui::point(x, tab.center().y))
     }
 }

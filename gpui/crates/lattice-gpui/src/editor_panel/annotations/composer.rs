@@ -17,10 +17,7 @@ use lattice_ui::{
 };
 
 use super::Draft;
-use crate::{
-    annotations::form,
-    editor_panel::EditorPanel,
-};
+use crate::{annotations::form, editor_panel::EditorPanel};
 
 /// The composer's width at most, and its margin inside the editor.
 const COMPOSER_WIDTH: f32 = 360.;
@@ -180,6 +177,7 @@ impl EditorPanel {
                 intent: draft.intent,
                 error: draft.error.clone(),
                 ready: true,
+                overleaf: false,
             },
             Rc::new(|this: &mut Self, intent, _| {
                 if let Some(draft) = &mut this.annotations.draft {

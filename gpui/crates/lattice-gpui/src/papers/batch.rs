@@ -199,6 +199,15 @@ pub struct Batch {
     tools_offered: bool,
 }
 
+/// What a scenario reads of the batch.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+impl Batch {
+    /// How many imports are under way at once.
+    pub fn under_way(&self) -> usize {
+        self.tasks.len()
+    }
+}
+
 impl Batch {
     pub fn adding(&self) -> bool {
         self.items
@@ -241,6 +250,7 @@ fn import_one(
             already_imported: true,
             fetch_error: None,
             cancelled: false,
+            note: None,
         }),
         None => core_papers::import_reference(
             &run.root,

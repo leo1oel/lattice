@@ -291,6 +291,10 @@ pub struct Style {
     /// Box shadow of the element
     pub box_shadow: Vec<BoxShadow>,
 
+    /// The blur of what is painted under the element, CSS's
+    /// `backdrop-filter: blur()` (`fast::backdrop`)
+    pub backdrop_blur: Option<crate::BackdropBlur>,
+
     /// The text style of this element
     #[refineable]
     pub text: TextStyleRefinement,
@@ -713,6 +717,7 @@ impl Style {
             .to_pixels(rem_size)
             .clamp_radii_for_quad_size(bounds.size);
 
+        crate::fast::backdrop::paint(self, bounds, corner_radii, window);
         window.paint_drop_shadows(bounds, corner_radii, &self.box_shadow);
 
         let background_color = self.background.as_ref().and_then(Fill::color);
@@ -811,6 +816,7 @@ impl Default for Style {
             border_style: BorderStyle::default(),
             corner_radii: Corners::default(),
             box_shadow: Default::default(),
+            backdrop_blur: None,
             text: TextStyleRefinement::default(),
             mouse_cursor: None,
             opacity: None,

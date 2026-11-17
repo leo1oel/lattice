@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-15 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-16 against upstream
 `v1.5.2` (`83e0533b23099908ee14e4fecacd5ed702f4d453`), the current integration changes
-**869 files, +89,759 / −9,283 lines** (about 6,700 of the added lines are the zh-CN catalogs,
+**874 files, +90,444 / −9,316 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
@@ -261,6 +261,25 @@ The release-staged sidecar was driven in headless Chromium and Playwright's WebK
 With the Context chip shown, typing "/advi" opened the menu with its Advisor row lifted 34px, ending 9.5px above the chip, and every row was the topmost element at its own center; a bare "/" opened the full list with the same clearance.
 With no selection the menu kept its unlifted position.
 This was not run in a real Lattice window, so WKWebView itself and Lattice's own relay of the selection were not exercised.
+The staged runtime is 175.3 MB.
+
+The current pin brings two fixes for a context handover (上下文移交) from one user report (fork `a22a21a4be53c751d2d05c79c6b0343c1f2afdc9`, [fork PR 31](https://github.com/leo1oel/synara/pull/31) and [fork PR 32](https://github.com/leo1oel/synara/pull/32)).
+After a handover the Agent panel could no longer be narrowed, and a thread handed over to Droid failed with "Invalid params: Unknown session identifier" and then showed "Thread is blocked by an earlier provider failure".
+- **The panel's minimum no longer grows after a handover (PR 31).** The composer reports the minimum Agent-panel width it needs (`synara:layout-metrics`), and `observeLatticeComposerLayout` (fork `apps/web/src/components/chat/latticeComposerLayout.ts`) measured the send button's inset against the first `.chat-composer-surface` in the form.
+  The note a handover leaves above the composer shares that class, so the report asked for the frame's width plus the gap, and every resize raised Lattice's panel minimum again (to 720px in the report).
+  It now finds the box by its `[data-chat-composer-surface]` attribute, the selector `useComposerSingleRow` already used, exported from there as `COMPOSER_SURFACE_SELECTOR`.
+  The handover row in the transcript (`ProviderHandoffDivider`) also wraps in a narrow panel, putting the source model and effort and the arrow with the target model and effort on their own lines instead of shrinking both model names away.
+- **A handover to Droid no longer blocks the thread (PR 32).** The handover opened a Droid session at once and kept its id as the thread's resume cursor, but Droid deletes a session that never received a message when it is closed or its process exits, so the next turn's resume was refused.
+  A new Droid session now starts with no resume cursor, and the cursor is persisted, with `thread.started`, only once the first prompt is sent.
+  Droid's unknown-session refusal maps to `resume-state-unavailable`, which `ProviderService` treats as a stale session, as it already did for Devin and Grok, so the turn starts a fresh Droid session carrying the transcript bootstrap; this also recovers a thread already blocked this way.
+  Idle cleanup, which otherwise keeps a session without a cursor alive, stops a Droid session that never received a prompt (the adapter's `idleStopsCursorlessSessions` capability).
+
+The fork's new regressions (`ProviderHandoffDivider.browser.tsx` and `latticeComposerLayout.browser.tsx`, `DroidAdapter.resume.test.ts` and the extended `ProviderService.test.ts`) join the regressions in [`synara-runtime.md`](synara-runtime.md), and they, the embed regressions and the server regressions pass on this pin.
+Fork PR 31 shows the composer regression failing on the previous selector, with the minimum climbing to 621px where 381px is expected.
+Fork PR 32 drove its fix against a stand-in that answers ACP the way Droid 1.12.1 does, deleting an unprompted session on close and refusing to resume it, through a real Synara server and web client: a handover, a server restart and a first message now get a reply instead of the blocked thread the previous code reproduced.
+The release-staged sidecar of this pin was started with the environment Lattice gives it and its embed frame rendered in headless Chromium through a host page that builds the frame URL the way a Lattice window does, and its bundles carry both fixes: the client's composer-layout observer queries `[data-chat-composer-surface]`, and the server registers `idleStopsCursorlessSessions`.
+Neither fix was driven end to end through the staged sidecar, because raising the handover note needs a finished Claude turn and the Droid handover needs a provider turn or a command channel the production client does not expose.
+This was not run in a real Lattice window or against a real, authenticated Droid, so WKWebView, Lattice's own panel resizing and Factory's Droid itself were not exercised.
 The staged runtime is 175.3 MB.
 
 ## Synara 0.9.1 compatibility

@@ -124,7 +124,7 @@ fn a_hidden_build_leaves_only_the_pdf_beside_the_sources() {
     assert_eq!(intermediates_outside_research(&root), Vec::<String>::new());
 
     // Clean is latexmk's, as beside the document: the PDF and its map stay.
-    clean(&root).unwrap();
+    clean(&root, None).unwrap();
     assert!(!hidden.join("main.aux").exists() && !hidden.join("main.log").exists());
     assert!(!hidden.join("main.fdb_latexmk").exists());
     assert!(root.join("paper/main.pdf").is_file() && hidden.join("main.synctex.gz").is_file());
@@ -193,7 +193,7 @@ fn a_clean_then_a_build_beside_leaves_no_hidden_map_to_read() {
     let (_parent, root) = paper();
     let hidden = build_in(&root, AuxFiles::Hidden, false);
     assert!(hidden.success, "{}", hidden.log);
-    clean(&root).unwrap();
+    clean(&root, None).unwrap();
     assert!(root.join(".research/build/paper/main.synctex.gz").is_file());
 
     // A chapter the hidden build never saw: only a fresh map knows it.

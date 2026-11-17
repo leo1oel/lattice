@@ -150,14 +150,11 @@ impl Run {
     }
 
     async fn templates_shot(&self, cx: &mut AsyncApp, name: &str) {
-        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+        if std::env::var_os("LATTICE_E2E_SHOTS").is_none() {
             return;
-        };
-        self.pause(cx, Duration::from_millis(400)).await;
-        let path = std::path::Path::new(&dir).join(format!("{name}.png"));
-        if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
-            log::warn!("no shot {name}: {error:#}");
         }
+        self.pause(cx, Duration::from_millis(400)).await;
+        self.snapshot(cx, name).await;
     }
 }
 

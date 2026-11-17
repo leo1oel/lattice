@@ -203,6 +203,18 @@ impl FileTreePanel {
                 })
                 .icon(Icon::COPY),
             )
+            // The path as the project names it, as a \input or
+            // \includegraphics takes it.
+            .item(
+                MenuAction::new(t!("Copy relative path"), {
+                    let relative = path.clone();
+                    move |_, cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(relative.clone()));
+                        super::clipboard::notify_copied(1, cx);
+                    }
+                })
+                .icon(Icon::COPY),
+            )
             .item(
                 MenuAction::new(tr(REVEAL_LABEL), move |_, cx| {
                     if let Some(absolute) = &absolute {

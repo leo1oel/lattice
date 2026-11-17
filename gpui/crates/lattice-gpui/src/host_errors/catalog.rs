@@ -1436,7 +1436,7 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("{path} is not a folder.", &[("path", Arg::Param(0))]),
     },
     Entry {
-        file: "overleaf/sync.rs",
+        file: "overleaf/sync/plan.rs",
         literal: "Sync pending file moves with Overleaf before comparing file contents.",
         text: Text::Message("Sync pending file moves with Overleaf before comparing file contents.", &[]),
     },
@@ -1981,19 +1981,14 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("Citation key `{key}` is not in the primary bibliography.", &[("key", Arg::Param(0))]),
     },
     Entry {
-        file: "papers/upgrade.rs",
+        file: "papers/upgrade/batch.rs",
         literal: "An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.",
         text: Text::Message("An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.", &[]),
     },
     Entry {
-        file: "papers/upgrade.rs",
-        literal: "Publication metadata for '{key}' could not be independently confirmed.",
+        file: "papers/upgrade/batch.rs",
+        literal: "Publication metadata for '{}' could not be independently confirmed.",
         text: Text::Message("Publication metadata for ''{key}'' could not be independently confirmed.", &[("key", Arg::Param(0))]),
-    },
-    Entry {
-        file: "papers/upgrade.rs",
-        literal: "The bibliography changed while upgrading. Retry the operation.",
-        text: Text::Message("The bibliography changed while upgrading. Retry the operation.", &[]),
     },
     Entry {
         file: "papers/upgrade.rs",

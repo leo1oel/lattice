@@ -68,8 +68,7 @@ describe("ResizableDrawer", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("drags the window from the titlebar strip instead of dismissing", async () => {
-    vi.useFakeTimers();
+  it("drags the window from the titlebar strip instead of dismissing", () => {
     try {
       const onClose = vi.fn();
       const { container } = renderDrawer(onClose);
@@ -77,14 +76,14 @@ describe("ResizableDrawer", () => {
 
       expect(strip.style.right).toBe("400px");
       fireEvent.mouseDown(strip, { button: 0, buttons: 1 });
-      await vi.runAllTimersAsync();
+      fireEvent.mouseMove(window, { buttons: 1 });
       expect(windowApi.startDragging).toHaveBeenCalledOnce();
       expect(onClose).not.toHaveBeenCalled();
+      fireEvent.mouseUp(window, { button: 0, buttons: 0 });
 
       fireEvent.mouseDown(container.querySelector(".drawer-backdrop")!, { button: 0, buttons: 1 });
       expect(onClose).toHaveBeenCalledOnce();
     } finally {
-      vi.useRealTimers();
       windowApi.startDragging.mockClear();
     }
   });

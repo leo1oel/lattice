@@ -21,12 +21,13 @@ use lattice_ui::{
     components::{Button, EmptyState, ErrorState},
     elevation,
     scrollbar::{FluidScrollbar, ScrollbarFeel},
+    tokens::SPACING_4,
 };
 
 use super::{
     dark::{DARK_PAGE, DARK_PAGE_MARK},
     layout::{PAGE_INSET, Rect},
-    view::{PdfView, PdfViewEvent, SYNC_MARK_HOLD, SyncMark},
+    view::{HostLoad, PdfView, PdfViewEvent, SYNC_MARK_HOLD, SyncMark},
 };
 
 /// The editor's selection blue at 35%, on the page in both themes
@@ -98,6 +99,24 @@ impl PdfView {
                     .into_any_element(),
             );
         }
+        if let HostLoad::Failed(reason) = &self.host_load {
+            // The host could not get the PDF (`.pdf-placeholder` under
+            // `PdfPreviewLoading`): the file's mark over the reason, 8px
+            // apart, in the caption's tertiary ink (the secondary here).
+            let palette = cx.palette().clone();
+            return state(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap(SPACING_4)
+                    .text_role(TextRole::Caption, cx)
+                    .text_color(palette.text_secondary)
+                    .child(Icon::FILE_TEXT.element(px(28.), palette.text_secondary))
+                    .child(reason.clone())
+                    .into_any_element(),
+            );
+        }
         if let Some(message) = &self.message {
             // A load failure names itself, with the way out under it.
             // A compiled PDF says how to get it back; a PDF of the project
@@ -159,7 +178,12 @@ impl PdfView {
                     .when(!building, |button| button.icon(Icon::PLAY))
                     .when_some(
                         (!building)
-                            .then(|| crate::shell::commands::keys_label(&crate::shell::commands::Save, window))
+                            .then(|| {
+                                crate::shell::commands::keys_label(
+                                    &crate::shell::commands::Save,
+                                    window,
+                                )
+                            })
                             .flatten(),
                         |button, keys| button.keys(keys),
                     )
@@ -198,7 +222,9 @@ impl PdfView {
             .children(pages)
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_sheet_mouse_down))
             .on_mouse_down(MouseButton::Middle, cx.listener(Self::on_sheet_middle_down))
-            .when(self.autoscrolling(), |sheet| sheet.cursor(CursorStyle::ResizeUpDown))
+            .when(self.autoscrolling(), |sheet| {
+                sheet.cursor(CursorStyle::ResizeUpDown)
+            })
             .on_mouse_move(cx.listener(Self::on_sheet_mouse_move))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up));
@@ -318,7 +344,8 @@ impl PdfView {
                         let view = view.clone();
                         window.on_mouse_event(move |event: &ScrollEvent, phase, _, cx| {
                             let zoom = event.modifiers.platform || event.modifiers.control;
-                            if phase != DispatchPhase::Capture || !bounds.contains(&event.position) {
+                            if phase != DispatchPhase::Capture || !bounds.contains(&event.position)
+                            {
                                 return;
                             }
                             // The wheel stops autoscroll, and scrolls as ever.

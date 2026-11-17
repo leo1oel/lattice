@@ -12,16 +12,19 @@
 //!   when the library can open it; the title runs it, else Go to entry),
 //!   "Why cited", Go to entry and Copy key, which says "Copied" for a
 //!   moment;
-//! - a reference card: what the label names and the label, its title, its
-//!   source snippet and the file it is in; the title opens it there. A
-//!   figure's image, an equation set by KaTeX and the last build's number
-//!   are its previews (`preview_cards.rs`).
+//! - a reference card ([`super::reference_card`]).
 //!
-//! Both stand on the popover surface: the panel radius, the lifted surface,
-//! the popover elevation. The Tauri app frosts them (97% of the surface over
-//! a 14px backdrop blur); GPUI has no backdrop filter, and the 3% of page
-//! left unblurred reads as ghost text, so the surface is solid (the port
-//! plan's substitute for `backdrop-filter`).
+//! Both stand on the popover surface: the panel radius, the popover
+//! elevation, and the Tauri app's frosted surface (`surfaces.css`): 97% of
+//! the lifted surface over the page blurred by 14px (`backdrop_blur`, CSS's
+//! `backdrop-filter: blur(14px)`). Where the renderer cannot read the page
+//! under a card, the blur's fallback fills the card with the surface,
+//! opaque, since 3% of page left unblurred reads as ghost text. That is a
+//! card over a native surface (a webview island such as the Agent panel or
+//! a board, sheet or deck), whose pixels Metal cannot read. While the window
+//! holds one, the cards, drawn deferred, are on GPUI's surface above the
+//! native views, and blur the window's page from the frame drawn under them,
+//! with what that surface drew before them over it.
 //!
 //! The library's facts, the uses and the actions that leave the card come
 //! from the host through the editor's [`CitationSlot`]; without one the
@@ -33,9 +36,9 @@ use std::{
 };
 
 use gpui::{
-    App, ClipboardItem, ElementId, FontWeight, InteractiveElement as _, IntoElement,
+    App, ClipboardItem, ElementId, FocusHandle, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement as _, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
-    WeakEntity, Window, div, prelude::FluentBuilder as _, px, relative,
+    WeakEntity, Window, div, prelude::FluentBuilder as _, px,
 };
 use language::BufferSnapshot;
 use lattice_i18n::t;
@@ -51,22 +54,25 @@ use super::{
 };
 use crate::{
     ProjectIndex,
-    hover::{HoverCardContext, HoverProvider, HoverTarget},
-    index::{Citation, Reference},
-    latex::{preview_cards, syntax},
+    hover::{HoverCardContext, HoverProvider, HoverTarget, NextCardAction, PreviousCardAction},
+    index::Citation,
+    latex::syntax,
 };
 
 /// How long Copy key says "Copied".
 const COPIED_FOR: Duration = Duration::from_millis(1600);
 
-/// The popover surface every card stands on.
+/// The popover surface every card stands on: the Tauri app's frosted
+/// popover, `color-mix(in srgb, var(--surface-elevated) 97%, transparent)`
+/// over `backdrop-filter: blur(14px)`.
 pub fn card_surface(cx: &App) -> gpui::Div {
     let palette = cx.palette();
     div()
         .flex()
         .flex_col()
         .rounded(px(10.))
-        .bg(palette.raised)
+        .backdrop_blur(px(14.), palette.raised.alpha(1.))
+        .bg(palette.raised.opacity(0.97))
         .shadow(Elevation::Popover.shadows(palette))
         .text_color(palette.text)
 }
@@ -216,7 +222,7 @@ pub(crate) fn reference_kind_label(kind: &str) -> &str {
 }
 
 /// CSS `text-transform: capitalize`: each word's first letter in capitals.
-fn capitalize(text: &str) -> String {
+pub(super) fn capitalize(text: &str) -> String {
     text.split(' ')
         .map(|word| {
             let mut chars = word.chars();
@@ -251,6 +257,19 @@ impl RenderOnce for CitationCard {
             |_, _| None::<Instant>,
         );
         let is_copied = copied.read(cx).is_some_and(|at| at.elapsed() < COPIED_FOR);
+        // Opened from the keyboard (⌥⌘K), the actions take focus: Open
+        // paper, Why cited, Go to entry, Copy key, each its own handle.
+        let keyboard = self.context.keyboard.clone();
+        let action_focus = keyboard.as_ref().map(|_| {
+            window
+                .use_keyed_state(
+                    ElementId::Name(format!("citation-card-focus-{key}").into()),
+                    cx,
+                    |_, cx| [(); 4].map(|_| cx.focus_handle()),
+                )
+                .read(cx)
+                .clone()
+        });
         let goto = {
             let context = self.context.clone();
             let index = self.index.clone();
@@ -339,6 +358,30 @@ impl RenderOnce for CitationCard {
             .join(",\u{a0}");
         let source = source_label(&citation);
         let editor_font = cx.lattice().fonts.editor.clone();
+        // The handles of the actions this card shows, in their order.
+        let shown_focus: Vec<FocusHandle> = action_focus
+            .iter()
+            .flat_map(|[open_focus, why_focus, goto_focus, copy_focus]| {
+                [
+                    open.is_some().then(|| open_focus.clone()),
+                    why.is_some().then(|| why_focus.clone()),
+                    Some(goto_focus.clone()),
+                    Some(copy_focus.clone()),
+                ]
+            })
+            .flatten()
+            .collect();
+        // The first action takes focus, not the title, so Return runs the
+        // lead action its hint names.
+        if let Some(keyboard) = &keyboard
+            && let Some(first) = shown_focus.first()
+            && keyboard.take_first_focus()
+        {
+            window.focus(first, cx);
+        }
+        let walk = shown_focus.clone();
+        let focus_of = |slot: usize| action_focus.as_ref().map(|handles| handles[slot].clone());
+        let lead_keys = keyboard.is_some().then_some("↩");
         let goto_title = goto.clone();
         let open_title = open.clone();
         let copy = {
@@ -383,6 +426,18 @@ impl RenderOnce for CitationCard {
             .px(px(16.))
             .pb(px(8.))
             .text_role(TextRole::Body, cx)
+            // Tab and ⇧Tab walk the actions, round from the last to the
+            // first ([`KEYBOARD_CARD_CONTEXT`]); Return presses the focused
+            // one (the element's own activation).
+            .when(!walk.is_empty(), |card| {
+                let back = walk.clone();
+                card.on_action(move |_: &NextCardAction, window, cx| {
+                    step_focus(&walk, 1, window, cx);
+                })
+                .on_action(move |_: &PreviousCardAction, window, cx| {
+                    step_focus(&back, -1, window, cx);
+                })
+            })
             .when(!citation.title.is_empty(), |card| {
                 card.child(
                     div()
@@ -461,6 +516,8 @@ impl RenderOnce for CitationCard {
                             Button::new("citation-card-open", t!("Open paper"))
                                 .tinted()
                                 .compact()
+                                .when_some(lead_keys, Button::keys)
+                                .when_some(focus_of(0), |button, focus| button.track_focus(&focus))
                                 .on_click(move |event, window, cx| open(event, window, cx)),
                         )
                     })
@@ -469,6 +526,7 @@ impl RenderOnce for CitationCard {
                             Button::new("citation-card-why", t!("Why cited"))
                                 .ghost()
                                 .compact()
+                                .when_some(focus_of(1), |button, focus| button.track_focus(&focus))
                                 .on_click(why),
                         )
                     })
@@ -476,6 +534,7 @@ impl RenderOnce for CitationCard {
                         Button::new("citation-card-goto", t!("Go to entry"))
                             .ghost()
                             .compact()
+                            .when_some(focus_of(2), |button, focus| button.track_focus(&focus))
                             .on_click(goto),
                     )
                     .child(
@@ -489,95 +548,22 @@ impl RenderOnce for CitationCard {
                         )
                         .ghost()
                         .compact()
+                        .when_some(focus_of(3), |button, focus| button.track_focus(&focus))
                         .on_click(copy),
                     ),
             )
     }
 }
 
-/// A label's card.
-#[derive(IntoElement)]
-pub struct ReferenceCard {
-    pub reference: Reference,
-    pub context: HoverCardContext,
-    pub previews: preview_cards::ReferencePreviews,
-}
-
-impl RenderOnce for ReferenceCard {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let palette = cx.palette().clone();
-        let reference = self.reference;
-        let previews = self.previews;
-        let figure = previews
-            .figure
-            .as_deref()
-            .and_then(|path| preview_cards::figure_media(path, &self.context, cx));
-        let equation = previews
-            .equation
-            .as_ref()
-            .map(|(body, macros)| preview_cards::equation(body, macros, &self.context, window, cx));
-        let fact = previews
-            .fact
-            .map(|fact| preview_cards::compiled_line(fact, cx));
-        let editor_font = cx.lattice().fonts.editor.clone();
-        let heading = if reference.title.is_empty() {
-            reference.label.clone()
-        } else {
-            reference.title.clone()
-        };
-        let open = {
-            let context = self.context.clone();
-            let (path, line) = (reference.path.clone(), reference.line);
-            move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
-                context.open_location(path.clone(), line, cx)
-            }
-        };
-        card_surface(cx)
-            .w(px(360.).min(self.context.max_width))
-            .pt(px(10.))
-            .px(px(12.))
-            .pb(px(11.))
-            .text_role(TextRole::Body, cx)
-            .children(figure)
-            .child(
-                div()
-                    .mb(px(5.))
-                    .text_color(palette.accent)
-                    .font_family(editor_font.clone())
-                    .text_size(lattice_ui::tokens::TEXT_MICRO)
-                    .child(format!(
-                        "{} {}",
-                        capitalize(reference_kind_label(&reference.kind)),
-                        reference.label
-                    )),
-            )
-            .child(
-                div()
-                    .id("reference-card-title")
-                    .text_size(lattice_ui::tokens::TEXT_CAPTION)
-                    .font_weight(FontWeight(650.))
-                    .line_height(relative(1.35))
-                    .cursor_pointer()
-                    .hover(|style| style.underline())
-                    .on_click(open)
-                    .child(heading),
-            )
-            .children(fact)
-            .map(|card| match equation {
-                Some(equation) => card.child(equation),
-                None if !reference.snippet.is_empty() => {
-                    card.child(preview_cards::source_block(reference.snippet.clone(), cx))
-                }
-                None => card,
-            })
-            .child(
-                div()
-                    .mt(px(6.))
-                    .text_color(palette.text_secondary)
-                    .text_size(lattice_ui::tokens::TEXT_MICRO)
-                    .child(reference.path.clone()),
-            )
-    }
+/// Move focus `by` one among `handles`, round from either end; from none
+/// of them, to the first.
+fn step_focus(handles: &[FocusHandle], by: isize, window: &mut Window, cx: &mut App) {
+    let count = handles.len() as isize;
+    let next = handles
+        .iter()
+        .position(|handle| handle.is_focused(window))
+        .map_or(0, |at| (at as isize + by).rem_euclid(count));
+    window.focus(&handles[next as usize], cx);
 }
 
 /// The citation card for the key under the pointer.
@@ -619,43 +605,9 @@ impl HoverProvider for CitationCards {
     }
 }
 
-/// The reference card for the label under the pointer.
-pub struct ReferenceCards {
-    pub index: WeakEntity<ProjectIndex>,
-}
-
-impl HoverProvider for ReferenceCards {
-    fn target(&self, text: &BufferSnapshot, offset: usize, cx: &App) -> Option<HoverTarget> {
-        let (window, start) = around(text, offset);
-        let target = syntax::reference_target(&window, offset - start)?;
-        let index = self.index.upgrade()?;
-        let reference = index.read(cx).reference(&target.key)?.clone();
-        let weak = self.index.clone();
-        let body = std::cell::OnceCell::new();
-        Some(HoverTarget {
-            range: target.range.start + start..target.range.end + start,
-            id: "reference",
-            card: std::rc::Rc::new(move |context, _, cx| {
-                ReferenceCard {
-                    previews: preview_cards::ReferencePreviews::read(
-                        &reference,
-                        &body,
-                        &weak,
-                        &context.text,
-                        cx,
-                    ),
-                    reference: reference.clone(),
-                    context: context.clone(),
-                }
-                .into_any_element()
-            }),
-        })
-    }
-}
-
 /// The text within 800 bytes of `offset` each way (what `keyAt` scans),
 /// and where it starts.
-fn around(text: &BufferSnapshot, offset: usize) -> (String, usize) {
+pub(super) fn around(text: &BufferSnapshot, offset: usize) -> (String, usize) {
     let start = text.clip_offset(offset.saturating_sub(800), language::Bias::Right);
     let end = text.clip_offset((offset + 800).min(text.len()), language::Bias::Left);
     (text.text_for_range(start..end).collect(), start)

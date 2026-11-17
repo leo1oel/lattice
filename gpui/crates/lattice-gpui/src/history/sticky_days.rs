@@ -131,7 +131,12 @@ impl StickyDays {
 
     /// The pinned name over the top of the scrolled area, inset as the
     /// timeline is (`inset`), or nothing while every day's name is in view.
-    pub(super) fn render(&self, scroll: &ScrollHandle, inset: Pixels, cx: &App) -> Option<AnyElement> {
+    pub(super) fn render(
+        &self,
+        scroll: &ScrollHandle,
+        inset: Pixels,
+        cx: &App,
+    ) -> Option<AnyElement> {
         let scrolled = (-scroll.offset().y).max(px(0.));
         let pinned = self.pinned(scrolled);
         *self.shown.borrow_mut() = pinned;

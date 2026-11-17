@@ -26,7 +26,10 @@ mod local_copy;
 mod margin;
 mod margin_end;
 mod margin_visual;
+mod margin_walk;
 mod markdown_review;
+mod network_return;
+mod pdf_note;
 mod polish;
 mod presence;
 mod project_history;
@@ -219,22 +222,26 @@ impl Run {
             json!({}),
         );
 
-        // A linked project's PDF notes are Overleaf comments, which GPUI
-        // does not make yet, so its PDF offers no Annotate. The link loads
+        // A linked project's PDF notes are Overleaf comments. The link loads
         // after the notes were first given (`bridge.set_project` reads it
-        // asynchronously), so this proves the bridge observer re-gives them;
-        // the unlinked fixture's window keeps offering it.
-        let withheld = linked
+        // asynchronously), so this proves the bridge observer tells the PDF
+        // again; the unlinked fixture's PDF keeps making local annotations.
+        let linked_knows = linked
             .wait_for(cx, Duration::from_secs(10), |shell, cx| {
-                shell.read(cx).pdf().read(cx).annotatable() == Some(false)
+                shell
+                    .read(cx)
+                    .pdf()
+                    .read(cx)
+                    .overleaf_notes()
+                    .is_some_and(|overleaf| overleaf.is_some())
             })
             .await;
-        let linked_offer = cx.update(|cx| linked.shell.read(cx).pdf().read(cx).annotatable());
-        let unlinked_offer = cx.update(|cx| self.shell.read(cx).pdf().read(cx).annotatable());
+        let unlinked_local =
+            cx.update(|cx| self.shell.read(cx).pdf().read(cx).overleaf_notes() == Some(None));
         steps.check(
-            "in a project linked to Overleaf the PDF offers no Annotate, while an unlinked project's still does",
-            withheld && unlinked_offer == Some(true),
-            json!({ "linked": linked_offer, "unlinked": unlinked_offer }),
+            "in a project linked to Overleaf the PDF's notes go to Overleaf, while an unlinked project's stay local annotations",
+            linked_knows && unlinked_local,
+            json!({ "linked": linked_knows, "unlinked_local": unlinked_local }),
         );
 
         // Live mode pulls a co-author's edit on its own.
@@ -320,6 +327,24 @@ impl Run {
                 .map(|(resolver, _)| resolver.clone())
         });
         if let Some(resolver) = resolver {
+            // Builds are manual while it is resolved, so the build that
+            // follows is the resolution's own, not the watcher's.
+            let builds = cx.update(|cx| settings::get(cx).auto_build_mode);
+            cx.update(|cx| {
+                settings::update(cx, |s| {
+                    s.auto_build_mode = lattice_settings::AutoBuildMode::Manual
+                })
+            });
+            linked
+                .wait_for(cx, Duration::from_secs(60), |shell, cx| {
+                    !shell.read(cx).building()
+                })
+                .await;
+            // A build quick enough to end between two looks still leaves a
+            // newer PDF behind.
+            let pdf = clone_root.join("main.pdf");
+            let modified = |pdf: &Path| std::fs::metadata(pdf).and_then(|m| m.modified()).ok();
+            let before = modified(&pdf);
             // The resolver reads the file in the background once it opens.
             // Choosing before that read lands picks no spots and saves
             // against an empty expected text, which the write refuses as
@@ -340,6 +365,17 @@ impl Run {
                         .is_ok_and(|text| !text.contains("<<<<<<<"))
                 })
                 .await;
+            let built = linked
+                .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                    shell.read(cx).building() || modified(&pdf) > before
+                })
+                .await;
+            steps.check(
+                "the resolved file is compiled, with builds left to the writer",
+                built,
+                json!({ "built": built }),
+            );
+            cx.update(|cx| settings::update(cx, |s| s.auto_build_mode = builds));
         }
 
         // Manual mode: a badge for new work, then Review changes.
@@ -400,11 +436,15 @@ impl Run {
             .await?;
         linked.overleaf_live(cx, steps, &mock).await?;
         linked.overleaf_reconnect(cx, steps, &mock).await?;
+        linked.overleaf_network_return(cx, steps, &mock).await?;
         linked.overleaf_review(cx, steps, &mock).await?;
         linked.overleaf_markdown_review(cx, steps, &mock).await?;
         linked.overleaf_chat(cx, steps, &mock).await?;
         linked.overleaf_project_history(cx, steps, &mock).await?;
         linked.overleaf_polish(cx, steps, &mock).await?;
+        let root = linked.root(cx).await?;
+        linked.overleaf_margin_walk(cx, steps, &mock, &root)
+            .await?;
 
         // Settings › Overleaf.
         linked.with_window(cx, |shell, window, cx| {

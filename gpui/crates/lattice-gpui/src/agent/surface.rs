@@ -571,7 +571,11 @@ impl SynaraSurface {
                 }
                 cx.notify();
             }
-            "island:notify" => crate::structured::show_page_notice(payload, cx),
+            "island:notify" => crate::structured::show_page_notice(
+                payload,
+                self.island.as_ref().map(gpui::Entity::downgrade),
+                cx,
+            ),
             "agent:notify" => self.synara_notice(payload, cx),
             "agent:permission" => self.permission_reported(payload, cx),
             // The Agent's checkpoints: the History panel's rows, and the

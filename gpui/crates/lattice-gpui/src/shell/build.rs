@@ -220,11 +220,14 @@ impl Shell {
             }
             // Cleaning was held back while the previous pass ran; a forced
             // build alone keeps the stale .aux the writer asked to be rid of.
+            // The document this build compiles, not the last one's: another
+            // root's `.aux` may be what this one reads (`xr-hyper`).
             if request.clean {
                 let cleaned = cx
                     .background_spawn({
                         let root = root.clone();
-                        async move { latex::clean(&root) }
+                        let open_document = open_document.clone();
+                        async move { latex::clean(&root, open_document.as_deref()) }
                     })
                     .await;
                 if let Err(error) = cleaned {
@@ -298,7 +301,7 @@ impl Shell {
     /// The .tex in the editor the writer was last in, and whether it holds
     /// `\documentclass`: such a file builds even when the manifest names no
     /// document, as lattice-core adopts it, as Overleaf does.
-    fn open_document(&self, cx: &App) -> Option<(String, bool)> {
+    pub(super) fn open_document(&self, cx: &App) -> Option<(String, bool)> {
         let editor = self.active_editor()?;
         let editor = editor.read(cx);
         editor
@@ -409,7 +412,11 @@ impl Shell {
                     }
                 });
                 if wrote_pdf {
-                    self.read_compounds(result.root_document.clone(), result.aux_folder.clone(), cx);
+                    self.read_compounds(
+                        result.root_document.clone(),
+                        result.aux_folder.clone(),
+                        cx,
+                    );
                 }
                 if result.success && !cancelled {
                     notices::dismiss(BUILD_FAILED_NOTICE, cx);

@@ -139,7 +139,13 @@ type Markers = (Range<usize>, Range<usize>);
 fn emphasis_markers(text: &str, from: usize, to: usize, bold: bool) -> Option<Markers> {
     let bytes = text.as_bytes();
     let width = if bold { 2 } else { 1 };
-    let holds = |depth: usize| if bold { depth >= 2 } else { depth == 1 || depth == 3 };
+    let holds = |depth: usize| {
+        if bold {
+            depth >= 2
+        } else {
+            depth == 1 || depth == 3
+        }
+    };
     for ch in *b"*_" {
         let before = run(bytes, from, ch, true);
         let after = run(bytes, to, ch, false);
@@ -196,9 +202,12 @@ fn link_markers(text: &str, from: usize, to: usize) -> Option<Markers> {
 
 fn markers(text: &str, segment: &Range<usize>, format: InlineFormat) -> Option<Markers> {
     match format {
-        InlineFormat::Bold | InlineFormat::Italic => {
-            emphasis_markers(text, segment.start, segment.end, format == InlineFormat::Bold)
-        }
+        InlineFormat::Bold | InlineFormat::Italic => emphasis_markers(
+            text,
+            segment.start,
+            segment.end,
+            format == InlineFormat::Bold,
+        ),
         InlineFormat::Link => link_markers(text, segment.start, segment.end),
         _ => {
             let (open, close) = format.wraps();
@@ -213,27 +222,43 @@ pub fn toggle_inline(text: &str, range: Range<usize>, format: InlineFormat) -> O
     if parts.is_empty() {
         return None;
     }
-    let found: Vec<Option<Markers>> = parts.iter().map(|part| markers(text, part, format)).collect();
+    let found: Vec<Option<Markers>> = parts
+        .iter()
+        .map(|part| markers(text, part, format))
+        .collect();
     if found.iter().all(Option::is_some) {
         let changes = normalize(
             found
                 .iter()
                 .flatten()
-                .flat_map(|(open, close)| [Replace::new(open.clone(), ""), Replace::new(close.clone(), "")])
+                .flat_map(|(open, close)| {
+                    [
+                        Replace::new(open.clone(), ""),
+                        Replace::new(close.clone(), ""),
+                    ]
+                })
                 .collect(),
         );
         let first = found[0].as_ref().unwrap().0.end;
         let last = found[found.len() - 1].as_ref().unwrap().1.start;
         let anchor = map_pos(&changes, range.start.max(first), 1);
         let head = map_pos(&changes, range.end.min(last), -1);
-        return Some(TextEdit { changes, anchor, head });
+        return Some(TextEdit {
+            changes,
+            anchor,
+            head,
+        });
     }
     if format == InlineFormat::Link {
         // The destination is typed next: the caret waits between the parentheses.
         let (from, to) = (parts[0].start, parts[parts.len() - 1].end);
         let changes = vec![Replace::new(from..from, "["), Replace::new(to..to, "]()")];
         let caret = map_pos(&changes, to, 1) - 1;
-        return Some(TextEdit { changes, anchor: caret, head: caret });
+        return Some(TextEdit {
+            changes,
+            anchor: caret,
+            head: caret,
+        });
     }
     let (open, close) = format.wraps();
     let changes = normalize(
@@ -251,7 +276,11 @@ pub fn toggle_inline(text: &str, range: Range<usize>, format: InlineFormat) -> O
     );
     let anchor = map_pos(&changes, parts[0].start, 1);
     let head = map_pos(&changes, parts[parts.len() - 1].end, -1);
-    Some(TextEdit { changes, anchor, head })
+    Some(TextEdit {
+        changes,
+        anchor,
+        head,
+    })
 }
 
 /// A line's leading syntax: indent, `>` quote markers, then a heading or
@@ -275,7 +304,9 @@ fn line_prefix(line: &str) -> Prefix {
     Prefix {
         indent: found[1].to_string(),
         quote: found[2].to_string(),
-        marker: found.get(3).map_or(String::new(), |m| m.as_str().to_string()),
+        marker: found
+            .get(3)
+            .map_or(String::new(), |m| m.as_str().to_string()),
         length: found.get(0).unwrap().end(),
     }
 }
@@ -317,7 +348,9 @@ fn fence_around(text: &str, all: &[Range<usize>], number: usize) -> Option<(usiz
                 if let Some(fence) = fence
                     && fence.as_bytes()[0] == opening.as_bytes()[0]
                     && fence.len() >= opening.len()
-                    && line[line.find(&fence).unwrap() + fence.len()..].trim().is_empty()
+                    && line[line.find(&fence).unwrap() + fence.len()..]
+                        .trim()
+                        .is_empty()
                 {
                     if current >= number {
                         return Some((*start, Some(current)));
@@ -355,7 +388,10 @@ pub fn selection_format(text: &str, range: Range<usize>) -> SelectionFormat {
     let mut inline = HashSet::new();
     if !parts.is_empty() {
         for format in InlineFormat::ALL {
-            if parts.iter().all(|part| markers(text, part, format).is_some()) {
+            if parts
+                .iter()
+                .all(|part| markers(text, part, format).is_some())
+            {
                 inline.insert(format);
             }
         }
@@ -384,9 +420,7 @@ pub fn set_block(text: &str, range: Range<usize>, block: BlockType) -> Option<Te
     let all = lines(text);
     let first = line_of(&all, range.start);
     // A selection ending at a line's very start leaves that line out.
-    let end_at = if range.end > range.start
-        && all[line_of(&all, range.end)].start == range.end
-    {
+    let end_at = if range.end > range.start && all[line_of(&all, range.end)].start == range.end {
         range.end - 1
     } else {
         range.end
@@ -399,10 +433,16 @@ pub fn set_block(text: &str, range: Range<usize>, block: BlockType) -> Option<Te
         content_first = open + 1;
         content_last = close.unwrap_or(all.len()).saturating_sub(1);
         let opening = &all[open];
-        changes.push(Replace::new(opening.start..(opening.end + 1).min(text.len()), ""));
+        changes.push(Replace::new(
+            opening.start..(opening.end + 1).min(text.len()),
+            "",
+        ));
         if let Some(close) = close {
             let closing = &all[close];
-            changes.push(Replace::new(closing.start.saturating_sub(1)..closing.end, ""));
+            changes.push(Replace::new(
+                closing.start.saturating_sub(1)..closing.end,
+                "",
+            ));
         }
         if matches!(block, BlockType::CodeBlock | BlockType::Text) {
             return Some(mapped(changes, range));
@@ -445,7 +485,13 @@ pub fn set_block(text: &str, range: Range<usize>, block: BlockType) -> Option<Te
                 quote.clear();
                 marker.clear();
             }
-            _ => marker = if toggled_off { String::new() } else { marker_for(block, index) },
+            _ => {
+                marker = if toggled_off {
+                    String::new()
+                } else {
+                    marker_for(block, index)
+                }
+            }
         }
         let next = format!("{}{quote}{marker}", prefix.indent);
         if next != text[*from..from + prefix.length] {
@@ -461,7 +507,11 @@ fn mapped(changes: Vec<Replace>, range: Range<usize>) -> TextEdit {
     let changes = normalize(changes);
     let anchor = map_pos(&changes, range.start, 1);
     let head = map_pos(&changes, range.end, if range.is_empty() { 1 } else { -1 });
-    TextEdit { changes, anchor, head }
+    TextEdit {
+        changes,
+        anchor,
+        head,
+    }
 }
 
 #[cfg(test)]
@@ -508,17 +558,30 @@ mod tests {
     #[test]
     fn blocks_set_and_toggle() {
         let text = "a\nb";
-        let list = set_block(text, 0..text.len(), BlockType::BulletList).unwrap().apply(text);
+        let list = set_block(text, 0..text.len(), BlockType::BulletList)
+            .unwrap()
+            .apply(text);
         assert_eq!(list, "- a\n- b");
-        let back = set_block(&list, 0..list.len(), BlockType::BulletList).unwrap().apply(&list);
+        let back = set_block(&list, 0..list.len(), BlockType::BulletList)
+            .unwrap()
+            .apply(&list);
         assert_eq!(back, text);
-        let heading = set_block(text, 0..1, BlockType::Heading(2)).unwrap().apply(text);
+        let heading = set_block(text, 0..1, BlockType::Heading(2))
+            .unwrap()
+            .apply(text);
         assert_eq!(heading, "## a\nb");
-        assert_eq!(selection_format(&heading, 3..4).block, BlockType::Heading(2));
-        let code = set_block(text, 0..1, BlockType::CodeBlock).unwrap().apply(text);
+        assert_eq!(
+            selection_format(&heading, 3..4).block,
+            BlockType::Heading(2)
+        );
+        let code = set_block(text, 0..1, BlockType::CodeBlock)
+            .unwrap()
+            .apply(text);
         assert_eq!(code, "```\na\n```\nb");
         assert!(selection_format(&code, 4..5).in_code);
-        let plain = set_block(&code, 4..5, BlockType::Text).unwrap().apply(&code);
+        let plain = set_block(&code, 4..5, BlockType::Text)
+            .unwrap()
+            .apply(&code);
         assert_eq!(plain, text);
     }
 }

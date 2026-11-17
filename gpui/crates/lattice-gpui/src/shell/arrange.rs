@@ -59,6 +59,18 @@ impl Shell {
             .update(cx, |workspace, cx| workspace.update_engine(cx, f))
     }
 
+    /// Work the document tabs' details and tooltips out again from the
+    /// layout, drawing again when one changed (`tab_names::TabTexts`).
+    pub(super) fn refresh_tab_texts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let engine = self.workspace.read(cx).engine();
+        if self
+            .tab_texts
+            .refresh(engine.doc(), |view| engine.title_of(view))
+        {
+            window.refresh();
+        }
+    }
+
     pub(super) fn on_workspace_event(
         &mut self,
         _: &Entity<TrellisWorkspace>,
@@ -66,6 +78,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.refresh_tab_texts(window, cx);
         match event {
             WorkspaceEvent::Changed => self.layout_changed(window, cx),
             WorkspaceEvent::Opened(_) => self.sync_views(window, cx),

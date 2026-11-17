@@ -16,6 +16,7 @@ use std::process::{Command, Output};
 
 #[cfg(target_os = "linux")]
 mod appimage;
+mod public_service;
 mod python_tools;
 
 #[cfg(target_os = "linux")]
@@ -26,6 +27,11 @@ pub use python_tools::{
     arxiv2md_cache_dir, prewarm_literature_tools, ARXIV2MD, ARXIV_SOURCE2MD, BIBCITE,
 };
 // Tests keep the preamble formats, its only other user, out of the user's cache.
+#[cfg(test)]
+pub(crate) use public_service::reset as reset_public_service;
+pub(crate) use public_service::{
+    bibcite_output_routed, note as public_service_note, paused as public_service_paused,
+};
 #[cfg_attr(test, allow(unused_imports))]
 pub(crate) use python_tools::app_cache_dir;
 pub(crate) use python_tools::{bibcite_output_cancellable, redact_bibcite_output};

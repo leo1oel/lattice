@@ -59,6 +59,28 @@ pub(super) fn replaced(root: &Path, document: &str) -> bool {
     fs::read(pdf).is_ok_and(|bytes| sha256_hex(bytes) != recorded)
 }
 
+/// Each PDF this copy's last build of its document left, by path relative
+/// to `root` (`cvpr/main.pdf`) → SHA-256. A file whose bytes still match is
+/// this copy's untouched build output, not something a writer made: Overleaf
+/// sync never lets one raise a both-sides conflict (`overleaf::sync`).
+pub(crate) fn built_pdfs(root: &Path) -> BTreeMap<String, String> {
+    (read_hashes(root).into_iter())
+        .filter_map(|(document, hash)| {
+            let document = document.replace('\\', "/");
+            let (stem, extension) = document.rsplit_once('.')?;
+            let tex = extension.eq_ignore_ascii_case("tex") && !stem.is_empty();
+            tex.then(|| (format!("{stem}.pdf"), hash))
+        })
+        .collect()
+}
+
+/// Record the PDF beside `document` as this copy's build of it, as a build
+/// that wrote it does.
+#[cfg(test)]
+pub(crate) fn record_build(root: &Path, document: &str) {
+    record_hash(root, document, &root.join(document).with_extension("pdf"));
+}
+
 fn read_hashes(root: &Path) -> BTreeMap<String, String> {
     let raw = fs::read(root.join(HASHES)).unwrap_or_default();
     serde_json::from_slice(&raw).unwrap_or_default()

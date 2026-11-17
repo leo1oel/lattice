@@ -399,6 +399,8 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
         label: t`Copy path`,
         run: () => void writeText(absoluteProjectPath(props.projectKey, path)).then(() => notifyCopied(t`Path copied`)),
       },
+      // The path as the project names it, as a \input or \includegraphics takes it.
+      { icon: Copy, label: t`Copy relative path`, run: () => void writeText(path).then(() => notifyCopied(t`Path copied`)) },
       { icon: FolderOpen, label: t`Show in Finder`, run: () => props.onReveal(path) },
       { ...hiddenFilesAction, group: true },
       refreshAction,

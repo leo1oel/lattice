@@ -88,6 +88,7 @@ impl UvTool {
             openalex_key()?,
             semanticscholar_key()?,
             crossref_contact()?,
+            super::public_service_paused().is_none(),
         ))
     }
 
@@ -100,7 +101,7 @@ impl UvTool {
 
 fn configure_bibcite_env(
     mut command: Command, openalex: Option<String>, semanticscholar: Option<String>,
-    contact: Option<String>,
+    contact: Option<String>, public_service: bool,
 ) -> Command {
     for name in BIBCITE_KEYS.iter().chain(&[
         "BIBCITE_MAILTO",
@@ -112,7 +113,13 @@ fn configure_bibcite_env(
     // bibcite caches publication matches by title without author/ID context.
     // Do not replay a cached candidate as independently verified metadata.
     command.env("BIBCITE_NO_CACHE", "1");
-    command.env("BIBCITE_PUBLIC_SERVICE_URL", crate::literature_service::ENDPOINT);
+    // Without the service, bibcite queries each provider directly; see
+    // `public_service` for when it is left out.
+    if public_service {
+        command.env("BIBCITE_PUBLIC_SERVICE_URL", crate::literature_service::ENDPOINT);
+    } else {
+        command.env_remove("BIBCITE_PUBLIC_SERVICE_URL");
+    }
     if let Some(key) = openalex {
         command.env("OPENALEX_API_KEY", key);
     }
@@ -362,6 +369,7 @@ mod tests {
             Some("openalex-saved".into()),
             Some("semantic-saved".into()),
             Some("person@example.org".into()),
+            true,
         ));
         for (name, value) in [
             ("OPENALEX_API_KEY", "openalex-saved"),
@@ -373,7 +381,9 @@ mod tests {
             assert_eq!(saved[name].as_deref(), Some(value), "{name}");
         }
 
-        let unset = envs(configure_bibcite_env(Command::new("bibcite"), None, None, None));
+        let unset = envs(configure_bibcite_env(Command::new("bibcite"), None, None, None, false));
+        // Paused, the service is left out and bibcite goes direct.
+        assert_eq!(unset["BIBCITE_PUBLIC_SERVICE_URL"], None);
         assert_eq!(unset["BIBCITE_S2_BATCH_STATUS"].as_deref(), Some("disabled"));
         assert_eq!(unset["BIBCITE_NO_CACHE"].as_deref(), Some("1"));
         assert_eq!(unset["S2_API_KEY"], None);

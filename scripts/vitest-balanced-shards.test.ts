@@ -20,7 +20,9 @@ function suite(files: Record<string, string>): { root: string; specs: TestSpecif
     mkdirSync(dirname(join(root, file)), { recursive: true });
     writeFileSync(join(root, file), content);
   }
-  return { root, specs: Object.keys(files).map((file) => ({ moduleId: join(root, file) }) as TestSpecification) };
+  // Vitest names a module with "/" on Windows too.
+  const moduleId = (file: string) => join(root, file).replaceAll("\\", "/");
+  return { root, specs: Object.keys(files).map((file) => ({ moduleId: moduleId(file) }) as TestSpecification) };
 }
 
 async function shards(root: string, specs: TestSpecification[], count: number): Promise<string[][]> {

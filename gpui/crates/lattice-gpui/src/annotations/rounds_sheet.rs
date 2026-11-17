@@ -17,10 +17,9 @@ pub mod compare;
 use std::{ops::Range, path::PathBuf};
 
 use gpui::{
-    AnyElement, App, Context, EventEmitter, HighlightStyle, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled as _, StyledText, Window, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, App, Context, EventEmitter, HighlightStyle, InteractiveElement as _, IntoElement,
+    ParentElement as _, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _,
+    Styled as _, StyledText, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_core::project::{AnnotationRound, EditorComment};
 use lattice_i18n::{Locale, join_phrases, locale, t};
@@ -44,7 +43,10 @@ pub enum RoundsSheetEvent {
     /// Open this history entry (the round's version) in History.
     OpenInHistory(String),
     /// Write `files` (path, text) as one restore named `label`.
-    Restore { label: String, files: Vec<(String, String)> },
+    Restore {
+        label: String,
+        files: Vec<(String, String)>,
+    },
 }
 
 pub struct RoundsSheet {
@@ -142,13 +144,20 @@ impl RoundsSheet {
     /// the annotation numbers behind each (for a scenario).
     pub fn shown_changes(&self) -> Option<Vec<(String, Vec<u32>)>> {
         self.snapshots.as_ref()?;
-        Some(self.changes().into_iter().map(|change| (change.newer, change.numbers)).collect())
+        Some(
+            self.changes()
+                .into_iter()
+                .map(|change| (change.newer, change.numbers))
+                .collect(),
+        )
     }
 
     /// Open in History, for the round compared (for a scenario).
     pub fn open_in_history(&mut self, cx: &mut Context<Self>) {
         if let Version::Round(number) = self.selected
-            && let Some(id) = self.round(number).and_then(|round| round.history_id.clone())
+            && let Some(id) = self
+                .round(number)
+                .and_then(|round| round.history_id.clone())
         {
             cx.emit(RoundsSheetEvent::OpenInHistory(id));
         }
@@ -232,7 +241,11 @@ impl RoundsSheet {
     }
 
     fn change_index(&self) -> usize {
-        if self.cursor.0 == self.pair() { self.cursor.1 } else { 0 }
+        if self.cursor.0 == self.pair() {
+            self.cursor.1
+        } else {
+            0
+        }
     }
 
     fn go_to(&mut self, index: usize, changes: &[Changed], cx: &mut Context<Self>) {
@@ -242,9 +255,7 @@ impl RoundsSheet {
         self.cursor = (self.pair(), index);
         // The rows are the scroll area's children after its head, each file's
         // name before its first change when there are several files.
-        let several = changes
-            .iter()
-            .any(|change| change.path != changes[0].path);
+        let several = changes.iter().any(|change| change.path != changes[0].path);
         let headers = if several {
             1 + (1..=index)
                 .filter(|&at| changes[at].path != changes[at - 1].path)
@@ -289,7 +300,10 @@ impl RoundsSheet {
                 name = name
             )
         } else {
-            t!("Restore the files the rounds touched to {name}?", name = name)
+            t!(
+                "Restore the files the rounds touched to {name}?",
+                name = name
+            )
         };
         let this = cx.entity().downgrade();
         crate::confirm::ask(
@@ -311,8 +325,8 @@ fn when(at: Option<&str>) -> String {
     let Some(ms) = at.and_then(time::parse_ms) else {
         return String::new();
     };
-    let Some(local) = chrono::DateTime::from_timestamp_millis(ms)
-        .map(|at| at.with_timezone(&chrono::Local))
+    let Some(local) =
+        chrono::DateTime::from_timestamp_millis(ms).map(|at| at.with_timezone(&chrono::Local))
     else {
         return String::new();
     };
@@ -353,7 +367,12 @@ fn marked(text: &str, spans: Vec<Range<usize>>, deleted: bool, cx: &App) -> Styl
 }
 
 impl RoundsSheet {
-    fn render_rail(&self, narrow: bool, older: Option<&Version>, cx: &mut Context<Self>) -> AnyElement {
+    fn render_rail(
+        &self,
+        narrow: bool,
+        older: Option<&Version>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let now_edited = self.snapshots.as_ref().is_some_and(Snapshots::now_edited);
         let versions = compare::versions(&self.settled);
@@ -383,7 +402,9 @@ impl RoundsSheet {
             let is_base = older == Some(&version);
             let detail: Option<String> = match &version {
                 Version::Now => None,
-                Version::Before => Some(when(self.settled.first().map(|round| round.started_at.as_str()))),
+                Version::Before => Some(when(
+                    self.settled.first().map(|round| round.started_at.as_str()),
+                )),
                 Version::Round(number) => self.round(*number).map(|round| {
                     let count = round.outcomes.len();
                     let annotations = if count == 1 {
@@ -480,7 +501,12 @@ impl RoundsSheet {
         rail.into_any_element()
     }
 
-    fn render_compare(&self, narrow: bool, older: Option<Version>, cx: &mut Context<Self>) -> AnyElement {
+    fn render_compare(
+        &self,
+        narrow: bool,
+        older: Option<Version>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let changes = self.changes();
         let index = self.change_index();
@@ -490,7 +516,9 @@ impl RoundsSheet {
             None => newer_name.clone(),
         };
         let history_id = match &self.selected {
-            Version::Round(number) => self.round(*number).and_then(|round| round.history_id.clone()),
+            Version::Round(number) => self
+                .round(*number)
+                .and_then(|round| round.history_id.clone()),
             _ => None,
         };
         let count = (!changes.is_empty()).then(|| {
@@ -520,7 +548,9 @@ impl RoundsSheet {
                         .icon_size(px(13.))
                         .tooltip(t!("Next change"))
                         .disabled(index + 1 >= changes.len())
-                        .on_click(cx.listener(move |this, _, _, cx| this.go_to(index + 1, &down, cx))),
+                        .on_click(
+                            cx.listener(move |this, _, _, cx| this.go_to(index + 1, &down, cx)),
+                        ),
                 )
         });
         let bar = div()
@@ -618,9 +648,12 @@ impl RoundsSheet {
                     );
                 }
                 let hunks = diff::hunks(&change.older, &change.newer);
-                let deleted: Vec<Range<usize>> =
-                    hunks.iter().map(|hunk| hunk.base_from..hunk.base_to).collect();
-                let inserted: Vec<Range<usize>> = hunks.iter().map(|hunk| hunk.from..hunk.to).collect();
+                let deleted: Vec<Range<usize>> = hunks
+                    .iter()
+                    .map(|hunk| hunk.base_from..hunk.base_to)
+                    .collect();
+                let inserted: Vec<Range<usize>> =
+                    hunks.iter().map(|hunk| hunk.from..hunk.to).collect();
                 let current = at == index;
                 let card = |content: AnyElement| {
                     div()
@@ -631,14 +664,22 @@ impl RoundsSheet {
                         .rounded(px(10.))
                         .bg(palette.panel)
                         .border_1()
-                        .border_color(if current { palette.line_strong } else { palette.line })
+                        .border_color(if current {
+                            palette.line_strong
+                        } else {
+                            palette.line
+                        })
                         .text_role(TextRole::Body, cx)
                         .text_color(palette.text)
                         .whitespace_normal()
                         .child(content)
                 };
                 let placeholder = |text: &'static str| {
-                    div().italic().text_color(palette.text_secondary).child(text).into_any_element()
+                    div()
+                        .italic()
+                        .text_color(palette.text_secondary)
+                        .child(text)
+                        .into_any_element()
                 };
                 let left = if change.older.is_empty() {
                     placeholder(t!("(new paragraph)"))
@@ -702,7 +743,11 @@ impl RoundsSheet {
                         .flex()
                         .items_center()
                         .rounded_full()
-                        .when(pressed, |pill| pill.border_1().border_color(palette.accent).text_color(palette.text))
+                        .when(pressed, |pill| {
+                            pill.border_1()
+                                .border_color(palette.accent)
+                                .text_color(palette.text)
+                        })
                         .hover(|pill| pill.bg(palette.hover))
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.base = Some(chosen.clone());
@@ -721,9 +766,11 @@ impl RoundsSheet {
             .flex_col()
             .gap(px(10.))
             .child(bar)
-            .children(self.error.clone().map(|error| {
-                crate::history::widgets::inline_message(error, true, cx)
-            }))
+            .children(
+                self.error
+                    .clone()
+                    .map(|error| crate::history::widgets::inline_message(error, true, cx)),
+            )
             .child(body)
             .children(base_row)
             .into_any_element()
@@ -767,8 +814,13 @@ impl Render for RoundsSheet {
             })
             .child(body);
         let _ = window;
-        ModalLayer::new("annotation-rounds", LayerPlacement::Center, sheet, move |_, cx| {
-            this.update(cx, |_, cx| Self::close(cx)).ok();
-        })
+        ModalLayer::new(
+            "annotation-rounds",
+            LayerPlacement::Center,
+            sheet,
+            move |_, cx| {
+                this.update(cx, |_, cx| Self::close(cx)).ok();
+            },
+        )
     }
 }

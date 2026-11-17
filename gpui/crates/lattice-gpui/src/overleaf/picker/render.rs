@@ -29,9 +29,11 @@ impl Render for OverleafPicker {
                 t!("Close").to_string()
             })
             .disabled(transferring)
-            .on_click(ModalLayer::closing("overleaf-picker-layer", cx, |this, _, cx| {
-                this.dismiss(cx)
-            }));
+            .on_click(ModalLayer::closing(
+                "overleaf-picker-layer",
+                cx,
+                |this, _, cx| this.dismiss(cx),
+            ));
         let header = div()
             .flex_none()
             .flex()

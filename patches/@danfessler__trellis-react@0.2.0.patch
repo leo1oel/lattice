@@ -1,0 +1,38 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index fc13a40dc678dbd88502e6318109fa86ffd01520..04d39c1f4c9aa8ae0db53759b7c43857dd97e79d 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -37,6 +37,10 @@ interface ViewTypeProps<P extends object = Params> extends ViewRules {
+     /** Unique type name. `<View type>` and `open(type)` refer to it. */
+     id: string;
+     title?: string | ((view: ViewHandle<P>) => string);
++    /** Lattice patch: quieter text after the tab's title (see the core patch). */
++    detail?: ViewTypeDefinition<P>["detail"];
++    /** Lattice patch: false when the host draws the tab's tooltip itself. */
++    tip?: false;
+     /** A React node, or trusted SVG/HTML markup as a string. */
+     icon?: ReactNode;
+     /** Content for each view. Receives nothing; use `useView()` inside. */
+diff --git a/dist/index.js b/dist/index.js
+index 7814dd60c045b0113b51e2226b41a2e80f36dd74..85559f7297794ba52f78af2de8406bfdd6949061 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -255,6 +255,9 @@ function WorkspaceImpl(props, forwarded) {
+     className: t.className,
+     icon: isMarkup(t.icon) ? t.icon : void 0,
+     title: typeof t.title === "function" ? wrap(t.id, "title") : t.title,
++    // Lattice patch: the core patch's tab detail and tooltip opt-out.
++    detail: typeof t.detail === "function" ? wrap(t.id, "detail") : void 0,
++    tip: t.tip,
+     iframe: typeof t.iframe === "function" ? wrap(t.id, "iframe") : t.iframe,
+     mount: t.mount ? wrap(t.id, "mount") : void 0,
+     menu: t.menu === void 0 ? void 0 : wrap(t.id, "menu")
+@@ -263,6 +266,8 @@ function WorkspaceImpl(props, forwarded) {
+     (t) => JSON.stringify([
+       t.id,
+       typeof t.title === "function" ? "\u0192" : t.title,
++      typeof t.detail === "function",
++      t.tip,
+       isMarkup(t.icon) ? t.icon : "",
+       typeof t.iframe === "function" ? "\u0192" : JSON.stringify(t.iframe ?? null),
+       !!t.mount,
