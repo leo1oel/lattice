@@ -87,6 +87,15 @@ hashes, a remote block list, signed releases) comes later (decision D4).
 
 A plugin is a folder with `lattice-plugin.toml` and its code.
 
+### Start from the SDK
+
+[`plugin-sdk/`](../plugin-sdk/README.md) (MIT) has the runtime (`definePlugin`,
+one file, no dependencies), TypeScript types generated from the schema, a pack
+script that prints the SHA-256 for a URL install, and two reference plugins to
+copy: [`examples/plugins/zotero-search`](../examples/plugins/zotero-search) and
+[`examples/plugins/bib-check`](../examples/plugins/bib-check). The examples are
+real plugins: lattice-core's tests run `bib-check` inside the sandbox.
+
 ### Manifest
 
 ```toml

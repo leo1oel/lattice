@@ -1,0 +1,19 @@
+# A reference plugin: checks the project's .bib files without network access.
+schema = 1
+id = "app.lattice.bib-check"
+name = "Bibliography check"
+version = "0.1.0"
+api = 1
+license = "MIT"
+description = "Finds duplicate keys and DOIs, missing required fields and malformed years in the project's .bib files."
+repository = "https://github.com/leo1oel/lattice/tree/main/examples/plugins/bib-check"
+runtime = "node"
+main = "main.mjs"
+
+[permissions]
+project-read = ["bibliography"]
+
+[[commands]]
+id = "check"
+title = "Check bibliography"
+description = "Duplicate keys and DOIs, missing fields, malformed years."

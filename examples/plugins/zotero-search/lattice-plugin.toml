@@ -1,0 +1,22 @@
+# A reference plugin: search the writer's running Zotero and cite from it.
+# It reaches Zotero only on its local port; it has no other network access.
+schema = 1
+id = "app.lattice.zotero-search"
+name = "Zotero"
+version = "0.1.0"
+api = 1
+license = "MIT"
+description = "Search the Zotero library on this Mac (Better BibTeX or Zotero's local API) and cite or add the result."
+repository = "https://github.com/leo1oel/lattice/tree/main/examples/plugins/zotero-search"
+runtime = "node"
+main = "main.mjs"
+
+[permissions]
+project-read = ["bibliography"]
+network-local = [23119]
+
+[[commands]]
+id = "search"
+title = "Search Zotero…"
+description = "Find an item by title, author, year or citation key."
+input = { kind = "text", placeholder = "Title, author, year or citation key" }
