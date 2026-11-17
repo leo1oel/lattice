@@ -177,8 +177,9 @@ mod sandboxed {
     #[test]
     fn a_command_gets_its_context_and_the_bibliography() {
         let Some(f) = fixture(ALL) else { return };
-        let Ok(CommandResult::Items { items, summary }) = run(&f, "echo", Some("knuth")) else {
-            panic!("items")
+        let (items, summary) = match run(&f, "echo", Some("knuth")) {
+            Ok(CommandResult::Items { items, summary }) => (items, summary),
+            other => panic!("expected items, got {other:?}"),
         };
         assert_eq!(summary.as_deref(), Some("echo"));
         let echoed: Value = serde_json::from_str(&items[0].title).unwrap();
@@ -198,7 +199,10 @@ mod sandboxed {
     #[test]
     fn without_project_read_the_plugin_sees_only_the_project_name() {
         let Some(f) = fixture("") else { return };
-        let Ok(CommandResult::Items { items, .. }) = run(&f, "echo", None) else { panic!("items") };
+        let items = match run(&f, "echo", None) {
+            Ok(CommandResult::Items { items, .. }) => items,
+            other => panic!("expected items, got {other:?}"),
+        };
         let echoed: Value = serde_json::from_str(&items[0].title).unwrap();
         assert_eq!(echoed["context"], json!({"project": {"name": "Paper", "bibliographies": []}}));
         assert_eq!(echoed["keys"], json!([]));
