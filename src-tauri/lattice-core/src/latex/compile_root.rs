@@ -52,15 +52,40 @@ pub(super) fn compiled_document(root: &Path, manifest: &ProjectManifest) -> Resu
 /// compiles this once and the default stays, so the chapter edited next
 /// builds the paper again rather than the figure.
 pub(super) fn choose_compile_root(root: &Path, open_document: Option<&str>) -> Result<(), String> {
-    match open_document.and_then(|open| project::resolve_compile_root(root, open)) {
+    match open_target(root, open_document) {
         Some(target) if target.one_off => set_one_off_root(root, Some(&target.path)),
-        Some(target) if !project::main_document_chosen(root) => {
+        Some(target) => {
             set_one_off_root(root, None);
             project::set_compile_root(root, &target.path)?;
         }
-        _ => set_one_off_root(root, None),
+        None => set_one_off_root(root, None),
     }
     Ok(())
+}
+
+/// The root the open file makes a build compile, when it wins over the
+/// manifest default ([`choose_compile_root`]'s rule).
+fn open_target(root: &Path, open_document: Option<&str>) -> Option<project::CompileRoot> {
+    open_document
+        .and_then(|open| project::resolve_compile_root(root, open))
+        .filter(|target| target.one_off || !project::main_document_chosen(root))
+}
+
+/// The document a build started with `open_document` in the editor would
+/// compile, without recording anything ([`choose_compile_root`] does that
+/// when the build runs).
+///
+/// A clean ahead of a build asks this, not the last build's document: with
+/// two root documents in a folder (a paper and its supplement, linked by
+/// `xr-hyper`), a Clean rebuild of the paper right after a build of the
+/// supplement deleted the supplement's `.aux`, which the paper reads.
+pub(super) fn build_target(
+    root: &Path, manifest: &ProjectManifest, open_document: Option<&str>,
+) -> Result<String, String> {
+    match open_target(root, open_document) {
+        Some(target) => Ok(target.path),
+        None => default_root_document(manifest).map(|document| document.path.clone()),
+    }
 }
 
 #[cfg(test)]
@@ -107,6 +132,30 @@ mod tests {
             assert!(!is_one_off_root(&root));
         }
         assert_eq!(project::read_manifest(&root).unwrap().root_documents.len(), 1);
+    }
+
+    /// A paper and its supplement, each a root, in one folder: a clean
+    /// ahead of a build names the root that build compiles, not the last
+    /// build's, and records nothing.
+    #[test]
+    fn a_clean_names_the_root_the_next_build_compiles() {
+        let root = TempDir::new("build-target");
+        project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
+        let root_document = "\\documentclass{article}\n\\begin{document}x\\end{document}\n";
+        root.write("cvpr/main_v3.tex", root_document);
+        root.write("cvpr/supp_v3.tex", root_document);
+        root.write("cvpr/sec/intro.tex", "\\section{Intro}\n");
+        let manifest = || project::read_manifest(&root).unwrap();
+        let target = |open: Option<&str>| build_target(&root, &manifest(), open).unwrap();
+
+        choose_compile_root(&root, Some("cvpr/supp_v3.tex")).unwrap();
+        assert_eq!(compiled_document(&root, &manifest()).unwrap(), "cvpr/supp_v3.tex");
+        assert_eq!(target(Some("cvpr/main_v3.tex")), "cvpr/main_v3.tex");
+        // Asking moved nothing: the last build's document is still the default.
+        assert_eq!(compiled_document(&root, &manifest()).unwrap(), "cvpr/supp_v3.tex");
+        // A chapter, or no .tex open, builds the default.
+        assert_eq!(target(Some("cvpr/sec/intro.tex")), "cvpr/supp_v3.tex");
+        assert_eq!(target(None), "cvpr/supp_v3.tex");
     }
 
     /// The captain's project: main.tex and main_v2.tex both declare a class.

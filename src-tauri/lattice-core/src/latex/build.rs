@@ -7,7 +7,7 @@ use super::build_log::{
 };
 use super::build_stall::{self, Progress, StallLimits};
 use super::build_steps::BuildSteps;
-use super::compile_root::{choose_compile_root, is_one_off_root};
+use super::compile_root::{build_target, choose_compile_root, is_one_off_root};
 #[cfg(test)]
 use super::latexmk;
 use super::preamble_format::{self, PreambleFormat, Prepared};
@@ -110,14 +110,24 @@ fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps, progress: &Progress) 
     bytes
 }
 
-/// latexmk's own clean (`-c`) of the compiled document's intermediate files,
+/// latexmk's own clean (`-c`) of one root document's intermediate files,
 /// beside it and in the hidden build folder: the PDF and its SyncTeX map stay.
-pub fn clean(root: &Path) -> Result<String, String> {
+/// The document is the one a build started with `open_document` in the
+/// editor compiles (`build_target`), so a Clean rebuild cleans what it then
+/// builds. Never another root's: in a folder holding two, linked by
+/// `xr-hyper`, each reads the other's `.aux`, which only its own build
+/// writes.
+pub fn clean(root: &Path, open_document: Option<&str>) -> Result<String, String> {
     let manifest = project::read_manifest(root)?;
-    let document = compiled_document(root, &manifest)?;
-    let mut logs = vec![clean_layout(root, &document, AuxFiles::Beside)?];
-    if aux_files::has_build(root, &document, AuxFiles::Hidden) {
-        logs.push(clean_layout(root, &document, AuxFiles::Hidden)?);
+    let document = build_target(root, &manifest, open_document)?;
+    clean_layouts(root, &document)
+}
+
+/// [`clean`] of `document`, relative to `root`, in both layouts.
+fn clean_layouts(root: &Path, document: &str) -> Result<String, String> {
+    let mut logs = vec![clean_layout(root, document, AuxFiles::Beside)?];
+    if aux_files::has_build(root, document, AuxFiles::Hidden) {
+        logs.push(clean_layout(root, document, AuxFiles::Hidden)?);
     }
     Ok(logs.join("\n"))
 }
@@ -299,7 +309,7 @@ fn build_passes(
         wide_event::record("unchanged_failure", true);
         result = unchanged::restate(root, result);
     } else if stale {
-        let _ = clean(root);
+        let _ = clean_layouts(root, &result.root_document);
         wide_event::record("stale_rebuild", true);
         result = run_latexmk(root, true, active, steps, layout)?;
         // At the end: a failed log is read and copied from its top, where
@@ -634,3 +644,5 @@ mod stop_tests;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod two_roots_tests;

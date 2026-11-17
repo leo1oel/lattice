@@ -585,7 +585,7 @@ fn a_root_document_in_a_subfolder_previews_and_syncs_its_own_fresh_build() {
         let heading = SourceLine { path: "cv/sop/sop.tex".to_string(), line: 3 };
         assert_eq!(heading_pages(&root, &[heading]).unwrap(), vec![Some(1)], "{engine}");
 
-        super::super::clean(&root).unwrap();
+        super::super::clean(&root, None).unwrap();
         assert!(!root.join("cv/sop/sop.aux").exists(), "{engine}: clean left the build's aux");
     }
 }

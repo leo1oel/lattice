@@ -472,8 +472,21 @@ describe("cleaning build files", () => {
   it("cleans without asking first", async () => {
     const view = renderPipeline(async () => result());
     await act(() => view.result.current.cleanProject());
-    expect(invoke).toHaveBeenCalledWith("clean_project");
+    expect(invoke).toHaveBeenCalledWith("clean_project", { documentPath: "main.tex" });
     expect(view.result.current.cleaning).toBe(false);
+  });
+
+  // A paper and its supplement in one folder, linked by xr-hyper: the paper
+  // reads the supplement's .aux. A Clean rebuild of the paper right after a
+  // build of the supplement cleaned the supplement, the last build's root.
+  it("cleans the root a Clean rebuild compiles, named the same way as its build", async () => {
+    const view = renderPipeline(async () => result({ rootDocument: "cvpr/main_v3.tex" }), { activeFile: "cvpr/main_v3.tex" });
+    await act(() => view.result.current.cleanAndRebuild());
+    const calls = vi.mocked(invoke).mock.calls.filter(([command]) => command === "clean_project" || command === "build_project");
+    expect(calls).toEqual([
+      ["clean_project", { documentPath: "cvpr/main_v3.tex" }],
+      ["build_project", expect.objectContaining({ force: true, documentPath: "cvpr/main_v3.tex" })],
+    ]);
   });
 });
 

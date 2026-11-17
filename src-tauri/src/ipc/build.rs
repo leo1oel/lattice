@@ -188,9 +188,17 @@ pub fn abort_build(state: State<'_, AppState>, window: Window) -> Result<bool, S
     latex::abort(&state.project(&root).active_build)
 }
 
+/// `document_path`: the open file, as `build_project` takes it, so the clean
+/// of a Clean rebuild removes the files of the document that build compiles,
+/// never another root's (`latex::clean`).
 #[tauri::command]
-pub async fn clean_project(state: State<'_, AppState>, window: Window) -> Result<String, String> {
-    in_project(&state, &window, "The LaTeX clean task", latex::clean).await
+pub async fn clean_project(
+    state: State<'_, AppState>, window: Window, document_path: Option<String>,
+) -> Result<String, String> {
+    in_project(&state, &window, "The LaTeX clean task", move |root| {
+        latex::clean(root, document_path.as_deref())
+    })
+    .await
 }
 
 #[tauri::command]

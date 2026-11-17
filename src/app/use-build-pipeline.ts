@@ -45,6 +45,9 @@ type RunningBuild = { settled: Promise<void>; revision: number };
 const SLOW_BUILD_MINUTES = 10;
 const SLOW_BUILD_NOTICE = "build-still-running";
 
+/** The open file as `build_project` and `clean_project` take it: a `.tex`, or nothing. */
+const openTexDocument = (file: string): string | null => (file.toLowerCase().endsWith(".tex") ? file : null);
+
 /**
  * LaTeX builds and the PDF preview they feed: one build at a time with later
  * requests coalesced into a single queued pass, the debounced preview, the
@@ -238,11 +241,16 @@ export function useBuildPipeline({
         return true;
       };
       do {
+        // The open file rides along so the backend can re-target the build on
+        // it when it is a compilable root — recomputed each pass because a
+        // queued rebuild may run after the editor moved to another document.
+        const documentPath = openTexDocument(activeFileRef.current);
         // Cleaning was held back while the previous pass ran; a forced build
-        // alone keeps the stale .aux that the writer asked to get rid of.
+        // alone keeps the stale .aux that the writer asked to get rid of. It
+        // cleans the document this pass compiles, named the same way.
         if (cleanFirst) {
           cleanFirst = false;
-          if (!await cleanAuxiliaryFiles(setCleaning)) continue;
+          if (!await cleanAuxiliaryFiles(setCleaning, documentPath)) continue;
         }
         // Associate only work present at the start of this pass. A checkpoint
         // arriving during an in-flight build remains pending for the queued
@@ -261,10 +269,6 @@ export function useBuildPipeline({
         const liveAtBuild = { token: livePreview?.current?.buildStarted(quietRef.current) ?? null, quiet: quietRef.current };
         const sourceAtBuild = sourceRef.current;
         const fileAtBuild = activeFileRef.current;
-        // The open file rides along so the backend can re-target the build on
-        // it when it is a compilable root — recomputed each pass because a
-        // queued rebuild may run after the editor moved to another document.
-        const documentPath = activeFileRef.current.toLowerCase().endsWith(".tex") ? activeFileRef.current : null;
         // Each pass starts its sequence afresh; the backend fills it in as latexmk runs.
         const progressId = ++progressIdRef.current;
         progress.set({ steps: [], startedAt: performance.now() });
@@ -472,16 +476,16 @@ export function useBuildPipeline({
 
   const cleanProject = useCallback(async () => {
     if (!project || cleaning || building) return;
-    if (await cleanAuxiliaryFiles(setCleaning)) showNotice(t`Build files cleaned`, t`Build`);
-  }, [building, cleaning, project, t]);
+    if (await cleanAuxiliaryFiles(setCleaning, openTexDocument(activeFileRef.current))) showNotice(t`Build files cleaned`, t`Build`);
+  }, [activeFileRef, building, cleaning, project, t]);
 
   const cleanAndRebuild = useCallback(async () => {
     if (!project || cleaning) return;
-    // The active build owns the backend until it settles. Preserve the clean
-    // rebuild intent in its queue rather than cleaning files out from under it.
-    if (buildingRef.current) await runBuild(true, { requested: true, sound: true, clean: true });
-    else if (await cleanAuxiliaryFiles(setCleaning)) await runBuild(true, { requested: true, sound: true });
-  }, [buildingRef, cleaning, project, runBuild]);
+    // The clean is the pass's first step, so it and the build name the same
+    // open document. While a build runs, that pass waits in its queue rather
+    // than cleaning files out from under it.
+    await runBuild(true, { requested: true, sound: true, clean: true });
+  }, [cleaning, project, runBuild]);
 
   const dismissDiagnostics = useCallback((diagnostics: CompileDiagnostic[]) => {
     dismissedDiagnosticsRef.current = diagnosticsFingerprint(diagnostics);
