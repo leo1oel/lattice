@@ -359,6 +359,9 @@ function answer(command: string, args: Args): unknown {
       return { files: ["main.tex", "appendix.tex", "styles/学校学位论文与实验室联合投稿格式文件.cls", "figures/多语言图示与较长资源文件名称.png"], root: "main.tex", engine: "xelatex" };
     case "save_local_template":
       return { ...args?.template as object, id: "87654321-1234-4234-8234-123456789abc" };
+    case "load_project_tab_group":
+    case "save_project_tab_group":
+      return null;
     case "initial_project":
       // `?tutorial=1` starts in the tutorial project, as after its Guided tutorial entry.
       if (params.has("crossrefs")) return openCrossrefs();
