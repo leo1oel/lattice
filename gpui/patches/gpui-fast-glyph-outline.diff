@@ -1,0 +1,226 @@
+diff --git a/gpui-fast/crates/gpui/src/fast/glyph_outline.rs b/gpui-fast/crates/gpui/src/fast/glyph_outline.rs
+new file mode 100644
+index 0000000..4b92b9b
+--- /dev/null
++++ b/gpui-fast/crates/gpui/src/fast/glyph_outline.rs
+@@ -0,0 +1,42 @@
++//! A glyph's outline, for drawing shaped text where a glyph sprite can't go.
++//!
++//! GPUI draws a glyph as a sprite rasterized upright at its size, so text
++//! can't be rotated or drawn along any other transform. An app that needs that
++//! (Lattice's whiteboard rotates text elements) shapes the text with GPUI as
++//! usual and draws each glyph's outline as a path under its own transform.
++//! The outline is the platform's own, in font units (y up), so it is the same
++//! face the shaper picked, fallback fonts included.
++//!
++//! Adapted from quiet.md's patch to gpui 0.2.2 (vendor/PATCHES.md #37,
++//! `WindowTextSystem::glyph_outline`), Copyright (c) 2026 s1dashu, MIT:
++//! https://github.com/s1dashu/quiet-md
++
++use crate::{FontId, GlyphId, WindowTextSystem};
++
++/// One step of a glyph outline, in font units with y up.
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub enum GlyphOutlineCmd {
++    /// Starts a contour.
++    MoveTo([f32; 2]),
++    /// A straight segment.
++    LineTo([f32; 2]),
++    /// A quadratic Bézier segment: control point, end point.
++    QuadTo([f32; 2], [f32; 2]),
++    /// A cubic Bézier segment: two control points, end point.
++    CubicTo([f32; 2], [f32; 2], [f32; 2]),
++    /// Closes the contour.
++    Close,
++}
++
++impl WindowTextSystem {
++    /// The outline of a glyph of a font, in font units (`units_per_em`) with
++    /// y up, or `None` for a bitmap glyph (color emoji) and on platforms
++    /// whose text system has no outlines (only macOS has them).
++    pub fn glyph_outline(
++        &self,
++        font_id: FontId,
++        glyph_id: GlyphId,
++    ) -> Option<Vec<GlyphOutlineCmd>> {
++        self.platform_text_system.glyph_outline(font_id, glyph_id)
++    }
++}
+diff --git a/gpui-fast/crates/gpui/src/fast/mod.rs b/gpui-fast/crates/gpui/src/fast/mod.rs
+index 7910569..a50582b 100644
+--- a/gpui-fast/crates/gpui/src/fast/mod.rs
++++ b/gpui-fast/crates/gpui/src/fast/mod.rs
+@@ -22,6 +22,7 @@ pub(crate) mod dispatch;
+ pub(crate) mod dynamic_textures;
+ pub(crate) mod em_metrics;
+ pub(crate) mod global_id;
++pub(crate) mod glyph_outline;
+ pub(crate) mod glyphs;
+ pub(crate) mod interactive_text;
+ pub(crate) mod interface_zoom;
+diff --git a/gpui-fast/crates/gpui/src/gpui.rs b/gpui-fast/crates/gpui/src/gpui.rs
+index 5f6bfbb..3ec33e0 100644
+--- a/gpui-fast/crates/gpui/src/gpui.rs
++++ b/gpui-fast/crates/gpui/src/gpui.rs
+@@ -132,6 +132,7 @@ pub use fast::composition::{
+     PlatformCompositionSurface, PlatformCompositionSurfaceContent, PlatformSurfaceAttachment,
+     WindowComposition, WindowCompositionSurface,
+ };
++pub use fast::glyph_outline::GlyphOutlineCmd;
+ pub use fast::dynamic_textures::{
+     DynamicTexture, DynamicTextureId, DynamicTexturePlatform, set_dynamic_texture_platform,
+ };
+diff --git a/gpui-fast/crates/gpui/src/platform.rs b/gpui-fast/crates/gpui/src/platform.rs
+index 03b9657..c2a6497 100644
+--- a/gpui-fast/crates/gpui/src/platform.rs
++++ b/gpui-fast/crates/gpui/src/platform.rs
+@@ -1597,6 +1597,14 @@ pub trait PlatformTextSystem: Send + Sync {
+     fn glyph_dilation_for_color(&self, _color: Hsla) -> u8 {
+         0
+     }
++    /// A glyph's outline in font units, y up (gpui-fast: `fast::glyph_outline`).
++    fn glyph_outline(
++        &self,
++        _font_id: FontId,
++        _glyph_id: GlyphId,
++    ) -> Option<Vec<crate::fast::glyph_outline::GlyphOutlineCmd>> {
++        None
++    }
+ }
+ 
+ #[expect(missing_docs)]
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/glyph_outline.rs b/gpui-fast/crates/gpui_apple/src/fast/glyph_outline.rs
+new file mode 100644
+index 0000000..000bb8f
+--- /dev/null
++++ b/gpui-fast/crates/gpui_apple/src/fast/glyph_outline.rs
+@@ -0,0 +1,97 @@
++//! A glyph's outline from font-kit (CoreText), for
++//! `PlatformTextSystem::glyph_outline` (`gpui::fast::glyph_outline`).
++//!
++//! Adapted from quiet.md's patch to gpui 0.2.2 (vendor/PATCHES.md #37),
++//! Copyright (c) 2026 s1dashu, MIT: https://github.com/s1dashu/quiet-md
++
++use font_kit::{font::Font, hinting::HintingOptions, outline::OutlineSink};
++use gpui::{GlyphId, GlyphOutlineCmd};
++use pathfinder_geometry::{line_segment::LineSegment2F, vector::Vector2F};
++
++struct Sink(Vec<GlyphOutlineCmd>);
++
++fn point(v: Vector2F) -> [f32; 2] {
++    [v.x(), v.y()]
++}
++
++impl OutlineSink for Sink {
++    fn move_to(&mut self, to: Vector2F) {
++        self.0.push(GlyphOutlineCmd::MoveTo(point(to)));
++    }
++    fn line_to(&mut self, to: Vector2F) {
++        self.0.push(GlyphOutlineCmd::LineTo(point(to)));
++    }
++    fn quadratic_curve_to(&mut self, ctrl: Vector2F, to: Vector2F) {
++        self.0.push(GlyphOutlineCmd::QuadTo(point(ctrl), point(to)));
++    }
++    fn cubic_curve_to(&mut self, ctrl: LineSegment2F, to: Vector2F) {
++        self.0.push(GlyphOutlineCmd::CubicTo(
++            point(ctrl.from()),
++            point(ctrl.to()),
++            point(to),
++        ));
++    }
++    fn close(&mut self) {
++        self.0.push(GlyphOutlineCmd::Close);
++    }
++}
++
++/// `glyph`'s outline in `font`'s units, y up; `None` when the font has no
++/// outline for it.
++pub(crate) fn outline(font: &Font, glyph: GlyphId) -> Option<Vec<GlyphOutlineCmd>> {
++    let mut sink = Sink(Vec::new());
++    font.outline(glyph.0, HintingOptions::None, &mut sink)
++        .ok()?;
++    Some(sink.0)
++}
++
++#[cfg(all(test, target_os = "macos"))]
++mod tests {
++    use gpui::{FontRun, GlyphOutlineCmd, PlatformTextSystem, font, px};
++
++    use crate::AppleTextSystem;
++
++    #[test]
++    fn outlines_follow_the_shaped_glyph() {
++        let fonts = AppleTextSystem::new();
++        let font_id = fonts.font_id(&font("Menlo")).unwrap();
++        let text = "O";
++        let runs = [FontRun {
++            font_id,
++            len: text.len(),
++        }];
++        let glyph = fonts.layout_line(text, px(14.), &runs).runs[0].glyphs[0].id;
++        let outline = fonts.glyph_outline(font_id, glyph).unwrap();
++        let contours =
++            |cmd: fn(&GlyphOutlineCmd) -> bool| outline.iter().filter(|c| cmd(c)).count();
++        assert_eq!(
++            contours(|c| matches!(c, GlyphOutlineCmd::MoveTo(_))),
++            2,
++            "{outline:?}"
++        );
++        assert_eq!(
++            contours(|c| matches!(c, GlyphOutlineCmd::Close)),
++            2,
++            "{outline:?}"
++        );
++
++        let bounds = fonts.typographic_bounds(font_id, glyph).unwrap();
++        for cmd in &outline {
++            let (GlyphOutlineCmd::MoveTo(p)
++            | GlyphOutlineCmd::LineTo(p)
++            | GlyphOutlineCmd::QuadTo(_, p)
++            | GlyphOutlineCmd::CubicTo(_, _, p)) = cmd
++            else {
++                continue;
++            };
++            assert!(
++                p[0] >= bounds.origin.x - 1. && p[0] <= bounds.origin.x + bounds.size.width + 1.,
++                "{p:?} outside {bounds:?}"
++            );
++            assert!(
++                p[1] >= bounds.origin.y - 1. && p[1] <= bounds.origin.y + bounds.size.height + 1.,
++                "{p:?} outside {bounds:?}"
++            );
++        }
++    }
++}
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/mod.rs b/gpui-fast/crates/gpui_apple/src/fast/mod.rs
+index 5488610..c129ca0 100644
+--- a/gpui-fast/crates/gpui_apple/src/fast/mod.rs
++++ b/gpui-fast/crates/gpui_apple/src/fast/mod.rs
+@@ -17,6 +17,8 @@ pub(crate) mod dynamic_textures;
+ pub(crate) mod font_fallbacks;
+ #[cfg(feature = "font-kit")]
+ pub(crate) mod font_smoothing;
++#[cfg(feature = "font-kit")]
++pub(crate) mod glyph_outline;
+ pub(crate) mod layers;
+ pub(crate) mod paths;
+ pub(crate) mod rounded_clip;
+diff --git a/gpui-fast/crates/gpui_apple/src/text_system.rs b/gpui-fast/crates/gpui_apple/src/text_system.rs
+index a2c69cb..1a268c8 100644
+--- a/gpui-fast/crates/gpui_apple/src/text_system.rs
++++ b/gpui-fast/crates/gpui_apple/src/text_system.rs
+@@ -201,6 +201,14 @@ impl PlatformTextSystem for AppleTextSystem {
+         self.0.read().glyph_for_char(font_id, ch)
+     }
+ 
++    fn glyph_outline(
++        &self,
++        font_id: FontId,
++        glyph_id: GlyphId,
++    ) -> Option<Vec<gpui::GlyphOutlineCmd>> {
++        crate::fast::glyph_outline::outline(self.0.read().fonts.get(font_id.0)?, glyph_id)
++    }
++
+     fn glyph_raster_bounds(&self, params: &RenderGlyphParams) -> Result<Bounds<DevicePixels>> {
+         self.0.read().raster_bounds(params)
+     }
