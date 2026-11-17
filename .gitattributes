@@ -45,6 +45,10 @@ gpui/crates/lattice-gpui/src/updater/fixtures/** -text
 # conference and thesis style files are copied unchanged from upstream (see
 # each template's UPSTREAM.md).
 src/papers/venues.ts linguist-generated
+# The GPUI app's host error catalog is regenerated from src/platform/host-errors-*.ts
+# by scripts/gpui-host-errors.mjs (`--check` keeps it current); the source lists
+# are the files people edit and the ones the ratchet measures.
+gpui/crates/lattice-gpui/src/host_errors/catalog.rs linguist-generated
 src-tauri/templates/*/*.sty linguist-vendored
 src-tauri/templates/*/*.bst linguist-vendored
 src-tauri/templates/*/*.cls linguist-vendored
