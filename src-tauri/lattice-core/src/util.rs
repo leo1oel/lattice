@@ -34,7 +34,8 @@ pub(crate) fn is_atomic_write_temporary(name: &str) -> bool {
 /// compiling, through a program it runs with shell escape: minted's
 /// `_minted` / `_minted-<jobname>`, the svg package's `svg-inkscape`. TeX's
 /// output directory never reaches it, so it lands beside the sources; the
-/// tree hides it and Overleaf sync leaves it out. Exact names only: a
+/// tree hides it, Overleaf sync leaves it out and a project's `.gitignore`
+/// names it (`build_artifact_ignore_lines`). Exact names only: a
 /// writer's `_minted_snippets/` is a source. Never deleted as build output,
 /// since a project may keep it on purpose (minted's `frozencache`).
 pub(crate) fn in_package_cache_folder(relative: &str) -> bool {
