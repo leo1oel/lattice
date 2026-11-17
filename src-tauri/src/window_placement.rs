@@ -19,7 +19,7 @@ use crate::pdf_window::{title_bar_on, Frame};
 use tauri::{PhysicalPosition, PhysicalSize, Runtime, WebviewWindow};
 
 /// A frame in physical pixels: the window's outer top-left corner and its
-/// content size, as Tauri reports and sets them.
+/// outer size, title bar and borders included, as Tauri reports them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Rect {
     pub(crate) x: i64,
@@ -60,9 +60,12 @@ pub(crate) fn keep_reachable<R: Runtime>(window: &WebviewWindow<R>) {
     if window.is_maximized().unwrap_or(false) {
         return;
     }
-    let (Ok(position), Ok(size), Ok(monitors)) =
-        (window.outer_position(), window.inner_size(), window.available_monitors())
-    else {
+    let (Ok(position), Ok(outer), Ok(inner), Ok(monitors)) = (
+        window.outer_position(),
+        window.outer_size(),
+        window.inner_size(),
+        window.available_monitors(),
+    ) else {
         return;
     };
     let main = window.primary_monitor().ok().flatten();
@@ -85,8 +88,8 @@ pub(crate) fn keep_reachable<R: Runtime>(window: &WebviewWindow<R>) {
     let frame = Rect {
         x: i64::from(position.x),
         y: i64::from(position.y),
-        width: i64::from(size.width),
-        height: i64::from(size.height),
+        width: i64::from(outer.width),
+        height: i64::from(outer.height),
     };
     let scale = window.scale_factor().unwrap_or(1.0);
     let Some(target) = correction(frame, &screens, scale) else {
@@ -100,7 +103,14 @@ pub(crate) fn keep_reachable<R: Runtime>(window: &WebviewWindow<R>) {
         to_y = target.y,
         "a restored window was off every screen; moved it to the main screen"
     );
-    let _ = window.set_size(PhysicalSize::new(target.width as u32, target.height as u32));
+    // `target` is an outer frame but `set_size` takes the content size, so
+    // take off the title bar and borders or the window ends up taller than
+    // the work area it was fitted to.
+    let border_width = i64::from(outer.width) - i64::from(inner.width);
+    let border_height = i64::from(outer.height) - i64::from(inner.height);
+    let width = (target.width - border_width).max(1);
+    let height = (target.height - border_height).max(1);
+    let _ = window.set_size(PhysicalSize::new(width as u32, height as u32));
     let _ = window.set_position(PhysicalPosition::new(target.x as i32, target.y as i32));
 }
 
