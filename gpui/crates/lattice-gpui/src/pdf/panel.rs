@@ -106,6 +106,11 @@ pub struct PdfPanel {
     /// documents' (`pdf_tab_label`).
     label: SharedString,
     view: Entity<PdfView>,
+    /// The viewer's focus handle, kept here so that asking the panel for
+    /// its focus does not read the viewer: the shell asks as it renders, and
+    /// would be built again whenever the viewer is notified, on every frame
+    /// it scrolls.
+    view_focus: FocusHandle,
     /// The live PDF's separate window and the viewer in it.
     window: Option<(AnyWindowHandle, Entity<PdfView>)>,
     /// The PDF shown, which the window or the panel opens again when the
@@ -275,6 +280,7 @@ impl PdfPanel {
             home: window.window_handle(),
             project: None,
             label,
+            view_focus: view.read(cx).focus_handle(cx),
             view,
             window: None,
             source: None,
@@ -689,11 +695,11 @@ impl EventEmitter<PanelEvent> for PdfPanel {}
 impl EventEmitter<PdfEvent> for PdfPanel {}
 
 impl Focusable for PdfPanel {
-    fn focus_handle(&self, cx: &App) -> FocusHandle {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
         if self.window.is_some() {
             self.focus_handle.clone()
         } else {
-            self.view.read(cx).focus_handle(cx)
+            self.view_focus.clone()
         }
     }
 }
@@ -790,7 +796,15 @@ impl Render for PdfPanel {
                 .rounded_b(PANEL_RADIUS)
                 .overflow_hidden()
                 .children(self.marking_message(cx))
-                .child(div().flex_1().min_h_0().child(self.view.clone()))
+                // Cached, so that the viewer notified alone (a scroll, a page
+                // drawn) is built again without the panel around it.
+                .child(
+                    div().flex_1().min_h_0().child(
+                        self.view
+                            .clone()
+                            .cached(gpui::StyleRefinement::default().size_full()),
+                    ),
+                )
                 .children(self.build_output.clone())
                 .children(self.marking_pill(cx))
                 .into_any_element();

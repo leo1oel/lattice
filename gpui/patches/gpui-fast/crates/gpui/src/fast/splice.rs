@@ -377,18 +377,12 @@ impl Window {
         // Deferred views are prepainted after their ancestors have closed
         // their records, so they are not among the nested gaps above. Their
         // reads belong to the ancestor's dependencies, but not its own reads.
-        // Copying a deferred draw outside the rebuilt gaps could therefore
-        // replay a dirty view. Rebuild the ancestor to reach those draws;
-        // deferred draws inside a gap are safe because that gap rebuilds them.
-        let mut deferred_cursor = record.prepaint_range.start.deferred_draws_index;
-        for &gap in &gaps {
-            let range = &records[gap].prepaint_range;
-            if deferred_cursor != range.start.deferred_draws_index {
-                return None;
-            }
-            deferred_cursor = range.end.deferred_draws_index;
-        }
-        if deferred_cursor != record.prepaint_range.end.deferred_draws_index {
+        // A deferred draw outside the rebuilt gaps is copied as it was only
+        // if it is as it was: no view drawn in it is dirty and nothing it
+        // read changed (`deferred_outside_gaps_unchanged`). Otherwise the ancestor
+        // is rebuilt to reach it; deferred draws inside a gap are safe
+        // because that gap rebuilds them.
+        if !self.deferred_outside_gaps_unchanged(record, &gaps, cx) {
             return None;
         }
 
@@ -548,17 +542,9 @@ impl Window {
         if gaps.is_empty() {
             return None;
         }
-        // As in `splice_layout`: deferred draws outside the gaps could replay
-        // a dirty view.
-        let mut deferred_cursor = record.prepaint_range.start.deferred_draws_index;
-        for &gap in &gaps {
-            let range = &records[gap].prepaint_range;
-            if deferred_cursor != range.start.deferred_draws_index {
-                return None;
-            }
-            deferred_cursor = range.end.deferred_draws_index;
-        }
-        if deferred_cursor != record.prepaint_range.end.deferred_draws_index {
+        // As in `splice_layout`: deferred draws outside the gaps are copied
+        // only if they are as they were.
+        if !self.deferred_outside_gaps_unchanged(record, &gaps, cx) {
             return None;
         }
 
@@ -611,6 +597,105 @@ impl Window {
             dependencies: read,
             prepainted: None,
         })
+    }
+
+    /// Whether the deferred draws the view last frame's `record` stands for
+    /// asked for outside the views of `gaps` (indices of records nested in
+    /// it, in order) are as they were, so that a splice can copy them.
+    /// Copying one replays its prepaint and paint as they were, the views
+    /// drawn in it included.
+    fn deferred_outside_gaps_unchanged(
+        &self,
+        record: &RetainedSubtree,
+        gaps: &[usize],
+        cx: &App,
+    ) -> bool {
+        let records = &self.rendered_frame.retained.records;
+        let mut outside = Vec::new();
+        let mut cursor = record.prepaint_range.start.deferred_draws_index;
+        for &gap in gaps {
+            let range = &records[gap].prepaint_range;
+            outside.push(cursor..range.start.deferred_draws_index);
+            cursor = range.end.deferred_draws_index;
+        }
+        outside.push(cursor..record.prepaint_range.end.deferred_draws_index);
+        let mut draws = Vec::new();
+        for range in outside.into_iter().filter(|range| !range.is_empty()) {
+            let Some(found) = self.rendered_frame.deferred_draws.get(range) else {
+                return false;
+            };
+            draws.extend(found);
+        }
+        if draws.is_empty() {
+            return true;
+        }
+        let dependencies = &record.dependencies;
+        if cx.globals_changed(dependencies) {
+            return false;
+        }
+        let nodes = &self.rendered_frame.dispatch_tree.nodes;
+        let notified = &self.retained_state.notified_entities;
+        let changed =
+            |entity: &EntityId| self.dirty_views.contains(entity) || notified.contains(entity);
+        let mut views = FxHashSet::default();
+        for draw in &draws {
+            let range = &draw.prepaint_range;
+            let start = range.start.dispatch_tree_index.min(nodes.len());
+            let end = range.end.dispatch_tree_index.clamp(start, nodes.len());
+            views.extend(nodes[start..end].iter().filter_map(|node| node.view_id));
+            let entities: Vec<EntityId> = draw.accessed_entities.iter().copied().collect();
+            if entities.iter().any(changed) || cx.entities_changed_since(&entities, dependencies) {
+                return false;
+            }
+        }
+        if views.iter().any(changed) {
+            return false;
+        }
+        // A view drawn deferred renders as the view around it lays out, but
+        // is prepainted after the records around it close, so it is not
+        // nested in them, and a change of what it read leaves it clean. One
+        // with a record of its own is judged by it. What one without read
+        // is among what the view around it read, which cannot tell it apart
+        // from what the gaps read: what the gaps read is left out, as they
+        // are built again for it (a deferred view showing it too is taken to
+        // observe it, as a GPUI view does what it shows), and the rest must
+        // be as it was.
+        let mut unrecorded = false;
+        for view in &views {
+            let mut own = records
+                .iter()
+                .filter(|nested| view_entity(&nested.id) == Some(*view))
+                .peekable();
+            if own.peek().is_none() {
+                unrecorded = true;
+            } else if !own.all(|nested| self.reusable_retained(&nested.id, cx).is_some()) {
+                return false;
+            }
+        }
+        if !unrecorded {
+            return true;
+        }
+        // The view around them is dirty for the gaps; what it read itself
+        // was judged with the splice.
+        let in_gaps: FxHashSet<EntityId> = gaps
+            .iter()
+            .flat_map(|&gap| {
+                let gap = &records[gap];
+                gap.dependencies
+                    .entities
+                    .iter()
+                    .copied()
+                    .chain(view_entity(&gap.id))
+            })
+            .chain(view_entity(&record.id))
+            .collect();
+        let read: Vec<EntityId> = dependencies
+            .entities
+            .iter()
+            .copied()
+            .filter(|entity| !in_gaps.contains(entity))
+            .collect();
+        !read.iter().any(changed) && !cx.entities_changed_since(&read, dependencies)
     }
 
     /// Whether the view `splice` draws around its gaps came out of this
