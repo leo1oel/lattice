@@ -11,6 +11,8 @@
 //! - [`keys`]: which of the app's shortcuts a page hands back, and how.
 
 pub mod bridge;
+#[cfg(target_os = "windows")]
+pub mod detached;
 pub mod files;
 mod held;
 pub mod island;
