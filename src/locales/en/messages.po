@@ -4635,8 +4635,14 @@ msgid "Copy log"
 msgstr "Copy log"
 
 #: src/project/project-file-tree.tsx
+#: src/trellis/trellis-document-tabs.tsx
 msgid "Copy path"
 msgstr "Copy path"
+
+#: src/project/project-file-tree.tsx
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Copy relative path"
+msgstr "Copy relative path"
 
 #: src/agent/agent-visual-dialog.tsx
 msgid "Copy source"
@@ -11908,6 +11914,7 @@ msgstr "Paste your API key"
 
 #: src/project/project-file-tree.tsx
 #: src/project/project-tree-clipboard.ts
+#: src/trellis/trellis-document-tabs.tsx
 msgid "Path copied"
 msgstr "Path copied"
 

@@ -37,7 +37,8 @@ import { layoutShape } from "./trellis-workspaces";
 import { PANEL_TITLES } from "./trellis-titles";
 import { PANEL_ICONS } from "./trellis-icons";
 import { PanelMenu } from "./trellis-panel-menu";
-import { useDocumentTabs, withTabItems } from "./trellis-document-tabs";
+import { fileTabDetail, useDocumentTabs, withTabItems } from "./trellis-document-tabs";
+import { FileTabTip } from "./file-tab-tip";
 import type { FileParams } from "./trellis-tab-policy";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { terminalViewType } from "../terminal/terminal-view-type";
@@ -578,6 +579,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           scaling={false}
           tabbar={focusMode ? "never" : undefined}
           title={(view) => controller.bridge?.tabLabel(String(view.params.key ?? "")) ?? String(view.params.key ?? "")}
+          detail={(view) => fileTabDetail(controller.ws, String(view.params.key ?? ""))}
+          tip={false}
           accessory={<FileHeaderTools controller={controller} />}
           menu={(view) => withTabItems(controller, view, fileMenu(view))}
         >
@@ -599,6 +602,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         </Workspace.Empty>
       </Workspace>
       {menu && <PanelMenu request={menu} open={menuOpen} onDismiss={dismissMenu} onClose={closeMenu} />}
+      <FileTabTip controller={controller} ws={ws} />
     </SnapshotProjectContext.Provider>
   );
 });

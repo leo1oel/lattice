@@ -6,6 +6,10 @@ import { loadLayout } from "./trellis-layout";
 import { chooseEvictions, type TabCandidate } from "./trellis-tab-policy";
 import TrellisWorkspace from "./trellis-workspace";
 import { snapshotTextKey } from "./snapshot-texts";
+import { paperTabKey } from "../app-utils";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(async () => {}), readText: vi.fn(async () => "") }));
 
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
@@ -272,5 +276,56 @@ describe("a panel out of room", () => {
     await act(async () => {});
     expect(ws.views({ type: "file" })).toHaveLength(5);
     expect(closed).toEqual([]);
+  });
+});
+
+describe("a document tab", () => {
+  const tabOf = (ws: NonNullable<TrellisController["ws"]>, id: string) => (
+    ws.element.querySelector<HTMLElement>(`[data-trellis-part="tab"][data-view="${id}"]`)!
+  );
+
+  it("names the folder that tells it from another open document with its file name, and drops it once that one closes", async () => {
+    const { controller, ws, open, viewOf } = await openProject(["main.tex", "chapters/intro.tex"]);
+    const chapters = tabOf(ws, viewOf("chapters/intro.tex")!.id);
+    expect(chapters.querySelector('[data-trellis-part="tab-detail"]')).toBeNull();
+    await open("appendix/intro.tex");
+    expect(chapters.querySelector('[data-trellis-part="tab-detail"]')?.textContent).toBe("chapters");
+    const appendix = tabOf(ws, viewOf("appendix/intro.tex")!.id);
+    expect(appendix.querySelector('[data-trellis-part="tab-title"]')?.textContent).toBe("appendix/intro.texappendix");
+    expect(tabOf(ws, viewOf("main.tex")!.id).querySelector('[data-trellis-part="tab-detail"]')).toBeNull();
+    await act(async () => { await ws.close(viewOf("appendix/intro.tex")!.id); });
+    act(() => controller.app.set({ openTabs: ["main.tex", "chapters/intro.tex"], activeKey: "main.tex" }));
+    await waitFor(() => expect(chapters.querySelector('[data-trellis-part="tab-detail"]')).toBeNull());
+  });
+
+  it("shows its project path in the app's tooltip on hover, not the browser's", async () => {
+    const { ws, viewOf } = await openProject(["main.tex", "chapters/intro.tex"]);
+    const tab = tabOf(ws, viewOf("chapters/intro.tex")!.id);
+    expect(tab.hasAttribute("title")).toBe(false);
+    fireEvent.pointerOver(tab);
+    await waitFor(() => expect(document.querySelector("[data-file-tab-tip]")?.textContent).toBe("chapters/intro.tex"));
+    fireEvent.pointerOut(tab, { relatedTarget: document.body });
+    await waitFor(() => expect(document.querySelector("[data-file-tab-tip]")).toBeNull());
+  });
+
+  it("offers Copy path and Copy relative path in its menu", async () => {
+    const { controller, viewOf } = await openProject(["main.tex", "chapters/intro.tex"]);
+    const menu = withTabItems(controller, viewOf("chapters/intro.tex") as never, []);
+    const item = (id: string) => {
+      const entry = menu.find((candidate) => candidate !== "separator" && candidate.id === id);
+      return entry === "separator" ? undefined : entry;
+    };
+    expect(item("copy-path")?.label).toBe("Copy path");
+    item("copy-path")?.run?.();
+    expect(writeText).toHaveBeenLastCalledWith("/p/chapters/intro.tex");
+    expect(item("copy-relative-path")?.label).toBe("Copy relative path");
+    item("copy-relative-path")?.run?.();
+    expect(writeText).toHaveBeenLastCalledWith("chapters/intro.tex");
+  });
+
+  it("of a Paper has no file path to copy", async () => {
+    const { controller } = await openProject(["main.tex"]);
+    const menu = withTabItems(controller, { id: "v-paper", params: { key: paperTabKey("2401.00001") } }, []);
+    expect(menu.some((entry) => entry !== "separator" && entry.id?.startsWith("copy"))).toBe(false);
   });
 });

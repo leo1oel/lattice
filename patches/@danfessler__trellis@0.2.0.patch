@@ -1,5 +1,5 @@
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..7722709a57df23cb70e176191930d1bea0a0bf60 100644
+index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..01f372c116ad78b78b28f3154e41bfe2d4f3e227 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
 @@ -57,6 +57,8 @@ type RestoreTarget = {
@@ -37,7 +37,18 @@ index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..7722709a57df23cb70e176191930d1be
  
  type Cleanup = void | (() => void);
  interface MenuItem {
-@@ -440,6 +461,8 @@ interface WorkspaceSnapshot {
+@@ -243,6 +264,10 @@ interface MenuRequest {
+ interface ViewTypeDefinition<P extends object = Params> extends ViewRules {
+     /** Tab label. A view can override it with `setTitle()`. */
+     title?: string | ((view: ViewHandle<P>) => string);
++    /** Lattice patch: quieter text after the tab's title, read whenever the tabs update. */
++    detail?: (view: ViewHandle<P>) => string;
++    /** Lattice patch: false when the host draws the tab's tooltip itself (no native `title`). */
++    tip?: false;
+     /** Trusted SVG/HTML markup for the tab icon. Adapters can render richer icons. */
+     icon?: string;
+     /** Mount vanilla content. Called once per view; never again for moves.
+@@ -440,6 +465,8 @@ interface WorkspaceSnapshot {
      canGoForward: boolean;
      framings: Framing[];
      dragging: boolean;
@@ -46,14 +57,14 @@ index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..7722709a57df23cb70e176191930d1be
  }
  interface WorkspaceEvents {
      /** Committed layout changes only; never fires mid-drag or mid-animation. */
-@@ -533,4 +556,4 @@ declare function emptyDocument(): LayoutDocument;
+@@ -533,4 +560,4 @@ declare function emptyDocument(): LayoutDocument;
  /** Repair anything inconsistent in a document from storage or a caller. */
  declare function sanitize(input: LayoutDocument, isKnownType?: (type: string) => boolean): LayoutDocument;
  
 -export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, sanitize };
 +export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, type HeaderMeasure, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, planHeader, sanitize };
 diff --git a/dist/index.js b/dist/index.js
-index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c1577f45478 100644
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..427d37134f9638e75b459695d7f7ad6dc27be21b 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -442,22 +442,77 @@ function restorePanel(doc, panelId, fallbackLayer) {
@@ -562,7 +573,28 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
    let frame = 0;
    let lastTime = 0;
    let snapshot = null;
-@@ -2853,7 +3066,7 @@ function createWorkspace(host, initialOptions) {
+@@ -2845,6 +3058,20 @@ function createWorkspace(host, initialOptions) {
+     } else if (title) return title;
+     return record.type;
+   }
++  // Lattice patch: a quieter second part of a tab's label, after its title
++  // (the folder that tells two same-named documents apart).
++  function detailOf(viewId) {
++    const record = doc.views[viewId];
++    const detail = record ? options.types[record.type]?.detail : void 0;
++    const controller = records.get(viewId)?.controller;
++    if (typeof detail !== "function" || !controller) return "";
++    try {
++      return detail(controller) ?? "";
++    } catch (error) {
++      console.error(error);
++      return "";
++    }
++  }
+   let appliedTokens = /* @__PURE__ */ new Set();
+   function applyTheme() {
+     setAttr(root, "data-theme", options.theme ?? "system");
+@@ -2853,7 +3080,7 @@ function createWorkspace(host, initialOptions) {
      setAttr(root, "data-tab-bleed", tabs.inset === 0 ? "" : null);
      if (tabs.inset !== void 0) root.style.setProperty("--trellis-tab-inset", `${tabs.inset}px`);
      else if (!options.tokens?.["--trellis-tab-inset"]) root.style.removeProperty("--trellis-tab-inset");
@@ -571,7 +603,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      const tokens = options.tokens ?? {};
      for (const key of appliedTokens) if (!(key in tokens)) root.style.removeProperty(key);
      for (const [key, value] of Object.entries(tokens))
-@@ -3089,7 +3302,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3089,7 +3316,7 @@ function createWorkspace(host, initialOptions) {
      const menuButton = h("button", {
        "data-trellis-part": "panel-menu",
        type: "button",
@@ -580,7 +612,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
        "aria-haspopup": "menu",
        tabindex: "-1"
      });
-@@ -3118,6 +3331,20 @@ function createWorkspace(host, initialOptions) {
+@@ -3118,6 +3345,20 @@ function createWorkspace(host, initialOptions) {
        endInset: 0
      };
      panelDoms.set(panelId, dom);
@@ -601,7 +633,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      const d = dom;
      const onPointerDown = (e) => {
        const panel = findPanel(d.id);
-@@ -3182,6 +3409,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3182,6 +3423,7 @@ function createWorkspace(host, initialOptions) {
    function destroyPanelDom(panelId) {
      const dom = panelDoms.get(panelId);
      if (!dom) return;
@@ -609,7 +641,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      dom.el.remove();
      dom.tabbar.remove();
      dom.handles?.remove();
-@@ -3211,6 +3439,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3211,6 +3453,7 @@ function createWorkspace(host, initialOptions) {
        if (!wanted.has(viewId)) {
          tab.el.remove();
          dom.tabs.delete(viewId);
@@ -617,15 +649,18 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
        }
      panel.views.forEach((viewId, index) => {
        let tab = dom.tabs.get(viewId);
-@@ -3241,6 +3470,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3239,8 +3482,9 @@ function createWorkspace(host, initialOptions) {
+         lifetime.listen(el, "auxclick", (e) => {
+           if (e.button === 1 && typeOf(viewId).closable !== false) void close(viewId);
          });
-         tab = { el, title, badge, close: closeButton };
+-        tab = { el, title, badge, close: closeButton };
++        tab = { el, title, badge, close: closeButton, label: null, detail: null };
          dom.tabs.set(viewId, tab);
 +        dom.headerDirty = true;
        } else if (tab.el.firstChild !== record.icon) tab.el.prepend(record.icon);
        if (dom.tablist.children[index] !== tab.el)
          dom.tablist.insertBefore(tab.el, dom.tablist.children[index] ?? null);
-@@ -3248,12 +3478,17 @@ function createWorkspace(host, initialOptions) {
+@@ -3248,12 +3492,17 @@ function createWorkspace(host, initialOptions) {
        setAttr(record.shell, "aria-labelledby", tab.el.id);
      });
    }
@@ -647,13 +682,19 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
    }
    function updateTabs() {
      for (const [panelId, dom] of panelDoms) {
-@@ -3262,7 +3497,13 @@ function createWorkspace(host, initialOptions) {
+@@ -3262,7 +3511,19 @@ function createWorkspace(host, initialOptions) {
        for (const [viewId, tab] of dom.tabs) {
          const selected = panel.selected === viewId;
          const title = titleOf(viewId);
 -        if (tab.title.textContent !== title) tab.title.textContent = title;
-+        if (tab.title.textContent !== title) {
++        // Lattice patch: the detail sits inside the title, so a narrow tab
++        // ellipsizes it before the title's own text.
++        const detail = detailOf(viewId);
++        if (tab.label !== title || tab.detail !== detail) {
 +          tab.title.textContent = title;
++          if (detail) tab.title.append(h("span", { "data-trellis-part": "tab-detail" }, detail));
++          tab.label = title;
++          tab.detail = detail;
 +          dom.headerDirty = true;
 +        }
 +        // Lattice patch: a named panel (a singleton: Project, Agent, PDF, a
@@ -662,7 +703,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
          const badge = badges.get(viewId);
          const dot = badge === true;
          const text = badge === null || badge === void 0 || badge === "" || typeof badge === "boolean" ? "" : String(badge);
-@@ -3273,16 +3514,23 @@ function createWorkspace(host, initialOptions) {
+@@ -3273,16 +3534,24 @@ function createWorkspace(host, initialOptions) {
          setAttr(tab.el, "data-type", doc.views[viewId]?.type ?? null);
          setAttr(tab.el, "aria-selected", String(selected));
          setAttr(tab.el, "tabindex", selected ? "0" : "-1");
@@ -678,7 +719,8 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
          setAttr(tab.close, "hidden", closable ? null : "");
 -        setAttr(tab.close, "title", `Close ${title}`);
 +        setAttr(tab.close, "title", tl("closeTab", { title }));
-+        setAttr(tab.el, "title", title);
++        // Lattice patch: a type that draws its own tab tooltip has no native one.
++        setAttr(tab.el, "title", typeOf(viewId).tip === false ? null : title);
          setAttr(tab.el, "aria-keyshortcuts", closable ? "Delete Shift+F10" : "Shift+F10");
          const record = records.get(viewId);
          if (record) {
@@ -689,7 +731,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
            if (record.controller.state.title !== title) record.controller.update({ title });
          }
        }
-@@ -3301,7 +3549,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3301,7 +3570,7 @@ function createWorkspace(host, initialOptions) {
      invalidate();
    }
    function sync() {
@@ -698,7 +740,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      const live2 = new Set(viewIds(doc));
      for (const v of lifted()?.views ?? []) live2.add(v);
      for (const l of leaving.values()) for (const v of l.panel.views) live2.add(v);
-@@ -3360,7 +3608,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3360,7 +3629,7 @@ function createWorkspace(host, initialOptions) {
              role: "separator",
              tabindex: "0",
              "aria-orientation": node.axis === "x" ? "vertical" : "horizontal",
@@ -707,7 +749,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
            });
            el2.dataset.split = node.id;
            el2.dataset.index = String(i);
-@@ -3497,7 +3745,10 @@ function createWorkspace(host, initialOptions) {
+@@ -3497,7 +3766,10 @@ function createWorkspace(host, initialOptions) {
      }
      cameraChanged();
      if (tween.active) moving2 = tween.step(time) || moving2;
@@ -719,7 +761,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      if (dragActive()) moving2 = true;
      for (const [id, l] of leaving)
        if (time - l.start >= l.duration) {
-@@ -3660,8 +3911,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3660,8 +3932,8 @@ function createWorkspace(host, initialOptions) {
          el.dataset.lines = lines;
        }
        const count = leafIds(e.node).length;
@@ -730,7 +772,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
        const r = inset(toScreen(e.rect), pad());
        const onscreen = r.x < viewport.w && r.y < viewport.h && r.x + r.w > 0 && r.y + r.h > 0;
        setStyle(el, "display", onscreen ? "" : "none");
-@@ -3740,6 +3991,15 @@ function createWorkspace(host, initialOptions) {
+@@ -3740,6 +4012,15 @@ function createWorkspace(host, initialOptions) {
        setStyle(dom.el, "zIndex", String(z));
        setAttr(dom.el, "data-lifted", lifted()?.id === panelId ? "" : null);
        place(dom.el, r, round);
@@ -746,7 +788,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
        const float2 = doc.floating.find((f) => f.panel.id === panelId);
        const clip = float2?.layer === "stage" && sScreen && lifted()?.id !== panelId ? clipInset(r, sScreen) : "";
        setStyle(dom.el, "clipPath", clip);
-@@ -3857,6 +4117,13 @@ function createWorkspace(host, initialOptions) {
+@@ -3857,6 +4138,13 @@ function createWorkspace(host, initialOptions) {
    }
    function reflowOf(panelId, flying, bar) {
      if (flying || zooming) return "keep";
@@ -760,7 +802,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      if (!camera.moving || gesture) return "live";
      const end = restRect(panelId);
      return end && inView(end) ? { ...end, y: end.y + bar, h: Math.max(0, end.h - bar) } : "keep";
-@@ -3866,7 +4133,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3866,7 +4154,7 @@ function createWorkspace(host, initialOptions) {
      const min = minSizeOf(controller.id);
      const scaleAt = (r) => Math.max(min ? Math.min(1, r.w / Math.max(1, min.width), r.h / Math.max(1, min.height)) : 1, 0.05);
      const safe = scaleAt(body);
@@ -769,7 +811,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      setStyle(shell, "zIndex", String(z));
      setStyle(shell, "visibility", selected && !concealed ? "" : "hidden");
      setStyle(shell, "opacity", opacity === 1 ? "" : String(opacity));
-@@ -3878,8 +4145,34 @@ function createWorkspace(host, initialOptions) {
+@@ -3878,8 +4166,34 @@ function createWorkspace(host, initialOptions) {
      };
      let width, height, transform;
      const frozen = record.__layout;
@@ -806,7 +848,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
        const target = settleAt ? layoutAt(settleAt) : frozen;
        width = target.w;
        height = target.h;
-@@ -3922,7 +4215,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3922,7 +4236,8 @@ function createWorkspace(host, initialOptions) {
      for (const el of dividerEls.values()) {
        const split = effectiveSplit(el.dataset.split);
        const e = split && entries.get(split.id);
@@ -816,7 +858,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
          setStyle(el, "display", "none");
          continue;
        }
-@@ -4229,7 +4523,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4229,7 +4544,7 @@ function createWorkspace(host, initialOptions) {
          });
        commit({
          ...detached,
@@ -825,7 +867,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
        });
        return;
      }
-@@ -4383,16 +4677,16 @@ function createWorkspace(host, initialOptions) {
+@@ -4383,16 +4698,16 @@ function createWorkspace(host, initialOptions) {
      if (navigationMode() && region !== "floating")
        items.push({
          id: "maximize",
@@ -845,7 +887,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
          run: () => dock(
            panelId,
            findStage(doc.root) && allowed(panel.views, "stage") ? "stage" : { beside: doc.root?.id ?? "", edge: "right", share: 0.3 }
-@@ -4401,7 +4695,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4401,7 +4716,7 @@ function createWorkspace(host, initialOptions) {
      } else if (floatingLayer() && allowed(panel.views, "floating")) {
        items.push({
          id: "float",
@@ -854,7 +896,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
          run: () => floatingLayer() === "stage" ? toggleDock(panelId) : float(panelId)
        });
      }
-@@ -4421,19 +4715,19 @@ function createWorkspace(host, initialOptions) {
+@@ -4421,19 +4736,19 @@ function createWorkspace(host, initialOptions) {
        moves.push(
          {
            id: "split-right",
@@ -878,7 +920,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
        run: () => hide(panelId, { toward: options.hideToward?.(panelId) ?? void 0 })
      });
      const closable = panel.views.filter((v) => typeOf(v).closable !== false);
-@@ -4442,14 +4736,14 @@ function createWorkspace(host, initialOptions) {
+@@ -4442,14 +4757,14 @@ function createWorkspace(host, initialOptions) {
        if (typeOf(panel.selected).closable !== false)
          items.push({
            id: "close",
@@ -895,7 +937,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
            run: () => panel.views.filter((v) => v !== panel.selected).forEach((v) => void close(v))
          });
      }
-@@ -4625,11 +4919,211 @@ function createWorkspace(host, initialOptions) {
+@@ -4625,11 +4940,211 @@ function createWorkspace(host, initialOptions) {
    function announce(text) {
      live.textContent = text;
    }
@@ -1108,7 +1150,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      };
    }
    function minFraction(split, index) {
-@@ -4644,47 +5138,126 @@ function createWorkspace(host, initialOptions) {
+@@ -4644,47 +5159,126 @@ function createWorkspace(host, initialOptions) {
      const node = entries.get(id)?.node;
      return node?.kind === "split" ? node : null;
    }
@@ -1244,7 +1286,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
    function equalize(splitId, index) {
      const split = findNode(doc.root, splitId);
      if (!split) return;
-@@ -4794,7 +5367,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4794,7 +5388,10 @@ function createWorkspace(host, initialOptions) {
        canGoBack: nav.canGoBack,
        canGoForward: nav.canGoForward,
        framings: nav.framings.list(),
@@ -1256,7 +1298,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      };
      return snapshot;
    }
-@@ -4812,6 +5388,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4812,6 +5409,10 @@ function createWorkspace(host, initialOptions) {
      },
      commit(next, from, settle2) {
        if (settle2) settling.add(settle2);
@@ -1267,7 +1309,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
        if (next === doc) {
          if (!reduced()) tween.begin(from, performance.now());
          sync();
-@@ -4902,7 +5482,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4902,7 +5503,7 @@ function createWorkspace(host, initialOptions) {
        if (!surface) return false;
        return typeOf(surface.dataset.view).gestures !== "workspace";
      },
@@ -1276,7 +1318,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..fc0560e65029e9edae3348789d285c15
      schedule,
      render: () => render(),
      changed() {
-@@ -5047,6 +5627,7 @@ export {
+@@ -5047,6 +5648,7 @@ export {
    formatCombo,
    layout,
    layoutRects,
