@@ -27,6 +27,7 @@ pub mod diagnostic_logs;
 pub mod doctor;
 pub mod export;
 mod firecrawl;
+pub mod flashtex_preview;
 pub mod format_latex;
 pub mod fs_watch;
 mod fts;

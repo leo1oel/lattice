@@ -23,6 +23,7 @@ import { chunk } from "../lib/lazy-chunk";
 import { onProjectFilesChanged } from "../project/project-files-changed";
 import { disableLivePreviewEverywhere, loadLivePreviewEnabled, persistLivePreviewEnabled } from "../settings/app-settings";
 import type { LivePreviewSession } from "./live-preview-session";
+import { useFlashtexPreview } from "./flashtex-preview";
 
 /** The renderer and its session: loaded only once live preview is on. */
 export const loadLivePreviewModule = chunk(() => import("./live-preview-chunk"));
@@ -68,6 +69,8 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
   /** The running session, for the build pipeline's calls; null otherwise. */
   const buildHooks = useRef<LivePreviewBuildHooks | null>(null);
   const projectRef = useLatestRef(project);
+  // The FlashTeX spike for pdfLaTeX projects, behind a developer flag (flashtex-preview.ts).
+  useFlashtexPreview({ project, activeFile, source });
 
   const active = Boolean(root && available && enabled && mainFile);
   const runKey = active ? `${root}\n${mainFile}\n${attempt}` : "";

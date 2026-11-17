@@ -22,6 +22,7 @@ import { enqueueBuild, IDLE_QUEUE, type QueuedBuild } from "./build-queue";
 import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } from "./build-progress";
 import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
 import { createQuietBuilds } from "../live-preview/quiet-builds";
+import { onFlashtexPdf } from "../live-preview/flashtex-preview";
 import { createWatchedBuilds } from "./watched-builds";
 import { createStallHold } from "./stalled-build";
 import { useDiagnosticCycle } from "./use-diagnostic-cycle";
@@ -438,6 +439,12 @@ export function useBuildPipeline({
   useEffect(() => quietBuilds.connect({
     livePreview, activeFileRef, sourceRef, savedSourceRef, run: (quiet) => void runBuild(false, { quiet, unattended: true }),
   }), [activeFileRef, livePreview, quietBuilds, runBuild, savedSourceRef, sourceRef]);
+  // The FlashTeX spike's PDFs, behind a developer flag: shown at once, as a
+  // requested build's are, so the next keystroke's never waits out the
+  // autosave debounce; a build that lands later replaces them as usual.
+  useEffect(() => projectRoot ? onFlashtexPdf(projectRoot, (document, bytes) => {
+    showPreview(bytes, previewGenerationRef.current, true, { token: null, quiet: true }, document, false);
+  }) : undefined, [previewGenerationRef, projectRoot, showPreview]);
 
   /**
    * Make the compiled PDF, and the SyncTeX map beside it, those of the
