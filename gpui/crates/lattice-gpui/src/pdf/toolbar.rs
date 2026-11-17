@@ -1,9 +1,11 @@
 //! The viewer's toolbar, as the Tauri app draws it (`.pdf-toolbar` in
 //! `src/pdf/pdf-viewer.css`): one 40px row closed by a hairline, three
-//! columns. Page navigation and location history on the left; the outline
-//! and Find in PDF in the middle, taking what is left; zoom, Reveal cursor
-//! in PDF, the two fits, dark pages, the host's action and Save on the
-//! right.
+//! columns. The host's start control (the paper reader's way back), page
+//! navigation and location history on the left; the outline and Find in
+//! PDF in the middle, taking what is left; zoom, Reveal cursor in PDF, the
+//! two fits, dark pages, the host's action and Save on the right. While the
+//! host is still getting the PDF it holds only the start control
+//! (`PdfPreviewLoading`).
 //!
 //! A toolbar 640px or narrower keeps what a reader reaches for while reading
 //! (pages, search, SyncTeX and the fit in use) and moves the rest (the zoom
@@ -29,7 +31,7 @@ use super::{
     layout::{FitMode, MAX_SCALE, MIN_SCALE},
     overflow::Fold,
     toolbar_hover::{Slot, toolbar_hover},
-    view::{PdfView, PdfViewEvent},
+    view::{HostLoad, PdfView, PdfViewEvent},
 };
 
 /// The toolbar narrows at this width (`@container pdf-toolbar (max-width: 640px)`).
@@ -72,7 +74,7 @@ impl PdfView {
         let fold = self.search_fold();
         let strip = toolbar_hover(window, cx);
         self.toolbar_hover = Some(strip.clone());
-        div()
+        let frame = div()
             .id("pdf-toolbar")
             .relative()
             .flex()
@@ -92,7 +94,15 @@ impl PdfView {
                     ..Edges::default()
                 },
             ))
-            .child(strip.highlight())
+            .child(strip.highlight());
+        if self.host_load != HostLoad::Ready {
+            // Only the way back until the host has the PDF
+            // (`PdfPreviewLoading`'s toolbar).
+            return frame
+                .children(self.start_control(&strip, cx))
+                .into_any_element();
+        }
+        frame
             .when(fold != Fold::Search, |this| {
                 this.child(self.navigation(&strip, narrow, empty, cx))
             })
@@ -103,6 +113,21 @@ impl PdfView {
             .into_any_element()
     }
 
+    /// The host's control at the toolbar's start (`toolbarStart`): an icon
+    /// button named by its tooltip, as the paper reader's way back is.
+    fn start_control(&self, strip: &FluidHover, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let start = self.start.clone()?;
+        Some(
+            Slot::Start.glide(
+                strip,
+                true,
+                tool("pdf-start", start.icon, "")
+                    .tooltip(lattice_i18n::tr(start.label))
+                    .on_click(cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::Start))),
+            ),
+        )
+    }
+
     fn navigation(
         &self,
         strip: &FluidHover,
@@ -110,17 +135,29 @@ impl PdfView {
         empty: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let start = self.start_control(strip, cx);
         if empty {
-            // An empty toolbar keeps its columns' places (`.pdf-toolbar-empty`).
-            return div().flex_none().min_w(px(74.)).into_any_element();
+            // An empty toolbar keeps its columns' places (`.pdf-toolbar-empty`),
+            // after the host's way back.
+            return div()
+                .flex()
+                .flex_none()
+                .items_center()
+                .gap(px(6.))
+                .children(start)
+                .child(div().flex_none().min_w(px(74.)))
+                .into_any_element();
         }
         let count = self.page_count();
         let current = self.current_page();
+        // `.pdf-navigation-controls`: the host's start, the page controls and
+        // the location history, 6px apart (`--space-3`).
         div()
             .flex()
             .flex_none()
             .items_center()
             .gap(px(6.))
+            .children(start)
             .child(
                 div()
                     .flex()

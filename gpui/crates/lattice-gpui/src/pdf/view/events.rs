@@ -18,6 +18,9 @@ pub enum PdfViewEvent {
     RevealCursor,
     /// The toolbar action the host offered (`ToolbarAction`).
     Action,
+    /// The control the host put at the toolbar's start
+    /// ([`super::PdfView::set_toolbar_start`]).
+    Start,
     /// The empty state's Build project.
     Build,
     /// An Outline row: open `path` (project-relative) at `line` and show the
@@ -49,6 +52,21 @@ pub enum PdfViewEvent {
     SelectionOffered(Option<OfferedSelection>),
 }
 
+/// A PDF the host is still getting for the view (the paper reader's PDF on
+/// the web), shown as the Tauri app's `PdfPreviewLoading` shows it: the
+/// toolbar holds only the host's start control, over the first load's
+/// skeleton while it comes, or over the reason it did not.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum HostLoad {
+    /// Nothing waits on the host: the view shows what it opened.
+    #[default]
+    Ready,
+    /// The host is fetching the PDF.
+    Fetching,
+    /// The host could not get it, with what to say.
+    Failed(gpui::SharedString),
+}
+
 /// Text a drag selected, as the host is offered it.
 #[derive(Clone, Debug)]
 pub struct OfferedSelection {
@@ -65,6 +83,8 @@ pub struct OfferedSelection {
 
 /// A context-specific action before Save, such as moving the PDF into a
 /// window of its own; a narrow toolbar moves it into the overflow menu.
+/// Also the control a host puts at the toolbar's start, before the page
+/// controls (`toolbarStart`), such as the paper reader's way back.
 #[derive(Clone)]
 pub struct ToolbarAction {
     /// An `n!` message, translated where shown.

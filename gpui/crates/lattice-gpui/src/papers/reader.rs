@@ -563,28 +563,9 @@ impl PaperReader {
     }
 
     fn body(&self, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
-        let placeholder = |text: SharedString| {
-            div()
-                .flex_1()
-                .flex()
-                .flex_col()
-                .items_center()
-                .justify_center()
-                .gap(px(8.))
-                .text_role(TextRole::Body, cx)
-                .text_color(palette.text_secondary)
-                .child(Icon::FILE_TEXT.element(px(28.), palette.text_secondary))
-                .child(text)
-                .into_any_element()
-        };
         if let Some(pdf) = &self.pdf {
-            if let Some(error) = &pdf.error {
-                return placeholder(error.clone());
-            }
-            if pdf.loading {
-                return placeholder(t!("Loading PDF…").into());
-            }
+            // The viewer shows the PDF still coming from the web, or why it
+            // did not, as the Tauri reader's `PdfPreviewLoading` does.
             let bar = self.quote_bar(cx);
             return div()
                 .relative()

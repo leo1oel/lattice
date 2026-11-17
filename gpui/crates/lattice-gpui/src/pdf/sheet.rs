@@ -21,12 +21,13 @@ use lattice_ui::{
     components::{Button, EmptyState, ErrorState},
     elevation,
     scrollbar::{FluidScrollbar, ScrollbarFeel},
+    tokens::SPACING_4,
 };
 
 use super::{
     dark::{DARK_PAGE, DARK_PAGE_MARK},
     layout::{PAGE_INSET, Rect},
-    view::{PdfView, PdfViewEvent, SYNC_MARK_HOLD, SyncMark},
+    view::{HostLoad, PdfView, PdfViewEvent, SYNC_MARK_HOLD, SyncMark},
 };
 
 /// The editor's selection blue at 35%, on the page in both themes
@@ -95,6 +96,24 @@ impl PdfView {
             return state(
                 ErrorState::new(t!("PDFium was not found"))
                     .detail(error.clone())
+                    .into_any_element(),
+            );
+        }
+        if let HostLoad::Failed(reason) = &self.host_load {
+            // The host could not get the PDF (`.pdf-placeholder` under
+            // `PdfPreviewLoading`): the file's mark over the reason, 8px
+            // apart, in the caption's tertiary ink (the secondary here).
+            let palette = cx.palette().clone();
+            return state(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap(SPACING_4)
+                    .text_role(TextRole::Caption, cx)
+                    .text_color(palette.text_secondary)
+                    .child(Icon::FILE_TEXT.element(px(28.), palette.text_secondary))
+                    .child(reason.clone())
                     .into_any_element(),
             );
         }

@@ -8,8 +8,10 @@
 //! Remove highlight takes that off; the palette's custom colour takes a
 //! drag on its field and Return, and highlights in the colour dragged to;
 //! then in a Markdown file a selection shows the Markdown toolbar, whose
-//! Bold writes `**…**` and whose block menu makes the line a heading. The
-//! chapter and the Markdown file are put back as they were.
+//! Bold writes `**…**` and whose block menu makes the line a heading; and
+//! in a short file the highlighter palette opens whole inside the window,
+//! over the toolbar or flipped under it. The chapter is put back as it was,
+//! and the Markdown and short files are removed.
 
 use std::{path::Path, time::Duration};
 
@@ -22,6 +24,10 @@ use super::Steps;
 use crate::{editor_panel::EditorPanel, scenario::Run};
 
 const WORD: &str = "introduces";
+
+/// A file of a few lines whose last sentence is a few lines down, so the
+/// toolbar stands over the selection with little room above it.
+const SHORT_FILE: &str = "\\section{Short}\nA short note.\n\nIt has only a few lines.\nThe palette opens over this line.\n";
 
 impl Run {
     pub(super) async fn selection_toolbar(
@@ -182,6 +188,75 @@ impl Run {
         );
         self.save_and_restore(cx, &markdown, &notes, "plain words\n").await?;
         let _ = std::fs::remove_file(&notes);
+        self.short_file_palette(cx, steps, root).await
+    }
+
+    /// A short file with the selection a few lines down: the toolbar stands
+    /// over the selection, and its palette, taller than the room left above
+    /// it, opens whole inside the window on the side the Tauri app's popover
+    /// takes (`side="top"`, flipped under the toolbar when there is no room),
+    /// rather than past the editor's top edge, where the frame above hid it.
+    async fn short_file_palette(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let short = root.join("short-note.tex");
+        std::fs::write(&short, SHORT_FILE)?;
+        let editor = self.open(cx, &short, Some(1))?;
+        self.select_text(cx, &editor, "palette")?;
+        let shown = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| editor.read(cx).selection_toolbar_shown())
+            .await;
+        self.toolbar(cx, &editor, ToolbarStep::Palette)?;
+        let drawn = self
+            .wait_for(cx, Duration::from_secs(3), |_, cx| {
+                editor.read(cx).selection_toolbar_areas().len() >= 2
+            })
+            .await;
+        // A frame for the menu to settle where it lands.
+        self.pause(cx, Duration::from_millis(200)).await;
+        let areas = cx.update(|cx| editor.read(cx).selection_toolbar_areas());
+        let trigger = cx.update(|cx| editor.read(cx).selection_toolbar_trigger());
+        let window = self.with_window(cx, |_, window, _| window.viewport_size())?;
+        let placed = match areas.as_slice() {
+            [toolbar, palette, ..] => {
+                let inside = palette.top() >= gpui::px(0.)
+                    && palette.bottom() <= window.height
+                    && palette.left() >= gpui::px(0.)
+                    && palette.right() <= window.width;
+                // 8px from its trigger, inside the toolbar's 3px padding:
+                // 5px over the toolbar when the window has the room, else
+                // 5px under it, as the Tauri app's popover sits.
+                let edge = gpui::px(5.);
+                let room_above = toolbar.top() - edge >= palette.size.height;
+                let side = if room_above {
+                    (palette.bottom() - (toolbar.top() - edge)).abs() < gpui::px(1.)
+                } else {
+                    (palette.top() - (toolbar.bottom() + edge)).abs() < gpui::px(1.)
+                };
+                // Centred on the caret that opened it (`align="center"`).
+                let centred = trigger.is_some_and(|trigger| {
+                    (palette.center().x - trigger.center().x).abs() < gpui::px(1.)
+                });
+                inside && side && centred
+            }
+            _ => false,
+        };
+        self.adapter_shot(cx, "selection-toolbar-palette-short-file").await;
+        steps.check(
+            "in a short file the highlighter palette opens whole inside the window, centred on its caret, over the toolbar or flipped under it as the Tauri app's popover is, never past the editor's top edge",
+            shown && drawn && placed,
+            json!({
+                "shown": shown,
+                "areas": areas.iter().map(|b| format!("{b:?}")).collect::<Vec<_>>(),
+                "trigger": trigger.map(|b| format!("{b:?}")),
+                "window": format!("{window:?}"),
+            }),
+        );
+        self.press(cx, 'w', true).await?;
+        let _ = std::fs::remove_file(&short);
         Ok(())
     }
 
@@ -258,6 +333,7 @@ enum ToolbarStep {
     Unhighlight,
     Heading,
     Custom,
+    Palette,
 }
 
 impl ToolbarStep {
@@ -268,6 +344,7 @@ impl ToolbarStep {
             ToolbarStep::Unhighlight => "unhighlight",
             ToolbarStep::Heading => "heading-1",
             ToolbarStep::Custom => "custom",
+            ToolbarStep::Palette => "palette",
         }
     }
 }

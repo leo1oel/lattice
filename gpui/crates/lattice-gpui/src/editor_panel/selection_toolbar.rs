@@ -42,6 +42,7 @@ use lattice_ui::{
     tokens::{RADIUS_PANEL, SPACING_2, SPACING_3},
 };
 
+mod menu_place;
 mod menus;
 mod tools;
 
@@ -97,6 +98,10 @@ pub(super) struct ToolbarState {
     /// The source view's bounds, and the toolbar's size, as last drawn.
     view: Rc<Cell<Option<Bounds<Pixels>>>>,
     size: Rc<Cell<Option<gpui::Size<Pixels>>>>,
+    /// The open menu's trigger and the menu's size, as last drawn: the menu
+    /// is centred on its trigger, as Radix aligns a popover.
+    trigger: Rc<Cell<Option<Bounds<Pixels>>>>,
+    menu_size: Rc<Cell<Option<gpui::Size<Pixels>>>>,
     /// What it last read of the selection.
     read: Option<SelectionRead>,
     /// Where the toolbar and its open menu were drawn: a press there is not
@@ -337,6 +342,10 @@ impl EditorPanel {
             "pen" => ToolbarAction::Highlight(highlight_palette::prefs(cx).last.clone()),
             "unhighlight" => ToolbarAction::Unhighlight,
             "heading-1" => ToolbarAction::Block(BlockType::Heading(1)),
+            "palette" => {
+                self.open_menu(Menu::Highlight, window, cx);
+                return;
+            }
             "custom" => {
                 self.open_menu(Menu::Highlight, window, cx);
                 self.open_custom(None, window, cx);
@@ -376,6 +385,17 @@ impl EditorPanel {
     /// Whether the toolbar is showing, for scripted checks.
     pub fn selection_toolbar_shown(&self) -> bool {
         self.toolbar.last.is_some()
+    }
+
+    /// Where the toolbar and then its open menu were last drawn, in the
+    /// window, for scripted checks.
+    pub fn selection_toolbar_areas(&self) -> Vec<Bounds<Pixels>> {
+        self.toolbar.areas.borrow().clone()
+    }
+
+    /// Where the open menu's trigger was last drawn, for scripted checks.
+    pub fn selection_toolbar_trigger(&self) -> Option<Bounds<Pixels>> {
+        self.toolbar.trigger.get()
     }
 
     /// Apply `edit` as one undo step and select what it says, scrolled into
@@ -455,6 +475,9 @@ impl EditorPanel {
     fn open_menu(&mut self, menu: Menu, window: &mut Window, cx: &mut Context<Self>) {
         self.toolbar.link = None;
         self.toolbar.palette = Default::default();
+        // Another menu is placed on its own trigger, at its own size.
+        self.toolbar.trigger.set(None);
+        self.toolbar.menu_size.set(None);
         self.refocus_editor(window, cx);
         if self.toolbar.menu == Some(menu) {
             self.toolbar.menu = None;
@@ -652,6 +675,10 @@ impl EditorPanel {
             .toolbar
             .menu
             .map(|menu| self.toolbar_menu(menu, kind, &formats, range.clone(), window, cx));
+        if menu.is_none() {
+            self.toolbar.trigger.set(None);
+            self.toolbar.menu_size.set(None);
+        }
         let from = if below {
             PopFrom::Below
         } else {
@@ -689,29 +716,11 @@ impl EditorPanel {
                         }))
                         .child(pop_in(("selection-toolbar-in", id), from, toolbar))
                         .children(menu.map(|menu| {
-                            // Its menus stand 8px clear of it, on its side away
-                            // from the text.
-                            div()
-                                .absolute()
-                                .left_0()
-                                .map(|this| {
-                                    if below {
-                                        this.top(height + px(GAP))
-                                    } else {
-                                        this.bottom(height + px(GAP))
-                                    }
-                                })
-                                .child(menu)
-                                .child(
-                                    canvas(
-                                        move |bounds, _, _| menu_areas.borrow_mut().push(bounds),
-                                        |_, _, _, _| {},
-                                    )
-                                    .absolute()
-                                    .top_0()
-                                    .left_0()
-                                    .size_full(),
-                                )
+                            let toolbar = Bounds::new(
+                                gpui::point(center - width / 2., top),
+                                gpui::size(width, height),
+                            );
+                            self.menu_layer(menu, toolbar, menu_areas, cx)
                         })),
                 )
                 .into_any_element(),

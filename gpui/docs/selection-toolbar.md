@@ -9,6 +9,7 @@ Pressing its buttons never takes the editor's focus or selection.
 Over a LaTeX selection it has Bold, Italic, Underline, Strikethrough and Quote, each pressed when the selection already has that format, and pressing a pressed one takes the format off.
 Then come Annotate, which opens the [annotation](annotations.md) composer on the selection, the agent's [Proofread, Polish and Rewrite](proofread.md), Link, whose URL field writes `\href`, the heading level menu, and the highlighter.
 The pen applies the last highlighter at once, and its caret opens the highlighter palette.
+Its menus and the palette open 8px over the button that opens them, centred on it and drawn over the whole window rather than inside the editor, so the frame above the editor never hides them, and open under the toolbar when the window has no room above, as the Tauri app's popovers flip.
 
 Over a Markdown selection it has the block type menu (text, six heading levels, bulleted, numbered and task lists, quote and code block), then Bold, Italic, Underline, Strikethrough, inline code and Highlight written in Markdown's syntax, Insert link, inline math and Annotate.
 Inside a fenced code block it has only the block menu and Annotate.
@@ -29,4 +30,4 @@ The paint reads only the lines in view and 2,000 characters either side, as the 
 
 ## In the e2e scenario
 
-Selection toolbar (`scenario/e2e/selection_toolbar.rs`): a word of the chapter selected shows the LaTeX toolbar; Bold wraps it in `\textbf` and shows pressed, and Bold again takes it off; the pen highlights it in the yellow highlighter, which the editor paints behind a square swatch before the `\colorbox`, and Remove highlight takes it off; the palette's custom colour view takes a drag on its field to 30% saturation and 95% brightness and Return, which highlights the word in that colour; then a Markdown selection shows the Markdown toolbar, whose Bold writes `**…**` and whose block menu makes the line a heading.
+Selection toolbar (`scenario/e2e/selection_toolbar.rs`): a word of the chapter selected shows the LaTeX toolbar; Bold wraps it in `\textbf` and shows pressed, and Bold again takes it off; the pen highlights it in the yellow highlighter, which the editor paints behind a square swatch before the `\colorbox`, and Remove highlight takes it off; the palette's custom colour view takes a drag on its field to 30% saturation and 95% brightness and Return, which highlights the word in that colour; then a Markdown selection shows the Markdown toolbar, whose Bold writes `**…**` and whose block menu makes the line a heading; then in a short file, with the selection a few lines down, the highlighter palette opens whole inside the window, over the toolbar or flipped under it.

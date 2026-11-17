@@ -101,35 +101,51 @@ impl EditorPanel {
                     }),
                     cx,
                 ))
-                .child(tool(
-                    "latex-rewrite",
-                    Icon::PENCIL_LINE,
-                    t!("Rewrite with an instruction"),
-                    Some(self.toolbar.menu == Some(Menu::Rewrite)),
-                    false,
-                    cx.listener(|this, _, window, cx| this.open_menu(Menu::Rewrite, window, cx)),
+                .child(self.menu_trigger(
+                    Menu::Rewrite,
+                    tool(
+                        "latex-rewrite",
+                        Icon::PENCIL_LINE,
+                        t!("Rewrite with an instruction"),
+                        Some(self.toolbar.menu == Some(Menu::Rewrite)),
+                        false,
+                        cx.listener(|this, _, window, cx| {
+                            this.open_menu(Menu::Rewrite, window, cx)
+                        }),
+                        cx,
+                    ),
                     cx,
                 ));
         }
         if editable {
             let menu = self.toolbar.menu;
             bar = bar
-                .child(tool(
-                    "latex-link",
-                    Icon::LINK,
-                    t!("Link"),
-                    Some(formats.link || menu == Some(Menu::Link)),
-                    true,
-                    cx.listener(|this, _, window, cx| this.open_menu(Menu::Link, window, cx)),
+                .child(self.menu_trigger(
+                    Menu::Link,
+                    tool(
+                        "latex-link",
+                        Icon::LINK,
+                        t!("Link"),
+                        Some(formats.link || menu == Some(Menu::Link)),
+                        true,
+                        cx.listener(|this, _, window, cx| this.open_menu(Menu::Link, window, cx)),
+                        cx,
+                    ),
                     cx,
                 ))
-                .child(tool(
-                    "latex-heading",
-                    Icon::HEADING,
-                    t!("Heading level"),
-                    Some(formats.heading.is_some() || menu == Some(Menu::Heading)),
-                    false,
-                    cx.listener(|this, _, window, cx| this.open_menu(Menu::Heading, window, cx)),
+                .child(self.menu_trigger(
+                    Menu::Heading,
+                    tool(
+                        "latex-heading",
+                        Icon::HEADING,
+                        t!("Heading level"),
+                        Some(formats.heading.is_some() || menu == Some(Menu::Heading)),
+                        false,
+                        cx.listener(|this, _, window, cx| {
+                            this.open_menu(Menu::Heading, window, cx)
+                        }),
+                        cx,
+                    ),
                     cx,
                 ))
                 .child(self.highlight_split(cx));
@@ -200,6 +216,7 @@ impl EditorPanel {
             .on_click(
                 cx.listener(|this, _, window, cx| this.open_menu(Menu::Highlight, window, cx)),
             );
+        let caret = self.menu_trigger(Menu::Highlight, caret, cx);
         separated(
             div().flex().items_center().child(pen).child(caret),
             &palette,
@@ -235,6 +252,7 @@ impl EditorPanel {
             .child(current)
             .child(Icon::CHEVRON_DOWN.element(px(12.), palette.text.opacity(0.7)))
             .on_click(cx.listener(|this, _, window, cx| this.open_menu(Menu::Block, window, cx)));
+        let block = self.menu_trigger(Menu::Block, block, cx);
         let mut bar = div()
             .flex()
             .flex_wrap()
