@@ -13,7 +13,7 @@ import "./board-editor.css";
 import type { BoardFileViewState } from "../../app-types";
 import type { Theme } from "../../settings/app-settings";
 import {
-  excalidrawLangCode, mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene,
+  excalidrawLangCode, fittedView, mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene,
 } from "./board-store";
 import { useLatestRef } from "../../hooks/use-latest-ref";
 
@@ -76,7 +76,6 @@ function initialData(source: string, view: BoardFileViewState | undefined): Exca
       ...scene?.grid,
       ...(view ? { scrollX: view.scrollX, scrollY: view.scrollY, zoom: { value: view.zoom as AppState["zoom"]["value"] } } : {}),
     },
-    scrollToContent: !view && elements.length > 0,
   };
 }
 
@@ -208,6 +207,17 @@ export function BoardEditor({
         initialData={initial}
         excalidrawAPI={(api) => {
           apiRef.current = api;
+          // Without a view of its own, a board opens fitted to its content once
+          // Excalidraw knows its size; Excalidraw's scrollToContent only centres.
+          if (initialViewState || !initial.elements?.length) return;
+          window.requestAnimationFrame(() => {
+            const { width, height } = api.getAppState();
+            const view = fittedView(api.getSceneElements(), width, height);
+            api.updateScene({
+              appState: { scrollX: view.scrollX, scrollY: view.scrollY, zoom: { value: view.zoom as AppState["zoom"]["value"] } },
+              captureUpdate: CaptureUpdateAction.NEVER,
+            });
+          });
         }}
         onChange={handleChange}
         theme={theme}

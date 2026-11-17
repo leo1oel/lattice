@@ -32,7 +32,8 @@ function fakeApi(elements: unknown[]) {
   const api = {
     elements,
     getSceneElementsIncludingDeleted: () => api.elements,
-    getAppState: () => ({ gridSize: 20 }),
+    getSceneElements: () => api.elements,
+    getAppState: () => ({ gridSize: 20, width: 800, height: 600 }),
     getFiles: () => ({}),
     addFiles: vi.fn(),
     updateScene: vi.fn((scene: { elements: unknown[] }) => { api.elements = scene.elements; }),
@@ -59,9 +60,8 @@ describe("BoardEditor", () => {
     expect(props.UIOptions?.canvasActions).toMatchObject({
       export: false, loadScene: false, saveToActiveFile: false, changeViewBackgroundColor: false, toggleTheme: null,
     });
-    const initial = props.initialData as { appState: Record<string, unknown>; scrollToContent: boolean };
+    const initial = props.initialData as { appState: Record<string, unknown> };
     expect(initial.appState).toMatchObject({ currentItemRoughness: 0, currentItemFontFamily: 6, viewBackgroundColor: "transparent" });
-    expect(initial.scrollToContent).toBe(true);
   });
 
   it("follows the Lattice theme when it changes", () => {
@@ -73,9 +73,8 @@ describe("BoardEditor", () => {
 
   it("restores the per-user view instead of fitting the content", () => {
     render(<BoardEditor path="board.excalidraw" source={SCENE} onChange={() => {}} theme="light" initialViewState={{ scrollX: 40, scrollY: -8, zoom: 2 }} />);
-    const initial = excalidraw.props!.initialData as { appState: Record<string, unknown>; scrollToContent: boolean };
+    const initial = excalidraw.props!.initialData as { appState: Record<string, unknown> };
     expect(initial.appState).toMatchObject({ scrollX: 40, scrollY: -8, zoom: { value: 2 } });
-    expect(initial.scrollToContent).toBe(false);
   });
 
   it("writes an edit after a pause, but not a selection or a view change", () => {

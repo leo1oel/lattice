@@ -1,7 +1,8 @@
-import { defaultLang, languages, reconcileElements, restore, serializeAsJSON } from "@excalidraw/excalidraw";
+import { defaultLang, getCommonBounds, languages, reconcileElements, restore, serializeAsJSON } from "@excalidraw/excalidraw";
 import type { RemoteExcalidrawElement } from "@excalidraw/excalidraw/data/reconcile";
-import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import type { ExcalidrawElement, OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
+import type { BoardFileViewState } from "../../app-types";
 
 /**
  * A board is an `.excalidraw` file: an Excalidraw scene, loaded from the
@@ -108,3 +109,18 @@ export function mergeExternalElements(
 export const excalidrawLangCode = (locale: string) => (
   languages.some((language) => language.code === locale) ? locale : defaultLang.code
 );
+
+/**
+ * The scroll and zoom that show all of `elements` in a `width` × `height`
+ * viewport with a margin, never zoomed in past 100%. Excalidraw draws a scene
+ * point p at (p + scroll) × zoom.
+ */
+export function fittedView(elements: readonly ExcalidrawElement[], width: number, height: number): BoardFileViewState {
+  const [minX, minY, maxX, maxY] = getCommonBounds(elements);
+  const zoom = Math.max(0.1, Math.min(1, 0.9 * Math.min(width / Math.max(1, maxX - minX), height / Math.max(1, maxY - minY))));
+  return {
+    scrollX: width / (2 * zoom) - (minX + maxX) / 2,
+    scrollY: height / (2 * zoom) - (minY + maxY) / 2,
+    zoom,
+  };
+}

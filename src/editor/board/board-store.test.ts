@@ -3,7 +3,7 @@ import { restoreElements } from "@excalidraw/excalidraw";
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState } from "@excalidraw/excalidraw/types";
 import tutorialBoard from "../../../src-tauri/templates/tutorial/attention-map.excalidraw?raw";
-import { excalidrawLangCode, mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene } from "./board-store";
+import { excalidrawLangCode, fittedView, mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene } from "./board-store";
 
 // Excalidraw probes canvas filter support at import time, and the shared jsdom
 // setup returns no 2D context at all; give it one that answers the probe.
@@ -52,6 +52,16 @@ describe("serializeBoardScene", () => {
     expect(saved.elements.map((element: { id: string }) => element.id)).toEqual(["kept"]);
     expect(saved.appState).toEqual({ gridSize: 20, gridStep: 5, gridModeEnabled: false, viewBackgroundColor: "#ffffff" });
     expect(parseBoardScene(json)!.elements.map((element) => element.id)).toEqual(["kept"]);
+  });
+});
+
+describe("fittedView", () => {
+  it("centres the content, zooming out to fit but never in past 100%", () => {
+    const wide = fittedView([rect("a", 1, 0), rect("b", 1, 990)], 500, 300);
+    expect(wide.zoom).toBeCloseTo(0.45);
+    expect(wide.scrollX).toBeCloseTo(500 / 0.9 - 500);
+    expect(wide.scrollY).toBeCloseTo(300 / 0.9 - 5);
+    expect(fittedView([rect("a", 1, 0)], 500, 300)).toEqual({ scrollX: 245, scrollY: 145, zoom: 1 });
   });
 });
 
