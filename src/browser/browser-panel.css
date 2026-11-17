@@ -1,0 +1,5 @@
+.browser-drawer { display: flex; flex-direction: column; overflow: hidden; }
+.browser-toolbar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.browser-toolbar input { min-width: 0; flex: 1; }
+.browser-toolbar button { flex: none; }
+.browser-content-slot { flex: 1; min-height: 0; }

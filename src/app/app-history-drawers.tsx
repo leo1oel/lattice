@@ -12,6 +12,7 @@
  * Git workspace while the history chunk loads.
  */
 import { lazy, Suspense } from "react";
+import { BrowserPanelMount } from "../browser/browser-panel-mount";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -88,6 +89,7 @@ export function AppHistoryDrawers({ tools, synara: {
   };
   return (
     <>
+      <BrowserPanelMount />
       {tools.loading === "history" && (
         <ToolLoadingShell
           className="project-history-drawer"

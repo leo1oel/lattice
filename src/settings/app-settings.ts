@@ -204,7 +204,7 @@ export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
 
 
 const SETTINGS_TABS: readonly SettingsTab[] = [
-  "appearance", "editor", "agent", "mcp", "usage", "environment", "model-endpoint", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements",
+  "appearance", "browser", "editor", "agent", "mcp", "usage", "environment", "model-endpoint", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements",
 ];
 
 /** Settings reopens on the page it was last left on. */

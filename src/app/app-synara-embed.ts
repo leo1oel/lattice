@@ -8,6 +8,7 @@ import {
   synaraFrameUrl,
   type AgentGitWorkspaceView,
 } from "../agent/synara-runtime";
+import { supportsBrowserPanel } from "../browser/link-destination";
 import { type AppLocale } from "../settings/app-settings";
 
 const SYNARA_PERMISSION_MODES = ["approval-required", "auto", "full-access"] as const;
@@ -50,7 +51,9 @@ export function synaraEmbedUrl(frame: SynaraFrameContext): string {
   } catch {
     // Let Synara choose its normal landing page when storage is unavailable.
   }
-  return frameUrl(frame, "chrome", path);
+  const url = new URL(frameUrl(frame, "chrome", path));
+  if (supportsBrowserPanel()) url.searchParams.set("browserPanel", "1");
+  return url.toString();
 }
 
 export function synaraSourceControlUrl(frame: SynaraFrameContext, view: AgentGitWorkspaceView): string {

@@ -2,7 +2,7 @@ import { isWindowsHost } from "../platform/host-platform";
 import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Globe } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ReloadButton } from "../components/ui/activity-icons";
@@ -20,13 +20,15 @@ import {
   type ThemePreference,
   type BuildPreferences,
   type AppearanceSettings,
-  type TitlebarTool,
   type OverleafRemoteDelete,
   type OverleafSyncMode,
   resolveAppLocale,
 } from "./app-settings";
 import type { ProjectSnapshot, SettingsTab } from "../app-types";
 import { beginWindowDrag, titleBarDoubleClick } from "../app-utils";
+import { BrowserSettings } from "./browser-settings";
+import { supportsBrowserPanel } from "../browser/link-destination";
+import { TitlebarToolsGroup } from "./titlebar-tools-settings";
 import { OverleafSettingsSection } from "../overleaf/overleaf-connect";
 import { LiteratureSettings } from "./literature-settings";
 import { AcknowledgementsSettings } from "./acknowledgements-settings";
@@ -141,6 +143,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     { label: t`General`, items: [
       { tab: "appearance", label: t`Appearance`, icon: "faders" },
       { tab: "editor", label: t`Editor & builds`, icon: "logs" },
+      ...(supportsBrowserPanel() ? [{ tab: "browser", label: t`Browser`, icon: "globe" } as const] : []),
     ] },
     { label: t`Agent`, items: [
       { tab: "agent", label: t`Providers`, icon: "robot" },
@@ -264,6 +267,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const panes: Partial<Record<SettingsTab, ReactNode>> = {
     appearance: <AppearanceSettingsPane {...props} />,
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
+    browser: supportsBrowserPanel() ? <BrowserSettings /> : null,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
     "model-endpoint": <ModelEndpointSettings openTab={props.setTab} />,
@@ -333,7 +337,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
                     aria-current={props.tab === item.tab ? "page" : undefined}
                     onClick={(event) => openPage(item.tab, event.currentTarget)}
                   >
-                    <AnimatedProductIcon kind={item.icon} size={15} />
+                    {item.icon === "globe" ? <Globe size={15} aria-hidden="true" /> : <AnimatedProductIcon kind={item.icon} size={15} />}
                     <span title={item.label}>{item.label}</span>
                     {item.tab === "doctor" && texUpdatesAvailable && <span className="settings-nav-badge" role="img" aria-label={t`Updates available`} />}
                     <ChevronRight className="settings-nav-chevron" size={14} strokeWidth={1.6} aria-hidden="true" />
@@ -373,33 +377,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
 
 function patchAppearance(props: SettingsDialogProps, patch: Partial<AppearanceSettings>) {
   props.setAppearance({ ...props.appearance, ...patch });
-}
-
-/** Which tool buttons sit at the right of the title bar; the commands stay in the palette either way. */
-function TitlebarToolsGroup(props: SettingsDialogProps) {
-  const { t } = useLingui();
-  const hidden = props.appearance.hiddenTitlebarTools;
-  const tools: Array<{ tool: TitlebarTool; label: string }> = [
-    { tool: "comments", label: t`Annotations` },
-    { tool: "overleaf", label: t`Overleaf` },
-    { tool: "git", label: t`Git status and commit` },
-    { tool: "history", label: t`Project history` },
-    { tool: "browser", label: t`Open in browser` },
-  ];
-  return (
-    <SettingsGroup title={t`Title bar tools`} data-setting="titlebar-tools">
-      {tools.map(({ tool, label }) => (
-        <SwitchField
-          key={tool}
-          label={label}
-          checked={!hidden.includes(tool)}
-          onChange={(shown) => patchAppearance(props, {
-            hiddenTitlebarTools: shown ? hidden.filter((item) => item !== tool) : [...hidden, tool],
-          })}
-        />
-      ))}
-    </SettingsGroup>
-  );
 }
 
 function AppearanceSettingsPane(props: SettingsDialogProps) {
