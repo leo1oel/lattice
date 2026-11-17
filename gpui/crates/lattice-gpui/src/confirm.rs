@@ -15,6 +15,11 @@ use lattice_ui::{
 };
 
 type Answer = Rc<dyn Fn(&mut Window, &mut App)>;
+
+/// Over the window's deferred overlays (the palette and Settings, at 10, in
+/// `shell/layers.rs`), which a question can be asked from, and under the
+/// notices (50).
+const PRIORITY: usize = 20;
 type Dismissal = Box<dyn FnOnce(&mut App)>;
 
 pub struct Confirm {
@@ -256,6 +261,7 @@ impl Render for ConfirmHost {
                 view.update(cx, |this, cx| this.close(cx)).ok();
             },
         )
+        .priority(PRIORITY)
         .into_any_element()
     }
 }

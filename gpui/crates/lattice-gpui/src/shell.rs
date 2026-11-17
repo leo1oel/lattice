@@ -68,6 +68,7 @@ mod pdf_figure;
 mod pdf_notes;
 mod pdf_sync;
 mod pdfs;
+pub(crate) mod plugin_actions;
 pub(crate) mod project_tab_drag;
 mod references_flow;
 mod render;

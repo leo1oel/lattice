@@ -61,6 +61,9 @@ lopdf = { version = "0.42", default-features = false }
 # The paper reader renders a saved paper's Markdown (papers/reader.rs); the
 # editor already depends on it.
 markdown.workspace = true
+# A plugin's message result, CommonMark without raw HTML (plugins/markdown.rs);
+# the version the markdown crate already uses.
+pulldown-cmark = { version = "0.13", default-features = false }
 pdfium-render.workspace = true
 # The Tauri app's TeX message and word patterns (crate::build).
 regex = "1"

@@ -18,6 +18,8 @@ pub struct PageStates {
     pub literature: Option<Entity<super::literature_pane::LiteraturePane>>,
     /// Settings › Acknowledgements' search, folds and sheet.
     pub acknowledgements: Option<Entity<super::acknowledgements::Acknowledgements>>,
+    /// Settings › Plugins' list and install form.
+    pub plugins: Option<Entity<super::plugins_pane::PluginsPane>>,
     /// Editor & builds › Grammar's filter and Harper's rules.
     pub grammar: Option<Entity<super::grammar_group::GrammarRules>>,
     /// Editor & builds › Other languages' downloaded dictionaries, as of
@@ -81,6 +83,7 @@ pub fn drawn(tab: SettingsTab) -> SettingsTab {
         | SettingsTab::ModelEndpoint
         | SettingsTab::Environment
         | SettingsTab::Literature
+        | SettingsTab::Plugins
         | SettingsTab::Acknowledgements
         | SettingsTab::Doctor
         | SettingsTab::Overleaf
@@ -105,6 +108,7 @@ pub fn draw(
         SettingsTab::ModelEndpoint => super::model_endpoint_pane::render(dialog, width, window, cx),
         SettingsTab::Environment => super::environment_pane::render(dialog, width, cx),
         SettingsTab::Literature => super::literature_pane::render(dialog, width, window, cx),
+        SettingsTab::Plugins => super::plugins_pane::render(dialog, width, window, cx),
         SettingsTab::Acknowledgements => super::acknowledgements::render(dialog, width, window, cx),
         SettingsTab::Doctor => super::editor_pane::doctor(width, cx),
         SettingsTab::Overleaf => super::overleaf_pane::render(dialog, width, window, cx),
@@ -129,6 +133,11 @@ impl SettingsDialog {
     /// The Synara settings section the Agent pages' surface shows.
     pub fn synara_section(&self, cx: &gpui::App) -> &'static str {
         self.providers().read(cx).settings_section()
+    }
+
+    /// Settings › Plugins, once drawn.
+    pub fn plugins_pane(&self) -> Option<Entity<super::plugins_pane::PluginsPane>> {
+        self.pages.plugins.clone()
     }
 
     /// Acknowledgements' sheet is open over Settings.

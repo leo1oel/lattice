@@ -194,6 +194,8 @@ lucide! {
     FEATHER = "icons" / "feather";
     GAUGE = "icons" / "gauge";
     PLUG = "icons" / "plug";
+    // A plugin command's palette row (`command-palette.tsx`).
+    PUZZLE = "icons" / "puzzle";
     SHAPES = "icons" / "shapes";
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
     LIST_CHECKS = "icons" / "list-checks";
