@@ -12,6 +12,6 @@ describe("board assets", () => {
 
   it("names the folder the build plugin emits the fonts into", () => {
     const plugin = readFileSync("scripts/excalidraw-assets.ts", "utf8");
-    expect(plugin).toContain(`export const EXCALIDRAW_ASSETS_DIR = "${BOARD_ASSETS_DIR}";`);
+    expect(plugin).toContain(`const EXCALIDRAW_ASSETS_DIR = "${BOARD_ASSETS_DIR}";`);
   });
 });

@@ -103,3 +103,6 @@ export function mergeExternalElements(
   });
   return reconcileElements(prepared, remote as readonly RemoteExcalidrawElement[], appState);
 }
+
+/** The Excalidraw interface language for a Lattice locale (Excalidraw names zh-CN the same way). */
+export const excalidrawLangCode = (locale: string) => (locale === "zh-CN" ? "zh-CN" : "en");

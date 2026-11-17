@@ -226,9 +226,6 @@ importers:
       '@tiptap/suggestion':
         specifier: 3.33.1
         version: 3.33.1(@floating-ui/dom@1.8.0)(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1)
-      '@tldraw/assets':
-        specifier: 5.2.5
-        version: 5.2.5
       '@univerjs/core':
         specifier: 0.25.1
         version: 0.25.1(react@19.2.7)(rxjs@7.8.2)
@@ -3366,10 +3363,6 @@ packages:
       '@floating-ui/dom': ^1.0.0
       '@tiptap/core': 3.33.1
       '@tiptap/pm': 3.33.1
-
-  '@tldraw/assets@5.2.5':
-    resolution: {integrity: sha512-dnwCWb9x/ZVUqRcKGEtgyvzwuaK4ZMcHl5WUA0u99Updr7F39dUDCorqjq7Lye3NrFyj0ztxSCy289s6hUm1gg==}
-    engines: {node: '>=22.12.0'}
 
   '@tldraw/driver@5.2.5':
     resolution: {integrity: sha512-smu4NnqTdIM59/hHTvuXxqJWQ5aLpFUR59ibS//o30P9pgMAoN4v/7NhYx9g+V7RAeOzIpDqREouz3hZdoEt9Q==}
@@ -9254,10 +9247,6 @@ snapshots:
       '@floating-ui/dom': 1.8.0
       '@tiptap/core': 3.33.1(@tiptap/pm@3.33.1)
       '@tiptap/pm': 3.33.1
-
-  '@tldraw/assets@5.2.5':
-    dependencies:
-      '@tldraw/utils': 5.2.5
 
   '@tldraw/driver@5.2.5(@floating-ui/dom@1.8.0)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:

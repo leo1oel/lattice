@@ -98,7 +98,6 @@
     "@tiptap/react": "3.33.1",
     "@tiptap/starter-kit": "3.33.1",
     "@tiptap/suggestion": "3.33.1",
-    "@tldraw/assets": "5.2.5",
     "@univerjs/core": "0.25.1",
     "@univerjs/engine-render": "0.25.1",
     "@univerjs/preset-sheets-core": "0.25.1",

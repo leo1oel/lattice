@@ -13,8 +13,9 @@ import "./board-editor.css";
 import type { BoardFileViewState } from "../../app-types";
 import type { Theme } from "../../settings/app-settings";
 import {
-  mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene,
+  excalidrawLangCode, mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene,
 } from "./board-store";
+import { useLatestRef } from "../../hooks/use-latest-ref";
 
 const SERIALIZE_DEBOUNCE_MS = 300;
 
@@ -93,7 +94,7 @@ export function BoardEditor({
   theme,
 }: BoardEditorProps) {
   const { i18n } = useLingui();
-  const langCode = i18n.locale === "zh-CN" ? "zh-CN" : "en";
+  const langCode = excalidrawLangCode(i18n.locale);
   const callbacksRef = useRef({ onChange, onViewState });
   useLayoutEffect(() => {
     callbacksRef.current = { onChange, onViewState };
@@ -124,8 +125,7 @@ export function BoardEditor({
     fileRef.current = { source: json, versions: savedVersions(elements), scene: sceneVersion(elements, api.getFiles()) };
     callbacksRef.current.onChange(json);
   };
-  const flushRef = useRef(flush);
-  flushRef.current = flush;
+  const flushRef = useLatestRef(flush);
 
   useLayoutEffect(() => {
     if (!onFlushPendingChange) return;

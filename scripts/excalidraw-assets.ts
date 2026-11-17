@@ -12,7 +12,7 @@ import type { Plugin } from "vite";
  * Excalidraw asks for (`src/editor/board/board-asset-urls.ts` points the asset
  * path there). The dev server serves the same files from node_modules.
  */
-export const EXCALIDRAW_ASSETS_DIR = "excalidraw-assets";
+const EXCALIDRAW_ASSETS_DIR = "excalidraw-assets";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fontsRoot = path.join(repo, "node_modules/@excalidraw/excalidraw/dist/prod/fonts");
