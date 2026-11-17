@@ -1886,6 +1886,16 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("Invalid alphaXiv citation.", &[]),
     },
     Entry {
+        file: "papers/github_citation.rs",
+        literal: "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX.",
+        text: Text::Message("GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX.", &[]),
+    },
+    Entry {
+        file: "papers/github_citation.rs",
+        literal: "GitHub answered HTTP {status} for {url}.",
+        text: Text::Message("GitHub answered HTTP {status} for {url}.", &[("status", Arg::Param(0)), ("url", Arg::Param(1))]),
+    },
+    Entry {
         file: "papers/citation.rs",
         literal: "Could not read the arXiv title lookup: {error}",
         text: Text::Message("Could not read the arXiv title lookup: {error}", &[("error", Arg::Param(0))]),

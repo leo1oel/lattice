@@ -51,6 +51,10 @@ export const PAPERS_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["papers/web_citation.rs", "The webpage HTML exceeds the 4 MB citation extraction limit.", () => t`The webpage HTML exceeds the 4 MB citation extraction limit.`],
   ["papers/web_citation.rs", "Invalid alphaXiv citation.", () => t`Invalid alphaXiv citation.`],
 
+  // Citing a GitHub repository (papers/github_citation.rs)
+  ["papers/github_citation.rs", "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX.", () => t`GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX.`],
+  ["papers/github_citation.rs", "GitHub answered HTTP {status} for {url}.", ([status, url]) => t`GitHub answered HTTP ${status} for ${url}.`],
+
   // Resolving a citation (papers/citation.rs, papers/import.rs)
   ["papers/citation.rs", "Could not read the arXiv title lookup: {error}", ([error]) => t`Could not read the arXiv title lookup: ${error}`],
   ["papers/citation.rs", "Citation resolution must return exactly one complete record.", () => t`Citation resolution must return exactly one complete record.`],

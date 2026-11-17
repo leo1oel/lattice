@@ -7130,6 +7130,14 @@ msgstr "Git workspace"
 msgid "Git workspace didn’t load"
 msgstr "Git workspace didn’t load"
 
+#: src/platform/host-errors-papers.ts
+msgid "GitHub answered HTTP {status} for {url}."
+msgstr "GitHub answered HTTP {status} for {url}."
+
+#: src/platform/host-errors-papers.ts
+msgid "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX."
+msgstr "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX."
+
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts
 msgid "GitHub Releases"

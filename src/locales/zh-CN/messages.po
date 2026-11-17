@@ -7130,6 +7130,14 @@ msgstr "Git 工作区"
 msgid "Git workspace didn’t load"
 msgstr "Git 没加载出来"
 
+#: src/platform/host-errors-papers.ts
+msgid "GitHub answered HTTP {status} for {url}."
+msgstr "GitHub 对 {url} 返回了 HTTP {status}。"
+
+#: src/platform/host-errors-papers.ts
+msgid "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX."
+msgstr "GitHub 拒绝了请求（未登录查询的每小时额度已用完）。请稍后再试，或用该仓库的 BibTeX 引用它。"
+
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts
 msgid "GitHub Releases"
