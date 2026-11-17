@@ -56,6 +56,17 @@ fn pausing_and_realtime_metadata_keep_the_link_and_its_common_ancestor() {
     assert_eq!(state.root_folder_id.as_deref(), Some("new-root-folder"));
     assert_eq!(state.permission.as_deref(), Some("owner"));
     keeps_the_base();
+
+    // A join that names no role leaves the recorded one alone. Overwriting it
+    // with "unknown" made a writer's pending moves fail as if it had no write
+    // access until a later join named the role again.
+    set_realtime_metadata(&root, "newer-root-folder", "unknown").unwrap();
+    let state = load_state(&root).unwrap();
+    assert_eq!(state.root_folder_id.as_deref(), Some("newer-root-folder"));
+    assert_eq!(state.permission.as_deref(), Some("owner"));
+    // A role the join does name still replaces it, a downgrade included.
+    set_realtime_metadata(&root, "newer-root-folder", "readOnly").unwrap();
+    assert_eq!(load_state(&root).unwrap().permission.as_deref(), Some("readOnly"));
 }
 
 /// Stop syncing, edit, then open the project from Overleaf again.

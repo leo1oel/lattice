@@ -236,9 +236,22 @@ pub fn record_relocation(root: &Path, from: &str, to: &str) -> Result<(), String
         return Ok(());
     }
     let mut state = load_state(root)?;
-    let relocation =
-        PendingRelocation { from: from.to_string(), to: to.to_string(), entity_id: None };
-    state.pending_relocations.push(relocation);
+    // Moving a file straight back undoes the move still waiting to go up, so
+    // nothing is left to replay. This is also how an account that may not
+    // move files on Overleaf gets its sync going again. A move that already
+    // knows its entity id may have reached Overleaf with its answer lost, so
+    // it stays and the reverse move is replayed after it.
+    let undoes_last = state
+        .pending_relocations
+        .last()
+        .is_some_and(|last| last.entity_id.is_none() && last.from == to && last.to == from);
+    if undoes_last {
+        state.pending_relocations.pop();
+    } else {
+        let relocation =
+            PendingRelocation { from: from.to_string(), to: to.to_string(), entity_id: None };
+        state.pending_relocations.push(relocation);
+    }
     save_state(root, &state)
 }
 
@@ -284,13 +297,19 @@ pub fn set_realtime_metadata(
         return Err("Overleaf's project join returned no root folder id.".to_string());
     }
     let mut state = load_state(root)?;
-    if state.root_folder_id.as_deref() == Some(root_folder_id)
-        && state.permission.as_deref() == Some(permission)
-    {
+    // A join that names no role is no evidence the role changed: keep the one
+    // already recorded (the frontend's `overleaf_set_permission` follows the
+    // same rule). Overwriting a known editor role with "unknown" would hold
+    // every pending move back until some later join named the role again.
+    let permission = match Permission::parse(Some(permission)) {
+        Permission::Unknown => state.permission.clone(),
+        _ => Some(permission.to_string()),
+    };
+    if state.root_folder_id.as_deref() == Some(root_folder_id) && state.permission == permission {
         return Ok(());
     }
     state.root_folder_id = Some(root_folder_id.to_string());
-    state.permission = Some(permission.to_string());
+    state.permission = permission;
     save_state(root, &state)
 }
 

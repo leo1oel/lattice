@@ -1472,8 +1472,18 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "overleaf/sync/relocations.rs",
-        literal: "Overleaf write access is required to sync moved files. Local moves have been kept.",
-        text: Text::Message("Overleaf write access is required to sync moved files. Local moves have been kept.", &[]),
+        literal: "Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept.",
+        text: Text::Message("Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept.", &[]),
+    },
+    Entry {
+        file: "overleaf/sync/relocations.rs",
+        literal: "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.",
+        text: Text::Message("Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.", &[]),
+    },
+    Entry {
+        file: "overleaf/sync/relocations.rs",
+        literal: "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.",
+        text: Text::Message("Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.", &[]),
     },
     Entry {
         file: "overleaf/sync/relocations.rs",
