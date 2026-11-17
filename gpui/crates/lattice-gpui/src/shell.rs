@@ -83,6 +83,7 @@ mod shortcut_sheet;
 mod skin;
 mod structured_docs;
 mod synctex;
+pub(crate) mod tab_names;
 mod tab_policy;
 mod terminal_flow;
 mod tools_flow;
@@ -170,6 +171,8 @@ pub struct Shell {
     workspace: Entity<TrellisWorkspace>,
     /// The panel behind each of the workspace's views.
     views: views::Registry,
+    /// Each document tab's detail and tooltip, which the skin draws.
+    tab_texts: tab_names::TabTexts,
     /// The document as of the last committed change, for a close to keep
     /// its document panel.
     last_document: LayoutDocument,
@@ -350,9 +353,11 @@ impl Shell {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         crate::panels::present_tabs(cx);
         let views = views::Registry::default();
+        let tab_texts = tab_names::TabTexts::default();
         let skin = std::rc::Rc::new(skin::LatticeSkin::new(
             views.clone(),
             cx.entity().downgrade(),
+            tab_texts.clone(),
         ));
         let workspace = cx.new(|cx| {
             TrellisWorkspace::new(views::engine_options(), LayoutDocument::default(), skin, cx)
@@ -492,6 +497,7 @@ impl Shell {
             focus_handle: cx.focus_handle(),
             workspace,
             views,
+            tab_texts,
             last_document: LayoutDocument::default(),
             reset_undo: None,
             view_focus: Default::default(),

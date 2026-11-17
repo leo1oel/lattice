@@ -60,7 +60,7 @@ pub use surfaces::{
 };
 pub use tab::{
     PanelTab, TAB_CLOSE, TAB_CLOSE_INSET, TAB_GAP, TAB_ICON_ONLY_INSET, TAB_INSET, TAB_RADIUS,
-    TabFit,
+    TabFit, label_with_detail,
 };
 pub use textarea::{TEXTAREA_MIN_HEIGHT, Textarea};
 pub use toast::{CopyButton, Toast, ToastLevel, ToastProgress};

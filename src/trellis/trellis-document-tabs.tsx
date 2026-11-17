@@ -2,18 +2,23 @@
  * The workspace's side of the document-tab policy (see trellis-tab-policy.ts):
  * opening a document's tab, which may replace its panel's preview or close a
  * tab for room; the marks a tab carries; its Keep open and Pin items; and the
- * gestures that keep a preview.
+ * gestures that keep a preview; and what tells two same-named documents'
+ * tabs apart, with the Copy path items that name a document's file.
  */
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { msg } from "@lingui/core/macro";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useLingui } from "@lingui/react/macro";
 import type { LayoutDocument, LayoutNode, MenuEntry, PanelNode, ViewInfo, WorkspaceHandle } from "@danfessler/trellis";
 import { i18n } from "../i18n";
+import { absoluteProjectPath, isPaperTabKey } from "../app-utils";
+import { notifyCopied } from "../telemetry/app-notify";
 import type { TrellisController } from "./trellis-controller";
 import { fileIcon } from "./trellis-icons";
 import { snapshotTextKey } from "./snapshot-texts";
 import { chooseEvictions, type FileParams } from "./trellis-tab-policy";
+import { tabDetails } from "./tab-names";
 
 /** A document tab's minimum width: trellis.css's --trellis-tab-min. */
 const TAB_MIN_WIDTH = 100;
@@ -149,7 +154,52 @@ export function openDocumentTab(
   return info;
 }
 
-/** A preview's Keep open, and Pin or Unpin, after the document's own menu items. */
+/** The open documents' details, worked out once for every tab Trellis updates in a pass. */
+const detailsByWorkspace = new WeakMap<WorkspaceHandle, { paths: string; details: Map<string, string> }>();
+
+/**
+ * The quieter text after document `key`'s tab title: the folders that set it
+ * apart from another open document with its file name (tab-names.ts), across
+ * every panel, since two panels side by side are as easy to mix up as two tabs.
+ * A Paper's tab is titled after the paper, not a file, so it has none.
+ */
+export function fileTabDetail(ws: WorkspaceHandle | null, key: string): string {
+  if (!ws || isPaperTabKey(key)) return "";
+  const paths = ws.views({ type: "file" })
+    .map((view) => String(view.params.key ?? ""))
+    .filter((path) => path && !isPaperTabKey(path))
+    .sort()
+    .join("\n");
+  let cached = detailsByWorkspace.get(ws);
+  if (cached?.paths !== paths) {
+    cached = { paths, details: tabDetails(paths.split("\n")) };
+    detailsByWorkspace.set(ws, cached);
+  }
+  return cached.details.get(key) ?? "";
+}
+
+/** A document's file as Copy path and Copy relative path put it on the clipboard. */
+function copyPathItems(controller: TrellisController, key: string): MenuEntry[] {
+  if (isPaperTabKey(key)) return [];
+  const copy = (text: string) => void writeText(text).then(() => notifyCopied(i18n._(msg`Path copied`)));
+  return [
+    {
+      id: "copy-path",
+      label: i18n._(msg`Copy path`),
+      run: () => {
+        const { projectRoot } = controller.app.get();
+        copy(projectRoot ? absoluteProjectPath(projectRoot, key) : key);
+      },
+    },
+    { id: "copy-relative-path", label: i18n._(msg`Copy relative path`), run: () => copy(key) },
+  ];
+}
+
+/**
+ * A preview's Keep open, and Pin or Unpin, after the document's own menu
+ * items; then Copy path and Copy relative path, as the Project tree's menu
+ * has them.
+ */
 export function withTabItems(controller: TrellisController, view: { id: string; params: FileParams }, entries: MenuEntry[]): MenuEntry[] {
   const { key, preview, pinned } = view.params;
   const items: MenuEntry[] = [
@@ -158,7 +208,9 @@ export function withTabItems(controller: TrellisController, view: { id: string; 
       ? { id: "unpin", label: i18n._(msg`Unpin tab`), run: () => controller.tabs.setPinned(view.id, false) }
       : { id: "pin", label: i18n._(msg`Pin tab`), run: () => controller.tabs.setPinned(view.id, true) },
   ];
-  return entries.length ? [...entries, "separator", ...items] : items;
+  const copies = copyPathItems(controller, key);
+  const tabItems: MenuEntry[] = copies.length ? [...items, "separator", ...copies] : items;
+  return entries.length ? [...entries, "separator", ...tabItems] : tabItems;
 }
 
 /**

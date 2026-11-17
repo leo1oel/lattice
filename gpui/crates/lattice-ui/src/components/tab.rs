@@ -16,21 +16,27 @@
 //! Short of room the strip asks a tab to give way: a
 //! document's tab shrinks with an ellipsis down to a minimum width, and a
 //! named panel's tab (Project, PDF) drops its label for its icon alone.
+//!
+//! A document's tab may carry a detail after its label, in the secondary ink
+//! 6px on (trellis.css `[data-trellis-part="tab-detail"]`): the folders that
+//! tell it from another open document with its name. It ends the label's own
+//! run, so a narrow tab cuts it short before the name. Its tooltip names the
+//! document's path, as an icon-only tab's names the panel.
 
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement, Interactivity, IntoElement,
-    MouseButton, ParentElement as _, Pixels, RenderOnce, SharedString, Stateful,
-    StatefulInteractiveElement, StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _,
-    px, transparent_black,
+    AnyElement, App, ClickEvent, Div, ElementId, HighlightStyle, InteractiveElement, Interactivity,
+    IntoElement, MouseButton, ParentElement as _, Pixels, RenderOnce, SharedString, Stateful,
+    StatefulInteractiveElement, StyleRefinement, Styled, StyledText, Window, div,
+    prelude::FluentBuilder as _, px, transparent_black,
 };
 
 use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::focus_ring,
     icons::ICON,
-    interaction::{mix, tab_stop, track_pointer, use_interaction},
+    interaction::{mix, tab_stop, track_pointer, track_pointer_and_hover, use_interaction},
     parity,
     token_types::Srgb,
     tokens::OPACITY_HOVER,
@@ -49,6 +55,17 @@ pub const TAB_CLOSE: Pixels = px(24.);
 pub const TAB_CLOSE_INSET: Pixels = px(2.);
 /// An icon-only tab's padding on either side of its icon.
 pub const TAB_ICON_ONLY_INSET: Pixels = px(8.);
+/// Between a label and its detail: an en space, half the 12px label's em,
+/// the 6px of trellis.css's `--space-3`.
+pub const DETAIL_SEPARATOR: &str = "\u{2002}";
+
+/// The text a tab with `detail` draws: its label, then the detail.
+pub fn label_with_detail(label: &str, detail: Option<&str>) -> String {
+    match detail {
+        Some(detail) if !detail.is_empty() => format!("{label}{DETAIL_SEPARATOR}{detail}"),
+        _ => label.to_string(),
+    }
+}
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
@@ -85,6 +102,10 @@ pub struct PanelTab {
     base: Stateful<Div>,
     icon: Option<AnyElement>,
     label: SharedString,
+    /// The quieter folders after a document's label.
+    detail: Option<SharedString>,
+    /// What the tab says on hover; an icon-only tab says its label.
+    tooltip: Option<SharedString>,
     surface: Srgb,
     /// On a frosted card: its fills lay over what shows through.
     frosted: bool,
@@ -110,6 +131,8 @@ impl PanelTab {
             id,
             icon: None,
             label: label.into(),
+            detail: None,
+            tooltip: None,
             surface,
             frosted: false,
             selected: false,
@@ -128,6 +151,19 @@ impl PanelTab {
     /// bounds and its label's text style are recorded under `name`.
     pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
         self.parity = Some(name.into());
+        self
+    }
+
+    /// The folders that tell this document from another with its name,
+    /// drawn after the label in the secondary ink.
+    pub fn detail(mut self, detail: Option<SharedString>) -> Self {
+        self.detail = detail.filter(|detail| !detail.is_empty());
+        self
+    }
+
+    /// What the tab says on hover, in Lattice's tooltip.
+    pub fn tooltip(mut self, tooltip: Option<SharedString>) -> Self {
+        self.tooltip = tooltip.filter(|tooltip| !tooltip.is_empty());
         self
     }
 
@@ -297,103 +333,152 @@ impl RenderOnce for PanelTab {
             palette.text,
             close_interaction.hover,
         );
-        let tooltip_label = self.label.clone();
-        track_pointer(tab_stop(self.base), pointer)
-            .focus_visible(move |style| style.shadow(focus))
-            .group(group.clone())
-            .flex()
-            .items_center()
-            .h(px(28.))
-            .map(|tab| match shrinks {
-                Some(min) => tab.flex_shrink_1().min_w(min),
-                None => tab.flex_none(),
+        // A press on the tab (a click, a drag, a right click's menu) puts its
+        // tooltip away until the pointer leaves it, as the Tauri app's does
+        // (`file-tab-tip.tsx`): resting there after a right click would lay
+        // the tooltip over the menu.
+        let quiet = window.use_keyed_state(
+            ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "tip-quiet".into()),
+            cx,
+            |_, _| false,
+        );
+        let tooltip_label = (!*quiet.read(cx))
+            .then(|| {
+                self.tooltip
+                    .clone()
+                    .or_else(|| icon_only.then(|| self.label.clone()))
             })
-            .map(|tab| {
-                if icon_only {
-                    tab.px(TAB_ICON_ONLY_INSET)
-                } else if closable {
-                    tab.pl(TAB_INSET).pr(TAB_CLOSE_INSET)
-                } else {
-                    tab.px(TAB_INSET)
-                }
-            })
-            .rounded(TAB_RADIUS)
-            .cursor_pointer()
-            .bg(bg)
-            .when(icon_only, |tab| {
-                tab.tooltip(move |_, cx| -> gpui::AnyView {
-                    crate::components::LatticeTooltip::view(tooltip_label.clone(), None, cx)
+            .flatten();
+        let set_quiet = move |value: bool| {
+            let quiet = quiet.clone();
+            move |cx: &mut App| {
+                quiet.update(cx, |quiet, cx| {
+                    if *quiet != value {
+                        *quiet = value;
+                        cx.notify();
+                    }
                 })
+            }
+        };
+        let (hush, unhush) = (set_quiet(true), set_quiet(false));
+        let hush_right = hush.clone();
+        let detail_ink = palette.text_secondary;
+        let label = match &self.detail {
+            Some(detail) => {
+                let text = label_with_detail(&self.label, Some(detail));
+                let start = text.len() - detail.len();
+                StyledText::new(SharedString::from(text)).with_highlights([(
+                    start..start + detail.len(),
+                    HighlightStyle {
+                        color: Some(detail_ink),
+                        ..Default::default()
+                    },
+                )])
+            }
+            None => StyledText::new(self.label.clone()),
+        };
+        track_pointer_and_hover(tab_stop(self.base), pointer, move |hovered, _, cx| {
+            if !*hovered {
+                unhush(cx);
+            }
+        })
+        .on_mouse_down(MouseButton::Left, move |_, _, cx| hush(cx))
+        .on_mouse_down(MouseButton::Right, move |_, _, cx| hush_right(cx))
+        .focus_visible(move |style| style.shadow(focus))
+        .group(group.clone())
+        .flex()
+        .items_center()
+        .h(px(28.))
+        .map(|tab| match shrinks {
+            Some(min) => tab.flex_shrink_1().min_w(min),
+            None => tab.flex_none(),
+        })
+        .map(|tab| {
+            if icon_only {
+                tab.px(TAB_ICON_ONLY_INSET)
+            } else if closable {
+                tab.pl(TAB_INSET).pr(TAB_CLOSE_INSET)
+            } else {
+                tab.px(TAB_INSET)
+            }
+        })
+        .rounded(TAB_RADIUS)
+        .cursor_pointer()
+        .bg(bg)
+        .when_some(tooltip_label, |tab, tooltip| {
+            tab.tooltip(move |_, cx| -> gpui::AnyView {
+                crate::components::LatticeTooltip::view(tooltip.clone(), None, cx)
             })
-            .children(self.parity.clone().and_then(parity::probe))
-            .child(
+        })
+        .children(self.parity.clone().and_then(parity::probe))
+        .child(
+            div()
+                .relative()
+                .flex_none()
+                .size(ICON)
+                .children(self.icon)
+                .children(dirty_dot),
+        )
+        .when(!icon_only, |tab| {
+            tab.child(
                 div()
-                    .relative()
-                    .flex_none()
-                    .size(ICON)
-                    .children(self.icon)
-                    .children(dirty_dot),
+                    .ml(TAB_GAP)
+                    .min_w_0()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .when(shrinks.is_some(), |label| {
+                        label.flex_shrink_1().text_ellipsis()
+                    })
+                    .text_role(TextRole::BodyCompact, cx)
+                    .line_height(px(15.6))
+                    .text_color(label_ink)
+                    .when(self.preview, |label| label.italic())
+                    .children(
+                        self.parity
+                            .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
+                    )
+                    .child(label),
             )
-            .when(!icon_only, |tab| {
-                tab.child(
-                    div()
-                        .ml(TAB_GAP)
-                        .min_w_0()
-                        .overflow_hidden()
-                        .whitespace_nowrap()
-                        .when(shrinks.is_some(), |label| {
-                            label.flex_shrink_1().text_ellipsis()
-                        })
-                        .text_role(TextRole::BodyCompact, cx)
-                        .line_height(px(15.6))
-                        .text_color(label_ink)
-                        .when(self.preview, |label| label.italic())
-                        .children(
-                            self.parity
-                                .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
-                        )
-                        .child(self.label),
-                )
-            })
-            .when(closable, |tab| {
-                tab.child(
-                    div()
-                        .id("close")
-                        .ml(TAB_GAP)
-                        .map(|close| {
-                            if close_gives_way {
-                                close.flex_shrink(1000.).min_w_0().overflow_hidden()
-                            } else {
-                                close.flex_none()
-                            }
-                        })
-                        .size(TAB_CLOSE)
-                        .rounded(crate::shape::CHROME.paint(crate::shape::TAB_CLOSE.inner()))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .when(
-                            (self.on_close.is_none() || !selected) && !pin_shown,
-                            |this| this.invisible(),
-                        )
-                        .when_some(self.on_close, |this, on_close| {
-                            track_pointer(tab_stop(this), close_pointer)
-                                .group_hover(group, |style| style.visible())
-                                .focus_visible(move |style| style.visible().shadow(close_focus))
-                                .bg(close_bg)
-                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                                .on_click(move |event, window, cx| {
-                                    cx.stop_propagation();
-                                    on_close(event, window, cx);
-                                })
-                        })
-                        .child(if pin_shown {
-                            Icon::PIN.element(ICON, close_ink)
+        })
+        .when(closable, |tab| {
+            tab.child(
+                div()
+                    .id("close")
+                    .ml(TAB_GAP)
+                    .map(|close| {
+                        if close_gives_way {
+                            close.flex_shrink(1000.).min_w_0().overflow_hidden()
                         } else {
-                            Icon::CLOSE.element(ICON, close_ink)
-                        }),
-                )
-            })
+                            close.flex_none()
+                        }
+                    })
+                    .size(TAB_CLOSE)
+                    .rounded(crate::shape::CHROME.paint(crate::shape::TAB_CLOSE.inner()))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .when(
+                        (self.on_close.is_none() || !selected) && !pin_shown,
+                        |this| this.invisible(),
+                    )
+                    .when_some(self.on_close, |this, on_close| {
+                        track_pointer(tab_stop(this), close_pointer)
+                            .group_hover(group, |style| style.visible())
+                            .focus_visible(move |style| style.visible().shadow(close_focus))
+                            .bg(close_bg)
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(move |event, window, cx| {
+                                cx.stop_propagation();
+                                on_close(event, window, cx);
+                            })
+                    })
+                    .child(if pin_shown {
+                        Icon::PIN.element(ICON, close_ink)
+                    } else {
+                        Icon::CLOSE.element(ICON, close_ink)
+                    }),
+            )
+        })
     }
 }
 

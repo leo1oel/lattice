@@ -1,13 +1,12 @@
 import { Children, cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TIP_DELAY } from "./tip-delay";
 
 /** True when the element already has visible text among its direct children. */
 function hasTextChild(node: ReactNode): boolean {
   return Children.toArray(node).some((child) => typeof child === "string" || typeof child === "number");
 }
 
-/** How long the pointer rests before a Tip shows, and how long after one closes its neighbours show at once. */
-const TIP_DELAY = { delayDuration: 280, skipDelayDuration: 400 };
 /** True under a TipProvider, whose delay the Tips share. */
 const SharedTipDelay = createContext(false);
 

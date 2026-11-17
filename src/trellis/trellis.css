@@ -253,6 +253,11 @@
 .lattice-trellis [data-trellis-part="tabbar"] { --trellis-tab-min: 100px; }
 .lattice-trellis [data-trellis-part="tab"] { flex: 0 1 auto; min-width: var(--trellis-tab-min); }
 .lattice-trellis [data-trellis-part="tab-title"] { min-width: 0; text-overflow: ellipsis; }
+/* The folders that tell two same-named documents apart (tab-names.ts),
+   after the name in the secondary ink, which a selected or hovered tab's
+   name is above. It sits inside the title, so a narrow tab cuts it short
+   before the name. */
+.lattice-trellis [data-trellis-part="tab-detail"] { margin-left: var(--space-3); color: var(--text-secondary); }
 /* Named panels (Project, Agent, PDF, tools) never ellipsize: the Trellis patch
    (fitHeader) shows each whole name or only its icon, in one of two states:
    every tab named, or only the selected one, the others all icons; only a

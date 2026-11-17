@@ -4635,8 +4635,14 @@ msgid "Copy log"
 msgstr "复制日志"
 
 #: src/project/project-file-tree.tsx
+#: src/trellis/trellis-document-tabs.tsx
 msgid "Copy path"
 msgstr "复制路径"
+
+#: src/project/project-file-tree.tsx
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Copy relative path"
+msgstr "复制相对路径"
 
 #: src/agent/agent-visual-dialog.tsx
 msgid "Copy source"
@@ -11908,6 +11914,7 @@ msgstr "粘贴密钥"
 
 #: src/project/project-file-tree.tsx
 #: src/project/project-tree-clipboard.ts
+#: src/trellis/trellis-document-tabs.tsx
 msgid "Path copied"
 msgstr "已复制路径"
 

@@ -28,6 +28,7 @@ import { TUTORIAL_ROOT, tutorialFiles } from "./bench-tutorial";
 import { benchScale } from "./bench-scale";
 import { compareVersions, olderText } from "./bench-compare";
 import { addNestedTree } from "./bench-nested-tree";
+import { addSameNames } from "./bench-same-names";
 import { addVisualFloats } from "./bench-visual-floats";
 import { overleafAnswer } from "./bench-overleaf";
 import { BENCH_PAPERS, LIBRARY_PAPERS, LITERATURE_HITS } from "./bench-papers";
@@ -57,6 +58,7 @@ const fixture = perfFixture(sizes);
 const { scale, papers: SCALE_PAPERS, history: SCALE_HISTORY, versions: SCALE_VERSIONS, bibliography: scaleBibliography } = benchScale(params);
 
 addNestedTree(params, fixture.files);
+addSameNames(params, fixture.files);
 await addVisualFloats(params, fixture.files);
 const linkedBibliography = linkedLibraryBibliography(params);
 if (linkedBibliography) fixture.files.set("references.bib", linkedBibliography);
