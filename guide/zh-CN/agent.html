@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 助手 · Lattice 使用指南</title>
+<style>
+:root { color-scheme: light dark; --text: #1f2328; --muted: #59636e; --line: #d8dbd2; --surface: #f4f5f0; --accent: #556324; --background: #fff; }
+@media (prefers-color-scheme: dark) { :root { --text: #e6e6e3; --muted: #9a9a95; --line: #3a3a37; --surface: #252523; --accent: #b5c47a; --background: #181817; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+header { display: flex; gap: 20px; align-items: baseline; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+header a { color: var(--text); text-decoration: none; }
+header .home { font-weight: 650; }
+header .language { margin-left: auto; color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 800px); gap: 44px; padding: 28px; }
+nav ol { list-style: none; margin: 0; padding: 0; position: sticky; top: 28px; }
+nav a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+nav a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; }
+main h1 { font-size: 30px; line-height: 1.25; margin: 0 0 18px; }
+main h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+main h3 { font-size: 17px; margin: 26px 0 8px; }
+main a { color: var(--accent); }
+main img { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+main code, main kbd { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 1px 5px; }
+main pre { background: var(--surface); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+main pre code { padding: 0; }
+main table { border-collapse: collapse; margin: 12px 0; }
+main th, main td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--muted); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 20px; } nav ol { position: static; } }
+</style>
+</head>
+<body>
+<header><a class="home" href="../../">Lattice</a><a class="language" href="../agent.html" hreflang="en" lang="en">English</a></header>
+<div class="layout">
+<nav><ol><li><a href="index.html">Lattice 使用指南</a></li><li><a href="getting-started.html">快速上手</a></li><li><a href="writing.html">写作</a></li><li><a href="citations.html">引用与论文库</a></li><li><a href="building.html">编译与排错</a></li><li><a href="history.html">历史与版本对比</a></li><li><a href="overleaf.html">Overleaf 同步</a></li><li><a href="boards.html">白板</a></li><li><a href="agent.html" aria-current="page">AI 助手</a></li><li><a href="plugins-and-themes.html">插件与主题</a></li><li><a href="workspaces.html">面板与工作区</a></li><li><a href="settings-and-shortcuts.html">设置与快捷键</a></li><li><a href="troubleshooting.html">常见问题</a></li></ol></nav>
+<main>
+<h1 id="ai-助手">AI 助手</h1>
+<p>AI 助手面板运行一个编程智能体：它能读你的项目和论文、修复编译错误、修改文件。它做的每处修改都以差异显示，可以审阅或撤回，并记入 <a href="history.html">历史</a>。Lattice 本身不附带模型或 AI 订阅，需要你自己提供。</p>
+<h2 id="接入助手">接入助手</h2>
+<p>打开 <strong>AI 助手</strong> 面板（<code>⌘⌥3</code>，或左侧的机器人图标），然后选择一种方式：</p>
+<ul>
+<li>Mac 上以你的身份登录的 <strong>Claude Code</strong> 或 <strong>Codex</strong>。安装命令行工具，在「终端」里登录一次（例如 <code>claude auth login</code>），再在输入框下方的模型菜单中选中它。</li>
+<li>你安装的 <strong>其他智能体命令行工具</strong>，例如 Cursor、OpenCode 或 Droid。</li>
+<li><strong>你自己的 API</strong>：<strong>设置 › AI 助手 › 模型接口</strong> 填入兼容 OpenAI 或 Anthropic 的地址、密钥（保存在钥匙串中）和模型名，无需安装其他东西。</li>
+</ul>
+<p><strong>设置 › AI 助手 › 模型</strong> 设置默认的服务商，以及 Lattice 自己做小任务（校对、提交说明、修复编译）时用的模型。<strong>MCP</strong> 可以给助手添加 Zotero 等工具；<strong>用量与限制</strong> 显示用了多少。</p>
+<h2 id="使用">使用</h2>
+<p><img src="../images/zh-agent.webp" alt="AI 助手面板：新会话，润色、修改、校对和检查引用，以及输入框"></p>
+<ul>
+<li>在输入框写下你的要求，按回车。提到某个文件，它就会去看那个文件。</li>
+<li><strong>润色</strong>、<strong>修改</strong>、<strong>校对</strong> 和 <strong>检查引用</strong> 用来启动常见任务。只想改其中一段时，先在编辑器里选中它。</li>
+<li>在编辑器里选中文字后，可以直接 <strong>校对</strong>（<code>⌘⌥P</code>）、<strong>润色</strong> 或 <strong>改写</strong>，每处修改都附带理由。</li>
+<li><strong>批注</strong> 一段文字（选中，选择 <strong>批注</strong>，写下要怎么改），再点 <strong>保存并立即修改</strong>：助手为每条批注提出修改，你在原处接受或拒绝。命令面板里的 <strong>根据批注修改</strong> 会分轮处理所有未完成的批注。</li>
+<li>编译失败时，问题上的 <strong>交给助手</strong> 会把它直接发到这里。</li>
+</ul>
+<p>会话按项目保存；会话名旁边的时钟图标列出之前的会话。</p>
+</main>
+</div>
+</body>
+</html>

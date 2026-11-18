@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>写作 · Lattice 使用指南</title>
+<style>
+:root { color-scheme: light dark; --text: #1f2328; --muted: #59636e; --line: #d8dbd2; --surface: #f4f5f0; --accent: #556324; --background: #fff; }
+@media (prefers-color-scheme: dark) { :root { --text: #e6e6e3; --muted: #9a9a95; --line: #3a3a37; --surface: #252523; --accent: #b5c47a; --background: #181817; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+header { display: flex; gap: 20px; align-items: baseline; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+header a { color: var(--text); text-decoration: none; }
+header .home { font-weight: 650; }
+header .language { margin-left: auto; color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 800px); gap: 44px; padding: 28px; }
+nav ol { list-style: none; margin: 0; padding: 0; position: sticky; top: 28px; }
+nav a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+nav a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; }
+main h1 { font-size: 30px; line-height: 1.25; margin: 0 0 18px; }
+main h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+main h3 { font-size: 17px; margin: 26px 0 8px; }
+main a { color: var(--accent); }
+main img { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+main code, main kbd { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 1px 5px; }
+main pre { background: var(--surface); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+main pre code { padding: 0; }
+main table { border-collapse: collapse; margin: 12px 0; }
+main th, main td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--muted); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 20px; } nav ol { position: static; } }
+</style>
+</head>
+<body>
+<header><a class="home" href="../../">Lattice</a><a class="language" href="../writing.html" hreflang="en" lang="en">English</a></header>
+<div class="layout">
+<nav><ol><li><a href="index.html">Lattice 使用指南</a></li><li><a href="getting-started.html">快速上手</a></li><li><a href="writing.html" aria-current="page">写作</a></li><li><a href="citations.html">引用与论文库</a></li><li><a href="building.html">编译与排错</a></li><li><a href="history.html">历史与版本对比</a></li><li><a href="overleaf.html">Overleaf 同步</a></li><li><a href="boards.html">白板</a></li><li><a href="agent.html">AI 助手</a></li><li><a href="plugins-and-themes.html">插件与主题</a></li><li><a href="workspaces.html">面板与工作区</a></li><li><a href="settings-and-shortcuts.html">设置与快捷键</a></li><li><a href="troubleshooting.html">常见问题</a></li></ol></nav>
+<main>
+<h1 id="写作">写作</h1>
+<h2 id="编辑器">编辑器</h2>
+<p><code>.tex</code> 文件在源码编辑器中打开，输入时有补全和诊断。编辑器上方可以切换：</p>
+<ul>
+<li><strong>源码</strong>：LaTeX 原文。</li>
+<li><strong>可视化内容</strong>：同一个文件，标题、强调、公式、列表和图片直接渲染出来。编辑的仍是同一份文本，随时可以切回。</li>
+</ul>
+<p><img src="../images/zh-visual.webp" alt="可视化模式下的 main.tex，标题和摘要直接渲染出来"></p>
+<p>写作时常用的功能：</p>
+<ul>
+<li><strong>格式快捷键</strong>：<code>⌘B</code> 加粗、<code>⌘I</code> 强调、<code>⌘⇧M</code> 行内公式、<code>⌘/</code> 注释一行、<code>⌘⌥E</code> 套上公式环境。完整列表见 <strong>快捷键</strong>（<code>⌘?</code>）。</li>
+<li><strong>查找替换</strong>：<code>⌘F</code> 在当前文件，<code>⌘⇧F</code> 在整个项目。</li>
+<li><strong>跳转</strong>：<code>⌘P</code> 打开任意文件，<code>⌘G</code> 跳到某行，<code>⌘⇧O</code> 跳到某节或某个 label。</li>
+<li><strong>大纲</strong>：状态栏里的章节名，以及编辑器右边缘的标记，可以按文档结构跳转。</li>
+<li>Markdown 笔记、表格、HTML 页面、幻灯片和 <a href="boards.html">白板</a> 都放在同一个项目里，用各自的编辑器打开。</li>
+</ul>
+<p>Lattice 边写边保存，状态栏的 <strong>已保存</strong> 显示保存时间。</p>
+<h2 id="源码旁边的-pdf">源码旁边的 PDF</h2>
+<p>每次保存都会编译 PDF（见 <a href="building.html">编译与排错</a>），PDF 面板原地刷新。在两者之间跳转：</p>
+<ul>
+<li>在 PDF 里 <strong>双击</strong> 一句话，跳到写出它的源码行。</li>
+<li>在源码里按 <code>⌘⇧J</code>（<strong>在 PDF 中查看</strong>），在 PDF 中显示当前行。</li>
+</ul>
+<p><img src="../images/zh-synctex.webp" alt="在 PDF 中双击后，编辑器显示对应的段落"></p>
+<p>PDF 也可以放进单独的窗口，适合用第二块屏幕：在命令面板（<code>⌘K</code>）里搜索「在单独窗口中打开 PDF」。</p>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Building and fixing errors · Lattice User Guide</title>
+<style>
+:root { color-scheme: light dark; --text: #1f2328; --muted: #59636e; --line: #d8dbd2; --surface: #f4f5f0; --accent: #556324; --background: #fff; }
+@media (prefers-color-scheme: dark) { :root { --text: #e6e6e3; --muted: #9a9a95; --line: #3a3a37; --surface: #252523; --accent: #b5c47a; --background: #181817; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+header { display: flex; gap: 20px; align-items: baseline; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+header a { color: var(--text); text-decoration: none; }
+header .home { font-weight: 650; }
+header .language { margin-left: auto; color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 800px); gap: 44px; padding: 28px; }
+nav ol { list-style: none; margin: 0; padding: 0; position: sticky; top: 28px; }
+nav a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+nav a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; }
+main h1 { font-size: 30px; line-height: 1.25; margin: 0 0 18px; }
+main h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+main h3 { font-size: 17px; margin: 26px 0 8px; }
+main a { color: var(--accent); }
+main img { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+main code, main kbd { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 1px 5px; }
+main pre { background: var(--surface); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+main pre code { padding: 0; }
+main table { border-collapse: collapse; margin: 12px 0; }
+main th, main td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--muted); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 20px; } nav ol { position: static; } }
+</style>
+</head>
+<body>
+<header><a class="home" href="../">Lattice</a><a class="language" href="zh-CN/building.html" hreflang="zh-CN" lang="zh-CN">简体中文</a></header>
+<div class="layout">
+<nav><ol><li><a href="index.html">Lattice User Guide</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="writing.html">Writing</a></li><li><a href="citations.html">Citations and papers</a></li><li><a href="building.html" aria-current="page">Building and fixing errors</a></li><li><a href="history.html">History and Compare versions</a></li><li><a href="overleaf.html">Overleaf sync</a></li><li><a href="boards.html">Boards</a></li><li><a href="agent.html">The Agent</a></li><li><a href="plugins-and-themes.html">Plugins and themes</a></li><li><a href="workspaces.html">Panels and workspaces</a></li><li><a href="settings-and-shortcuts.html">Settings and shortcuts</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ol></nav>
+<main>
+<h1 id="building-and-fixing-errors">Building and fixing errors</h1>
+<h2 id="build">Build</h2>
+<p>Press <code>⌘S</code> to save and build. By default Lattice also builds on its own after you stop typing (<strong>Settings › Editor &amp; builds › Automatic build</strong>). The build button above the editor shows the result and how long it took; click it to build again.</p>
+<p>From the command palette (<code>⌘K</code>):</p>
+<ul>
+<li><strong>Clean rebuild</strong> deletes the build&#39;s intermediate files and builds from scratch. Try it when a build behaves strangely.</li>
+<li><strong>Clean aux files</strong> only deletes them.</li>
+<li><strong>Stop build</strong> stops a build that is running.</li>
+</ul>
+<p>The compile engine (pdfLaTeX, XeLaTeX or LuaLaTeX), shell escape and where intermediate files go are in <strong>Settings › Editor &amp; builds › Builds</strong>. A <code>latexmkrc</code> in the project overrides the engine.</p>
+<h2 id="read-and-fix-a-build-problem">Read and fix a build problem</h2>
+<p>When a build fails, the build button turns red and a panel opens over the PDF. Each problem names its file and line, shows the source around it, and says in plain words what LaTeX objected to.</p>
+<p><img src="images/en-build-error.webp" alt="A failed build: Unknown command \undefinedmacro on line 22, with the source excerpt and Ask the agent"></p>
+<ul>
+<li>Click a problem to jump to its line. <code>F8</code> and <code>⇧F8</code> step through problems from the keyboard.</li>
+<li><strong>Log</strong> shows the raw LaTeX log.</li>
+<li><strong>Ask the agent</strong> hands one problem to the Agent; <strong>Fix all</strong> asks it to fix every problem.</li>
+<li>A missing package can be installed from the problem itself.</li>
+</ul>
+<h2 id="export">Export</h2>
+<ul>
+<li><strong>Export for arXiv…</strong> (project menu or <strong>File</strong>) writes one ZIP that builds on its own.</li>
+<li><strong>Export ZIP…</strong> writes the whole project, which Overleaf can import.</li>
+<li>The PDF panel&#39;s menu saves the compiled PDF.</li>
+</ul>
+</main>
+</div>
+</body>
+</html>

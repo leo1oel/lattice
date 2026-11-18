@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overleaf 同步 · Lattice 使用指南</title>
+<style>
+:root { color-scheme: light dark; --text: #1f2328; --muted: #59636e; --line: #d8dbd2; --surface: #f4f5f0; --accent: #556324; --background: #fff; }
+@media (prefers-color-scheme: dark) { :root { --text: #e6e6e3; --muted: #9a9a95; --line: #3a3a37; --surface: #252523; --accent: #b5c47a; --background: #181817; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+header { display: flex; gap: 20px; align-items: baseline; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+header a { color: var(--text); text-decoration: none; }
+header .home { font-weight: 650; }
+header .language { margin-left: auto; color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 800px); gap: 44px; padding: 28px; }
+nav ol { list-style: none; margin: 0; padding: 0; position: sticky; top: 28px; }
+nav a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+nav a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; }
+main h1 { font-size: 30px; line-height: 1.25; margin: 0 0 18px; }
+main h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+main h3 { font-size: 17px; margin: 26px 0 8px; }
+main a { color: var(--accent); }
+main img { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+main code, main kbd { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 1px 5px; }
+main pre { background: var(--surface); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+main pre code { padding: 0; }
+main table { border-collapse: collapse; margin: 12px 0; }
+main th, main td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--muted); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 20px; } nav ol { position: static; } }
+</style>
+</head>
+<body>
+<header><a class="home" href="../../">Lattice</a><a class="language" href="../overleaf.html" hreflang="en" lang="en">English</a></header>
+<div class="layout">
+<nav><ol><li><a href="index.html">Lattice 使用指南</a></li><li><a href="getting-started.html">快速上手</a></li><li><a href="writing.html">写作</a></li><li><a href="citations.html">引用与论文库</a></li><li><a href="building.html">编译与排错</a></li><li><a href="history.html">历史与版本对比</a></li><li><a href="overleaf.html" aria-current="page">Overleaf 同步</a></li><li><a href="boards.html">白板</a></li><li><a href="agent.html">AI 助手</a></li><li><a href="plugins-and-themes.html">插件与主题</a></li><li><a href="workspaces.html">面板与工作区</a></li><li><a href="settings-and-shortcuts.html">设置与快捷键</a></li><li><a href="troubleshooting.html">常见问题</a></li></ol></nav>
+<main>
+<h1 id="overleaf-同步">Overleaf 同步</h1>
+<p>Lattice 与 Overleaf 双向同步。合作者照常在 Overleaf 上写，不需要安装 Lattice；他们的修改、评论、聊天和修订会实时出现在 Lattice 里。</p>
+<h2 id="连接">连接</h2>
+<p>打开 <strong>设置 › Overleaf</strong>，点 <strong>连接 Overleaf</strong>。登录在 Overleaf 自己的页面上完成，Lattice 不会接触你的密码。</p>
+<p><img src="../images/zh-overleaf-settings.webp" alt="设置 › Overleaf：连接 Overleaf、同步方式和删除规则"></p>
+<h2 id="打开-overleaf-项目">打开 Overleaf 项目</h2>
+<ol>
+<li>在项目菜单或 <strong>文件</strong> 菜单中选择 <strong>从 Overleaf 打开</strong>，或者点标题栏的云朵按钮。</li>
+<li>搜索你的项目，或者粘贴项目链接。别人邀请你的项目也会列出来；请先在 Overleaf 上接受邀请。</li>
+<li>在 <strong>下载到</strong> 中选择本地副本的位置，然后打开项目。</li>
+</ol>
+<p>Lattice 把项目下载到一个普通文件夹，并保持关联。如果本地已有副本，用 <strong>关联此文件夹</strong> 直接关联，不必重新下载。</p>
+<h2 id="把本地项目放到-overleaf">把本地项目放到 Overleaf</h2>
+<p>打开项目后，打开同一个 Overleaf 面板，选择 <strong>上传到 Overleaf</strong>，填好名称，再点 <strong>上传关联</strong>。</p>
+<h2 id="同步规则">同步规则</h2>
+<p>在 <strong>设置 › Overleaf</strong> 中设置：</p>
+<ul>
+<li><strong>同步方式</strong>：<strong>实时同步</strong> 在输入时就收发修改；<strong>手动</strong> 只在你点 <strong>立即同步</strong> 时同步。</li>
+<li><strong>在这里删除文件时</strong>：<strong>先问我</strong>（默认）、<strong>Overleaf 上也删</strong> 或 <strong>Overleaf 上保留</strong>。</li>
+</ul>
+<p>离线期间两边都改了同一个文件时，Lattice 会尽量合并。合并不了时，Overleaf 的版本进入项目，你的版本另存为旁边一个带「(local conflict …)」的文件，不会丢失内容。</p>
+<p>Overleaf 上的评论和修订建议显示在源码边栏，以及 Overleaf 面板的评论、修订和聊天中。<strong>视图 › 页边审阅</strong> 设置边栏显示多少内容。</p>
+</main>
+</div>
+</body>
+</html>

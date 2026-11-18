@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>面板与工作区 · Lattice 使用指南</title>
+<style>
+:root { color-scheme: light dark; --text: #1f2328; --muted: #59636e; --line: #d8dbd2; --surface: #f4f5f0; --accent: #556324; --background: #fff; }
+@media (prefers-color-scheme: dark) { :root { --text: #e6e6e3; --muted: #9a9a95; --line: #3a3a37; --surface: #252523; --accent: #b5c47a; --background: #181817; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+header { display: flex; gap: 20px; align-items: baseline; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+header a { color: var(--text); text-decoration: none; }
+header .home { font-weight: 650; }
+header .language { margin-left: auto; color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 800px); gap: 44px; padding: 28px; }
+nav ol { list-style: none; margin: 0; padding: 0; position: sticky; top: 28px; }
+nav a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+nav a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; }
+main h1 { font-size: 30px; line-height: 1.25; margin: 0 0 18px; }
+main h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+main h3 { font-size: 17px; margin: 26px 0 8px; }
+main a { color: var(--accent); }
+main img { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+main code, main kbd { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 1px 5px; }
+main pre { background: var(--surface); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+main pre code { padding: 0; }
+main table { border-collapse: collapse; margin: 12px 0; }
+main th, main td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--muted); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 20px; } nav ol { position: static; } }
+</style>
+</head>
+<body>
+<header><a class="home" href="../../">Lattice</a><a class="language" href="../workspaces.html" hreflang="en" lang="en">English</a></header>
+<div class="layout">
+<nav><ol><li><a href="index.html">Lattice 使用指南</a></li><li><a href="getting-started.html">快速上手</a></li><li><a href="writing.html">写作</a></li><li><a href="citations.html">引用与论文库</a></li><li><a href="building.html">编译与排错</a></li><li><a href="history.html">历史与版本对比</a></li><li><a href="overleaf.html">Overleaf 同步</a></li><li><a href="boards.html">白板</a></li><li><a href="agent.html">AI 助手</a></li><li><a href="plugins-and-themes.html">插件与主题</a></li><li><a href="workspaces.html" aria-current="page">面板与工作区</a></li><li><a href="settings-and-shortcuts.html">设置与快捷键</a></li><li><a href="troubleshooting.html">常见问题</a></li></ol></nav>
+<main>
+<h1 id="面板与工作区">面板与工作区</h1>
+<h2 id="面板">面板</h2>
+<p>窗口里的一切都是面板：项目、论文库、AI 助手、PDF、终端，以及历史、批注、Overleaf、找文献、待办、投稿清单等工具。标题栏的 <strong>面板</strong> 菜单可以显示或隐藏每个面板。</p>
+<p><img src="../images/zh-panels-menu.webp" alt="面板菜单：项目、论文库、AI 助手、PDF、终端及其快捷键，下面是工具和布局"></p>
+<ul>
+<li>拖动面板的标签，可以把它停靠到任何位置：另一个面板的旁边、上方、下方，或者作为它所在组的一个标签。</li>
+<li><code>⌘⌥1</code> 项目、<code>⌘⌥2</code> 论文库、<code>⌘⌥3</code> AI 助手、<code>⌃`</code> 终端，用来显示或隐藏这些面板。</li>
+<li><code>⌘⇧↩</code> 最大化当前面板，再按一次恢复布局。</li>
+<li><strong>专注</strong>（<code>⌘⇧D</code>）只留下编辑器。</li>
+<li>面板菜单中的 <strong>重置布局</strong> 可以找回关掉的任何面板。</li>
+</ul>
+<p>面板菜单里还有三个现成的布局：<strong>写作</strong>、<strong>阅读</strong> 和 <strong>参考文献</strong>。</p>
+<h2 id="工作区">工作区</h2>
+<p>工作区是保存下来的面板布局。它们以标签形式排在标题栏里，用 <code>⌘1</code> 到 <code>⌘9</code> 切换。</p>
+<ul>
+<li><strong>新建</strong>：点工作区标签旁的 <strong>+</strong>。新工作区从屏幕上当前的布局开始；输入名称后按回车。</li>
+<li><strong>保存修改</strong>：调整面板后，工作区标签上会出现一个圆点。右键标签，选择 <strong>保存到工作区</strong> 或 <strong>还原布局</strong>。</li>
+<li><strong>重命名</strong>：双击标签，或按 F2。</li>
+<li><strong>调整顺序</strong>：拖动标签，或使用 <strong>左移</strong> 和 <strong>右移</strong>。</li>
+</ul>
+<h3 id="删除工作区">删除工作区</h3>
+<p>右键点击工作区的标签，选择 <strong>删除</strong>。如果右键打不开菜单（某些触控板设置下会这样），选中标签后按 <code>⇧F10</code>。删除后弹出的通知里有 <strong>撤销</strong>，可以把它找回来。只剩一个工作区时不能删除。</p>
+<p><img src="../images/zh-workspace-menu.webp" alt="工作区菜单：重命名、复制一份、左移、右移和删除"></p>
+<p>窗口太窄放不下标签时，工作区会折叠成一个菜单，操作相同。</p>
+</main>
+</div>
+</body>
+</html>
