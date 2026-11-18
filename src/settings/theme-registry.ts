@@ -29,7 +29,7 @@ export type IndexTheme = {
   variants: { id: string; name: string | null; appearance: Theme; colors: Record<string, string> }[];
 };
 
-type RegistryStatus =
+export type RegistryStatus =
   | { kind: "cached" }
   | { kind: "fresh" }
   | { kind: "offline"; message: string }

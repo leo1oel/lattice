@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { PluginSettings } from "./plugin-settings";
 import type { PluginInfo, PluginList } from "./plugin-ipc";
+import type { PluginListing } from "./plugin-registry";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
@@ -20,10 +21,12 @@ const quiet: PluginInfo = {
   permissions: { projectRead: [], networkLocal: [], network: [], secrets: [] }, secrets: [],
 };
 let list: PluginList;
+// No plugin list cached yet: the Installed view's cards stand without it.
+const noListing: PluginListing = { plugins: [], verified: false, blockedOffers: {}, fetchedAt: null, status: { kind: "cached" }, installed: [] };
 
 beforeEach(() => {
   list = { available: true, plugins: [zotero] };
-  vi.mocked(invoke).mockReset().mockImplementation(async (command) => (command === "plugins_list" ? list : zotero));
+  vi.mocked(invoke).mockReset().mockImplementation(async (command) => (command === "plugins_list" ? list : command === "plugins_registry" ? noListing : zotero));
 });
 afterEach(cleanup);
 
@@ -105,7 +108,7 @@ it("installs from a URL with its SHA-256, and shows the host's refusal under the
   fireEvent.change(screen.getByLabelText("SHA-256 checksum"), { target: { value: "b".repeat(64) } });
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "plugins_install_url") throw "The plugin's licence (Proprietary) is not one Lattice accepts for installed plugins.";
-    return list;
+    return command === "plugins_registry" ? noListing : list;
   });
   fireEvent.click(install);
   expect(await screen.findByText("The plugin's licence (Proprietary) is not one Lattice accepts for installed plugins.")).toBeInTheDocument();
