@@ -632,6 +632,7 @@ impl Render for TableGenerator {
                     false,
                     None,
                     None,
+                    false,
                     window,
                     cx,
                 ));

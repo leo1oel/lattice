@@ -43,6 +43,7 @@ pub const KEYS: &[&str] = &[
     "lattice.live-preview-removed.v1",
     "lattice.build-output-docked.v1",
     "lattice.papers.save-full-text.v1",
+    "lattice.history.diff-wrap.v1",
 ];
 
 /// What was imported, and from where.
@@ -118,6 +119,8 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         },
         // Stored as "true" or "false" (`save-full-text-setting.ts`).
         save_full_text: item("lattice.papers.save-full-text.v1") == Some("true"),
+        // Stored as "true" or "false" (`diff-wrap-setting.ts`).
+        history_diff_wrap: item("lattice.history.diff-wrap.v1") == Some("true"),
     }
 }
 
@@ -399,6 +402,19 @@ mod tests {
         ]));
         assert_eq!(unknown.overleaf_sync_mode, OverleafSyncMode::Live);
         assert_eq!(unknown.overleaf_remote_delete, OverleafRemoteDelete::Ask);
+    }
+
+    #[test]
+    fn the_diff_wraps_only_when_the_tauri_app_stored_true() {
+        let wrap = |stored: &str| {
+            let items =
+                BTreeMap::from([("lattice.history.diff-wrap.v1".to_owned(), stored.to_owned())]);
+            settings_from_items(&items).history_diff_wrap
+        };
+        assert!(wrap("true"));
+        assert!(!wrap("false"));
+        assert!(!wrap("1"));
+        assert!(!settings_from_items(&BTreeMap::new()).history_diff_wrap);
     }
 
     #[test]

@@ -111,6 +111,7 @@ lucide! {
     GIT_BRANCH = "icons" / "git-branch";
     SPARKLES = "icons" / "sparkles";
     TEXT_CURSOR_INPUT = "icons" / "text-cursor-input";
+    TEXT_WRAP = "icons" / "text-wrap";
     WRENCH = "icons" / "wrench";
     CHEVRON_UP = "icons" / "chevron-up";
     CORNER_UP_LEFT = "icons" / "corner-up-left";
