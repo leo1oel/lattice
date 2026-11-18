@@ -78,6 +78,9 @@ impl Run {
 
     /// The flow itself; returns what `after_quit` names.
     async fn e2e_flow(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<Value> {
+        // Spell checking is off by default; the spelling, grammar and
+        // language steps check the marks it draws.
+        cx.update(|cx| crate::settings::update_appearance(cx, |a| a.editor_spellcheck = true));
         let root = self.root(cx).await?;
         // No step may reach a real TeX install.
         let stub = self.stub_tex_setup(cx, &root);
