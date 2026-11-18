@@ -4,8 +4,16 @@
 //! Every file in the sandbox is reached through the bibliography name filter
 //! unless a mount here covers it:
 //!
-//! - system folders and `/run` straight from the host, read-only, so
-//!   programs load at full speed;
+//! - system folders straight from the host, read-only, so programs load at
+//!   full speed;
+//! - an empty `/run` of the sandbox's own. A read-only mount still lets a
+//!   socket in it be connected to, and through a container engine's there
+//!   (`/run/docker.sock`, `/run/podman/podman.sock`) a process can start a
+//!   container with any host folder mounted in it, outside the filter. All
+//!   it gets back is the file the resolver is configured in, read-only, and
+//!   the links in `/run` and on the way there from `/etc/resolv.conf`, as
+//!   links ([`from_run`]); removable drives under `/run/media` are filtered
+//!   as anywhere else;
 //! - `/dev` and a `/proc` of the sandbox's own process namespace, so no host
 //!   process can be reached through `/proc/<pid>/root`, signalled or traced;
 //! - `/tmp` and the hidden folders of the home folder straight from the
@@ -15,9 +23,9 @@
 //!   there is guarded, so Lattice refuses to run the agent on a project in
 //!   one of them ([`Layout::guards`]);
 //! - an empty folder of the sandbox's own over the user's runtime folder
-//!   (`XDG_RUNTIME_DIR`) and over the X server's sockets. A read-only mount
-//!   still lets a socket in it be connected to, and through the session bus
-//!   there the sandbox could start a process outside itself (systemd's user
+//!   (`XDG_RUNTIME_DIR`), wherever it is, and over the X server's sockets.
+//!   Through the session bus there the sandbox could start a process outside
+//!   itself (systemd's user
 //!   manager, the portals) or read the keyring Lattice keeps its credentials
 //!   in, which has no access control of its own; through the display it
 //!   could type into other windows. Nothing is bound back, so what reads the
@@ -45,12 +53,16 @@ use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
 
 /// Folders the sandbox takes from the host as they are, read-only: programs,
-/// libraries and configuration, the kernel's `/sys`, and `/run`, where the
-/// system's resolver and other daemons' state live.
-const READ_ONLY: [&str; 12] = [
+/// libraries and configuration, and the kernel's `/sys`.
+const READ_ONLY: [&str; 11] = [
     "/usr", "/etc", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32", "/nix", "/gnu", "/sys",
-    "/run",
 ];
+
+/// The daemons' sockets and state. The sandbox has one of its own.
+const RUN: &str = "/run";
+
+/// What names the system's resolver, commonly through a link into `/run`.
+const RESOLVER: &str = "/etc/resolv.conf";
 
 /// Where the X server's sockets are, in the host's `/tmp`.
 const X11_SOCKETS: &str = "/tmp/.X11-unix";
@@ -89,6 +101,9 @@ enum View {
 /// What the sandbox mounts over the filtered root, outermost first.
 pub(super) struct Layout {
     mounts: Vec<(PathBuf, View)>,
+    /// Links made in the sandbox's own `/run` once it is mounted: where, and
+    /// what each points to.
+    links: Vec<(PathBuf, PathBuf)>,
     /// The SSH agent's socket on the host, and whether the sandbox gets it.
     ssh_agent: Option<(PathBuf, bool)>,
 }
@@ -103,18 +118,24 @@ impl Layout {
             |path: &Path| fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir());
         let mut mounts =
             vec![(PathBuf::from("/dev"), View::Devices), (PathBuf::from("/proc"), View::Processes)];
-        // Under the read-only `/run`, removable drives on some distributions:
-        // a project on one is the agent's to work on like any other.
+        // Under `/run`, removable drives on some distributions: a project on
+        // one is the agent's to work on like any other.
         let fixed = [("/dev/shm", View::Private)]
             .into_iter()
             .chain(READ_ONLY.map(|path| (path, View::ReadOnly)))
-            .chain([("/run/media", View::Filtered), ("/tmp", View::Direct)])
+            .chain([(RUN, View::Private), ("/run/media", View::Filtered), ("/tmp", View::Direct)])
             .chain([(X11_SOCKETS, View::Private)]);
         mounts.extend(
             fixed
                 .map(|(path, view)| (PathBuf::from(path), view))
                 .filter(|(path, _)| real_folder(path)),
         );
+        let (resolver, links) = if real_folder(Path::new(RUN)) {
+            from_run(Path::new(RESOLVER), Path::new(RUN))
+        } else {
+            (Vec::new(), Vec::new())
+        };
+        mounts.extend(resolver.into_iter().map(|file| (file, View::ReadOnly)));
         if let Some(home) = home {
             let mut hidden: Vec<PathBuf> = fs::read_dir(home)
                 .into_iter()
@@ -139,15 +160,16 @@ impl Layout {
         let options = GuardOptions::folder(agent_home).filter(|folder| real_folder(folder));
         mounts.extend(options.map(|folder| (folder, View::ReadOnly)));
         mounts.push((agent_home.to_path_buf(), View::Direct));
-        // Last, over whichever mount above shows them: `/run`, or `/tmp`
-        // where a system keeps them there.
+        // Last, over whichever mount above shows them: `/tmp` where a system
+        // keeps them there, or the sandbox's own `/run`, where the folder
+        // would otherwise be missing for a program that expects one.
         mounts.extend(
             runtime
                 .iter()
                 .filter(|path| real_folder(path))
                 .map(|path| (path.clone(), View::Private)),
         );
-        Self { mounts, ssh_agent: None }
+        Self { mounts, links, ssh_agent: None }
     }
 
     /// The layout with the SSH agent listening on `socket`, a path as the
@@ -218,6 +240,9 @@ impl Layout {
                 View::Processes => add(&["--proc".as_ref(), path]),
             }
         }
+        for (link, target) in &self.links {
+            add(&["--symlink".as_ref(), target.as_os_str(), link.as_os_str()]);
+        }
         match &self.ssh_agent {
             // Over the empty runtime folder, if it is in there: the socket
             // alone, with nothing else of the folder beside it.
@@ -234,7 +259,7 @@ impl Layout {
         // The folder the filter is mounted in, covered last, over whichever
         // mount above shows it: through the filter's mount the sandbox would
         // see the host's whole tree, with what it has read-only or of its own
-        // (`/run`, `/dev/shm`) writable.
+        // (`/run`, `/dev/shm`) as the host has them.
         if let Some(mounts) = filter.parent().filter(|folder| folder.parent().is_some()) {
             add(&["--tmpfs".as_ref(), mounts.as_os_str()]);
         }
@@ -269,6 +294,47 @@ pub(super) fn runtime_folders() -> Vec<PathBuf> {
     folders
 }
 
+/// What the sandbox has back of the host's `run` folder, as the host
+/// resolves it: the file that `resolver` leads to, if it is in there, to be
+/// bound read-only (`/run/systemd/resolve/stub-resolv.conf`,
+/// `/run/NetworkManager/resolv.conf`, …), and the links on the way there and
+/// directly in `run`, to be made again. A link is resolved inside the
+/// sandbox, so it reaches nothing the sandbox has not got already; NixOS and
+/// Guix keep the system's programs behind one (`/run/current-system`).
+/// Nothing else: not a socket, and not the folder the file is in, beside
+/// which systemd-resolved listens.
+fn from_run(resolver: &Path, run: &Path) -> (Vec<PathBuf>, Vec<(PathBuf, PathBuf)>) {
+    let mut links: Vec<(PathBuf, PathBuf)> = fs::read_dir(run)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| Some((entry.path(), fs::read_link(entry.path()).ok()?)))
+        .collect();
+    let mut files = Vec::new();
+    let mut next = resolver.to_path_buf();
+    // No further than the kernel follows links before it gives up.
+    for _ in 0..40 {
+        let (Some(folder), Some(name)) = (next.parent(), next.file_name()) else { break };
+        // Each step where it really is, whatever links its folders are
+        // reached through (`/var/run`, `/etc/../run`).
+        let Ok(folder) = fs::canonicalize(folder) else { break };
+        let at = folder.join(name);
+        let Ok(target) = fs::read_link(&at) else {
+            if at.starts_with(run) && at.is_file() {
+                files.push(at);
+            }
+            break;
+        };
+        next = folder.join(&target);
+        if at.starts_with(run) {
+            links.push((at, target));
+        }
+    }
+    links.sort();
+    links.dedup();
+    (files, links)
+}
+
 /// The SSH agent's socket, as the host resolves it: what `SSH_AUTH_SOCK`
 /// names, when that is a socket.
 pub(super) fn ssh_agent_socket() -> Option<PathBuf> {
@@ -287,10 +353,11 @@ mod tests {
             ("/proc", View::Processes),
             ("/dev/shm", View::Private),
             ("/usr", View::ReadOnly),
-            ("/run", View::ReadOnly),
+            ("/run", View::Private),
             ("/run/media", View::Filtered),
             ("/tmp", View::Direct),
             ("/tmp/.X11-unix", View::Private),
+            ("/run/systemd/resolve/stub-resolv.conf", View::ReadOnly),
             ("/home/ada/.cache", View::Direct),
             ("/home/ada/.local", View::Direct),
             ("/home/ada/.local/share/lattice", View::Filtered),
@@ -299,7 +366,10 @@ mod tests {
             ("/run/user/1000", View::Private),
         ];
         let mounts = mounts.map(|(path, view)| (PathBuf::from(path), view)).to_vec();
-        Layout { mounts, ssh_agent: None }
+        let links =
+            [("/run/current-system", "/nix/store/0-nixos-system"), ("/run/shm", "/dev/shm")];
+        let links = links.map(|(at, to)| (PathBuf::from(at), PathBuf::from(to))).to_vec();
+        Layout { mounts, links, ssh_agent: None }
     }
 
     #[test]
@@ -325,6 +395,8 @@ mod tests {
             "/home/ada/.local/share/lattice/agent-guard/paper",
             "/run/user/1000/paper",
             "/run/user/1001/paper",
+            "/run/lock/paper",
+            "/run/systemd/resolve",
             "/tmp/.X11-unix/paper",
             "/usr/share/doc",
             "/dev/shm/paper",
@@ -355,10 +427,15 @@ mod tests {
             &["--proc", "/proc"],
             &["--tmpfs", "/dev/shm"],
             &["--ro-bind", "/usr", "/usr"],
-            &["--ro-bind", "/run", "/run"],
+            &["--tmpfs", "/run"],
             &["--bind", &drives, "/run/media"],
             &["--bind", "/tmp", "/tmp"],
             &["--tmpfs", "/tmp/.X11-unix"],
+            &[
+                "--ro-bind",
+                "/run/systemd/resolve/stub-resolv.conf",
+                "/run/systemd/resolve/stub-resolv.conf",
+            ],
             &["--bind", "/home/ada/.cache", "/home/ada/.cache"],
             &["--bind", "/home/ada/.local", "/home/ada/.local"],
             &["--bind", &through, app_data],
@@ -373,6 +450,8 @@ mod tests {
                 "/home/ada/.local/share/lattice/synara",
             ],
             &["--tmpfs", "/run/user/1000"],
+            &["--symlink", "/nix/store/0-nixos-system", "/run/current-system"],
+            &["--symlink", "/dev/shm", "/run/shm"],
             &["--tmpfs", "/run/user/1000/lattice-agent-guard"],
         ]
         .concat();
@@ -451,6 +530,62 @@ mod tests {
                     parent.display()
                 );
             }
+        }
+    }
+
+    /// The resolver's file and the links to it come back from `/run`, as
+    /// the host resolves them, and nothing else there does: not the socket
+    /// beside the file, nor a container engine's.
+    #[test]
+    fn of_run_the_sandbox_gets_the_resolvers_file_and_the_links() {
+        use std::os::unix::fs::symlink;
+        use std::os::unix::net::UnixListener;
+        let scratch = crate::test_support::TempDir::new("bib-guard-run");
+        let scratch = fs::canonicalize(&scratch).unwrap();
+        let (etc, run) = (scratch.join("etc"), scratch.join("run"));
+        let resolve = run.join("systemd/resolve");
+        for folder in [&etc, &resolve, &run.join("NetworkManager"), &scratch.join("var")] {
+            fs::create_dir_all(folder).unwrap();
+        }
+        let stub = resolve.join("stub-resolv.conf");
+        fs::write(&stub, "nameserver 127.0.0.53\n").unwrap();
+        let _listeners = [resolve.join("io.systemd.Resolve"), run.join("docker.sock")]
+            .map(|socket| UnixListener::bind(socket).unwrap());
+        symlink("/nix/store/0-nixos-system", run.join("current-system")).unwrap();
+        symlink("../run", scratch.join("var/run")).unwrap();
+        // systemd-resolved's, through a relative link, and through a second
+        // link in `/run` as `resolvconf` makes it.
+        symlink("../run/systemd/resolve/stub-resolv.conf", etc.join("resolved")).unwrap();
+        let resolvconf = run.join("resolv.conf");
+        symlink(&stub, &resolvconf).unwrap();
+        symlink("../run/resolv.conf", etc.join("resolvconf")).unwrap();
+        // NetworkManager's, through `/var/run`.
+        let manager = run.join("NetworkManager/resolv.conf");
+        fs::write(&manager, "nameserver 192.0.2.1\n").unwrap();
+        symlink("../var/run/NetworkManager/resolv.conf", etc.join("manager")).unwrap();
+        // One of the host's own, a missing one, and a loop.
+        fs::write(etc.join("own"), "nameserver 192.0.2.2\n").unwrap();
+        symlink("../run/missing.conf", etc.join("missing")).unwrap();
+        symlink("loop", run.join("loop")).unwrap();
+        symlink("../run/loop", etc.join("looping")).unwrap();
+
+        let in_run = |at: &str, to: &str| (run.join(at), PathBuf::from(to));
+        let links_in_run = [
+            in_run("current-system", "/nix/store/0-nixos-system"),
+            in_run("loop", "loop"),
+            (resolvconf.clone(), stub.clone()),
+        ];
+        for (resolver, files) in [
+            ("resolved", vec![stub.clone()]),
+            ("resolvconf", vec![stub.clone()]),
+            ("manager", vec![manager.clone()]),
+            ("own", vec![]),
+            ("missing", vec![]),
+            ("looping", vec![]),
+        ] {
+            let (found, links) = from_run(&etc.join(resolver), &run);
+            assert_eq!(found, files, "{resolver}");
+            assert_eq!(links, links_in_run.to_vec(), "{resolver}");
         }
     }
 }

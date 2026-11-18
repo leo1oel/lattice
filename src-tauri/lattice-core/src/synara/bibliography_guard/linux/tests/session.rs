@@ -1,6 +1,8 @@
 //! What the sandbox is kept from of the writer's session: the session bus,
-//! the display, the host's abstract sockets and the SSH agent, and the two
-//! opt-ins that give some of it back (`guard_options`).
+//! the display, the host's abstract sockets, the SSH agent and the daemons'
+//! sockets in `/run`, the container engines' among them; what it keeps, the
+//! resolver; and the two opt-ins that give some of the rest back
+//! (`guard_options`).
 //!
 //! Some of this needs what a build machine may not have: a user session, or
 //! a kernel with Landlock scopes. A test says `skipped` and why when it
@@ -304,6 +306,131 @@ fn the_ssh_agent_is_out_of_reach_until_the_writer_forwards_it() {
         assert_eq!(probe(&forwarded, &path(&bus), Some(socket)), Some(REFUSED), "{socket:?}");
     }
     UnixStream::connect(&in_temporary).expect("the host's socket is as it was");
+}
+
+/// A folder of the test's own in the host's `/run`, in `/run/lock`, where any
+/// user may make one; removed with it.
+struct InRun(PathBuf);
+
+impl InRun {
+    fn new() -> Option<Self> {
+        let folder =
+            PathBuf::from(format!("/run/lock/lattice-guard-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir(&folder).ok().map(|()| Self(folder))
+    }
+}
+
+impl Drop for InRun {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+/// The host's `/run` is not the sandbox's. Through a container engine's
+/// socket a process can start a container with any host folder mounted in
+/// it, outside the filter: Docker's and rootful Podman's are in `/run`,
+/// rootless Podman's in the runtime folder. Inside, nothing in `/run` is a
+/// socket and none of those paths is there. A test cannot listen where the
+/// engines do without root, so stand-ins listen in `/run/lock` and in a
+/// stand-in runtime folder, and an engine this machine has is tried too.
+#[test]
+fn the_sandbox_cannot_reach_the_container_engines_or_other_sockets_in_run() {
+    if !guard_available() {
+        return;
+    }
+    let runtime = Guarded::new();
+    let rootless = runtime.0.join("podman/podman.sock");
+    fs::create_dir(rootless.parent().unwrap()).unwrap();
+    let in_run = InRun::new();
+    if in_run.is_none() {
+        eprintln!("skipped a stand-in in the host's /run: /run/lock is not writable here");
+    }
+    let stand_ins: Vec<PathBuf> = [rootless]
+        .into_iter()
+        .chain(in_run.as_ref().map(|in_run| in_run.0.join("docker.sock")))
+        .collect();
+    let _listeners: Vec<UnixListener> =
+        stand_ins.iter().map(|socket| UnixListener::bind(socket).unwrap()).collect();
+    for socket in &stand_ins {
+        UnixStream::connect(socket).expect("connect outside the sandbox");
+    }
+    let rootless_here = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(|folder| PathBuf::from(folder).join("podman/podman.sock"));
+    let engines = [
+        ("Docker", Some(PathBuf::from("/run/docker.sock"))),
+        ("Podman", Some(PathBuf::from("/run/podman/podman.sock"))),
+        ("rootless Podman", rootless_here),
+    ];
+    let engines: Vec<(&str, PathBuf)> =
+        engines.into_iter().filter_map(|(engine, socket)| Some((engine, socket?))).collect();
+    let mut folders = runtime_folders();
+    folders.push(runtime.0.clone());
+    let sandbox = Sandbox::with_runtime(&folders);
+
+    let sockets: Vec<&PathBuf> =
+        stand_ins.iter().chain(engines.iter().map(|(_, socket)| socket)).collect();
+    let script = "[ -z \"$(find /run -path /run/media -prune -o -type s -print)\" ] || exit 1; \
+         for socket in \"$@\"; do [ ! -e \"$socket\" ] || exit 2; done; exit 0";
+    let status = sandbox.command(script).args(&sockets).status().expect("run sandboxed command");
+    assert_eq!(status.code(), Some(0), "1: a socket in /run inside; 2: one of the paths is there");
+    for socket in &sockets {
+        let code = probe(&sandbox, &format!("path:{}", socket.display()), None);
+        assert_eq!(code, Some(REFUSED), "the sandbox connected to {}", socket.display());
+    }
+    eprintln!(
+        "checked stand-ins in /run and the runtime folder: they answer outside and not inside"
+    );
+    for (engine, socket) in engines {
+        if !socket.exists() {
+            eprintln!("skipped {engine}'s socket: this machine has none");
+        } else if UnixStream::connect(&socket).is_err() {
+            eprintln!("skipped {engine}'s socket: this user cannot connect to it outside either");
+        } else {
+            eprintln!("checked {engine}'s socket: it answers outside the sandbox and not inside");
+        }
+    }
+}
+
+/// All the sandbox has of the host's `/run` is the resolver's file, wherever
+/// `/etc/resolv.conf` leads to there, so names resolve inside: one from
+/// `/etc/hosts`, and one through the system's resolver where this machine
+/// can resolve it outside.
+#[test]
+fn the_sandbox_still_resolves_names() {
+    if !guard_available() {
+        return;
+    }
+    let sandbox = Sandbox::new();
+    let outside = |name: &str| {
+        let command = Command::new("getent").args(["hosts", name]).stdout(Stdio::null()).status();
+        command.is_ok_and(|status| status.success())
+    };
+    let inside = |name: &str| {
+        let command =
+            sandbox.command("getent hosts \"$1\"").arg(name).stdout(Stdio::null()).status();
+        command.expect("run sandboxed command").success()
+    };
+    assert!(outside("localhost"), "localhost does not resolve outside the sandbox");
+    assert!(inside("localhost"), "a name from /etc/hosts does not resolve inside");
+
+    match fs::canonicalize("/etc/resolv.conf") {
+        Ok(file) => {
+            let script = "readlink -f /etc/resolv.conf && cat /etc/resolv.conf";
+            let output = sandbox.command(script).output().expect("run sandboxed command");
+            assert!(output.status.success(), "the resolver's file is not readable inside");
+            let expected = format!("{}\n{}", file.display(), fs::read_to_string(&file).unwrap());
+            assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+            eprintln!("checked the resolver's file, {}: read inside as outside", file.display());
+        }
+        Err(_) => eprintln!("skipped the resolver's file: this machine has none"),
+    }
+    // Outside first: a machine that is offline is not a failure.
+    if outside("example.com") {
+        assert!(inside("example.com"), "example.com resolves outside the sandbox and not inside");
+        eprintln!("checked the system's resolver: example.com resolves inside as outside");
+    } else {
+        eprintln!("skipped the system's resolver: example.com does not resolve outside either");
+    }
 }
 
 /// The opt-ins are the writer's: the sandbox reads the folder they are kept

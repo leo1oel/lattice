@@ -233,7 +233,7 @@ fn the_sandbox_cannot_reach_host_processes_or_undo_its_mounts() {
     let script = "printf changed >> \"/proc/$2/root$1\" && exit 1; \
          kill -0 \"$2\" 2>/dev/null && exit 2; \
          [ \"$$\" = 2 ] || exit 3; \
-         printf changed > /run/x.bib 2>/dev/null && exit 4; \
+         printf changed > /etc/x.bib 2>/dev/null && exit 4; \
          printf changed > /usr/x.bib 2>/dev/null && exit 5; \
          printf changed >> \"$3$1\" 2>/dev/null && exit 6; \
          [ -z \"$(ls -A \"${3%/*}\")\" ] || exit 7; \
