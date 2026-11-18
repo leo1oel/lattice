@@ -1,0 +1,11 @@
+{
+  "version": "0.17.1",
+  "date": "2026-11-18",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "The Agent can create boards again. A board it asks for as .tldr is created as .excalidraw, and a request Lattice refuses now fails at once instead of timing out.",
+      "zh": "Agent 又能创建白板了。它请求的 .tldr 白板会以 .excalidraw 创建；Lattice 拒绝的请求会立即返回错误，而不再超时。"
+    }
+  ]
+}
