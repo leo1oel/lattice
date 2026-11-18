@@ -66,6 +66,12 @@ impl Shell {
         cx.notify();
     }
 
+    /// Whether Settings is open, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn settings_open(&self) -> bool {
+        self.settings.is_some()
+    }
+
     /// Whether this window is cleaning its build files, and building, for
     /// Settings' Clean button.
     pub(crate) fn settings_busy(&self, _: &App) -> (bool, bool) {
