@@ -7,8 +7,9 @@
  */
 import { useCallback, useEffect, useReducer, useRef, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Cloud, CloudAlert, CloudOff, ExternalLink, FileText, HardDrive, MailOpen, SearchX, UploadCloud } from "lucide-react";
+import { Cloud, CloudAlert, CloudOff, ExternalLink, FileText, Folder, HardDrive, MailOpen, SearchX, UploadCloud } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Badge } from "../components/ui/badge";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
@@ -25,8 +26,8 @@ import { MotionButton } from "../components/ui/motion";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
-import type { CloneTarget, LocalCopy, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
-import { confirmAction, relativeTime, toMessage } from "../app-utils";
+import type { CloneTarget, DownloadParent, LocalCopy, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
+import { confirmAction, hostErrorMessage, relativeTime, toMessage } from "../app-utils";
 import { subscribeTauriEvent } from "../app/effect-helpers";
 import { listenInThisWindow } from "../app/window-events";
 import { InlineMessage } from "../components/ui/inline-message";
@@ -87,6 +88,7 @@ function OverleafPicker(props: PickerProps) {
   const [state, dispatch] = useReducer(reducePicker, props.currentProject?.name ?? "", initialPickerState);
   const { status, statusLoading, statusError, list, projectsLoading, projectsError, invitationOpened, localCopies } = state;
   const { search, showArchived, selected, opening, cloning, downloaded, publishing, transferError, publishName } = state;
+  const { destination, destinationError } = state;
   const { compositionProps, isComposing } = useCompositionGuard();
   const login = useOverleafLogin((session) => {
     dispatch({ type: "status", status: session });
@@ -136,6 +138,30 @@ function OverleafPicker(props: PickerProps) {
     if (status?.connected) void loadProjects();
   }, [status?.connected, loadProjects]);
 
+  // Where a download goes: the folder the last one went to, else
+  // Documents/Overleaf Projects. Without an answer the download asks again.
+  useEffect(() => {
+    if (!status?.connected) return;
+    let current = true;
+    void invoke<DownloadParent>("overleaf_download_parent")
+      .then((parent) => { if (current) dispatch({ type: "destination", destination: parent }); }, () => {});
+    return () => { current = false; };
+  }, [status?.connected]);
+
+  /** Choose another folder to download into, checked before it is offered. */
+  const chooseDestination = async () => {
+    const chosen = await openDialog({
+      directory: true, multiple: false, defaultPath: destination?.path, title: t`Choose where to download Overleaf projects`,
+    });
+    if (!chosen || !mounted.current) return;
+    try {
+      const parent = await invoke<DownloadParent>("overleaf_check_download_parent", { parent: String(chosen) });
+      if (mounted.current) dispatch({ type: "destination", destination: parent });
+    } catch (reason) {
+      if (mounted.current) dispatch({ type: "destinationFailed", error: hostErrorMessage(reason) });
+    }
+  };
+
   const publish = async () => {
     const name = publishName.trim();
     if (!name || !props.currentProject || !props.onPublish || publishing || cloning || opening) return;
@@ -165,11 +191,12 @@ Lattice will create a new Overleaf project from the files that normally sync. La
    * afterwards by `onCloned`, so the project open here is never touched.
    */
   const download = async (project: OverleafProject) => {
+    const parent = destination?.path ?? (await invoke<DownloadParent>("overleaf_download_parent")).path;
     // A folder of this name already holding files, with no link to any
     // Overleaf project, is what Stop syncing leaves behind. Downloading a
     // second copy beside it strands whatever was written in the meantime in
     // a folder nothing points at, so this asks rather than choosing.
-    const target = await invoke<CloneTarget>("overleaf_clone_target", { projectId: project.id, name: project.name })
+    const target = await invoke<CloneTarget>("overleaf_clone_target", { projectId: project.id, name: project.name, parent })
       .catch(() => null);
     // Named buttons say what each choice does, so the question stays short.
     // Declining downloads a separate copy, as it always has.
@@ -183,6 +210,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
     return invoke<string>("overleaf_clone_project", {
       projectId: project.id,
       name: project.name,
+      parent,
       accessLevel: project.accessLevel,
       adopt,
     });
@@ -516,6 +544,15 @@ Files that differ are kept side by side. Nothing is overwritten`,
                 </ScrollArea>
               )}
             </div>
+            <div className="overleaf-destination">
+              <Folder size={14} aria-hidden="true" />
+              <span className="overleaf-destination-label">{t`Download to`}</span>
+              <span className="overleaf-destination-path" title={destination?.path}>{destination?.display ?? "…"}</span>
+              <Button size="compact" variant="ghost" disabled={working} onClick={() => void chooseDestination()}>
+                {t`Choose…`}
+              </Button>
+            </div>
+            {destinationError && <InlineMessage level="error" className="overleaf-destination-error">{destinationError}</InlineMessage>}
             {props.currentProject && props.onPublish && (
               <section className="overleaf-publish-card">
                 <div className="overleaf-publish-head">

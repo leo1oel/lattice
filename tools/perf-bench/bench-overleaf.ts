@@ -198,6 +198,16 @@ export function overleafAnswer(command: string, args: Record<string, unknown> | 
         return { projects: pickerProjects(), invites: [] };
       case "overleaf_local_copies":
         return {};
+      // Choose… picks `?folder=` (default ~/Papers); one under /Volumes reads
+      // as a volume this app cannot write to.
+      case "plugin:dialog|open":
+        return context.params.get("folder") ?? "/Users/me/Papers";
+      case "overleaf_download_parent":
+      case "overleaf_check_download_parent": {
+        const path = String(args?.parent ?? "/Users/me/Documents/Overleaf Projects");
+        if (path.startsWith("/Volumes/")) throw new Error("Lattice can't save files in that folder. Choose another one.");
+        return { path, display: path.replace(/^\/Users\/me/, "~") };
+      }
       default:
         return NOT_HANDLED;
     }

@@ -473,6 +473,8 @@ export type LocalCopy = {
   /** The path for people to read, with the home folder as `~`. */
   display: string;
 };
+/** The folder "Open from Overleaf" downloads into (`overleaf_download_parent`). */
+export type DownloadParent = LocalCopy;
 export type OverleafLink = {
   projectId: string;
   projectName: string;

@@ -23,6 +23,7 @@ it("leaves the window's own project working after downloading another Overleaf p
       invites: [],
     }),
     overleaf_local_copies: () => ({}),
+    overleaf_download_parent: () => ({ path: "/tmp", display: "/tmp" }),
     overleaf_clone_target: () => ({ kind: "free", path: cloned, folder: "Thesis" }),
     overleaf_clone_project: () => cloned,
     open_project_window: () => ({ label: "project-2", focusedExisting: false }),
