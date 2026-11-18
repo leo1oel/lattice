@@ -15,10 +15,13 @@
 //!   as a tool panel among the documents (`git`, the titlebar's Git button
 //!   or a turn's Review).
 //!
-//! The Agent never hibernates: hidden behind another tab, collapsed or
-//! closed, its page and the turns running in it stay, as the Tauri app's
-//! iframe stayed mounted; the page is told whether it is on screen, which
-//! keeps Synara's idle stop for a thread nobody looks at.
+//! Hidden behind another tab, collapsed or closed, the Agent's page stays
+//! while a turn runs or waits (its tool calls for the window pass through
+//! the page) and for a few minutes after; then it hibernates, freeing its
+//! WebContent process, and is built again when shown. Synara's service, with
+//! its threads and terminals, keeps running either way. The page is told
+//! whether it is on screen, which keeps Synara's idle stop for a thread
+//! nobody looks at.
 
 use std::path::PathBuf;
 

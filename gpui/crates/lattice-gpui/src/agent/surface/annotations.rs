@@ -77,6 +77,13 @@ impl SynaraSurface {
         self.tell_annotations(cx);
     }
 
+    /// A page built again (after a hibernation) heard nothing yet: tell it
+    /// the annotations as they are.
+    pub(super) fn retell_annotations(&mut self, cx: &mut Context<Self>) {
+        self.annotations.told = Value::Null;
+        self.tell_annotations(cx);
+    }
+
     /// Tell the page the store's annotations, when they changed since.
     fn tell_annotations(&mut self, cx: &mut Context<Self>) {
         let Some(root) = self.root.clone() else {

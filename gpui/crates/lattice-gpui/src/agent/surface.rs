@@ -85,6 +85,12 @@ impl SurfaceKind {
 /// The least time between two pointer reports, as the Tauri host throttles
 /// its `lattice:host-pointer` (`use-synara-host.ts`).
 const POINTER_THROTTLE: Duration = Duration::from_millis(150);
+/// How long a hidden Agent or Git workspace keeps its page before it is torn
+/// down (its WebContent process alone is ~200 MB): long enough that toggling
+/// the panel never reloads it, while a turn running or waiting holds it
+/// however long (`hold_hibernation`). Synara's service, its threads and
+/// terminals live on in the runtime and the page reattaches when shown.
+const AGENT_HIBERNATE_AFTER: Duration = Duration::from_secs(180);
 /// How long the writer's workspace must rest before the page hears of it.
 const WORKSPACE_SETTLE: Duration = Duration::from_millis(80);
 
@@ -163,12 +169,13 @@ impl SynaraSurface {
                     ground: Some(ground(kind, &palette)),
                     reveal_on_ready: false,
                     theme: IslandTheme::Document,
-                    // A hidden Agent may still own a turn or a terminal;
-                    // Settings' page owns neither.
-                    hibernates: kind == SurfaceKind::Settings,
+                    hibernates: true,
                 };
                 let island = cx.new(|cx| {
                     let mut island = Island::new(config, window, cx);
+                    if kind != SurfaceKind::Settings {
+                        island.set_hibernate_after(AGENT_HIBERNATE_AFTER);
+                    }
                     if kind == SurfaceKind::Agent {
                         island.accept_file_drops();
                     }
@@ -495,6 +502,9 @@ impl SynaraSurface {
             IslandEvent::Ready => {
                 self.drawn = false;
                 self.open_page(cx);
+                if self.kind == SurfaceKind::Agent {
+                    self.retell_annotations(cx);
+                }
             }
             IslandEvent::Hibernated => {
                 self.drawn = false;
@@ -538,9 +548,22 @@ impl SynaraSurface {
                 }
             }
             _ => match surface_event(kind, payload) {
-                Some(event) => cx.emit(event),
+                Some(event) => {
+                    if let SurfaceEvent::Turn(presence) = &event {
+                        self.hold_page(presence.is_some(), cx);
+                    }
+                    cx.emit(event)
+                }
                 None => log::debug!("{}: unhandled {kind}", self.kind.name()),
             },
+        }
+    }
+
+    /// A turn running or waiting keeps the page while hidden: its tool calls
+    /// for the window and its approvals pass through the page.
+    fn hold_page(&self, held: bool, cx: &mut Context<Self>) {
+        if let Some(island) = &self.island {
+            island.update(cx, |island, cx| island.hold_hibernation(held, cx));
         }
     }
 

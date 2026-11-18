@@ -8,7 +8,8 @@
 //!   (or, with one staged and on macOS, the Agent's frame);
 //! - the page is told of the editor in front, its caret and its selection,
 //!   the inputs of its host context;
-//! - hidden past the hibernation delay, its page and its turns stay;
+//! - hidden past the hibernation delay, its page stays while a turn runs or
+//!   waits, and otherwise hibernates and is built again when shown;
 //! - the backend commands it may invoke reach only the panel's project, and
 //!   the bibliography takes only lattice-core's closed mutations, a removal
 //!   previewed before anything is written;
@@ -173,27 +174,65 @@ impl Run {
             }),
         );
 
-        // Hidden past the hibernation delay, the page and its turns stay.
+        // Hidden past the hibernation delay, the page stays while a turn
+        // runs, as the page reports it.
+        let turn = |presence: &str| {
+            format!("(() => {{ window.latticeHost.post('agent:turn', {{ presence: {presence} }}); return 'true'; }})()")
+        };
+        self.evaluate(cx, &island, &turn("{ state: 'running' }")).await;
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.toggle_view("agent", window, cx))
         })?;
         self.pause(cx, Duration::from_millis(2500)).await;
-        let (state, stats, visible) = cx.update(|cx| {
-            let island = island.read(cx);
-            (
-                island.state().clone(),
-                island.stats().clone(),
-                island.native_visible(cx),
-            )
-        });
+        let island_facts = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                let island = island.read(cx);
+                (
+                    island.state().clone(),
+                    island.stats().clone(),
+                    island.native_visible(cx),
+                )
+            })
+        };
+        let (state, stats, visible) = island_facts(cx);
         steps.check(
-            "hidden past the hibernation delay, the Agent's page stays, unlike a document's",
+            "hidden past the hibernation delay while a turn runs, the Agent's page stays",
             state == IslandState::Ready && stats.hibernations == 0 && !visible,
             json!({ "state": format!("{state:?}"), "stats": stats, "visible": visible }),
         );
+        // The turn over, the hidden page hibernates after the delay.
+        self.evaluate(cx, &island, &turn("null")).await;
+        let hibernated = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                *island.read(cx).state() == IslandState::Hibernated
+            })
+            .await;
+        let (state, stats, _) = island_facts(cx);
+        steps.check(
+            "with no turn, the hidden Agent's page hibernates after the delay",
+            hibernated && stats.hibernations == 1,
+            json!({ "state": format!("{state:?}"), "stats": stats }),
+        );
+        // Shown again, it is built and drawn afresh, and hears its project.
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.show_view("agent", true, window, cx))
         })?;
+        let redrawn = self
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
+                surface.read(cx).is_drawn() && island.read(cx).is_ready()
+            })
+            .await;
+        let facts = self.evaluate(cx, &island, PAGE_FACTS).await;
+        let (state, stats, visible) = island_facts(cx);
+        steps.check(
+            "shown again, the hibernated Agent's page is built afresh and drawn",
+            redrawn
+                && state == IslandState::Ready
+                && stats.builds == 2
+                && visible
+                && facts["host"] == "object",
+            json!({ "state": format!("{state:?}"), "stats": stats, "visible": visible, "page": facts }),
+        );
 
         // The brokers: only the panel's project, only the closed mutations.
         // Another folder, as another window's project would be.

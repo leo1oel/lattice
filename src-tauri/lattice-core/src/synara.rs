@@ -44,6 +44,14 @@ const UNAVAILABLE: &str = "The built-in agent service is unavailable.";
 /// Under the agent home: the sidecar's stdout and stderr, which startup
 /// failures quote from and the support bundle collects.
 const SIDECAR_LOG_DIR: &str = "lattice-logs";
+/// V8 flags for the sidecar, on node's command line rather than in
+/// NODE_OPTIONS so the agents and tools it starts (Claude Code, MCP servers)
+/// keep their own defaults. Node 24's default young generation is far larger
+/// than the service needs: with 8 MB semi-spaces its idle footprint drops
+/// from ~325 to ~200 MB (Synara 1.6.2: ~300 to ~185 MB) with the same start
+/// time and CPU (LATA-40). Smaller semi-spaces save little more, and
+/// --optimize-for-size cost ~70% more CPU to start.
+const SIDECAR_V8_FLAGS: [&str; 1] = ["--max-semi-space-size=8"];
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -248,7 +256,7 @@ impl SynaraRuntime {
         let mut command =
             bibliography_guard::command(&self.node.executable, &self.home_dir, &executable)?;
         self.node.configure(&mut command);
-        command.arg(&self.server_entry);
+        command.args(SIDECAR_V8_FLAGS).arg(&self.server_entry);
         // Web storage is scoped to the iframe origin, port included, so a
         // sidecar restarted within a session reuses its free port to keep the
         // storage its frames wrote. WebKit drops that storage at quit anyway,

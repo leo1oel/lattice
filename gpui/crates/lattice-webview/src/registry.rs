@@ -67,7 +67,7 @@ pub fn check_drawn_after_frame(window: &mut Window, _: &mut App) {
 }
 
 /// Shorten the hidden period before islands hibernate, for the scripted
-/// checks (`None` restores [`crate::HIBERNATE_AFTER`]).
+/// checks (`None` restores each island's own delay).
 pub fn set_hibernate_after(after: Option<Duration>, cx: &mut App) {
     cx.default_global::<Registry>().hibernate_after = after;
 }

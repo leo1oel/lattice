@@ -13,10 +13,13 @@
 //!   WebContent process costs 60 MB before the page does anything); the
 //!   owner says when it is shown with [`Island::set_active`], since a native
 //!   view whose element stops being painted stays on screen. Hidden for
-//!   [`HIBERNATE_AFTER`] (the Tauri app's `use-hibernation.ts`), it is torn
-//!   down, and built again when shown, the owner restoring the page's state
-//!   on [`IslandEvent::Ready`] as it did the first time. Messages posted
-//!   before the page listens wait for it, the latest of each event only.
+//!   [`HIBERNATE_AFTER`] (the Tauri app's `use-hibernation.ts`; an owner may
+//!   set its own, [`Island::set_hibernate_after`]), it is torn down, and
+//!   built again when shown, the owner restoring the page's state on
+//!   [`IslandEvent::Ready`] as it did the first time; an owner whose page
+//!   still works while hidden holds it ([`Island::hold_hibernation`]).
+//!   Messages posted before the page listens wait for it, the latest of each
+//!   event only.
 //! - **Reveal.** Until the owner says the page has drawn what it should
 //!   ([`Island::reveal`], or at once with [`IslandConfig::reveal_on_ready`]),
 //!   the page is laid out at its real size but clipped away, so the owner's
@@ -55,9 +58,9 @@
 //! The sheet island writes nothing through the bridge: its owner
 //! holds the file's text and saves it as every document is saved
 //! (lattice-core's editor transaction), and the slides island's saves are
-//! mutations its owner applies through lattice-core too. An island that never
-//! hibernates (the Agent's, [`IslandConfig::hibernates`]) keeps its page,
-//! and the turns running in it, while hidden.
+//! mutations its owner applies through lattice-core too. The Agent's island
+//! is held while a turn runs or waits, since the turn's tool calls for the
+//! window pass through its page.
 
 use std::time::Duration;
 
@@ -111,10 +114,8 @@ pub struct IslandConfig {
     pub reveal_on_ready: bool,
     /// How the page takes the host's theme.
     pub theme: IslandTheme,
-    /// Whether the page is torn down after [`HIBERNATE_AFTER`] hidden. The
-    /// Agent's is not: a hidden Agent panel may still own a running turn or
-    /// a terminal, as its iframe did in the Tauri app, which never
-    /// hibernated it (`trellis-agent-surface.tsx`).
+    /// Whether the page is torn down after it has been hidden a while
+    /// ([`HIBERNATE_AFTER`], or the owner's [`Island::set_hibernate_after`]).
     pub hibernates: bool,
 }
 
@@ -201,6 +202,10 @@ pub struct Island {
     queue: Vec<Outbound>,
     building: bool,
     hibernation: Option<Task<()>>,
+    /// How long a hidden page is kept before it is torn down.
+    hibernate_after: Duration,
+    /// The owner keeps the page while hidden ([`Island::hold_hibernation`]).
+    hibernation_held: bool,
     stats: IslandStats,
     /// Files dragged in from the Finder come to the owner instead of the
     /// page ([`Island::accept_file_drops`]).
@@ -245,6 +250,8 @@ impl Island {
             queue: Vec::new(),
             building: false,
             hibernation: None,
+            hibernate_after: HIBERNATE_AFTER,
+            hibernation_held: false,
             stats: IslandStats::default(),
             file_drops: false,
             _inbox: None,
@@ -381,10 +388,31 @@ impl Island {
         receiver
     }
 
+    /// Keep a hidden page this long before tearing it down, rather than
+    /// [`HIBERNATE_AFTER`]: a page that is slow to build again.
+    pub fn set_hibernate_after(&mut self, after: Duration) {
+        self.hibernate_after = after;
+    }
+
+    /// Keep the page while hidden, or let it hibernate again: the owner's
+    /// page is doing work the window needs (the Agent's running turn).
+    pub fn hold_hibernation(&mut self, held: bool, cx: &mut Context<Self>) {
+        if self.hibernation_held == held {
+            return;
+        }
+        self.hibernation_held = held;
+        if held {
+            self.hibernation = None;
+        } else if !self.active && self.webview.is_some() {
+            self.schedule_hibernation(cx);
+        }
+    }
+
     /// Tear the page down now rather than after the hidden period; for the
     /// scripted checks and for memory pressure.
     pub fn hibernate(&mut self, cx: &mut Context<Self>) {
-        if self.active || self.webview.is_none() || !self.config.hibernates {
+        if self.active || self.webview.is_none() || !self.config.hibernates || self.hibernation_held
+        {
             return;
         }
         self.webview = None;
@@ -405,10 +433,10 @@ impl Island {
     }
 
     fn schedule_hibernation(&mut self, cx: &mut Context<Self>) {
-        if !self.config.hibernates {
+        if !self.config.hibernates || self.hibernation_held {
             return;
         }
-        let after = Registry::hibernate_after(cx).unwrap_or(HIBERNATE_AFTER);
+        let after = Registry::hibernate_after(cx).unwrap_or(self.hibernate_after);
         self.hibernation = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(after).await;
             this.update(cx, |this, cx| {
