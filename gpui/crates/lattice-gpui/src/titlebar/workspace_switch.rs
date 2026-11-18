@@ -463,9 +463,8 @@ fn workspace_actions(
     let index = library.index_of(id).unwrap_or(0);
     let count = library.list().len();
     let mut menu = menu;
-    let item = |label: &str,
-                icon: Icon,
-                run: Box<dyn Fn(&mut Shell, &mut Window, &mut Context<Shell>)>| {
+    type ShellAction = Box<dyn Fn(&mut Shell, &mut Window, &mut Context<Shell>)>;
+    let item = |label: &str, icon: Icon, run: ShellAction| {
         let shell = shell.clone();
         MenuAction::new(label.to_string(), move |window, cx| {
             shell.update(cx, |shell, cx| run(shell, window, cx)).ok();

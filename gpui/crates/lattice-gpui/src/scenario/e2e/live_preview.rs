@@ -40,7 +40,7 @@ fn layer_state(view: &Entity<PdfView>, cx: &App) -> (Vec<usize>, u64, f32, f32) 
         .and_then(|page| layer.image(*page))
         .and_then(|image| image.as_bytes(0).map(<[u8]>::to_vec))
     {
-        for pixel in bytes.chunks_exact(4) {
+        for pixel in bytes.as_chunks::<4>().0 {
             total += 1;
             if pixel[3] > 0 {
                 covered += 1;

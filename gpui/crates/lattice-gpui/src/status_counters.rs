@@ -237,7 +237,7 @@ pub fn format_count(count: usize) -> String {
     let digits = count.to_string();
     let mut out = String::new();
     for (ix, digit) in digits.chars().enumerate() {
-        if ix > 0 && (digits.len() - ix) % 3 == 0 {
+        if ix > 0 && (digits.len() - ix).is_multiple_of(3) {
             out.push(',');
         }
         out.push(digit);

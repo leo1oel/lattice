@@ -154,7 +154,7 @@ const DEPENDENCY_FAILURES: [(&str, &str); 8] = [
 pub fn dependency_install_failure(message: &str) -> (String, String) {
     let (first, rest) = message.split_once('\n').unwrap_or((message, ""));
     if let Some((_, known)) = DEPENDENCY_FAILURES.iter().find(|(key, _)| *key == first) {
-        return (tr(*known).to_string(), rest.trim().to_string());
+        return (tr(known).to_string(), rest.trim().to_string());
     }
     (first.to_string(), rest.trim().to_string())
 }

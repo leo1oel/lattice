@@ -179,10 +179,10 @@ pub fn relative_time(timestamp: &str) -> String {
         return t!("just now").into();
     }
     if minutes < 60 {
-        return t!("{minutes}m ago", minutes = minutes).into();
+        return t!("{minutes}m ago", minutes = minutes);
     }
     if minutes < 24 * 60 {
-        return t!("{hours}h ago", hours = minutes / 60).into();
+        return t!("{hours}h ago", hours = minutes / 60);
     }
     let local = at.with_timezone(&chrono::Local);
     if locale().is_chinese() {

@@ -127,6 +127,10 @@ pub struct PaintedLine {
     pub marker_opacity: f32,
 }
 
+/// What `prepaint_gutter` hands to `paint_gutter`: the laid-out column, each
+/// fold marker's row and hitbox, and the whole column's hitbox.
+pub(super) type PreparedGutter = (PaintedGutter, Vec<(u32, Hitbox)>, Hitbox);
+
 /// What the gutter painted last frame, for the pointer and scripted checks.
 #[derive(Clone, Debug, Default)]
 pub struct PaintedGutter {
@@ -231,7 +235,7 @@ impl LatticeEditor {
         bounds: Bounds<Pixels>,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<(PaintedGutter, Vec<(u32, Hitbox)>, Hitbox)> {
+    ) -> Option<PreparedGutter> {
         let layout = self.gutter_layout?;
         let editor_bounds = self.editor_bounds(bounds)?;
         let frame = Frame::read(&self.editor, editor_bounds, window, cx)?;
@@ -288,7 +292,7 @@ impl LatticeEditor {
     pub(super) fn paint_gutter(
         &mut self,
         bounds: Bounds<Pixels>,
-        prepainted: Option<(PaintedGutter, Vec<(u32, Hitbox)>, Hitbox)>,
+        prepainted: Option<PreparedGutter>,
         fades: GutterFades,
         window: &mut Window,
         cx: &mut Context<Self>,

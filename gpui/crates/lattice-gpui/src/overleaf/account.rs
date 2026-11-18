@@ -92,17 +92,15 @@ fn open_login_window(cx: &mut App) -> Result<(), String> {
     if let Some(handle) = cx
         .try_global::<LoginWindowSlot>()
         .and_then(|slot| slot.0.as_ref().map(|open| open.handle))
-    {
-        if handle
+        && handle
             .update(cx, |_, window, _| window.activate_window())
             .is_ok()
-        {
-            return Ok(());
-        }
+    {
+        return Ok(());
     }
     let host = super::host();
     let login = format!("{host}/login");
-    let script = login_return_script(&login, &t!("Back to Overleaf sign-in"));
+    let script = login_return_script(&login, t!("Back to Overleaf sign-in"));
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
             None,

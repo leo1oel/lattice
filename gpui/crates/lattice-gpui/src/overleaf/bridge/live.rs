@@ -557,11 +557,11 @@ impl OverleafBridge {
                     .background_spawn(async move { sync::probe(&probe_root, None) })
                     .await;
                 let alive = this.update(cx, |this, cx| {
-                    if let Ok(probe) = probe {
-                        if this.remote_changes != probe.changed {
-                            this.remote_changes = probe.changed;
-                            cx.notify();
-                        }
+                    if let Ok(probe) = probe
+                        && this.remote_changes != probe.changed
+                    {
+                        this.remote_changes = probe.changed;
+                        cx.notify();
                     }
                 });
                 if alive.is_err() {

@@ -15,10 +15,8 @@ pub fn ensure(ink: Hsla, ground: Hsla, ratio: f32) -> Hsla {
     if contrast(fg_l, bg_l) >= ratio {
         return ink;
     }
-    let (first, second): (
-        fn([u8; 3], f32, f32) -> [u8; 3],
-        fn([u8; 3], f32, f32) -> [u8; 3],
-    ) = if fg_l < bg_l {
+    type Step = fn([u8; 3], f32, f32) -> [u8; 3];
+    let (first, second): (Step, Step) = if fg_l < bg_l {
         (darker, lighter)
     } else {
         (lighter, darker)

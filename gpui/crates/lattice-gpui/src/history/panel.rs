@@ -230,6 +230,9 @@ pub struct OpenedVersion {
     pub current: usize,
 }
 
+/// Whether the window shows the panel.
+type OnScreen = Rc<dyn Fn(&App) -> bool>;
+
 pub struct HistoryPanel {
     focus_handle: FocusHandle,
     pub(super) project: Option<Entity<Project>>,
@@ -258,7 +261,7 @@ pub struct HistoryPanel {
     pub(super) width: Rc<std::cell::Cell<gpui::Pixels>>,
     settle: Option<Task<()>>,
     /// Whether the window shows the panel; the history is read only then.
-    on_screen: Option<Rc<dyn Fn(&App) -> bool>>,
+    on_screen: Option<OnScreen>,
     /// A read was skipped while the panel was off screen.
     stale: bool,
     /// Overleaf's own history, while the project is linked.

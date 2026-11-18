@@ -195,6 +195,10 @@ impl OverleafConnection {
 
 /// A status card (`.overleaf-status-row`): the glyph with its state dot,
 /// what it means, the detail beneath it, and an optional action.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the card takes each piece of its layout separately"
+)]
 fn status_row(
     probe: &'static str,
     top: gpui::Pixels,
@@ -451,45 +455,40 @@ fn connection_group(
                 "Couldn’t check the connection. Still linked to {linkedHost}",
                 linkedHost = &linked_host
             )
-            .into()
         } else if loading || status.is_none() {
             t!(
                 "Checking the connection to {linkedHost}…",
                 linkedHost = &linked_host
             )
-            .into()
         } else if !status.as_ref().is_some_and(|status| status.connected) {
             if link.paused {
                 t!(
                     "Sign in to {linkedHost}, then resume",
                     linkedHost = &linked_host
                 )
-                .into()
             } else {
                 t!(
                     "Sign in to {linkedHost} to resume syncing",
                     linkedHost = &linked_host
                 )
-                .into()
             }
         } else if !connected_to_host {
             t!(
                 "This project uses {linkedHost}. Sign out and connect to it to resume",
                 linkedHost = &linked_host
             )
-            .into()
         } else {
             match &link.last_sync {
-                Some(at) => t!("Last synced {0}", relative_time(at)).into(),
+                Some(at) => t!("Last synced {0}", relative_time(at)),
                 None => t!("Not synced yet").into(),
             }
         };
         let title: String = if !connected_to_host {
-            t!("“{0}” stays linked", &link.project_name).into()
+            t!("“{0}” stays linked", &link.project_name)
         } else if link.paused {
-            t!("Syncing with “{0}” is paused", &link.project_name).into()
+            t!("Syncing with “{0}” is paused", &link.project_name)
         } else {
-            t!("This project syncs with “{0}”", &link.project_name).into()
+            t!("This project syncs with “{0}”", &link.project_name)
         };
         let paused = link.paused;
         let shell = shell.clone();

@@ -679,10 +679,10 @@ impl Render for QuickOpen {
             .fill(palette.accent_soft)
             .radius(px(ROW_RADIUS));
         let lit = hover.lit(cx);
-        if lit != self.adopted {
-            if let Some(lit) = lit.filter(|lit| *lit < self.rows.len()) {
-                self.active = lit;
-            }
+        if lit != self.adopted
+            && let Some(lit) = lit.filter(|lit| *lit < self.rows.len())
+        {
+            self.active = lit;
         }
         let hover = hover.follow((!self.rows.is_empty()).then_some(self.active), cx);
         self.adopted = hover.lit(cx);

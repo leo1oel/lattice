@@ -128,18 +128,18 @@ pub fn format_time_left(seconds: f64) -> String {
     }
     if seconds < 60. {
         let rounded = ((seconds / 5.).ceil() * 5.).min(55.) as u64;
-        return t!("About {rounded} s left", rounded = rounded).into();
+        return t!("About {rounded} s left", rounded = rounded);
     }
     if seconds < 3_600. {
         let minutes = (seconds / 60.).round() as u64;
         return if minutes < 60 {
-            t!("About {minutes} min left", minutes = minutes).into()
+            t!("About {minutes} min left", minutes = minutes)
         } else {
             t!("About 1 h left").into()
         };
     }
     let hours = (seconds / 3_600.).round() as u64;
-    t!("About {hours} h left", hours = hours).into()
+    t!("About {hours} h left", hours = hours)
 }
 
 /// A file size in decimal units, as Finder states them and the Tauri app's
@@ -167,7 +167,7 @@ pub fn format_size(bytes: f64) -> String {
 
 pub fn format_rate(bytes_per_second: f64) -> String {
     let size = format_size(bytes_per_second);
-    t!("{size}/s", size = &size).into()
+    t!("{size}/s", size = &size)
 }
 
 /// The bar's fill (none: indeterminate), its percent label, and the line
@@ -200,7 +200,7 @@ pub fn summarize(track: &DownloadTrack, started_at: f64, now: f64) -> DownloadSu
     }
     let rate = track.rate(at);
     let speed = match rate {
-        Some(rate) if rate == 0. => Some(t!("Waiting for more data").into()),
+        Some(0.) => Some(t!("Waiting for more data").into()),
         Some(rate) => Some(format_rate(rate)),
         None => None,
     };
@@ -210,7 +210,7 @@ pub fn summarize(track: &DownloadTrack, started_at: f64, now: f64) -> DownloadSu
             fraction,
             percent,
             detail: join(&[
-                Some(t!("{received} received", received = &received).into()),
+                Some(t!("{received} received", received = &received)),
                 speed,
                 Some(elapsed_line()),
             ]),
@@ -222,14 +222,11 @@ pub fn summarize(track: &DownloadTrack, started_at: f64, now: f64) -> DownloadSu
         fraction,
         percent,
         detail: join(&[
-            Some(
-                t!(
-                    "{received} of {total}",
-                    received = &received,
-                    total = &total
-                )
-                .into(),
-            ),
+            Some(t!(
+                "{received} of {total}",
+                received = &received,
+                total = &total
+            )),
             speed,
             left.map(format_time_left),
         ]),

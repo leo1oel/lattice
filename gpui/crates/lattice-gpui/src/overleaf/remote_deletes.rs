@@ -155,10 +155,10 @@ fn remove(
                 let names = kept.join(", ");
                 let single = kept.len() == 1;
                 let message: String = match (asked, single) {
-                    (true, true) => t!("{names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here.", names = &names).into(),
-                    (true, false) => t!("{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here.", names = &names).into(),
-                    (false, true) => t!("{names} changed on Overleaf since the last sync, so it was not removed there. The next sync brings the newer version back here.", names = &names).into(),
-                    (false, false) => t!("{names} changed on Overleaf since the last sync, so they were not removed there. The next sync brings the newer versions back here.", names = &names).into(),
+                    (true, true) => t!("{names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here.", names = &names),
+                    (true, false) => t!("{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here.", names = &names),
+                    (false, true) => t!("{names} changed on Overleaf since the last sync, so it was not removed there. The next sync brings the newer version back here.", names = &names),
+                    (false, false) => t!("{names} changed on Overleaf since the last sync, so they were not removed there. The next sync brings the newer versions back here.", names = &names),
                 };
                 notices::show(Notice::new(ToastLevel::Info, message), cx);
             }
@@ -166,7 +166,7 @@ fn remove(
                 let message: String = if removed == 1 {
                     t!("Removed one file from Overleaf").into()
                 } else {
-                    t!("Removed {removed} files from Overleaf", removed = removed).into()
+                    t!("Removed {removed} files from Overleaf", removed = removed)
                 };
                 notices::show(Notice::new(ToastLevel::Info, message), cx);
             }

@@ -110,6 +110,10 @@ impl Shell {
     /// From a double-click in the PDF to its source line: in the live PDF
     /// through the compiled document's SyncTeX map, in a root document's tab
     /// through that document's (`document`).
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "each argument is a separate piece of the click's SyncTeX lookup"
+    )]
     pub(super) fn inverse_sync(
         &mut self,
         document: Option<String>,

@@ -86,6 +86,9 @@ pub(super) enum ToolbarAction {
     Annotate,
 }
 
+/// Each menu's trigger bounds, shared with the paint that records them.
+type Triggers = Rc<std::cell::RefCell<Vec<(Menu, Bounds<Pixels>)>>>;
+
 #[derive(Default)]
 pub(super) struct ToolbarState {
     /// The selection the writer dismissed the toolbar on: it stays gone
@@ -101,7 +104,7 @@ pub(super) struct ToolbarState {
     /// Each menu's trigger and the open menu's size, as last drawn: a menu
     /// is centred on its trigger, as Radix aligns a popover, from the frame
     /// it opens in.
-    triggers: Rc<std::cell::RefCell<Vec<(Menu, Bounds<Pixels>)>>>,
+    triggers: Triggers,
     menu_size: Rc<Cell<Option<gpui::Size<Pixels>>>>,
     /// What it last read of the selection.
     read: Option<SelectionRead>,

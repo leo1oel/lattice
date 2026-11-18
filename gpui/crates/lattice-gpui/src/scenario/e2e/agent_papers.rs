@@ -235,7 +235,9 @@ impl Run {
                 .and_then(|reader| shell.read(cx).view_of_panel(reader.entity_id()));
             let workspace = shell.read(cx).workspace().clone();
             view.inspect(|view| {
-                workspace.update(cx, |workspace, cx| workspace.close(&[view.clone()], cx));
+                workspace.update(cx, |workspace, cx| {
+                    workspace.close(std::slice::from_ref(view), cx)
+                });
             })
             .is_some()
         })?;

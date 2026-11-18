@@ -82,7 +82,8 @@ fn map() -> &'static HashMap<String, MapEntry> {
 /// of the process: several TFM names share one .pfb.
 fn type1(file: &str, entry: Option<&MapEntry>) -> Result<FontResource, String> {
     type Outlines = Arc<super::type1::Type1Outlines>;
-    static CACHE: OnceLock<Mutex<HashMap<(String, Option<String>), Outlines>>> = OnceLock::new();
+    type ByFileAndEncoding = HashMap<(String, Option<String>), Outlines>;
+    static CACHE: OnceLock<Mutex<ByFileAndEncoding>> = OnceLock::new();
     let enc = entry.and_then(|entry| entry.enc_file.clone());
     let key = (file.to_string(), enc.clone());
     let cache = CACHE.get_or_init(Mutex::default);

@@ -21,16 +21,14 @@ pub fn summary(result: &OverleafSyncResult) -> String {
             pulled = pulled,
             pushed = pushed,
             merged = merged
-        )
-        .into();
+        );
     }
     if pulled > 0 || pushed > 0 {
         return t!(
             "Overleaf: pulled {pulled}, pushed {pushed}.",
             pulled = pulled,
             pushed = pushed
-        )
-        .into();
+        );
     }
     if result.unresolved_conflicts.is_empty() {
         t!("Overleaf: already up to date.").into()
@@ -40,7 +38,6 @@ pub fn summary(result: &OverleafSyncResult) -> String {
             "Overleaf: waiting on conflict resolution in {files}.",
             files = &files
         )
-        .into()
     }
 }
 
@@ -58,26 +55,23 @@ pub fn warnings(result: &OverleafSyncResult) -> Vec<Warning> {
     let mut said: Vec<String> = Vec::new();
     let files = result.skipped_large.join(", ");
     if !files.is_empty() {
-        said.push(
-            t!(
-                "Too large for Overleaf, so left on this machine: {files}.",
-                files = &files
-            )
-            .into(),
-        );
+        said.push(t!(
+            "Too large for Overleaf, so left on this machine: {files}.",
+            files = &files
+        ));
     }
     // A download that would have emptied or gutted files nobody changed on
     // Overleaf. Said once: the files simply stay, and the reason is that
     // Overleaf's own history does not confirm the change.
     let files = result.refused_incoming.join(", ");
     if !files.is_empty() {
-        said.push(t!("Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again.", files = &files).into());
+        said.push(t!("Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again.", files = &files));
     }
     // Without the live channel a document goes up whole, and someone's edit
     // reached the project while one did.
     let files = result.uploaded_over_edits.join(", ");
     if !files.is_empty() {
-        said.push(t!("Someone edited the Overleaf project while {files} uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing.", files = &files).into());
+        said.push(t!("Someone edited the Overleaf project while {files} uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing.", files = &files));
     }
     // Overleaf keeps names apart that this Mac's disk treats as one.
     if !result.case_collisions.is_empty() {
@@ -87,18 +81,18 @@ pub fn warnings(result: &OverleafSyncResult) -> Vec<Warning> {
             .map(|pair| format!("{} / {}", pair.kept, pair.skipped))
             .collect::<Vec<_>>()
             .join(", ");
-        said.push(t!("Overleaf has names that differ only in capitalization, which this Mac treats as the same name: {pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both.", pairs = &pairs).into());
+        said.push(t!("Overleaf has names that differ only in capitalization, which this Mac treats as the same name: {pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both.", pairs = &pairs));
     }
     // Edited here and renamed or removed on Overleaf where the sync could
     // not follow: it waits, named on every sync while held.
     for file in &result.held_renames {
-        said.push(t!("Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here.", file = file).into());
+        said.push(t!("Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here.", file = file));
     }
     // A folder gone from Overleaf whose build outputs the sync cleared, kept
     // for the writer's own files in it.
     for kept in &result.kept_folders {
         let names = kept.files.join(", ");
-        said.push(t!("Overleaf no longer has the folder {folder}. It stays here because it still holds files that never sync: {names}. Delete them here if you no longer need them.", folder = &kept.folder, names = &names).into());
+        said.push(t!("Overleaf no longer has the folder {folder}. It stays here because it still holds files that never sync: {names}. Delete them here if you no longer need them.", folder = &kept.folder, names = &names));
     }
     let mut warnings: Vec<Warning> = said
         .into_iter()
@@ -113,8 +107,7 @@ pub fn warnings(result: &OverleafSyncResult) -> Vec<Warning> {
         message: t!(
             "{file} still has conflict markers. Resolve them to bring in Overleaf's newer edits.",
             file = file
-        )
-        .into(),
+        ),
         resolve: Some(file.clone()),
     }
     }));
@@ -135,11 +128,11 @@ pub fn conflict_message(marked: &[&OverleafConflict], whole: &[&OverleafConflict
     let mut parts: Vec<String> = Vec::new();
     if !marked.is_empty() {
         let files = paths(marked);
-        parts.push(t!("Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then.", markedFiles = &files).into());
+        parts.push(t!("Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then.", markedFiles = &files));
     }
     if !whole.is_empty() {
         let files = paths(whole);
-        parts.push(t!("{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it.", wholeFiles = &files).into());
+        parts.push(t!("{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it.", wholeFiles = &files));
     }
     parts.join(" ")
 }

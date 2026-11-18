@@ -175,7 +175,7 @@ static COMPILED: LazyLock<Vec<Compiled>> = LazyLock::new(|| {
         .collect();
     // The entry with the most fixed text wins, so "Could not read {}: {}"
     // never claims a message a more specific entry spells out.
-    compiled.sort_by(|left, right| right.0.cmp(&left.0));
+    compiled.sort_by_key(|left| std::cmp::Reverse(left.0));
     compiled.into_iter().map(|(_, compiled)| compiled).collect()
 });
 
