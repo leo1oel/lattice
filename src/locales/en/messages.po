@@ -8183,6 +8183,7 @@ msgstr "Install Basic TeX ({TEX_INSTALL_SIZE_HINT})"
 msgid "Install BasicTeX"
 msgstr "Install BasicTeX"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-file-actions.tsx
 msgid "Install from file…"
 msgstr "Install from file…"
@@ -8863,6 +8864,7 @@ msgid "latexmk version"
 msgstr "latexmk version"
 
 #: src/app/whats-new.ts
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Lattice"
 msgstr "Lattice"
@@ -11935,6 +11937,7 @@ msgstr "Pages"
 msgid "Pale {name}"
 msgstr "Pale {name}"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Palette"
 msgstr "Palette"
@@ -13269,6 +13272,7 @@ msgstr "Remove the “{0}” label from this Overleaf version?"
 msgid "Remove the {name} field"
 msgstr "Remove the {name} field"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-file-actions.tsx
 msgid "Remove theme"
 msgstr "Remove theme"
@@ -14972,6 +14976,7 @@ msgstr "Show the PDF beside the editor"
 msgid "Show the PDF without changes"
 msgstr "Show the PDF without changes"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-file-actions.tsx
 msgid "Show themes folder"
 msgstr "Show themes folder"
@@ -17248,6 +17253,7 @@ msgstr "theme appearance"
 msgid "Theme default"
 msgstr "Theme default"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Theme files"
 msgstr "Theme files"

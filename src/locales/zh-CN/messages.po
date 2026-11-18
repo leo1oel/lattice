@@ -8183,6 +8183,7 @@ msgstr "安装 LaTeX（{TEX_INSTALL_SIZE_HINT}）"
 msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-file-actions.tsx
 msgid "Install from file…"
 msgstr "从文件安装…"
@@ -8863,6 +8864,7 @@ msgid "latexmk version"
 msgstr "latexmk 版本"
 
 #: src/app/whats-new.ts
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Lattice"
 msgstr "Lattice"
@@ -11935,6 +11937,7 @@ msgstr "页码"
 msgid "Pale {name}"
 msgstr "淡{name}"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Palette"
 msgstr "配色"
@@ -13269,6 +13272,7 @@ msgstr "删除这个版本名“{0}”？"
 msgid "Remove the {name} field"
 msgstr "删除 {name} 字段"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-file-actions.tsx
 msgid "Remove theme"
 msgstr "移除主题"
@@ -14972,6 +14976,7 @@ msgstr "并排看 PDF"
 msgid "Show the PDF without changes"
 msgstr "显示不含改动的 PDF"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-file-actions.tsx
 msgid "Show themes folder"
 msgstr "显示主题文件夹"
@@ -17248,6 +17253,7 @@ msgstr "主题 外观 theme appearance"
 msgid "Theme default"
 msgstr "跟随主题"
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Theme files"
 msgstr "主题文件"
