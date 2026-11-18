@@ -5,7 +5,7 @@
     "A step joins only with the main run that shows it failing; take it off once it passes on main (the job notes a listed step that passed).",
     "The steps of scripts/gpui-e2e-quarantine.json are listed too, as flaky: they caused most red runs while passing on main more often than not.",
     "followup is the issue that owns the fix: LEO-14 for macOS, LEO-15 for Windows (a step on both platforms is under LEO-14 and fixed for both).",
-    "Collected from main runs macos: 44173099111, 44154544765, 44162980527; windows: 44162980527, 44213516921.",
+    "Collected from main runs macos: 44173099111, 44154544765, 44162980527; windows: 44162980527, 44213516921, and the intermittent ones of 44229692959, 44247550879, 44272220139, 44274671758, 44276458780.",
     "Also steps that failed in branch runs 44225936391 and 44226228810, whose GPUI sources equal main's: a hosted-runner flake looks like this."
   ],
   "steps": [
@@ -1048,30 +1048,6 @@
       "followup": "LEO-15"
     },
     {
-      "step": "the shortcut sheet lists the table's keys and the workspace's, editor's, LaTeX's and visual Markdown's",
-      "platforms": [
-        "windows"
-      ],
-      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"titles\":[\"Navigate\",\"Edit\",\"Build\",\"Layout\",\"Project\",\"Appearance\",\"Panels and tabs\",\"Text editing\",\"LaTeX\",\"Visual Markdown\",\"Check references\"],\"palette\":{\"label\":\"Command palette\",\"combos\":[\"Ctrl+K\",\"Ctrl+Shift+P\"],…",
-      "followup": "LEO-15"
-    },
-    {
-      "step": "the sheet's LaTeX group lists Show the citation card on ⌥⌘K and Proofread the selection on ⌥⌘P, in the Tauri order",
-      "platforms": [
-        "windows"
-      ],
-      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"citation_card\":[\"Ctrl+Alt+K\"],\"proofread\":[\"Ctrl+Alt+P\"],\"order\":[19,20,21]}",
-      "followup": "LEO-15"
-    },
-    {
-      "step": "the sheet's field filters by key, and finds nothing for a query nothing matches",
-      "platforms": [
-        "windows"
-      ],
-      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"by_key\":[],\"none\":[]}",
-      "followup": "LEO-15"
-    },
-    {
       "step": "in focus mode Escape in the PDF first clears its selection, then leaves focus mode",
       "platforms": [
         "windows"
@@ -1237,6 +1213,46 @@
         "windows"
       ],
       "reason": "Windows: passed in every main run but failed in branch run 44226228810, whose GPUI sources equal main's, so intermittent",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "Go to on a reference card closes the card and puts the caret on its \\label's line",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44272220139), so intermittent; observed {\"card\":\"Bounds { origin: Point { x: 278px, y: 330px }, size: Size { 333px × 174px } }\",\"went\":false,\"closed\":false,\"line\":10,\"at\":[17,45]}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "resting on the rail opens the outline; a row puts the caret on its heading and keeps it current",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44274671758), so intermittent; observed {\"opened\":false,\"method\":1,\"line\":7,\"jumped\":true,\"current\":1,\"closed\":true}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a file closed straight after a jump comes back to the jumped-to line",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44274671758), so intermittent; observed {\"caret\":7113,\"top\":0,\"line_250\":7113}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a closed file renamed in the tree opens at the place it was left under its old name",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44274671758), so intermittent; observed {\"renamed\":true,\"caret\":7113,\"top\":0,\"line_250\":7113}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "what a Finder drop on the tree brings in is selected",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44276458780), so intermittent; observed {\"selected\":[\"cite-check.tex\"]}",
       "followup": "LEO-15"
     }
   ]
