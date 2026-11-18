@@ -144,7 +144,7 @@ export const SCREENS = {
     regions: [
       { name: "titlebar", css: "header.titlebar", chrome: true },
       { name: "workspace", css: "main.workspace", chrome: true },
-      ...group("attention-map.tldr"),
+      ...group("attention-map.excalidraw"),
       { name: "board/surface", css: ".board-editor-root" },
     ],
     content: [".board-editor-root", ".pdf-viewer-host"],

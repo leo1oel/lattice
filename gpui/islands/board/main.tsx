@@ -1,6 +1,6 @@
 /**
- * The board island: the Tauri app's `.tldr` whiteboard
- * (`src/editor/board/board-editor.tsx`, tldraw) as it is, over the document
+ * The board island: the Tauri app's `.excalidraw` whiteboard
+ * (`src/editor/board/board-editor.tsx`, Excalidraw) as it is, over the document
  * its owner holds, in the host's light or dark theme.
  */
 import "../shared/install";

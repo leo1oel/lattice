@@ -3,7 +3,7 @@
 //! (`gpui/islands/agent/documents.ts`), on the tutorial's board and sheet:
 //!
 //! - a canvas tool call goes to the board shown in front, where the Tauri
-//!   app's tldraw adapter runs it: its listing is the board's shapes, and a
+//!   app's board adapter runs it: its listing is the board's shapes, and a
 //!   shape it deletes leaves the panel's text;
 //! - a range read goes to the open sheet it names and is read from its open
 //!   document; one naming a sheet that is not open is the page's to run
@@ -24,8 +24,28 @@ use serde_json::{Value, json};
 
 use super::{
     Run, Steps,
-    structured::{BOARD, SHEET, shape_count},
+    structured::{BOARD, SHEET},
 };
+
+/// How many shapes the Agent's canvas tools see in an `.excalidraw`: a label
+/// bound to a container is part of its container's shape
+/// (`src/agent/agent-canvas-excalidraw-adapter.ts`), as tldraw's text was.
+fn agent_shape_count(text: &str) -> usize {
+    serde_json::from_str::<Value>(text)
+        .ok()
+        .and_then(|file| {
+            file["elements"].as_array().map(|elements| {
+                elements
+                    .iter()
+                    .filter(|element| {
+                        element["isDeleted"] != true
+                            && !(element["type"] == "text" && element["containerId"].is_string())
+                    })
+                    .count()
+            })
+        })
+        .unwrap_or(0)
+}
 
 impl Run {
     /// Run `call`, a promise expression in the Agent's page, and wait at most
@@ -85,7 +105,7 @@ impl Run {
         };
 
         // A canvas call on the board in front.
-        let board_path = root.join("e2e-agent-map.tldr");
+        let board_path = root.join("e2e-agent-map.excalidraw");
         std::fs::write(&board_path, BOARD)?;
         let board = self
             .open_structured(cx, &board_path, Duration::from_secs(40))
@@ -109,7 +129,7 @@ impl Run {
                 && envelope["type"] == "lattice:canvas-tool-result"
                 && envelope["id"] == "e2e-list"
                 && envelope["ok"] == true
-                && envelope["result"]["total"].as_u64() == Some(shape_count(BOARD) as u64)
+                && envelope["result"]["total"].as_u64() == Some(agent_shape_count(BOARD) as u64)
                 && !shapes.is_empty(),
             json!({ "opened": board.is_some(), "answer": listing }),
         );
@@ -128,8 +148,8 @@ impl Run {
             let panel = panel.clone();
             let left = self
                 .wait_for(cx, Duration::from_secs(5), |_, cx| {
-                    shape_count(&panel.read(cx).editor().read(cx).text(cx))
-                        == shape_count(BOARD) - 1
+                    agent_shape_count(&panel.read(cx).editor().read(cx).text(cx))
+                        == agent_shape_count(BOARD) - 1
                 })
                 .await;
             steps.check(
@@ -185,12 +205,12 @@ impl Run {
             .agent_call(
                 cx,
                 agent,
-                "window.latticeHost.request('agent:create-document', { path: 'e2e-agent-made.tldr', \
+                "window.latticeHost.request('agent:create-document', { path: 'e2e-agent-made.excalidraw', \
                  documentType: 'board', expiresAt: Date.now() + 30000 })",
                 Duration::from_secs(35),
             )
             .await;
-        let made = root.join("e2e-agent-made.tldr");
+        let made = root.join("e2e-agent-made.excalidraw");
         let front = cx.update(|cx| self.shell.read(cx).active_editor_path(cx));
         let refused = self
             .agent_call(
@@ -203,9 +223,9 @@ impl Run {
             .await;
         steps.check(
             "a board the Agent creates is created, opened in front, and answered with its path once its editor has registered; anything but a board or sheet is refused",
-            created["ok"] == "e2e-agent-made.tldr"
+            created["ok"] == "e2e-agent-made.excalidraw"
                 && made.is_file()
-                && front.as_deref().is_some_and(|path| path.ends_with("e2e-agent-made.tldr"))
+                && front.as_deref().is_some_and(|path| path.ends_with("e2e-agent-made.excalidraw"))
                 && refused["error"].is_string()
                 && !root.join("e2e-agent.tex").exists(),
             json!({ "created": created, "front": front, "refused": refused }),

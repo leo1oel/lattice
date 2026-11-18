@@ -1,7 +1,10 @@
 use super::*;
 use serde_json::Value;
 
-const ATTENTION_MAP: &str = include_str!("../../../templates/tutorial/attention-map.tldr");
+/// The tutorial's board as it shipped in tldraw's format.
+const ATTENTION_MAP: &str = include_str!("fixtures/attention-map.tldr");
+/// The tutorial's board as it ships now: that board, converted.
+const TUTORIAL_BOARD: &str = include_str!("../../../templates/tutorial/attention-map.excalidraw");
 /// Made with tldraw 5.2.5 (an Editor over Lattice's board store): three pages,
 /// every shape type Lattice's boards offered, bindings, a frame, a group and
 /// image assets.
@@ -91,6 +94,18 @@ fn empty_scene_is_an_excalidraw_file_with_no_view_state() {
         })
     );
     assert_eq!(convert_tldr("", &no_assets).unwrap().to_json(), empty_scene());
+    assert_eq!(Scene::default().to_json(), EMPTY_SCENE);
+}
+
+#[test]
+fn the_tutorial_board_is_the_converted_tldraw_board() {
+    let converted = convert_tldr(ATTENTION_MAP, &no_assets).unwrap().to_json();
+    // To regenerate after a converter change, point this at the template.
+    if let Some(path) = std::env::var_os("LATTICE_WRITE_TUTORIAL_BOARD") {
+        fs::write(path, &converted).unwrap();
+        return;
+    }
+    assert_eq!(TUTORIAL_BOARD, converted);
 }
 
 #[test]
@@ -353,6 +368,14 @@ fn a_project_board_converts_to_a_project_path() {
         fs::read_to_string(fixture.root.join("boards/plan.excalidraw")).unwrap(),
         empty_scene()
     );
+    // Opened again, it is the board already made, edits and all.
+    fs::write(fixture.root.join("boards/plan.excalidraw"), "edited").unwrap();
+    assert_eq!(
+        crate::project::convert_tldr_board(&fixture.root, "boards/plan.tldr").unwrap(),
+        "boards/plan.excalidraw"
+    );
+    assert_eq!(fs::read_to_string(fixture.root.join("boards/plan.excalidraw")).unwrap(), "edited");
+    assert!(!fixture.root.join("boards/plan (converted).excalidraw").exists());
     assert!(crate::project::convert_tldr_board(&fixture.root, "notes.md").is_err());
     assert!(crate::project::convert_tldr_board(&fixture.root, "../plan.tldr").is_err());
 }

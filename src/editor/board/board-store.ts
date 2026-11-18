@@ -1,112 +1,126 @@
-import {
-  createTLSchemaFromUtils,
-  createTLStore,
-  defaultBindingUtils,
-  defaultShapeUtils,
-  parseTldrawJsonFile,
-  type TLRecord,
-  type TLSchema,
-  type TLStore,
-} from "tldraw";
+import { defaultLang, getCommonBounds, languages, reconcileElements, restore, serializeAsJSON } from "@excalidraw/excalidraw";
+import type { RemoteExcalidrawElement } from "@excalidraw/excalidraw/data/reconcile";
+import type { ExcalidrawElement, OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
+import type { BoardFileViewState } from "../../app-types";
 
 /**
- * A board is a .tldr file edited through a standalone tldraw store: loaded
- * from the file's text, serialized back after edits, and replaced wholesale
- * when the file changes on disk.
+ * A board is an `.excalidraw` file: an Excalidraw scene, loaded from the
+ * file's text, serialized back after edits, and merged with what an outside
+ * change (a disk reload, git, Overleaf) wrote to it.
  */
 
-const TLDRAW_FILE_FORMAT_VERSION = 1;
+export type BoardScene = {
+  elements: OrderedExcalidrawElement[];
+  files: BinaryFiles;
+  /** The grid the board was saved with; the rest of a scene's appState is per user. */
+  grid: { gridSize: number; gridStep: number; gridModeEnabled: boolean };
+};
 
-const createEmptyStore = () => createTLStore({
-  shapeUtils: [...defaultShapeUtils],
-  bindingUtils: [...defaultBindingUtils],
-});
+const DEFAULT_GRID: BoardScene["grid"] = { gridSize: 20, gridStep: 5, gridModeEnabled: false };
 
-let cachedSchema: TLSchema | null = null;
+/**
+ * The background a board file stores. Lattice draws every board on its own
+ * sheet (the canvas is transparent), so the colour is not a board setting.
+ */
+const FILE_BACKGROUND = "#ffffff";
 
-function getBoardSchema(): TLSchema {
-  cachedSchema ??= createTLSchemaFromUtils({
-    shapeUtils: [...defaultShapeUtils],
-    bindingUtils: [...defaultBindingUtils],
-  }) as TLSchema;
-  return cachedSchema;
-}
-
-/** Records in tldraw's "document" scope — everything that belongs in a .tldr file. */
-const DOCUMENT_TYPE_NAMES = new Set(["asset", "binding", "document", "page", "shape"]);
-const isBoardDocumentRecord = (record: TLRecord) => DOCUMENT_TYPE_NAMES.has(record.typeName);
-
-/** A store loaded from .tldr text (migrated to `schema`); null when invalid or empty. */
-function parseBoardStore(json: string, schema: TLSchema): TLStore | null {
-  const trimmed = json.trim();
-  if (!trimmed) return null;
-  const result = parseTldrawJsonFile({ json: trimmed, schema });
-  return result.ok ? result.value : null;
-}
-
-/** Drop asset records no shape references (mirrors tldraw's own save behavior). */
-export function pruneUnusedAssets(records: TLRecord[]): TLRecord[] {
-  const used = new Set<string>();
-  for (const record of records) {
-    if (record.typeName === "shape" && "assetId" in record.props && record.props.assetId) {
-      used.add(record.props.assetId as string);
-    }
+/** The scene in `.excalidraw` text; empty text is an empty board, invalid text null. */
+export function parseBoardScene(source: string): BoardScene | null {
+  const trimmed = source.trim();
+  if (!trimmed) return { elements: [], files: {}, grid: DEFAULT_GRID };
+  let data: unknown;
+  try {
+    data = JSON.parse(trimmed);
+  } catch {
+    return null;
   }
-  return records.filter((record) => record.typeName !== "asset" || used.has(record.id));
+  if (!data || typeof data !== "object") return null;
+  const scene = data as { type?: unknown; elements?: unknown; appState?: Partial<AppState>; files?: BinaryFiles };
+  if (scene.type !== "excalidraw" || !Array.isArray(scene.elements)) return null;
+  const restored = restore(
+    { elements: scene.elements, appState: scene.appState ?? null, files: scene.files ?? {} },
+    null,
+    null,
+    { repairBindings: true },
+  );
+  return {
+    elements: restored.elements,
+    files: restored.files ?? {},
+    grid: {
+      gridSize: restored.appState.gridSize ?? DEFAULT_GRID.gridSize,
+      gridStep: restored.appState.gridStep ?? DEFAULT_GRID.gridStep,
+      gridModeEnabled: restored.appState.gridModeEnabled ?? DEFAULT_GRID.gridModeEnabled,
+    },
+  };
 }
 
 /**
- * Headless .tldr serialization (serializeTldrawJson needs an Editor). Unlike
- * tldraw's save path we keep asset srcs as-is rather than inlining them as
- * base64: the images stay project files beside the board.
+ * `.excalidraw` text for a scene, as Excalidraw saves a file (deleted
+ * elements and unused files left out), keeping only the grid of its appState:
+ * scroll and zoom are per user, and the background is Lattice's.
  */
-export function serializeBoard(records: TLRecord[], schema: TLSchema = getBoardSchema()): string {
-  const documentRecords = pruneUnusedAssets(records.filter(isBoardDocumentRecord));
-  // Validate before claiming that these records conform to the current schema.
-  // A hand-edited or newer-client file may hold malformed records that must
-  // not be materialized into a deceptively valid-looking .tldr file.
-  createEmptyStore().put(documentRecords);
-  // Sort by id so repeated serializations of equal state are byte-identical.
-  documentRecords.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+export function serializeBoardScene(
+  elements: readonly OrderedExcalidrawElement[], appState: Partial<AppState>, files: BinaryFiles,
+): string {
+  const saved = JSON.parse(serializeAsJSON(elements, appState, files, "local")) as Record<string, unknown>;
   return JSON.stringify({
-    tldrawFileFormatVersion: TLDRAW_FILE_FORMAT_VERSION,
-    schema: schema.serialize(),
-    records: documentRecords,
-  });
+    ...saved,
+    source: "lattice",
+    appState: {
+      gridSize: appState.gridSize ?? DEFAULT_GRID.gridSize,
+      gridStep: appState.gridStep ?? DEFAULT_GRID.gridStep,
+      gridModeEnabled: appState.gridModeEnabled ?? DEFAULT_GRID.gridModeEnabled,
+      viewBackgroundColor: FILE_BACKGROUND,
+    },
+  }, null, 2);
 }
 
-/** Parse .tldr JSON into migrated document records; null when invalid/empty. */
-export function parseBoardRecords(json: string, schema: TLSchema = getBoardSchema()): TLRecord[] | null {
-  return parseBoardStore(json, schema)?.allRecords().filter(isBoardDocumentRecord) ?? null;
-}
-
-/**
- * Make `records` the store's whole document scope as a remote change, leaving
- * ephemeral records (camera, instance, presence) alone.
- */
-function replaceDocumentRecords(store: TLStore, records: TLRecord[]): void {
-  const incoming = new Set(records.map((record) => record.id));
-  store.mergeRemoteChanges(() => {
-    const changed = records.filter((record) => store.get(record.id) !== record);
-    const stale = store.allRecords()
-      .filter((record) => isBoardDocumentRecord(record) && !incoming.has(record.id))
-      .map((record) => record.id);
-    if (changed.length) store.put(changed);
-    if (stale.length) store.remove(stale);
-  });
+/** Each element's version as last written to or read from the file. */
+export function savedVersions(elements: readonly OrderedExcalidrawElement[]): Map<string, number> {
+  return new Map(elements.filter((element) => !element.isDeleted).map((element) => [element.id, element.version]));
 }
 
 /**
- * Replace a store's document records from external .tldr text (disk reload,
- * git pull, Overleaf sync). Returns false on invalid input.
+ * The board after an outside change to its file. The file wins for every
+ * element the board has not changed since it last matched the file, so a
+ * restore to an older version (git, Overleaf history) comes back as it was,
+ * and an element the file no longer has is gone. An element edited here and
+ * not yet saved is reconciled with the file's copy by Excalidraw's own rule
+ * (the higher version wins), so neither side's edit is dropped silently.
  */
-export function mergeExternalBoardSource(store: TLStore, source: string): boolean {
-  const records = parseBoardRecords(source);
-  if (records) replaceDocumentRecords(store, records);
-  return records !== null;
+export function mergeExternalElements(
+  local: readonly OrderedExcalidrawElement[],
+  remote: readonly OrderedExcalidrawElement[],
+  saved: ReadonlyMap<string, number>,
+  appState: AppState,
+): OrderedExcalidrawElement[] {
+  const remoteById = new Map(remote.map((element) => [element.id, element]));
+  const prepared = local.flatMap((element) => {
+    const fromFile = remoteById.get(element.id);
+    const unchanged = saved.get(element.id) === element.version || (element.isDeleted && !saved.has(element.id));
+    if (unchanged) return fromFile ? [fromFile] : [];
+    return [element];
+  });
+  return reconcileElements(prepared, remote as readonly RemoteExcalidrawElement[], appState);
 }
 
-/** Create a standalone store preloaded from .tldr text. */
-export function createBoardStore(json: string, schema: TLSchema = getBoardSchema()): TLStore {
-  return parseBoardStore(json, schema) ?? createEmptyStore();
+/** The Excalidraw interface language for a Lattice locale, English when Excalidraw has none. */
+export const excalidrawLangCode = (locale: string) => (
+  languages.some((language) => language.code === locale) ? locale : defaultLang.code
+);
+
+/**
+ * The scroll and zoom that show all of `elements` in a `width` × `height`
+ * viewport with a margin, never zoomed in past 100%. Excalidraw draws a scene
+ * point p at (p + scroll) × zoom.
+ */
+export function fittedView(elements: readonly ExcalidrawElement[], width: number, height: number): BoardFileViewState {
+  const [minX, minY, maxX, maxY] = getCommonBounds(elements);
+  const zoom = Math.max(0.1, Math.min(1, 0.9 * Math.min(width / Math.max(1, maxX - minX), height / Math.max(1, maxY - minY))));
+  return {
+    scrollX: width / (2 * zoom) - (minX + maxX) / 2,
+    scrollY: height / (2 * zoom) - (minY + maxY) / 2,
+    zoom,
+  };
 }

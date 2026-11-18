@@ -110,6 +110,7 @@ fn imported_files_route_by_content_and_keep_figures_binary() {
         fixture.outside("data.csv", "a,b\n1,2\n"),
         fixture.outside("bundle.zip", b"PK\x03\x04rest"),
         fixture.outside("sketch.tldr", "{\"tldrawFileFormatVersion\":1}"),
+        fixture.outside("map.excalidraw", crate::board::EMPTY_SCENE),
         fixture.outside("data.lattice-sheet", "{}\n"),
         // Text bytes under a figure extension stay on the figure route.
         fixture.outside("diagram.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>"),
@@ -122,6 +123,7 @@ fn imported_files_route_by_content_and_keep_figures_binary() {
             ("data/data.csv", "text"),
             ("data/bundle.zip", "binary"),
             ("data/sketch.tldr", "board"),
+            ("data/map.excalidraw", "board"),
             ("data/data.lattice-sheet", "spreadsheet"),
             ("data/diagram.svg", "binary"),
         ]
@@ -203,11 +205,13 @@ fn imported_sources_are_transactional_and_renamed_on_collision() {
     let inside = paths([fixture.path("notes.tex")]);
     assert_eq!(import_sources(root, &inside, "").unwrap(), vec!["notes.tex"]);
 
-    // Boards are text (tldraw JSON) and must import like other sources;
-    // the frontend offers them to this path.
-    for (name, contents) in
-        [("sketch.tldr", "{\"tldrawFileFormatVersion\":1}"), ("data.lattice-sheet", "{}\n")]
-    {
+    // Boards are text (Excalidraw JSON, or tldraw JSON from before) and must
+    // import like other sources; the frontend offers them to this path.
+    for (name, contents) in [
+        ("map.excalidraw", crate::board::EMPTY_SCENE),
+        ("sketch.tldr", "{\"tldrawFileFormatVersion\":1}"),
+        ("data.lattice-sheet", "{}\n"),
+    ] {
         let source = paths([fixture.outside(name, contents)]);
         assert_eq!(import_sources(root, &source, "").unwrap(), vec![name]);
     }

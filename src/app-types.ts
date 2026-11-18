@@ -129,9 +129,11 @@ export type PdfFileViewState = {
   scrollLeft: number;
 };
 
+/** Where a board's view was left: Excalidraw's scroll and zoom. */
 export type BoardFileViewState = {
-  pageId: string;
-  camera: { x: number; y: number; z: number };
+  scrollX: number;
+  scrollY: number;
+  zoom: number;
 };
 
 export type OpenSlideFileViewState = {

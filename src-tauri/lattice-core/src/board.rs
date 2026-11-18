@@ -7,7 +7,7 @@
 mod scene;
 mod tldr;
 
-pub use scene::{empty_scene, Element, Kind, Scene};
+pub use scene::{empty_scene, Element, Kind, Scene, EMPTY_SCENE};
 pub use tldr::{convert_tldr, AssetReader};
 
 use std::fs;

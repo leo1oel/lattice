@@ -159,7 +159,7 @@ describe("local file view state persistence", () => {
       },
       "figures/model.png": { image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 } },
       "paper.pdf": { pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 } },
-      "sketch.tldr": { board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } } },
+      "sketch.excalidraw": { board: { scrollX: -120, scrollY: 64, zoom: 1.8 } },
       "slides/talk/index.tsx": { openSlide: { page: 3 } },
       "report.html": { html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 } },
       "notes.md": { visualMarkdown: { scrollTop: 460, scrollRange: 1800 } },

@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/radix-ui/primitives",
+  "commit": "3c5e05fab070dfa68212230e85baf0879269c57d",
+  "pinned": true,
+  "via": "the gitHead recorded in the npm package",
+  "files": [
+    "LICENSE"
+  ]
+}

@@ -253,9 +253,9 @@ describe("a panel out of room", () => {
     await open("sheet.lattice-sheet");
     await open("notes.md", { quick: true });
     await open("a.html", { quick: true });
-    await open("b.tldr", { quick: true });
+    await open("b.excalidraw", { quick: true });
     expect(closed).toEqual(["a.tex", "notes.md", "a.html"]);
-    expect(strip()).toEqual(["main.tex", "sheet.lattice-sheet", "b.tldr"]);
+    expect(strip()).toEqual(["main.tex", "sheet.lattice-sheet", "b.excalidraw"]);
   });
 
   it("never closes a document edited this session", async () => {

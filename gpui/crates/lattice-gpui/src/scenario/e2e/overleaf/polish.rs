@@ -175,8 +175,8 @@ impl Run {
         // A board being edited waits; leaving it sends it up.
         let root = self.root(cx).await?;
         let uploads = format!("POST /project/{PROJECT_ID}/upload");
-        let board = "notes.tldr";
-        let text = "{\"tldrawFileFormatVersion\":1,\"records\":[]}";
+        let board = "notes.excalidraw";
+        let text = "{\"type\":\"excalidraw\",\"version\":2,\"elements\":[]}";
         self.with_window(cx, |shell, _, cx| {
             shell.update(cx, |shell, cx| {
                 shell.overleaf.update(cx, |bridge, cx| {

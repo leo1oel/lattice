@@ -105,8 +105,12 @@ pub const CORE_SOFTWARE: &[Credit] = &[
         "@open-slide/core",
     ),
     licensed(
-        of(credit("tldraw", "https://tldraw.dev"), Npm, "tldraw"),
-        "tldraw license",
+        of(
+            credit("Excalidraw", "https://excalidraw.com"),
+            Npm,
+            "@excalidraw/excalidraw",
+        ),
+        "MIT",
     ),
     Credit {
         attribution: Some("Uses Trellis by DanFessler - github.com/DanFessler/trellis"),

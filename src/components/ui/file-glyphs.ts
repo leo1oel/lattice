@@ -76,7 +76,7 @@ export const FILE_GLYPH_EXTENSIONS: [FileGlyphKind, string[]][] = [
   ["markdown", ["md", "markdown", "mdx"]],
   ["pdf", ["pdf"]],
   ["image", ["png", "jpg", "jpeg", "gif", "svg", "eps", "webp", "tif", "tiff"]],
-  ["board", ["tldr"]],
+  ["board", ["excalidraw", "tldr"]],
   ["sheet", ["lattice-sheet", "csv", "tsv", "xlsx"]],
   ["code", ["html", "htm", "js", "mjs", "ts", "tsx", "jsx", "py", "r", "jl", "sh", "css"]],
   ["config", ["json", "toml", "yaml", "yml", "ini", "cfg", "xml", "lock"]],

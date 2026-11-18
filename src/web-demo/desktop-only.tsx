@@ -77,7 +77,7 @@ export function GitWorkspaceFrames(_props: ComponentProps<typeof RealGitWorkspac
 /** A whiteboard's tab: the tutorial's board as a still image. */
 export function BoardEditor({ path }: BoardEditorProps) {
   const { t } = useLingui();
-  const tutorialBoard = path.endsWith("attention-map.tldr");
+  const tutorialBoard = path.endsWith("attention-map.excalidraw");
   return (
     <DesktopOnlyCard
       icon={<Shapes size={20} />}

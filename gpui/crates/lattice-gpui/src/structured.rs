@@ -1,7 +1,7 @@
 //! Boards, spreadsheets and Open Slide decks: the Tauri app's structured
 //! documents (`structuredDocumentKind` in `src/canvas/document-canvas.tsx`),
 //! each a webview island in its document's panel, built from the Tauri app's
-//! own editor (`gpui/islands/`: tldraw's board, Univer's sheet, the Open
+//! own editor (`gpui/islands/`: Excalidraw's board, Univer's sheet, the Open
 //! Slide workspace).
 //!
 //! The document is the panel's like any other: its buffer holds the file's
@@ -89,7 +89,7 @@ impl StructuredKind {
     /// The kind of the project file at `relative`, if it is a structured one.
     pub fn of(relative: &str) -> Option<Self> {
         let lower = relative.replace('\\', "/").to_lowercase();
-        if lower.ends_with(".tldr") {
+        if lower.ends_with(".excalidraw") {
             Some(Self::Board)
         } else if lower.ends_with(".lattice-sheet") {
             Some(Self::Sheet)
@@ -790,8 +790,9 @@ mod tests {
 
     #[test]
     fn kinds_follow_the_tauri_apps_paths() {
-        assert_eq!(StructuredKind::of("map.tldr"), Some(StructuredKind::Board));
-        assert_eq!(StructuredKind::of("a/B.TLDR"), Some(StructuredKind::Board));
+        for board in ["map.excalidraw", "a/B.EXCALIDRAW"] {
+            assert_eq!(StructuredKind::of(board), Some(StructuredKind::Board));
+        }
         assert_eq!(
             StructuredKind::of("data/results.lattice-sheet"),
             Some(StructuredKind::Sheet)
