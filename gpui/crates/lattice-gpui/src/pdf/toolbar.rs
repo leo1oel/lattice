@@ -75,14 +75,14 @@ impl PdfView {
         let strip = toolbar_hover(window, cx);
         self.toolbar_hover = Some(strip.clone());
         let keymap = cx.key_bindings().borrow().version();
-        let reveal_keys = match &self.reveal_keys {
-            Some((version, keys)) if *version == keymap => keys.clone(),
-            _ => {
-                let keys = crate::shell::commands::keys_label(&crate::shell::ForwardSync, window);
-                self.reveal_keys = Some((keymap, keys.clone()));
-                keys
-            }
-        };
+        if self
+            .reveal_keys
+            .as_ref()
+            .is_none_or(|(version, _)| *version != keymap)
+        {
+            let keys = crate::shell::commands::keys_label(&crate::shell::ForwardSync, window);
+            self.reveal_keys = Some((keymap, keys));
+        }
         let frame = div()
             .id("pdf-toolbar")
             .relative()
@@ -559,7 +559,10 @@ impl PdfView {
                         strip,
                         true,
                         tool("pdf-locate", Icon::LOCATE_FIXED, t!("Reveal cursor in PDF"))
-                            .when_some(reveal_keys, |button, keys| button.shortcut(keys))
+                            .when_some(
+                                self.reveal_keys.as_ref().and_then(|(_, keys)| keys.clone()),
+                                |button, keys| button.shortcut(keys),
+                            )
                             .disabled(self.reveal_disabled || self.locating)
                             .when(self.locating, |button| {
                                 button.content(crate::build::chip_mark::infinity_loader(
