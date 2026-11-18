@@ -124,16 +124,20 @@ pnpm ci:local          # --plan to see the stages, --base REF, --full
 
 It prints which CI jobs your change needs and runs the local stages that
 stand for them: the gate (lint, knip, tsc, i18n, notices, the related Vitest
-tests), the bundle budgets, rustfmt, clippy with `-D warnings` and `cargo test`
-on the changed Tauri crates, and the GPUI release build, unit tests and whole
-e2e scenario, judged against the known failures (and the machine's main
-baseline, below). Rust and GPUI stages wait while a perf measurement holds
+tests), the bundle budgets and the WebKit benchmark, rustfmt, clippy with
+`-D warnings` and `cargo test` on the changed Tauri crates, and the GPUI release
+build, unit tests and whole e2e scenario. The e2e is judged against the known
+failures and against the merge base run on the same Mac: when the machine's
+main baseline (below) has no record for the merge base, `ci:local` records one
+first in a scratch worktree, which costs one more build and e2e per merge
+base. Rust, GPUI and benchmark stages wait while a perf measurement holds
 `/tmp/lattice-inapp-test.lock`. The literature Worker, the Open Slide runtime,
-the research environment, the benchmarks, Linux and Windows run in CI only.
-When it passes on a clean tree and the change needed the macOS Rust or GPUI
-jobs, it prints a `CI-local: macos <tree>` trailer; a pushed head commit
-carrying it for its own tree skips those two macOS jobs in CI, which are the
-slowest to get a runner for. Do not use the trailer for a change to packaging
+the research environment, the Chromium benchmark, Linux and Windows run in CI
+only. When it passes on a clean tree and the change needed a macOS job, it
+prints "local macOS gate passed at <sha>" and a `CI-local: macos <tree>`
+trailer; a pushed head commit carrying it for its own tree skips CI's macOS
+jobs (Rust, GPUI, the WebKit benchmark), which are the slowest to get a
+runner for. Do not use the trailer for a change to packaging
 or the release (`release.yml`, `src-tauri/tauri*.conf.json`, the bundle and
 signing scripts).
 

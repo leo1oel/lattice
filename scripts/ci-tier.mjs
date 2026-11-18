@@ -39,8 +39,8 @@
  * other push or dispatch with its merge base with origin/main, or with the
  * dispatch's `base`. A head commit whose `CI-local: macos <tree>` trailer
  * names its own tree (printed by `pnpm ci:local` after a green local pass)
- * skips the macOS Rust and GPUI jobs; Linux, Windows and the WebKit benchmark
- * still run.
+ * skips the macOS jobs (Rust, GPUI and the WebKit benchmark), which it ran on
+ * the Mac; Linux and Windows still run.
  *
  * Usage:
  *   node scripts/ci-tier.mjs [--base REF] [--full]   print the tier as JSON
@@ -238,7 +238,7 @@ function github() {
   const macosLocal = !tier.full && localMacosPass(message, git("rev-parse", "HEAD^{tree}"));
   const lines = [
     reason ? `Every job: ${reason}.` : `Compared with ${base.slice(0, 9)}: ${files.length} changed file(s).`,
-    ...(macosLocal ? ["The head commit's CI-local trailer names this tree, so the macOS Rust and GPUI jobs skip."] : []),
+    ...(macosLocal ? ["The head commit's CI-local trailer names this tree, so the macOS jobs (Rust, GPUI, WebKit benchmark) skip."] : []),
     "",
     "| jobs | run | first inputs |",
     "| --- | --- | --- |",

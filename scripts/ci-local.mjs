@@ -16,13 +16,18 @@
  *                        budgets, and the bench harness when it changed
  *   rust                 rustfmt, clippy with warnings denied and `cargo test`
  *                        on the changed Tauri crates
+ *   perf-bench           also the WebKit benchmark against its ceilings, as
+ *                        CI's macOS perf-bench-webkit shards run it
  *   gpui                 rustfmt, the release build, the unit tests and the
  *                        whole e2e scenario, judged like CI's against
- *                        scripts/gpui-e2e-known-failures.json (and this
- *                        machine's main baseline, when it keeps one)
+ *                        scripts/gpui-e2e-known-failures.json and against a
+ *                        run of the merge base on this Mac: when this
+ *                        machine's main baseline has no record for it
+ *                        (scripts/gpui-main-baseline.mjs), it records one
+ *                        first, in a scratch worktree of the merge base
  *
- * The literature Worker, the Open Slide runtime, the research environment and
- * the Chromium and WebKit benchmarks, Linux and Windows run only in CI.
+ * The literature Worker, the Open Slide runtime, the research environment, the
+ * Chromium benchmark, Linux and Windows run only in CI.
  *
  * Every Rust and GPUI stage waits while a perf measurement holds
  * /tmp/lattice-inapp-test.lock, and compiles in the machine's shared build
@@ -30,8 +35,8 @@
  *
  * When every stage passes and the change needed the macOS Rust or GPUI jobs,
  * it prints a `CI-local: macos <tree>` trailer for the commit. Pushed on a
- * commit whose tree is that one, it lets CI skip those two macOS jobs; Linux,
- * Windows and the benchmarks still run.
+ * commit whose tree is that one, it lets CI skip its macOS jobs (Rust, GPUI and
+ * the WebKit benchmark); Linux and Windows still run.
  *
  * Options:
  *   --base REF   compare against REF instead of origin/main (its merge base)
@@ -46,6 +51,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { JOBS, ciTier } from "./ci-tier.mjs";
 import { changedFiles, gateStages, runStages } from "./gate-changed.mjs";
 import { readBaseline } from "./gpui-e2e-light.mjs";
+import { baselineDir } from "./gpui-main-baseline.mjs";
 import { isMain } from "./lib/util.mjs";
 import { extraStages } from "./signoff.mjs";
 
@@ -56,9 +62,9 @@ const PERF_LOCK = "/tmp/lattice-inapp-test.lock";
 const LOCAL = {
   vitest: "gate (vitest related + invariants)",
   "lint-build": "gate (lint, knip, tsc, i18n, notices, perf evidence)",
-  "perf-bench": "bundle budgets (+ harness); benchmarks in CI only",
+  "perf-bench": "bundle budgets, harness, WebKit benchmark; Chromium in CI only",
   rust: "rustfmt, clippy -D warnings, cargo test",
-  gpui: "rustfmt, release build, unit tests, e2e with known failures",
+  gpui: "rustfmt, release build, unit tests, e2e against known failures and local main",
   "literature-worker": "CI only",
   "open-slide-runtime": "CI only",
   "research-env": "CI only",
@@ -78,8 +84,25 @@ async function waitForPerfLock() {
   }
 }
 
+/**
+ * Records the merge base's GPUI e2e on this Mac (scripts/gpui-main-baseline.mjs)
+ * in a scratch worktree, unless the baseline directory already holds it.
+ */
+function mainBaselineStage(mergeBase) {
+  if (readBaseline(mergeBase)?.exact) return { name: "gpui-main", skip: `this Mac's main baseline has ${mergeBase.slice(0, 9)}` };
+  const worktree = path.join(baselineDir(), "..", "ci-local-main");
+  return {
+    name: "gpui-main",
+    why: `the merge base's e2e on this Mac, for the baseline (${mergeBase.slice(0, 9)})`,
+    command: "sh",
+    args: ["-c", 'git worktree remove --force "$1" 2>/dev/null; git worktree add --detach "$1" "$2" && (cd "$1" && node scripts/gpui-main-baseline.mjs --sha "$2"); status=$?; git worktree remove --force "$1"; exit $status', "sh", worktree, mergeBase],
+    timeout: 3_600_000,
+    before: waitForPerfLock,
+  };
+}
+
 /** The stages for this tier: the gate's, then signoff's, kept by the jobs they stand for. */
-export function localStages(tier, files, mergeBase, { baselineFile = null } = {}) {
+export function localStages(tier, files, mergeBase) {
   const { jobs, vitestFiles } = tier;
   const stages = [];
   if (jobs["lint-build"] || (jobs.vitest && !vitestFiles.length)) stages.push(...gateStages(files));
@@ -99,14 +122,30 @@ export function localStages(tier, files, mergeBase, { baselineFile = null } = {}
   const heavy = new Set(["clippy", "cargo-test", "gpui-patch", "gpui-build", "gpui-test", "gpui-e2e"]);
   for (const stage of extraStages(files, mergeBase, { gpui: jobs.gpui, tauri: jobs.rust })) {
     if (stage.name.startsWith("gpui-") ? !jobs.gpui : !keep[stage.name]) continue;
-    const local = stage.name === "gpui-e2e" && !stage.skip
-      ? {
-          ...stage,
-          why: "the whole e2e scenario, failing only on steps main passes",
-          env: { ...stage.env, LATTICE_E2E_VERDICT: "1", ...(baselineFile ? { LATTICE_E2E_BASELINE: baselineFile } : {}) },
-        }
-      : stage;
-    stages.push(heavy.has(stage.name) && !stage.skip ? { ...local, before: waitForPerfLock } : local);
+    if (stage.name !== "gpui-e2e" || stage.skip) {
+      stages.push(heavy.has(stage.name) && !stage.skip ? { ...stage, before: waitForPerfLock } : stage);
+      continue;
+    }
+    stages.push(mainBaselineStage(mergeBase));
+    // The baseline is read when the stage starts, after gpui-main wrote it.
+    const e2e = { ...stage, why: "the whole e2e scenario, failing only on steps main fails too", env: { ...stage.env, LATTICE_E2E_VERDICT: "1" } };
+    e2e.before = async () => {
+      await waitForPerfLock();
+      const baseline = readBaseline(mergeBase);
+      if (baseline?.exact) e2e.env.LATTICE_E2E_BASELINE = baseline.file;
+      else console.log("  gpui-e2e: no main baseline for the merge base; judging against the known failures alone");
+    };
+    stages.push(e2e);
+  }
+  if (jobs["perf-bench"]) {
+    stages.push({
+      name: "webkit-bench",
+      why: "the WebKit benchmark and layout checks against their ceilings, as CI's macOS shards",
+      command: "sh",
+      args: ["-c", "pnpm exec playwright-core install webkit >/dev/null && pnpm perf:bench --check --layout --engine webkit"],
+      timeout: 2_400_000,
+      before: waitForPerfLock,
+    });
   }
   return stages;
 }
@@ -132,9 +171,7 @@ async function main() {
     console.log("ci:local: nothing CI checks changed; CI skips every job");
     return;
   }
-  const baseline = tier.jobs.gpui ? readBaseline(mergeBase) : null;
-  if (baseline) console.log(`ci:local: GPUI e2e steps this machine's main baseline fails count as known too (${path.basename(baseline.file)})`);
-  const stages = localStages(tier, files, mergeBase, { baselineFile: baseline?.file ?? null });
+  const stages = localStages(tier, files, mergeBase);
   if (options.plan) {
     for (const stage of stages) console.log(`  ${stage.name.padEnd(12)} ${stage.skip ? `skip (${stage.skip})` : stage.why}`);
     return;
@@ -147,13 +184,13 @@ async function main() {
     return;
   }
   console.log(`ci:local: every stage passed in ${minutes} min`);
-  if (!tier.jobs.rust && !tier.jobs.gpui) return;
+  if (!tier.jobs.rust && !tier.jobs.gpui && !tier.jobs["perf-bench"]) return;
   if (git("status", "--porcelain")) {
     console.log("ci:local: commit the change and run this again for the CI-local trailer; it names the commit's tree");
     return;
   }
   const tree = git("rev-parse", "HEAD^{tree}").slice(0, 12);
-  console.log(`ci:local: this tree stands for CI's macOS Rust and GPUI jobs. Add the trailer before pushing:`);
+  console.log(`ci:local: local macOS gate passed at ${git("rev-parse", "HEAD").slice(0, 9)}; this tree stands for CI's macOS jobs. Add the trailer before pushing:`);
   console.log(`  git commit --amend --no-edit --trailer "CI-local: macos ${tree}"`);
 }
 

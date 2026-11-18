@@ -370,7 +370,7 @@ jobs:
   perf-bench-webkit-shard:
     name: perf-bench-webkit (${{ matrix.shard }}/2)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' && needs.changes.outputs.macos-local != 'true' }}
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -397,7 +397,7 @@ jobs:
   # The one check that reports the WebKit benchmark, under its old name.
   perf-bench-webkit:
     needs: [changes, perf-bench-webkit-shard]
-    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' && needs.changes.outputs.macos-local != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - env:
