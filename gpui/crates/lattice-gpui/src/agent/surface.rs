@@ -100,6 +100,10 @@ pub struct SynaraSurface {
     /// Why there is no island: the pages are not built.
     unavailable: Option<String>,
     root: Option<PathBuf>,
+    /// The panel's thread as the page last reported it (`agent:history`).
+    /// The page keeps it in its own storage, which goes with the page when
+    /// it hibernates, so a page built again is told it with its project.
+    thread: Option<String>,
     shown: bool,
     /// The page has drawn since it was (re)built.
     drawn: bool,
@@ -202,6 +206,7 @@ impl SynaraSurface {
             island,
             unavailable,
             root: None,
+            thread: None,
             shown: false,
             drawn: false,
             opening: None,
@@ -276,6 +281,7 @@ impl SynaraSurface {
             commands::forget_turn(old);
         }
         self.root = root;
+        self.thread = None;
         // A frame belongs to one project: another project's starts afresh
         // (the page keys its host by the project).
         self.workspace = Value::Null;
@@ -452,6 +458,7 @@ impl SynaraSurface {
             "visible": self.shown,
             "appearance": self.appearance,
             "git": self.git,
+            "thread": self.thread,
         });
         self.post("agent:open", payload, cx);
         if self.kind == SurfaceKind::Settings {
@@ -539,7 +546,10 @@ impl SynaraSurface {
             // The Agent's checkpoints: the History panel's rows, and the
             // builds its turns' edits need (`shell/agent_checkpoints.rs`).
             "agent:history" => match super::checkpoints::parse_snapshot(payload) {
-                Some(snapshot) => cx.emit(SurfaceEvent::History(snapshot)),
+                Some(snapshot) => {
+                    self.thread = Some(snapshot.active_thread_id.clone());
+                    cx.emit(SurfaceEvent::History(snapshot))
+                }
                 None => log::debug!("{}: malformed agent:history", self.kind.name()),
             },
             "agent:permission-mode" => {

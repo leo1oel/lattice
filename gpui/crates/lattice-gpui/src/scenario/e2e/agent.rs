@@ -200,8 +200,15 @@ impl Run {
             state == IslandState::Ready && stats.hibernations == 0 && !visible,
             json!({ "state": format!("{state:?}"), "stats": stats, "visible": visible }),
         );
-        // The turn over, the hidden page hibernates after the delay.
+        // The turn over, the hidden page hibernates after the delay; the
+        // panel's thread it reported goes with its storage.
         self.evaluate(cx, &island, &turn("null")).await;
+        self.evaluate(
+            cx,
+            &island,
+            "(() => { window.latticeHost.post('agent:history', { type: 'lattice:project-history', activeThreadId: 'e2e-thread', entries: [] }); return 'true'; })()",
+        )
+        .await;
         let hibernated = self
             .wait_for(cx, Duration::from_secs(5), |_, cx| {
                 *island.read(cx).state() == IslandState::Hibernated
@@ -232,6 +239,18 @@ impl Run {
                 && visible
                 && facts["host"] == "object",
             json!({ "state": format!("{state:?}"), "stats": stats, "visible": visible, "page": facts }),
+        );
+        let kept = self
+            .evaluate(
+                cx,
+                &island,
+                "JSON.stringify(Object.keys(localStorage).filter((key) => key.startsWith('lattice.agent-thread.v1:')).map((key) => localStorage.getItem(key)))",
+            )
+            .await;
+        steps.check(
+            "the page built again opens on the panel's thread from before its hibernation",
+            kept == json!(["e2e-thread"]),
+            json!({ "threads": kept }),
         );
 
         // The brokers: only the panel's project, only the closed mutations.
