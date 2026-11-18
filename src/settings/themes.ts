@@ -1,6 +1,6 @@
 /**
- * Themes (`docs/themes.md`): applying the chosen one, and the accent fitting
- * Settings shows. The theme is resolved by the app's Rust side
+ * Themes (`docs/themes.md`): the installed list, installing from a file,
+ * applying the chosen one, and the accent fitting Settings shows. The theme is resolved by the app's Rust side
  * (`src-tauri/src/ipc/themes.rs`, over `src-tauri/lattice-theme`), the same
  * resolver and colour fitting the GPUI app runs, and comes back as the base
  * CSS variables to set on `<html>`; theme.css and foundations.css derive
@@ -14,6 +14,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useReducer } from "react";
 
+import { hostErrorMessage } from "../app-utils";
+import { subscribeTauriEvent } from "../app/effect-helpers";
+
 import type { Theme } from "./app-settings";
 import type { ThemeAccent } from "./theme-customization";
 
@@ -26,6 +29,59 @@ export type ResolvedTheme = {
 };
 
 export const THEMES_CHANGED_EVENT = "themes-changed";
+
+export type ThemeVariantInfo = {
+  id: string;
+  name: string;
+  appearance: Theme;
+  window: string;
+  chrome: string;
+  panel: string;
+  text: string;
+  accent: string | null;
+};
+
+export type ThemeInfo = {
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  license: string;
+  description: string;
+  source: "bundled" | "installed";
+  variants: ThemeVariantInfo[];
+};
+
+export const installThemeFile = (path: string) => invoke<ThemeInfo>("themes_install_file", { path });
+export const removeTheme = (id: string) => invoke<void>("themes_remove", { id });
+export const revealThemesFolder = () => invoke<void>("themes_reveal_folder");
+
+type ThemeList = { themes: ThemeInfo[] | null; error: string | null };
+
+/**
+ * The themes the writer can pick, kept current as any window installs or
+ * removes one. `themes` is null until the first answer, and stays null in a
+ * browser preview, which has no Rust side.
+ */
+export function useThemeList(): ThemeList {
+  const [list, setList] = useReducer((_: ThemeList, next: ThemeList) => next, { themes: null, error: null });
+  useEffect(() => {
+    let active = true;
+    const load = () => {
+      invoke<ThemeInfo[]>("themes_list").then(
+        (themes) => { if (active) setList({ themes, error: null }); },
+        (reason: unknown) => { if (active) setList({ themes: null, error: hostErrorMessage(reason) }); },
+      );
+    };
+    load();
+    const unsubscribe = subscribeTauriEvent<unknown>(THEMES_CHANGED_EVENT, load);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+  return list;
+}
 
 
 type FittedAccent = { color: string; ratio: number };

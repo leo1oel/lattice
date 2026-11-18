@@ -637,6 +637,7 @@ pub fn run() {
             ipc::themes::themes_list,
             ipc::themes::themes_install_file,
             ipc::themes::themes_remove,
+            ipc::themes::themes_reveal_folder,
             ipc::themes::themes_resolve,
             ipc::themes::themes_fit_accent,
             save_before_close::enable_save_before_close,
