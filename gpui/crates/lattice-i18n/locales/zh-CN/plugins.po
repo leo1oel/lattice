@@ -1,0 +1,15 @@
+#: lattice-gpui/src/shell/plugin_actions.rs
+msgid "Already cited here"
+msgstr "此处已引用"
+
+#: lattice-gpui/src/settings/plugins_pane.rs
+msgid "Install plugin"
+msgstr "安装插件"
+
+#: lattice-gpui/src/shell/plugin_actions.rs
+msgid "Open a LaTeX file to insert a citation"
+msgstr "请先打开一个 LaTeX 文件再插入引用"
+
+#: lattice-gpui/src/plugins/actions.rs
+msgid "The bibliography can’t be read, so nothing was changed."
+msgstr "无法读取参考文献，因此未做任何更改。"

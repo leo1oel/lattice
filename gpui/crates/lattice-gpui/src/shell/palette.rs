@@ -31,6 +31,9 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
+mod plugin;
+mod plugin_view;
+
 use super::{
     Shell, commands,
     palette_entries::{
@@ -60,6 +63,13 @@ pub(crate) struct CommandPaletteView {
     settings: Vec<Entry>,
     /// Find in project's keys, when the palette offers it.
     find_keys: Option<Option<SharedString>>,
+    /// The enabled plugins' commands, the last section.
+    plugins: Vec<Entry>,
+    /// A plugin command chosen: asking, running, or its result.
+    plugin: Option<plugin::Step>,
+    placeholder: &'static str,
+    result_scroll: ScrollHandle,
+    adopted_result: Option<usize>,
     shown: Vec<Entry>,
     highlighted: usize,
     adopted: Option<usize>,
@@ -77,19 +87,25 @@ impl CommandPaletteView {
         cx: &mut Context<Self>,
     ) -> Self {
         let in_project = shell.project.is_some();
-        let input = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(if in_project {
-                t!("Search commands, files, papers and settings…")
-            } else {
-                t!("Search commands and settings…")
-            })
-        });
+        let placeholder = if in_project {
+            t!("Search commands, files, papers and settings…")
+        } else {
+            t!("Search commands and settings…")
+        };
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
         let subscription =
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
-                InputEvent::Change => this.filter(cx),
+                InputEvent::Change if this.plugin.is_none() => this.filter(cx),
+                InputEvent::PressEnter { .. } if this.plugin.is_some() => {
+                    this.plugin_enter(window, cx)
+                }
                 InputEvent::PressEnter { .. } => this.run(this.highlighted, window, cx),
                 _ => {}
             });
+        let plugins = crate::plugins::commands(cx)
+            .iter()
+            .map(|command| Entry::Plugin(Box::new(command.clone())))
+            .collect();
         let context = shell.command_context(cx);
         let listed: Vec<commands::Command> = commands::commands(&context)
             .into_iter()
@@ -175,6 +191,11 @@ impl CommandPaletteView {
             papers,
             settings,
             find_keys,
+            plugins,
+            plugin: None,
+            placeholder,
+            result_scroll: ScrollHandle::new(),
+            adopted_result: None,
             highlighted: 0,
             adopted: None,
             scroll: ScrollHandle::new(),
@@ -203,9 +224,11 @@ impl CommandPaletteView {
                 .chain(self.commands.iter().filter(|entry| {
                     !matches!(entry, Entry::Command { id, .. } if led.contains(id))
                 }).cloned())
+                .chain(self.plugins.iter().cloned())
                 .collect()
             } else {
                 let mut found = scored(&self.commands, &query, COMMAND_LIMIT, false);
+                found.extend(scored(&self.plugins, &query, COMMAND_LIMIT, false));
                 found.extend(scored(&self.files, &query, FILE_LIMIT, false));
                 found.extend(scored(&self.papers, &query, PAPER_LIMIT, true));
                 found.extend(scored(&self.settings, &query, SETTING_LIMIT, true));
@@ -242,6 +265,10 @@ impl CommandPaletteView {
         let Some(entry) = self.shown.get(ix).cloned() else {
             return;
         };
+        if let Entry::Plugin(command) = entry {
+            self.choose_plugin(*command, window, cx);
+            return;
+        }
         cx.emit(PaletteEvent::Dismiss);
         let shell = self.shell.clone();
         match entry {
@@ -295,6 +322,7 @@ impl CommandPaletteView {
                         .ok();
                 });
             }
+            Entry::Plugin(_) => {}
             Entry::Find { query, .. } => {
                 window.defer(cx, move |window, cx| {
                     shell
@@ -421,6 +449,7 @@ impl Render for CommandPaletteView {
                     (Icon::BOOK_OPEN.element(ICON, tint).into_any_element(), None)
                 }
                 Entry::Setting(_) => (Icon::SETTINGS.element(ICON, tint).into_any_element(), None),
+                Entry::Plugin(_) => (Icon::PUZZLE.element(ICON, tint).into_any_element(), None),
                 Entry::Find { keys, .. } => (
                     Icon::SEARCH.element(ICON, tint).into_any_element(),
                     keys.clone(),
@@ -477,7 +506,12 @@ impl Render for CommandPaletteView {
             );
         }
         let in_project = self.in_project;
-        let empty = self.shown.is_empty().then(|| {
+        let plugin_row = self.plugin_search_row(cx);
+        let plugin_header = self.plugin_header(cx);
+        let search_row = self.search_row_shown();
+        let plugin_body = self.plugin_body(window, cx);
+        let in_plugin = self.plugin.is_some();
+        let empty = (self.shown.is_empty() && !in_plugin).then(|| {
             let query = self.input.read(cx).value();
             div()
                 .px(px(20.))
@@ -509,25 +543,30 @@ impl Render for CommandPaletteView {
             .shadow(Elevation::Dialog.shadows(&palette))
             .overflow_hidden()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(8.))
-                    .h(px(32. + 12.))
-                    .px(px(14.))
-                    .border_b_1()
-                    .border_color(palette.line)
-                    .child(Icon::SEARCH.element(ICON, palette.text_secondary))
-                    .child(
-                        div()
-                            .flex_1()
-                            .text_role(TextRole::Body, cx)
-                            .child(Input::new(&self.input).appearance(false).bordered(false)),
-                    ),
-            )
+            .when(search_row, |card| {
+                card.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .h(px(32. + 12.))
+                        .px(px(14.))
+                        .border_b_1()
+                        .border_color(palette.line)
+                        .map(|row| match plugin_row {
+                            Some(plugin_row) => row.child(plugin_row),
+                            None => row
+                                .child(Icon::SEARCH.element(ICON, palette.text_secondary))
+                                .child(div().flex_1().text_role(TextRole::Body, cx).child(
+                                    Input::new(&self.input).appearance(false).bordered(false),
+                                )),
+                        }),
+                )
+            })
+            .children(plugin_header)
             .children(empty)
-            .when(!self.shown.is_empty(), |card| {
+            .children(plugin_body)
+            .when(!self.shown.is_empty() && !in_plugin, |card| {
                 card.child(
                     // The fill and Lattice's scrollbar are laid over the
                     // list's viewport.
@@ -563,7 +602,11 @@ impl Render for CommandPaletteView {
             .bg(palette.scrim)
             .occlude()
             .track_focus(&self.focus)
-            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                if this.plugin_key(event, window, cx) {
+                    cx.stop_propagation();
+                    return;
+                }
                 match event.keystroke.key.as_str() {
                     "up" => this.step(-1, cx),
                     "down" => this.step(1, cx),

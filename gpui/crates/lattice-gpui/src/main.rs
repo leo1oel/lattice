@@ -46,6 +46,7 @@ mod paint_probe;
 mod panels;
 mod papers;
 mod pdf;
+mod plugins;
 mod project;
 mod recents;
 mod research_art;

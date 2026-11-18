@@ -129,6 +129,13 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
                     },
                     t!("Literature services").into(),
                 ),
+                (
+                    Section {
+                        tab: SettingsTab::Plugins,
+                        icon: ProductIcon::Package,
+                    },
+                    t!("Plugins").into(),
+                ),
             ],
         ),
         (

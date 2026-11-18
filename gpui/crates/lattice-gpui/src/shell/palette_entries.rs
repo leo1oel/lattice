@@ -47,6 +47,8 @@ pub(super) enum Entry {
         detail: Option<SharedString>,
     },
     Setting(Box<crate::settings::search::Entry>),
+    /// An enabled plugin's command ("<Plugin>: <Command>").
+    Plugin(Box<lattice_core::plugins::PluginCommand>),
     /// Find in project on a query that found nothing.
     Find {
         query: String,
@@ -63,6 +65,7 @@ impl Entry {
             Entry::File { lead, .. } => lead.clone().unwrap_or_else(|| t!("Files").into()),
             Entry::Paper { .. } => t!("Papers").into(),
             Entry::Setting(_) => t!("Settings").into(),
+            Entry::Plugin(_) => t!("Plugins").into(),
             Entry::Find { .. } => SharedString::default(),
         }
     }
@@ -97,6 +100,7 @@ impl Entry {
             Entry::Setting(entry) => {
                 format!("{shown} {} {}", entry.terms, entry.description)
             }
+            Entry::Plugin(command) => format!("{shown} {}", command.plugin_id),
             Entry::File { .. } | Entry::Find { .. } => unreachable!(),
         }
     }
@@ -109,6 +113,8 @@ impl Entry {
             Entry::File { .. } => 100,
             Entry::Paper { .. } => 101,
             Entry::Setting(_) => 102,
+            // After every built-in section, before the files.
+            Entry::Plugin(_) => 99,
             Entry::Find { .. } => 0,
         }
     }
@@ -158,6 +164,10 @@ pub(super) fn entry_text(entry: &Entry) -> (SharedString, Option<SharedString>) 
         }
         Entry::Paper { paper, detail } => (paper.title.clone().into(), detail.clone()),
         Entry::Setting(entry) => (entry.label.clone().into(), Some(entry.place.clone().into())),
+        Entry::Plugin(command) => (
+            crate::plugins::text::command_label(&command.plugin_name, &command.title).into(),
+            command.description.clone().map(SharedString::from),
+        ),
         Entry::Find { query, .. } => (
             t!("Search the project for “{query}”", query = query).into(),
             None,

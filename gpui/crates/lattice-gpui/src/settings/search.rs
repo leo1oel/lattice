@@ -58,7 +58,7 @@ impl Entry {
 pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
     use SettingsTab::{
         Acknowledgements, Agent, Api, Appearance, Doctor, Editor, Environment, Literature, Logs,
-        Mcp, ModelEndpoint, Overleaf, Usage,
+        Mcp, ModelEndpoint, Overleaf, Plugins, Usage,
     };
     let appearance = t!("Appearance");
     let editor = t!("Editor & builds");
@@ -344,6 +344,29 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         .terms("Crossref")
         .description(t!("Sent to Crossref")),
     );
+    let plugins = t!("Plugins");
+    out.push(
+        Entry::page(Plugins, plugins, t!("Integrations"))
+            .terms(t!("plugin extension add-on sandbox permissions")),
+    );
+    out.push(
+        Entry::row(
+            Plugins,
+            plugins,
+            "plugins-install-url",
+            t!("Install from URL…"),
+        )
+        .terms("SHA-256 zip"),
+    );
+    out.push(
+        Entry::row(
+            Plugins,
+            plugins,
+            "plugins-install-folder",
+            t!("Install from folder…"),
+        )
+        .terms(t!("develop")),
+    );
     out.push(Entry::page(Doctor, t!("TeX doctor"), t!("Diagnostics")));
     out.push(Entry::page(Logs, t!("Logs"), t!("Diagnostics")));
     let fonts = lattice_ui::fonts::font_license().is_some();
@@ -457,6 +480,7 @@ mod tests {
             ("anthropic", SettingsTab::ModelEndpoint),
             ("https_proxy", SettingsTab::Environment),
             ("crossref", SettingsTab::Literature),
+            ("plugin", SettingsTab::Plugins),
             ("third-party", SettingsTab::Acknowledgements),
             ("british", SettingsTab::Editor),
         ] {

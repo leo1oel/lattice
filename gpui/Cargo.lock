@@ -8314,6 +8314,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "pdfium-render",
  "project",
+ "pulldown-cmark",
  "raw-window-handle",
  "regex",
  "release_channel",
