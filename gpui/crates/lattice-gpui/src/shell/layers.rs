@@ -23,7 +23,7 @@ pub(super) const TOAST_PRIORITY: usize = 50;
 impl Shell {
     /// Whether any of the window's dialogs is up: the overlays
     /// `window_overlays` draws and the dialogs `render` draws over them.
-    pub(super) fn dialog_open(&self, cx: &gpui::App) -> bool {
+    pub(crate) fn dialog_open(&self, cx: &gpui::App) -> bool {
         self.palette.is_some()
             || self.shortcuts.is_some()
             || self.settings.is_some()

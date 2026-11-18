@@ -14,7 +14,7 @@ use gpui::{
 };
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
-    components::{IconButton, rise_in},
+    components::{IconButton, TrapFocus as _, rise_in},
     icons::ICON_LARGE,
     tokens::CONTAINER_DIALOG_LARGE,
 };
@@ -125,6 +125,15 @@ impl SheetFrame {
         let close_key = on_close.clone();
         let close_scrim = on_close;
         let scrim_closes = self.scrim_closes;
+        // The fence Tab stays inside. Its handle is the sheet's own, never
+        // focused itself: the trap holds whenever focus is anywhere in the
+        // sheet, which is where its owner puts it (a field, or its own handle
+        // on the wrapper around this frame).
+        let trap = window
+            .use_keyed_state(child("trap"), cx, |_, cx| cx.focus_handle())
+            .read(cx)
+            .clone();
+        lattice_ui::components::claim_focus_on_open(child("claim"), &trap, window, cx);
         div()
             .id(child("scrim"))
             .absolute()
@@ -136,6 +145,7 @@ impl SheetFrame {
             .justify_center()
             .bg(scrim(&palette))
             .occlude()
+            .trap_focus(child("trap-scope"), &trap)
             .capture_key_down(move |event: &KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape" {
                     cx.stop_propagation();
