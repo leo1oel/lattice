@@ -548,7 +548,7 @@ impl StructuredDocument {
                 log::warn!("{}: refused {command}", self.kind.island());
                 self.respond(
                     id,
-                    Err(format!("{command} is not available in the GPUI preview")),
+                    Err(format!("{} has no {command} yet", crate::APP_NAME)),
                     cx,
                 );
             }

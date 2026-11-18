@@ -14,14 +14,6 @@ msgstr "无法在新窗口中打开 PDF"
 msgid "Could not save the PDF"
 msgstr "PDF 没保存成功"
 
-#: lattice-gpui/src/pdf/panel.rs
-msgid "Find in PDF — not in the GPUI preview yet"
-msgstr "在 PDF 中搜索（GPUI 预览版暂不支持）"
-
-#: lattice-gpui/src/pdf/panel.rs
-msgid "Outline — not in the GPUI preview yet"
-msgstr "大纲（GPUI 预览版暂不支持）"
-
 #: lattice-gpui/src/pdf/toolbar.rs
 msgid "PDF saved"
 msgstr "PDF 已保存"

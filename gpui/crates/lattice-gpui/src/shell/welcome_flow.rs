@@ -99,7 +99,7 @@ impl Shell {
         cx.subscribe_in(&welcome, window, Self::on_welcome_event)
             .detach();
         window.focus(&welcome.focus_handle(cx), cx);
-        window.set_window_title("Lattice (GPUI preview)");
+        window.set_window_title(crate::APP_NAME);
         self.lobby.welcome = Some(welcome);
         cx.notify();
     }

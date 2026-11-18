@@ -44,7 +44,7 @@ fn show_about(cx: &mut App) {
     {
         let _ = cx;
         crate::native::show_about_panel(
-            "Lattice",
+            crate::APP_NAME,
             lattice_core::VERSION,
             TRELLIS_ATTRIBUTION,
             &[(&website, WEBSITE_URL), (&github, REPOSITORY_URL)],
@@ -60,7 +60,7 @@ fn show_about(cx: &mut App) {
             .update(cx, |_, window, cx| {
                 let _ = window.prompt(
                     gpui::PromptLevel::Info,
-                    "Lattice",
+                    crate::APP_NAME,
                     Some(&detail),
                     &[tc!("dialog button", "OK")],
                     cx,
@@ -203,7 +203,7 @@ fn margin_review(mode: crate::editor_panel::MarginMode) -> MenuItem {
 }
 
 fn menus(front: Front, cx: &App) -> Vec<Menu> {
-    let name = "Lattice";
+    let name = crate::APP_NAME;
     let (website, github) = link_titles();
     let mut lattice = vec![MenuItem::action(
         tc!("macOS menu bar", "About {name}", name = name),
@@ -240,7 +240,7 @@ fn menus(front: Front, cx: &App) -> Vec<Menu> {
         view.extend([MenuItem::separator(), margin_review(mode)]);
     }
     vec![
-        Menu::new("Lattice").items(lattice),
+        Menu::new(name).items(lattice),
         Menu::new(tc!("macOS menu bar", "File")).items([
             MenuItem::action(tc!("macOS menu bar", "New Project…"), NewProject),
             MenuItem::action(tc!("macOS menu bar", "Open…"), OpenFolder),
@@ -309,7 +309,7 @@ fn menus(front: Front, cx: &App) -> Vec<Menu> {
         ]),
         Menu::new(tc!("macOS menu bar", "Help")).items([
             MenuItem::action(
-                tc!("macOS menu bar", "What’s New in {name}", name = "Lattice"),
+                tc!("macOS menu bar", "What’s New in {name}", name = name),
                 super::WhatsNew,
             ),
             MenuItem::separator(),
