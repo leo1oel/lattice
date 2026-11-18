@@ -1,6 +1,6 @@
 //! What the writer's login shell exports, read the way a terminal would see
 //! it: `<shell> -ilc`, so both the login profile and the interactive rc
-//! (`~/.zshrc`, where most proxy and API settings live) run.
+//! (`~/.zshrc`, where most PATH and proxy settings live) run.
 //!
 //! Only names `keep` accepts leave this module; the rest of the environment,
 //! and every value, stay out of logs.

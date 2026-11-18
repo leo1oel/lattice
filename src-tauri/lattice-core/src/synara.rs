@@ -3,11 +3,11 @@
 //! The sidecar is a loopback Node service started on demand by
 //! [`SynaraRuntime::ensure_ready`]. It runs inside the macOS bibliography
 //! sandbox with Lattice's own `ps` replacement (`process_inspector`), and
-//! does not start at all where no such guard exists (`bibliography_guard`); the
-//! provider CLIs it spawns inherit the writer's proxy and provider settings
-//! (`environment`, from the login shell and the system proxy), which a
-//! restart picks up again (`restart`), and a default-off research-writing
-//! skill (`preferences`).
+//! does not start at all where no such guard exists (`bibliography_guard`); it
+//! starts from an empty environment plus an allowlist of the writer's own
+//! (`environment`: PATH, locale, TeX and proxy settings from the login shell
+//! and the system proxy, never an API key), which a restart picks up again
+//! (`restart`), and a default-off research-writing skill (`preferences`).
 
 mod bibliography_guard;
 mod environment;

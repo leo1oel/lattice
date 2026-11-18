@@ -1,5 +1,5 @@
 //! Restarting the sidecar so it picks up a changed environment. Its provider
-//! CLIs inherit the environment it was started with, so a proxy turned on
+//! CLIs inherit the allowlisted environment it was started with, so a proxy turned on
 //! later (Clash, Surge) or an edited `~/.zshrc` reaches them only through a
 //! new sidecar. Restarting stops its running turns, so it is offered, never
 //! forced: a system proxy change raises `ENVIRONMENT_CHANGED_EVENT` for the

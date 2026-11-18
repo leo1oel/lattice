@@ -1,8 +1,16 @@
-//! The environment the sidecar's provider CLIs need from the writer's own
-//! setup, which a Finder or Dock launch does not inherit: proxy settings and
-//! provider endpoints and keys. Three layers, the first to name a variable
-//! wins: what Lattice itself was launched with, what the login shell exports
-//! (`shell_env`), then the macOS system proxy (`proxy`).
+//! The whole environment the sidecar starts with. Agents never receive the
+//! writer's environment or API keys: the sidecar starts from an empty
+//! environment (`apply`) holding only what Lattice sets for it and the
+//! allowlisted variables below, which run programs, TeX and git as the
+//! writer, and reach the network through their proxy. Providers sign in
+//! through their own login files (`~/.claude`, `~/.codex`) or Settings ›
+//! Agent › Model endpoint, never through a key in the environment.
+//!
+//! Three layers, the first to name a variable wins: what Lattice itself was
+//! launched with, what the login shell exports (`shell_env`), then the macOS
+//! system proxy (`proxy`). `PATH` is the login shell's before the launch's,
+//! which a Finder or Dock launch truncates, followed by Lattice's own search
+//! path (`commands::child_path`).
 //!
 //! Values never reach a log; Settings receives them redacted (`report`).
 
@@ -10,6 +18,8 @@ use super::proxy;
 use super::shell_env::{ShellError, ShellRead};
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::ffi::{OsStr, OsString};
+use std::path::PathBuf;
 use std::process::Command;
 
 /// The proxy variables, in both spellings, and the certificate bundles a
@@ -31,44 +41,41 @@ const PROXY_NAMES: &[&str] = &[
 /// that sets this. A writing app has no simulator to drive, so no layer may
 /// hand it to the sidecar.
 const DEVICE_CONTROL_ENTITLEMENT: &str = "LATTICE_DEVICE_CONTROL_ENABLED";
-/// Every variable of these families configures a provider CLI: Claude Code
-/// pointed at Kimi, GLM or DeepSeek through `ANTHROPIC_BASE_URL`, its model
-/// overrides, Codex's `OPENAI_BASE_URL`.
-const PROVIDER_FAMILIES: &[&str] = &["ANTHROPIC_", "CLAUDE_CODE_", "OPENAI_", "AZURE_OPENAI_"];
-/// Other providers contribute only their key and endpoint.
-const PROVIDERS: &[&str] = &[
-    "DEEPSEEK",
-    "MOONSHOT",
-    "KIMI",
-    "ZHIPU",
-    "ZHIPUAI",
-    "GLM",
-    "ZAI",
-    "DASHSCOPE",
-    "QWEN",
-    "SILICONFLOW",
-    "ARK",
-    "VOLCENGINE",
-    "MINIMAX",
-    "OPENROUTER",
-    "GEMINI",
-    "GOOGLE",
-    "XAI",
-    "GROQ",
-    "MISTRAL",
-    "TOGETHER",
-    "FIREWORKS",
-    "PERPLEXITY",
+/// Who and where the writer is, their language, and where temporary files
+/// go: what any program needs to run as them. `SSH_AUTH_SOCK` is a
+/// credential and stays out.
+const SYSTEM_NAMES: &[&str] = &[
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "TMPDIR",
+    "TZ",
+    "LANG",
+    "LANGUAGE",
+    "__CF_USER_TEXT_ENCODING",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_CACHE_HOME",
+    "XDG_STATE_HOME",
+    "XDG_RUNTIME_DIR",
+    // Where the provider CLIs keep their logins, when the writer moved them.
+    "CODEX_HOME",
+    "CLAUDE_CONFIG_DIR",
 ];
-const PROVIDER_SUFFIXES: &[&str] = &["_API_KEY", "_BASE_URL", "_API_BASE"];
 
-/// Whether `name` is one the agent takes from the writer's environment.
+/// Whether `name` is one the agent takes from the writer's environment:
+/// the system names, the locale (`LC_*`), TeX's search paths (`TEXMF*`,
+/// `TEXINPUTS`, `BIBINPUTS`, …) and the proxy, and never a name that looks
+/// like a credential, whatever family it belongs to.
 pub(super) fn is_inherited(name: &str) -> bool {
-    PROXY_NAMES.contains(&name)
-        || PROVIDER_FAMILIES.iter().any(|family| name.starts_with(family))
-        || PROVIDER_SUFFIXES.iter().any(|suffix| {
-            name.strip_suffix(suffix).is_some_and(|provider| PROVIDERS.contains(&provider))
-        })
+    !is_secret(name)
+        && (SYSTEM_NAMES.contains(&name)
+            || PROXY_NAMES.contains(&name)
+            || name.starts_with("LC_")
+            || name.starts_with("TEXMF")
+            || name.ends_with("INPUTS"))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -105,7 +112,7 @@ pub(super) fn system_proxy_variables(
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) enum Source {
-    /// Lattice's own environment, which the sidecar inherits as it is.
+    /// The environment Lattice itself was launched with.
     Launch,
     Shell,
     SystemProxy,
@@ -130,24 +137,34 @@ impl AgentEnvironment {
         // `vars()` would panic on a value that is not UTF-8.
         let launch = std::env::vars_os()
             .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)))
-            .filter(|(name, _)| is_inherited(name))
             .collect();
-        Self::layered(launch, shell, proxy::system_proxy())
+        Self::layered(launch, shell, proxy::system_proxy(), &crate::commands::child_path())
     }
 
     fn layered(
-        launch: BTreeMap<String, String>, shell: ShellRead, system: Option<SystemProxy>,
+        launch: BTreeMap<String, String>, mut shell: ShellRead, system: Option<SystemProxy>,
+        lattice_path: &OsStr,
     ) -> Self {
+        // The login shell's PATH wins over the launch's, which is the
+        // truncated one whenever the shell's is needed at all.
+        let shell_path = shell.as_mut().ok().and_then(|variables| variables.remove("PATH"));
         let (shell, shell_error) = match shell {
             Ok(variables) => (variables, None),
             Err(error) => (BTreeMap::new(), Some(error)),
         };
         let mut base = BTreeMap::new();
+        if let Some(value) = shell_path {
+            base.insert("PATH".to_string(), Variable { value, source: Source::Shell });
+        }
         for (layer, source) in [(launch, Source::Launch), (shell, Source::Shell)] {
-            for (name, value) in layer {
+            for (name, value) in layer.into_iter().filter(|(name, _)| is_inherited(name)) {
                 base.entry(name).or_insert(Variable { value, source });
             }
         }
+        let path = base
+            .entry("PATH".to_string())
+            .or_insert(Variable { value: String::new(), source: Source::Launch });
+        path.value = search_path(&path.value, lattice_path);
         let mut environment = Self { variables: BTreeMap::new(), base, shell_error };
         environment.variables = environment.with_system_proxy(system.as_ref());
         environment
@@ -164,14 +181,17 @@ impl AgentEnvironment {
         variables
     }
 
-    /// Hand the sidecar what it does not already inherit.
+    /// Give `command` exactly this environment and what Lattice has already
+    /// set on it, and nothing else of Lattice's own environment, so neither
+    /// the launch nor anything the sidecar starts sees a key Lattice holds.
     pub(super) fn apply(&self, command: &mut Command) {
-        for (name, variable) in &self.variables {
-            if variable.source != Source::Launch {
-                command.env(name, &variable.value);
-            }
-        }
-        // Not even from Lattice's launch, which the sidecar inherits.
+        let set_by_lattice: Vec<(OsString, OsString)> = command
+            .get_envs()
+            .filter_map(|(name, value)| Some((name.to_owned(), value?.to_owned())))
+            .collect();
+        command.env_clear();
+        command.envs(self.variables.iter().map(|(name, variable)| (name, &variable.value)));
+        command.envs(set_by_lattice);
         command.env_remove(DEVICE_CONTROL_ENTITLEMENT);
     }
 
@@ -214,6 +234,21 @@ impl AgentEnvironment {
                 .collect(),
         }
     }
+}
+
+/// `base`'s folders, then those of Lattice's own search path it lacks.
+fn search_path(base: &str, lattice: &OsStr) -> String {
+    let mut directories: Vec<PathBuf> = std::env::split_paths(base).collect();
+    for directory in std::env::split_paths(lattice) {
+        if !directories.contains(&directory) {
+            directories.push(directory);
+        }
+    }
+    directories.retain(|directory| !directory.as_os_str().is_empty());
+    std::env::join_paths(directories)
+        .ok()
+        .and_then(|path| path.into_string().ok())
+        .unwrap_or_else(|| base.to_string())
 }
 
 /// What Settings shows: the variables a start would use now, redacted, and
@@ -278,8 +313,7 @@ mod tests {
         // As if the login shell or Lattice's own launch exported it.
         command.env(DEVICE_CONTROL_ENTITLEMENT, "true");
         AgentEnvironment::default().apply(&mut command);
-        let removed = (std::ffi::OsStr::new(DEVICE_CONTROL_ENTITLEMENT), None);
-        assert_eq!(command.get_envs().collect::<Vec<_>>(), [removed]);
+        assert!(!command_env(&command).contains_key(DEVICE_CONTROL_ENTITLEMENT));
     }
 
     #[test]
@@ -321,65 +355,169 @@ mod tests {
     }
 
     #[test]
-    fn inherits_only_proxy_and_provider_variables() {
+    fn inherits_only_system_tex_and_proxy_variables() {
         for name in [
+            "PATH",
+            "HOME",
+            "USER",
+            "SHELL",
+            "TMPDIR",
+            "LANG",
+            "LC_ALL",
+            "LC_CTYPE",
+            "TEXMFHOME",
+            "TEXINPUTS",
+            "BIBINPUTS",
+            "XDG_CONFIG_HOME",
+            "CODEX_HOME",
+            "CLAUDE_CONFIG_DIR",
             "HTTPS_PROXY",
             "no_proxy",
-            "ANTHROPIC_BASE_URL",
-            "ANTHROPIC_AUTH_TOKEN",
-            "ANTHROPIC_DEFAULT_SONNET_MODEL",
-            "CLAUDE_CODE_USE_BEDROCK",
-            "OPENAI_BASE_URL",
-            "DEEPSEEK_API_KEY",
-            "MOONSHOT_BASE_URL",
             "NODE_EXTRA_CA_CERTS",
         ] {
             assert!(is_inherited(name), "{name}");
         }
         for name in [
-            "PATH",
-            "HOME",
+            "OPENAI_API_KEY",
+            "OPENAI_BASE_URL",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
+            "ANTHROPIC_BASE_URL",
+            "CLAUDE_CODE_OAUTH_TOKEN",
+            "CLAUDE_CODE_USE_BEDROCK",
+            "AZURE_OPENAI_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "MOONSHOT_BASE_URL",
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            "OPENROUTER_API_KEY",
             "GITHUB_TOKEN",
+            "GH_TOKEN",
             "STRIPE_API_KEY",
+            "AWS_ACCESS_KEY_ID",
             "AWS_SECRET_ACCESS_KEY",
+            "HF_TOKEN",
+            "SSH_AUTH_SOCK",
             "SYNARA_HOME",
+            DEVICE_CONTROL_ENTITLEMENT,
+            // Allowlisted families never carry a credential either.
+            "TEXMF_TOKEN",
+            "LC_SECRET",
         ] {
             assert!(!is_inherited(name), "{name}");
         }
     }
 
     /// A Finder launch inherits none of the shell's settings; the sidecar
-    /// must still receive them, with the launch environment winning and the
-    /// system proxy filling only what neither set.
+    /// still receives the ones it needs, with the launch environment winning,
+    /// the shell's PATH ahead of the launch's, and the system proxy filling
+    /// only what neither set. Provider keys and endpoints from either layer
+    /// stay out.
     #[test]
-    fn a_finder_launch_hands_the_sidecar_the_login_shell_settings() {
+    fn a_finder_launch_hands_the_sidecar_only_the_allowlisted_shell_settings() {
         let shell = map(&[
             ("ANTHROPIC_BASE_URL", "https://api.moonshot.cn/anthropic"),
             ("ANTHROPIC_AUTH_TOKEN", "sk-shell"),
+            ("DEEPSEEK_API_KEY", "sk-deepseek"),
             ("HTTPS_PROXY", "http://127.0.0.1:7890"),
-            ("OPENAI_BASE_URL", "https://shell.example/v1"),
+            ("LANG", "en_US.UTF-8"),
+            ("TEXINPUTS", ".:~/tex//:"),
+            ("PATH", "/Users/w/.nvm/bin:/usr/bin"),
         ]);
-        let launch = map(&[("OPENAI_BASE_URL", "https://launch.example/v1")]);
-        let environment =
-            AgentEnvironment::layered(launch, Ok(shell), system("http://127.0.0.1:6152"));
+        let launch = map(&[
+            ("HOME", "/Users/w"),
+            ("PATH", "/usr/bin:/bin"),
+            ("OPENAI_API_KEY", "sk-launch"),
+            ("LANG", "C"),
+        ]);
+        let environment = AgentEnvironment::layered(
+            launch,
+            Ok(shell),
+            system("http://127.0.0.1:6152"),
+            OsStr::new("/Library/TeX/texbin:/usr/bin"),
+        );
         let mut command = Command::new("node");
         environment.apply(&mut command);
         let env = command_env(&command);
-        assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.moonshot.cn/anthropic");
-        assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-shell");
+        for name in
+            ["ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "DEEPSEEK_API_KEY", "OPENAI_API_KEY"]
+        {
+            assert!(!env.contains_key(name), "{name}");
+        }
+        assert_eq!(env["HOME"], "/Users/w");
+        assert_eq!(env["LANG"], "C", "the launch wins");
+        assert_eq!(env["TEXINPUTS"], ".:~/tex//:");
+        assert_eq!(env["PATH"], "/Users/w/.nvm/bin:/usr/bin:/Library/TeX/texbin");
         assert_eq!(env["HTTPS_PROXY"], "http://127.0.0.1:7890", "the shell's proxy wins");
         assert_eq!(env["HTTP_PROXY"], "http://127.0.0.1:6152", "the system proxy fills the gap");
-        // Inherited as it is, so not set again.
-        assert!(!env.contains_key("OPENAI_BASE_URL"));
         let report = serde_json::to_value(environment.report("zsh".into(), true, false)).unwrap();
-        let openai = report["variables"]
+        let home = report["variables"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|variable| variable["name"] == "OPENAI_BASE_URL")
+            .find(|variable| variable["name"] == "HOME")
             .unwrap();
-        assert_eq!(openai["source"], "launch");
-        assert_eq!(openai["value"], "https://launch.example/v1");
+        assert_eq!(home["source"], "launch");
+        assert_eq!(home["value"], "/Users/w");
+    }
+
+    /// The real boundary: a sidecar started from a Lattice that holds
+    /// provider keys in its own environment, from a terminal launch or a
+    /// developer's shell, receives none of them, while what Lattice set on
+    /// the command (the guard's variables, the auth token) survives.
+    #[cfg(unix)]
+    #[test]
+    fn a_provider_key_in_lattices_environment_never_reaches_the_child() {
+        let keys = [
+            ("OPENAI_API_KEY", "sk-parent-openai-0123456789"),
+            ("ANTHROPIC_API_KEY", "sk-parent-anthropic-0123456789"),
+            ("LATTICE_TEST_UNLISTED", "parent-only"),
+        ];
+        for (name, value) in keys {
+            std::env::set_var(name, value);
+        }
+        let shell = map(&[
+            ("DEEPSEEK_API_KEY", "sk-shell-deepseek-0123456789"),
+            ("TEXINPUTS", ".:/lattice-test//:"),
+            ("PATH", "/usr/bin:/bin"),
+        ]);
+        let environment = AgentEnvironment::resolve(Ok(shell));
+        for (name, _) in keys {
+            std::env::remove_var(name);
+        }
+        let mut command = Command::new("/usr/bin/env");
+        command.env("LATTICE_BIBLIOGRAPHY_SANDBOX", "1").env("SYNARA_AUTH_TOKEN", "lattice-set");
+        environment.apply(&mut command);
+        let output = command.output().expect("run env");
+        assert!(output.status.success());
+        let output = String::from_utf8(output.stdout).unwrap();
+        let child: BTreeMap<&str, &str> =
+            output.lines().filter_map(|line| line.split_once('=')).collect();
+        for name in
+            ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY", "LATTICE_TEST_UNLISTED"]
+        {
+            assert!(!child.contains_key(name), "{name} reached the child");
+        }
+        for value in
+            keys.map(|(_, value)| value).into_iter().chain(["sk-shell-deepseek-0123456789"])
+        {
+            assert!(!output.contains(value), "a key's value reached the child");
+        }
+        assert_eq!(child["LATTICE_BIBLIOGRAPHY_SANDBOX"], "1");
+        assert_eq!(child["SYNARA_AUTH_TOKEN"], "lattice-set");
+        assert_eq!(child["TEXINPUTS"], ".:/lattice-test//:");
+        assert!(child["PATH"].starts_with("/usr/bin:/bin"), "{}", child["PATH"]);
+        if let Some(home) = std::env::var_os("HOME") {
+            assert_eq!(child["HOME"], home.to_str().unwrap());
+        }
+        for (name, _) in child {
+            assert!(
+                name.starts_with("LATTICE_BIBLIOGRAPHY_SANDBOX")
+                    || name == "SYNARA_AUTH_TOKEN"
+                    || is_inherited(name),
+                "{name} is not allowlisted"
+            );
+        }
     }
 
     #[test]
@@ -388,6 +526,7 @@ mod tests {
             BTreeMap::new(),
             Err(ShellError::Timeout),
             system("http://127.0.0.1:7890"),
+            OsStr::new(""),
         );
         let mut command = Command::new("node");
         environment.apply(&mut command);
@@ -400,19 +539,21 @@ mod tests {
     /// proxy on afterwards has to be noticed and offered as a restart.
     #[test]
     fn notices_a_system_proxy_turned_on_after_the_agent_started() {
-        let started = AgentEnvironment::layered(BTreeMap::new(), Ok(BTreeMap::new()), None);
+        let started =
+            AgentEnvironment::layered(BTreeMap::new(), Ok(BTreeMap::new()), None, OsStr::new(""));
         assert!(started.system_proxy_changed(system("http://127.0.0.1:7890").as_ref()));
         assert!(!started.system_proxy_changed(None));
         let now = AgentEnvironment::layered(
             BTreeMap::new(),
             Ok(BTreeMap::new()),
             system("http://127.0.0.1:7890"),
+            OsStr::new(""),
         );
         assert!(now.differs_from(&started));
         // A shell proxy shadows the system one, so changing it changes nothing.
         let shell =
             map(&[("HTTPS_PROXY", "http://127.0.0.1:1"), ("HTTP_PROXY", "http://127.0.0.1:1")]);
-        let shadowed = AgentEnvironment::layered(BTreeMap::new(), Ok(shell), None);
+        let shadowed = AgentEnvironment::layered(BTreeMap::new(), Ok(shell), None, OsStr::new(""));
         assert!(!shadowed.system_proxy_changed(system("http://127.0.0.1:7890").as_ref()));
     }
 
