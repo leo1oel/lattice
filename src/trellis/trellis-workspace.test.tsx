@@ -506,6 +506,43 @@ describe("an inactive document on screen", () => {
   });
 });
 
+describe("a document tab the writer chooses", () => {
+  withWindowBox();
+
+  const tab = (ws: Awaited<ReturnType<typeof open>>["ws"], key: string) => {
+    const view = ws.views({ type: "file" }).find((item) => item.params.key === key)!;
+    return document.querySelector<HTMLElement>(`[data-trellis-part="tab"][data-view="${view.id}"]`)!;
+  };
+
+  // LATA-10: board → main.tex by its tab left the keyboard on the tab, so
+  // typing reached nothing until the writer clicked into the editor.
+  it("hands its editor the keyboard, by a click or by Enter, active or not", async () => {
+    const { controller, ws } = await open("/a", OPEN);
+    const focusDocument = vi.spyOn(controller, "focusDocument").mockImplementation(() => {});
+    fireEvent.click(tab(ws, "notes.md"));
+    expect(focusDocument).toHaveBeenCalledWith("notes.md");
+    act(() => controller.app.set({ activeKey: "notes.md" }));
+    focusDocument.mockClear();
+    fireEvent.click(tab(ws, "notes.md"));
+    expect(focusDocument).toHaveBeenCalledWith("notes.md");
+    focusDocument.mockClear();
+    fireEvent.keyDown(tab(ws, "main.tex"), { key: "Enter" });
+    expect(focusDocument).toHaveBeenCalledWith("main.tex");
+  });
+
+  it("leaves focus alone for a document activated another way, a close, or a click Trellis stops", async () => {
+    const { controller, ws } = await open("/a", OPEN);
+    const focusDocument = vi.spyOn(controller, "focusDocument").mockImplementation(() => {});
+    // The Agent opening a file, or a restore, makes it active without the writer choosing its tab.
+    act(() => controller.app.set({ activeKey: "notes.md" }));
+    fireEvent.click(tab(ws, "main.tex").querySelector("[data-trellis-part=tab-close]")!);
+    fireEvent.click(tab(ws, "notes.md"), { button: 1 });
+    // Trellis stops at its root the click that ends a drag, as it does an ⌥-click.
+    fireEvent.click(tab(ws, "notes.md"), { altKey: true });
+    expect(focusDocument).not.toHaveBeenCalled();
+  });
+});
+
 describe("a titlebar panel toggle", () => {
   withWindowBox();
 
