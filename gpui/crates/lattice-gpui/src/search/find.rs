@@ -26,7 +26,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::models::ProjectSearchResult;
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
-    components::Button,
+    components::{Button, TrapFocus as _},
     fluid_hover::FluidHover,
     icons::{ICON, file_glyph},
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
@@ -778,7 +778,7 @@ impl Render for ProjectFind {
             .top_0()
             .left_0()
             .size_full()
-            .track_focus(&self.focus)
+            .trap_focus("project-find-keys", &self.focus)
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 let keystroke = &event.keystroke;
                 match keystroke.key.as_str() {

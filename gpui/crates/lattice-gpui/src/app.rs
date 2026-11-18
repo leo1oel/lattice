@@ -129,6 +129,9 @@ pub fn init(scripted: bool, cx: &mut App) {
     gpui_kit::init(cx);
     LatticeTheme::init(appearance_override(), cx);
     load_code_themes(cx);
+    // The rest of the Tauri app's state, carried over once, before the
+    // recent projects, plugins and themes below are first read.
+    crate::settings::migrate_from_tauri(scripted);
     // The writer's settings (or the Tauri app's, imported) before anything
     // is drawn: appearance, tint, accent, code theme, editor type, keymap,
     // language.
