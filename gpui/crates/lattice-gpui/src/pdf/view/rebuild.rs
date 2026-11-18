@@ -23,6 +23,12 @@ impl PdfView {
         self.stop_autoscroll(cx);
         let generation = info.generation;
         let count = info.page_sizes.len();
+        // Where the reader is, read before the old layout goes: a rebuild of
+        // another shape keeps that point of that page rather than the offset,
+        // which lands elsewhere once pages above it grow or go.
+        let kept = (reload && self.pending_scroll.is_none())
+            .then(|| self.layout.rebuilt_place(self.scroll_offset(), count))
+            .flatten();
         let previous = self.document.take();
         let same_shape = reload
             && previous
@@ -86,11 +92,20 @@ impl PdfView {
                 self.forward.clear();
             }
         }
-        let keep_scroll = reload && self.current_page < count;
         self.document = Some(Document { info, signatures });
-        if !keep_scroll && self.pending_scroll.is_none() {
+        if !reload && self.pending_scroll.is_none() {
             self.current_page = 0;
             self.pending_scroll = Some(PendingScroll::Offset(0., 0.));
+        } else if !same_shape && let Some((page, x, y)) = kept {
+            // A rebuild with fewer pages than the one read used to send the
+            // reader back to the first page.
+            self.current_page = page;
+            self.pending_scroll = Some(PendingScroll::PagePoint {
+                page,
+                x: Some(x),
+                y,
+                at_y: 0.,
+            });
         }
         self.current_page = self.current_page.min(count.saturating_sub(1));
         self.relayout();
