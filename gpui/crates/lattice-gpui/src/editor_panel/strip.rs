@@ -2,7 +2,7 @@
 //! carries for the document's kind (`documentTools`: the build chip, an HTML,
 //! Markdown or `.bib` file's view switch, nothing for a board, sheet or deck) and its ⋯ menu.
 
-use gpui::{App, Context, Focusable as _, IntoElement, SharedString, Window, prelude::*};
+use gpui::{App, Context, Focusable as _, IntoElement, SharedString, Window, prelude::*, px};
 use gpui_kit::component::dock::Panel;
 use lattice_i18n::{t, tc};
 use lattice_ui::components::{Menu, MenuAction};
@@ -46,9 +46,22 @@ impl Panel for EditorPanel {
         // (`HeaderTools::Icon`; the saving `offer_view_switch` registers).
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         let icon_only = lattice_ui::dock::tools_icon_only(panel, cx);
+        if let Some(switch) = self.view_switch(window, cx) {
+            return Some(switch);
+        }
+        self.build_chip
+            .update(cx, |chip, cx| chip.set_icon_only(icon_only, cx));
+        let width = editor_status::build_chip_width(&self.build, icon_only, window, cx);
         Some(
-            self.view_switch(window, cx)
-                .unwrap_or_else(|| editor_status::build_chip(&self.build, icon_only, window, cx)),
+            self.build_chip
+                .clone()
+                .cached(
+                    gpui::StyleRefinement::default()
+                        .flex_none()
+                        .w(width)
+                        .h(px(24.)),
+                )
+                .into_any_element(),
         )
     }
 

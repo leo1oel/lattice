@@ -320,6 +320,70 @@ pub fn build_chip_icon_saving(window: &Window, cx: &App) -> gpui::Pixels {
     chip_full_width(None, window, cx) - chip_icon_width()
 }
 
+/// The chip's mark and label for the build's state.
+fn chip_face(panel: &BuildPanel) -> (Option<Mark>, String) {
+    let seconds = |took: std::time::Duration| format!("{:.1} s", took.as_secs_f32());
+    match panel.chip() {
+        ChipState::Idle => (None, t!("Build").to_string()),
+        ChipState::Running(_) => (Some(Mark::Running), t!("Build").to_string()),
+        ChipState::Succeeded(took) => (
+            Some(Mark::Succeeded {
+                warned: panel.chip_warned(),
+            }),
+            seconds(took),
+        ),
+        ChipState::Failed(_) => (Some(Mark::Failed), t!("Failed").to_string()),
+    }
+}
+
+/// The chip's width: its widest state, as the app's hidden sizer makes it,
+/// or its mark alone.
+pub fn build_chip_width(
+    build: &Entity<BuildPanel>,
+    icon_only: bool,
+    window: &Window,
+    cx: &App,
+) -> gpui::Pixels {
+    if icon_only {
+        return chip_icon_width();
+    }
+    let (_, label) = chip_face(build.read(cx));
+    chip_full_width(Some(&label), window, cx)
+}
+
+/// The build chip as a view of its own, drawn cached in the panel's strip.
+/// The loader asks for a frame on every frame while a build runs, and an
+/// animation frame builds the view that draws it again: drawn inline by the
+/// strip's owner, that view is the shell, for the length of each build.
+pub struct BuildChip {
+    build: Entity<BuildPanel>,
+    icon_only: bool,
+    _build: gpui::Subscription,
+}
+
+impl BuildChip {
+    pub fn new(build: Entity<BuildPanel>, cx: &mut gpui::Context<Self>) -> Self {
+        Self {
+            _build: cx.observe(&build, |_, _, cx| cx.notify()),
+            build,
+            icon_only: false,
+        }
+    }
+
+    pub fn set_icon_only(&mut self, icon_only: bool, cx: &mut gpui::Context<Self>) {
+        if self.icon_only != icon_only {
+            self.icon_only = icon_only;
+            cx.notify();
+        }
+    }
+}
+
+impl gpui::Render for BuildChip {
+    fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        build_chip(&self.build, self.icon_only, window, cx)
+    }
+}
+
 pub fn build_chip(
     build: &Entity<BuildPanel>,
     icon_only: bool,
@@ -330,26 +394,13 @@ pub fn build_chip(
     let panel = build.read(cx);
     let state = panel.chip();
     let moment = panel.chip_moment();
-    let warned = panel.chip_warned();
-    let seconds = |took: std::time::Duration| format!("{:.1} s", took.as_secs_f32());
-    let (mark, label) = match state {
-        ChipState::Idle => (None, t!("Build").to_string()),
-        ChipState::Running(_) => (Some(Mark::Running), t!("Build").to_string()),
-        ChipState::Succeeded(took) => (Some(Mark::Succeeded { warned }), seconds(took)),
-        ChipState::Failed(_) => (Some(Mark::Failed), t!("Failed").to_string()),
-    };
+    let (mark, label) = chip_face(panel);
     let label_ink = if matches!(state, ChipState::Failed(_)) {
         palette.danger
     } else {
         palette.text
     };
-    // The chip's width: its widest state, as the app's hidden sizer makes it,
-    // or its mark alone.
-    let width = if icon_only {
-        chip_icon_width()
-    } else {
-        chip_full_width(Some(&label), window, cx)
-    };
+    let width = build_chip_width(build, icon_only, window, cx);
     // `.trellis-build-button`: the ink at 9% on the sheet, 14% under the
     // pointer, the fill easing on the fast tier; a press shrinks it to 96%
     // on the same tier (`scale` is in its transition too).
