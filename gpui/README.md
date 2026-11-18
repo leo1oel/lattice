@@ -30,7 +30,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Proofread, Polish and Rewrite](docs/proofread.md): asks the agent to proofread, polish or rewrite a selection, and reviews its edits in place.
 - [Project tree](docs/project-tree.md): opens a project folder as the Tauri app does, in the Project tree with its file operations and Git status.
 - [Saving and outside edits](docs/saving.md): saves as the Tauri app does, and takes outside edits into clean buffers and merges them into edited ones.
-- [Settings](docs/settings.md): Settings (⌘,) as the Tauri app's, with the interface size, sounds, spell checking and translucency.
+- [Settings](docs/settings.md): Settings (⌘,) as the Tauri app's, with the interface size, sounds and translucency.
 - [Selection toolbar and highlights](docs/selection-toolbar.md): formats, links, headings and highlights a selection from the Tauri app's selection toolbar and highlighter palette.
 - [Source editor](docs/editor.md): edits sources in Zed's editor with LaTeX, BibTeX and HTML highlighting, search, Vim, the editor adapter's cards, completion and diagnostics, the gutter, the outline rail and a `.tex` file's Visual view.
 - [Terminal panel](docs/terminal.md): the Tauri app's Terminal panel, on Zed's alacritty-based terminal.
@@ -192,7 +192,7 @@ fixtures/e2e          the project the e2e scenario runs on (copy it first)
 ### lattice-core
 
 The app depends on `../src-tauri/lattice-core` by path, the crate the Tauri app's commands call, so both apps run one backend: opening a project (and adopting a folder Lattice did not create, with its `.research/` folder), the Project tree's scan and file operations, the build, SyncTeX, the editor save that merges an outside edit, and the project watcher.
-Its dependencies resolve in this workspace's `Cargo.lock`, at the Tauri app's versions where it pins them (`harper-core` and its family are held at the Tauri app's 2.7.0).
+Its dependencies resolve in this workspace's `Cargo.lock`, at the Tauri app's versions where it pins them.
 `lattice-core`'s version follows the app's; `../scripts/bump-version.mjs` rewrites its entry in this lockfile too, so `cargo build --locked` keeps passing after a release.
 Zed's `sqlez` and `lattice-core`'s `rusqlite` link different `libsqlite3-sys` versions, which Cargo refuses in one graph; `compat/sqlite` gives 0.38 the version 0.30 (its README).
 
@@ -266,7 +266,7 @@ A deck's runtime is lattice-core's supervisor, one per process (`structured/pres
 - remote carets, drawn as Overleaf draws them (`../src/overleaf/overleaf-editor-extensions.ts`): a 2px bar and dot in the person's colour, the name for a moment when the caret arrives or moves (2 s, then a short fade) and while the pointer rests on it, below the caret near the top edge.
 
 Positions come from the two questions Zed's editor answers for input methods (`bounds_for_range`, `character_index_for_point`) and its display snapshot, read in the same frame as the editor's own paint.
-The proof of the others is a real Lattice use in `src/latex/`: TexLab's diagnostics (lattice-core's TexLab pool) as wavy marks in CodeMirror lint's colours with the lint card, and no gutter marker, as in the Tauri app; the citation card and the reference card from the project's index (lattice-core's `citations` and `references`; what they show is in [Source editor](docs/editor.md)); command, environment, package, citation-key and label completion, with the Tauri app's vocabulary ported entry for entry, and completion of chemnum compound keys, project paths, project macros and TexLab's items (`src/latex/compound_completion.rs`, `src/latex/project_completions.rs`, `src/latex/texlab_completions.rs`); Harper's spelling and grammar findings (or a LaTeX document's Hunspell dictionary's) as wavy marks with the lint card (`src/latex/spelling.rs`); the source's own lint (`indexDiagnostics`), its findings as wavy marks with the lint card and its Create file and Fix case actions (`src/latex/lint.rs`). Not yet (later editor slices): the rest of the Tauri app's LaTeX features.
+The proof of the others is a real Lattice use in `src/latex/`: TexLab's diagnostics (lattice-core's TexLab pool) as wavy marks in CodeMirror lint's colours with the lint card, and no gutter marker, as in the Tauri app; the citation card and the reference card from the project's index (lattice-core's `citations` and `references`; what they show is in [Source editor](docs/editor.md)); command, environment, package, citation-key and label completion, with the Tauri app's vocabulary ported entry for entry, and completion of chemnum compound keys, project paths, project macros and TexLab's items (`src/latex/compound_completion.rs`, `src/latex/project_completions.rs`, `src/latex/texlab_completions.rs`); the source's own lint (`indexDiagnostics`), its findings as wavy marks with the lint card and its Create file and Fix case actions (`src/latex/lint.rs`). Not yet (later editor slices): the rest of the Tauri app's LaTeX features.
 
 ### The LaTeX language
 

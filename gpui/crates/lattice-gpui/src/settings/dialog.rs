@@ -71,7 +71,6 @@ pub enum SettingsEvent {
 pub struct Fields {
     pub search: Entity<InputState>,
     pub author_name: Entity<InputState>,
-    pub project_word: Entity<InputState>,
     pub source_font_name: Entity<InputState>,
     pub prose_font_name: Entity<InputState>,
     pub editor_font_size: Entity<SliderState>,
@@ -179,7 +178,6 @@ impl SettingsDialog {
             window,
             cx,
         );
-        let project_word = input("", t!("e.g. Lattice").into(), window, cx);
         let listed_source = super::appearance_pane::SOURCE_FACES
             .iter()
             .any(|(family, _)| *family == appearance.source_font);
@@ -238,16 +236,6 @@ impl SettingsDialog {
                     super::update(cx, |settings| settings.author_name = name);
                 }
             }),
-            cx.subscribe_in(
-                &project_word,
-                window,
-                |this, _, event: &InputEvent, window, cx| {
-                    if let InputEvent::PressEnter { .. } = event {
-                        this.add_project_word(window, cx);
-                    }
-                    cx.notify();
-                },
-            ),
             cx.subscribe(&source_font_name, |_, input, event: &InputEvent, cx| {
                 if let InputEvent::Change = event {
                     let name = lattice_settings::normalize_font_name(Some(
@@ -339,7 +327,6 @@ impl SettingsDialog {
             fields: Fields {
                 search,
                 author_name,
-                project_word,
                 source_font_name,
                 prose_font_name,
                 editor_font_size,
@@ -449,7 +436,6 @@ impl SettingsDialog {
             // Every page shares the viewport, which starts at its top.
             self.scroll.set_offset(point(px(0.), px(0.)));
             self.rows.borrow_mut().clear();
-            self.pages.dictionaries = None;
         }
         self.narrow_page = true;
         super::update(cx, |settings| settings.settings_tab = tab);
@@ -534,32 +520,6 @@ impl SettingsDialog {
         .absolute()
         .size_full()
         .into_any_element()
-    }
-
-    fn add_project_word(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let word = self.fields.project_word.read(cx).value().trim().to_string();
-        let Some(project) = self.project.clone() else {
-            return;
-        };
-        if word.is_empty() {
-            return;
-        }
-        let mut words = project.read(cx).manifest().spelling_words.clone();
-        if !words
-            .iter()
-            .any(|existing| existing.to_lowercase() == word.to_lowercase())
-        {
-            words.push(word);
-            super::editor_pane::set_spelling_words(&project, words, cx);
-        }
-        self.fields
-            .project_word
-            .update(cx, |input, cx| input.set_value("", window, cx));
-    }
-
-    pub(super) fn add_project_word_clicked(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.add_project_word(window, cx);
-        cx.notify();
     }
 
     pub(super) fn clean(&mut self, cx: &mut Context<Self>) {

@@ -9,9 +9,7 @@
 //!   [`previews`] host);
 //! - the live preview of the math at the caret ([`math_preview`]), in a
 //!   `.tex` file;
-//! - command and citation completion ([`completions`]);
-//! - spell and grammar checking with Harper, or a language's dictionary,
-//!   as marks and lint cards ([`spelling`], over [`prose`]).
+//! - command and citation completion ([`completions`]).
 //!
 //! The language is the latex-lsp tree-sitter grammar
 //! (`codebook-tree-sitter-latex`, MIT) with Lattice's own highlight query
@@ -51,11 +49,9 @@ pub mod math_preview;
 pub mod preview_cards;
 pub mod previews;
 pub mod project_completions;
-pub mod prose;
 pub mod protected;
 pub mod reference_card;
 pub mod region_edits;
-pub mod spelling;
 mod symbol_glyphs;
 pub mod symbol_palette;
 pub mod synctex_word;

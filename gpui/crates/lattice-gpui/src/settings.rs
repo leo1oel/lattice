@@ -16,8 +16,7 @@
 //! position moves the stack; the title bar's tools hide and show; the
 //! interface size zooms every window (`interface_zoom`), translucency puts
 //! the window's vibrancy behind its frosted surfaces (`window_material`),
-//! interface sounds decide whether a cue plays (`sounds`) and spell
-//! checking whether editors check (`editor_panel/spelling.rs`). Choices the
+//! and interface sounds decide whether a cue plays (`sounds`). Choices the
 //! GPUI app has no surface for yet (the visual Markdown editor's type) are
 //! kept, so they carry over unchanged.
 //!
@@ -32,7 +31,6 @@ mod controls;
 mod dialog;
 mod editor_pane;
 mod environment_pane;
-mod grammar_group;
 mod literature_pane;
 pub(crate) mod logs_export;
 pub(crate) mod logs_pane;
@@ -58,7 +56,6 @@ use lattice_settings::{
 use lattice_ui::{Accent, Appearance, CodeTheme, LatticeTheme, Tint};
 
 pub use dialog::{SettingsDialog, SettingsEvent};
-pub use editor_pane::set_spelling_words;
 
 /// How often the file is checked for an edit made outside this app.
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);

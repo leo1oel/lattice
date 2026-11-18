@@ -2,9 +2,6 @@
 //! text (`latex_visual.rs`), answered as the Tauri app answers them, from
 //! the same `lattice-core` functions, each off the main thread:
 //!
-//! - Harper's check (`harper_lint`) and a dictionary's for a document in
-//!   another language (`spelling_lint`), which the source editor's spell
-//!   check runs (`src/editor/harper-spellcheck.ts`);
 //! - TexLab's completion, hover and definition (`texlab_completion`,
 //!   `texlab_hover`, `texlab_definition`, `src/build/texlab-language.ts`), on
 //!   the project's TexLab pool, the one the source editor's diagnostics use;
@@ -20,34 +17,27 @@
 //! text the page sent for each path is kept by revision and goes with a
 //! request that names that revision: TexLab is never asked without it.
 
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use gpui::{Context, Entity};
-use lattice_core::{
-    harper::{self, HarperOptions},
-    latex::SourceLine,
-    texlab::DocumentAt,
-};
+use lattice_core::{latex::SourceLine, texlab::DocumentAt};
 use lattice_editor::texlab::TexlabService;
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::StructuredDocument;
 
-/// What the services need beyond the document: the project's TexLab, the
-/// language dictionaries' folder, and the text the page last sent TexLab
-/// for each path, by revision.
+/// What the services need beyond the document: the project's TexLab and the
+/// text the page last sent TexLab for each path, by revision.
 pub(super) struct LatexServices {
     pub texlab: Entity<TexlabService>,
-    pub dictionaries: Option<PathBuf>,
     texts: SentTexts,
 }
 
 impl LatexServices {
-    pub fn new(texlab: Entity<TexlabService>, dictionaries: Option<PathBuf>) -> Self {
+    pub fn new(texlab: Entity<TexlabService>) -> Self {
         Self {
             texlab,
-            dictionaries,
             texts: SentTexts::default(),
         }
     }
@@ -89,25 +79,6 @@ struct TexlabRequest {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct HarperRequest {
-    text: String,
-    #[serde(default)]
-    project_words: Vec<String>,
-    #[serde(default)]
-    options: HarperOptions,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SpellingRequest {
-    code: String,
-    text: String,
-    #[serde(default)]
-    project_words: Vec<String>,
-}
-
-#[derive(Deserialize)]
 struct HeadingsRequest {
     headings: Vec<SourceLine>,
 }
@@ -130,35 +101,6 @@ impl StructuredDocument {
         cx: &mut Context<Self>,
     ) -> bool {
         match command {
-            "harper_lint" => {
-                let request = parse::<HarperRequest>(args);
-                self.answer_off_thread(id, cx, move || {
-                    let request = request?;
-                    json(harper::lint(
-                        &request.text,
-                        &request.project_words,
-                        &request.options,
-                    ))
-                });
-            }
-            "spelling_lint" => {
-                let request = parse::<SpellingRequest>(args);
-                let store = self
-                    .latex_services
-                    .as_ref()
-                    .and_then(|services| services.dictionaries.clone());
-                self.answer_off_thread(id, cx, move || {
-                    let request = request?;
-                    let store =
-                        store.ok_or_else(|| "No folder for spelling dictionaries.".to_string())?;
-                    json(lattice_core::spelling::lint(
-                        &store,
-                        &request.code,
-                        &request.text,
-                        &request.project_words,
-                    )?)
-                });
-            }
             "texlab_completion" | "texlab_hover" | "texlab_definition" => {
                 self.ask_texlab(id, command, args, cx)
             }
