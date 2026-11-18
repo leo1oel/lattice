@@ -212,9 +212,8 @@ describe("Overleaf picker dialog", () => {
     const onOpenLocalCopy = vi.fn();
     const { onClose, onCloned } = renderPicker({ onOpenLocalCopy, knownFolders: [{ path: nativeVlm.path }] });
     expect(await screen.findByText("Opens your local copy at ~/Papers/Native VLM")).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", {
-      names: ["Attention Paper", "Thesis Draft", "Old Notes"], folders: [nativeVlm.path],
-    });
+    // Folders are found by their own link, never by a title Overleaf can change.
+    expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", { folders: [nativeVlm.path] });
     // Only the project that has a folder here says so.
     const thesis = screen.getByRole("button", { name: /Thesis Draft/ });
     expect(within(thesis).queryByText(/Opens your local copy/)).not.toBeInTheDocument();
@@ -292,7 +291,9 @@ describe("Overleaf picker dialog", () => {
     await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
     await openFirstProject();
     await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path, false));
-    expect(invoke).toHaveBeenCalledWith("overleaf_reopen_local_copy", { path: nativeVlm.path, projectId: "p1", accessLevel });
+    expect(invoke).toHaveBeenCalledWith("overleaf_reopen_local_copy", {
+      path: nativeVlm.path, projectId: "p1", name: "Attention Paper", accessLevel,
+    });
     const reopen = vi.mocked(invoke).mock.calls.findIndex(([command]) => command === "overleaf_reopen_local_copy");
     expect(vi.mocked(invoke).mock.invocationCallOrder[reopen]).toBeLessThan(onOpenLocalCopy.mock.invocationCallOrder[0]!);
   });

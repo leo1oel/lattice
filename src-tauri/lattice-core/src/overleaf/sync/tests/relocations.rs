@@ -212,6 +212,7 @@ fn a_role_less_join_does_not_hold_back_a_writers_move() {
         &root,
         "root-folder-1",
         crate::overleaf_rt::Permission::Unknown.as_str(),
+        None,
     )
     .unwrap();
     record_relocation(&root, "main.tex", "renamed.tex").unwrap();
