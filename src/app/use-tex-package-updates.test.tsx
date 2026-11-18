@@ -28,8 +28,8 @@ function deferred<T>() {
 }
 
 const LINENO = { name: "lineno", installed: "5.7", available: "5.9" };
-const outdated = (managed: boolean): TexPackageUpdatesReport => ({ managed, packages: [LINENO] });
-const CURRENT: TexPackageUpdatesReport = { managed: true, packages: [] };
+const outdated = (managed: boolean): TexPackageUpdatesReport => ({ managed, passwordless: false, packages: [LINENO] });
+const CURRENT: TexPackageUpdatesReport = { managed: true, passwordless: false, packages: [] };
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -45,7 +45,7 @@ describe("useTexPackageUpdates", () => {
     expect(tauri.invoke).toHaveBeenCalledWith("check_tex_package_updates");
     expect(result.current.report).toEqual(outdated(true));
     await act(() => result.current.check());
-    expect(result.current.report).toEqual({ managed: false, packages: [], error: "offline" });
+    expect(result.current.report).toEqual({ managed: false, passwordless: false, packages: [], error: "offline" });
     expect(result.current.checking).toBe(false);
   });
 
@@ -58,7 +58,7 @@ describe("useTexPackageUpdates", () => {
 
     tauri.invoke.mockImplementation((command: string) =>
       command === "start_tex_package_update" ? install.promise : Promise.resolve(CURRENT));
-    let finished!: Promise<void>;
+    let finished!: Promise<string | null>;
     act(() => { finished = result.current.update(); });
     expect(result.current.run).toEqual({ progress: { stage: "authorizing", progress: 0 }, running: true, error: null });
     // A second click and a recheck while it runs do nothing.
@@ -93,7 +93,7 @@ describe("useTexPackageUpdates", () => {
     tauri.invoke.mockResolvedValueOnce(outdated(true)).mockResolvedValueOnce(undefined).mockReturnValueOnce(recheck.promise);
     const { result } = renderHook(() => useTexPackageUpdates());
     await act(() => result.current.check());
-    let finished!: Promise<void>;
+    let finished!: Promise<string | null>;
     await act(async () => { finished = result.current.update(); });
     expect(result.current.checking).toBe(true);
     recheck.resolve(CURRENT);
@@ -146,7 +146,16 @@ describe("TeX packages check", () => {
     return render(<Row />);
   }
 
-  it("offers the one-click update for the BasicTeX Lattice manages", async () => {
+  it("starts an update of a tree the writer owns without waiting for administrator approval", async () => {
+    tauri.invoke.mockResolvedValueOnce({ ...outdated(true), passwordless: true });
+    const { result } = renderHook(() => useTexPackageUpdates());
+    await act(() => result.current.check());
+    tauri.invoke.mockReturnValue(new Promise(() => {}));
+    act(() => { void result.current.update(); });
+    expect(result.current.run?.progress).toEqual({ stage: "updating-packages", progress: 0 });
+  });
+
+  it("offers the one-click update for a TeX Live tree Lattice manages", async () => {
     renderRow(outdated(true));
     expect(await screen.findByText("Updates available (1): lineno 5.7 → 5.9")).toBeTruthy();
     expect(screen.queryByText("sudo tlmgr update --self --all")).toBeNull();
@@ -184,13 +193,13 @@ describe("TeX packages check", () => {
     expect((await screen.findByText("TeX packages")).closest("li")).toHaveClass("ok");
     expect(screen.getByText("Up to date")).toHaveClass("doctor-check-result");
     cleanup();
-    renderRow({ managed: true, packages: [], error: "The TeX Live repository did not answer within 45 seconds." });
+    renderRow({ managed: true, passwordless: false, packages: [], error: "The TeX Live repository did not answer within 45 seconds." });
     expect(await screen.findByText(/Couldn’t check for updates. Check the network connection/)).toBeTruthy();
     expect(screen.queryByText(/did not answer within/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Update TeX packages" })).toBeNull();
     cleanup();
     const tooOld = "tlmgr: Local TeX Live (2026) is older than remote repository (2027).";
-    renderRow({ managed: true, packages: [], error: tooOld });
+    renderRow({ managed: true, passwordless: false, packages: [], error: tooOld });
     expect(await screen.findByText(/This TeX Live release is older than the package repository/)).toBeTruthy();
     expect(screen.getByText(tooOld)).toBeTruthy();
     expect(screen.queryByText(/Check the network connection/)).toBeNull();

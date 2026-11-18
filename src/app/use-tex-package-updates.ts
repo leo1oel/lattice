@@ -34,9 +34,12 @@ function reducer(state: TexPackageUpdatesState, action: Action): TexPackageUpdat
       return { ...state, checking: true };
     case "checked":
       return { ...state, report: action.report, checking: false, run: action.afterUpdate ? state.run : null };
-    case "update-started":
+    case "update-started": {
       // A check still running answers for the packages before this update.
-      return { ...state, checking: false, run: { progress: { stage: "authorizing", progress: 0 }, running: true, error: null } };
+      // A tree the user owns updates without the administrator prompt.
+      const stage = state.report?.passwordless ? "updating-packages" : "authorizing";
+      return { ...state, checking: false, run: { progress: { stage, progress: 0 }, running: true, error: null } };
+    }
     case "update-progress":
       return state.run?.running ? { ...state, run: { ...state.run, progress: action.progress } } : state;
     case "update-finished":
@@ -53,8 +56,8 @@ function reducer(state: TexPackageUpdatesState, action: Action): TexPackageUpdat
 /**
  * The TeX doctor's package-update check and the one-click update. The check
  * asks the TeX Live repository, so the launch check never waits on it: the
- * doctor page runs it, and `useDailyTexPackageCheck` (from
- * `useTexUpdateReminder`) once a day in the background. A finished update
+ * doctor page runs it, and `useWeeklyTexPackageCheck` (from
+ * `useTexUpdateReminder`) once a week in the background. A finished update
  * checks again, so the row reflects what is left, and keeps its result until
  * a later check; a check while an update runs would only see the old packages.
  */
@@ -69,15 +72,16 @@ export function useTexPackageUpdates() {
     dispatch({ type: "check-started" });
     const report = await invoke<TexPackageUpdatesReport | null>("check_tex_package_updates").then(
       (found) => found ?? null,
-      (reason): TexPackageUpdatesReport => ({ managed: false, packages: [], error: toMessage(reason) }),
+      (reason): TexPackageUpdatesReport => ({ managed: false, passwordless: false, packages: [], error: toMessage(reason) }),
     );
     if (generation === checkGenerationRef.current) dispatch({ type: "checked", report, afterUpdate });
     return report;
   }, []);
   const check = useCallback(() => recheck(false), [recheck]);
 
-  const update = useCallback(async () => {
-    if (updatingRef.current) return;
+  /** Resolves with why the update failed, or null once it succeeded (or another was running). */
+  const update = useCallback(async (): Promise<string | null> => {
+    if (updatingRef.current) return null;
     updatingRef.current = true;
     checkGenerationRef.current += 1;
     dispatch({ type: "update-started" });
@@ -90,6 +94,7 @@ export function useTexPackageUpdates() {
     updatingRef.current = false;
     dispatch({ type: "update-finished", error });
     if (error === null) await recheck(true);
+    return error;
   }, [recheck]);
 
   return { ...state, check, update };
@@ -98,7 +103,11 @@ export function useTexPackageUpdates() {
 export type TexPackageUpdates = ReturnType<typeof useTexPackageUpdates>;
 
 const LAST_CHECK_KEY = "lattice.tex-package-check.v1";
-const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * TeX Live's repository changes every day, so a daily check found something
+ * almost daily; a week batches those into one update.
+ */
+export const PACKAGE_CHECK_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 /** After launch, so the check's tlmgr run never competes with opening a project. */
 export const BACKGROUND_CHECK_DELAY_MS = 60_000;
 
@@ -111,20 +120,20 @@ function lastCheck(): number {
 }
 
 /**
- * The doctor's package check, run once a day after launch, so a TeX with
+ * The doctor's package check, run once a week after launch, so a TeX with
  * updates (lineno 5.7's misplaced line numbers, #726) shows them on Settings'
  * TeX doctor without the writer opening it first. Only a check the
  * repository answered counts: offline, it tries again on the next launch.
- * `onChecked` hears each answer (the reminder toast's cue); keep it stable.
+ * `onChecked` hears each answer (the reminder's cue); keep it stable.
  */
-export function useDailyTexPackageCheck(
+export function useWeeklyTexPackageCheck(
   check: () => Promise<TexPackageUpdatesReport | null>,
   onChecked: (report: TexPackageUpdatesReport | null) => void,
 ) {
   useEffect(() => {
     // A perf-lab run measures the editor, not tlmgr.
     if (import.meta.env.VITE_PERF_LAB === "1" && window.__latticeLab) return;
-    if (Date.now() - lastCheck() < DAY_MS) return;
+    if (Date.now() - lastCheck() < PACKAGE_CHECK_INTERVAL_MS) return;
     let disposed = false;
     const timer = globalThis.setTimeout(() => {
       void check().then((report) => {

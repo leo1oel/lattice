@@ -385,8 +385,9 @@ impl TexSetupCenter {
         .detach();
     }
 
-    /// The one-click update of Lattice's BasicTeX, behind the
-    /// administrator prompt; it checks again once it is done.
+    /// The one-click update of a TeX Live tree under /usr/local/texlive:
+    /// behind the administrator prompt until a prompted run hands the tree
+    /// to the writer, then without it. It checks again once it is done.
     pub fn update_packages(&mut self, cx: &mut Context<Self>) {
         if self.packages.run.as_ref().is_some_and(|run| run.running) {
             return;
@@ -394,8 +395,17 @@ impl TexSetupCenter {
         // A check still running answers for the packages before the update.
         self.packages.generation += 1;
         self.packages.checking = false;
+        let passwordless = self
+            .packages
+            .report
+            .as_ref()
+            .is_some_and(|report| report.passwordless);
         self.packages.run = Some(UpdateRun {
-            progress: InstallProgress::at("authorizing"),
+            progress: InstallProgress::at(if passwordless {
+                "updating-packages"
+            } else {
+                "authorizing"
+            }),
             running: true,
             error: None,
         });

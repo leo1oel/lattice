@@ -13,10 +13,14 @@ const PACKAGES = [
   { name: "lineno", installed: "5.7", available: "5.9" },
   { name: "hyperref", installed: "7.01", available: "7.02" },
 ];
-const outdated = (managed: boolean): TexPackageUpdatesReport => ({ managed, packages: PACKAGES });
+const outdated = (managed: boolean, passwordless = false): TexPackageUpdatesReport => ({ managed, passwordless, packages: PACKAGES });
 
-function fakeUpdates(report: TexPackageUpdatesReport | null, run: TexPackageUpdates["run"] = null): TexPackageUpdates {
-  return { report, checking: false, run, check: vi.fn(() => Promise.resolve(report)), update: vi.fn(() => Promise.resolve()) };
+function fakeUpdates(
+  report: TexPackageUpdatesReport | null,
+  run: TexPackageUpdates["run"] = null,
+  failure: string | null = null,
+): TexPackageUpdates {
+  return { report, checking: false, run, check: vi.fn(() => Promise.resolve(report)), update: vi.fn(() => Promise.resolve(failure)) };
 }
 
 function toasts() {
@@ -24,7 +28,7 @@ function toasts() {
 }
 const reminders = () => toasts().filter((toast) => toast.title === "Your TeX packages are out of date");
 
-/** One launch: the hook mounts, and the daily check answers after its delay. */
+/** One launch: the hook mounts, and the weekly check answers after its delay. */
 async function launch(updates: TexPackageUpdates, building = false) {
   const hook = renderHook((props: { updates: TexPackageUpdates; building: boolean }) => useTexUpdateReminder(props.updates, props.building), {
     initialProps: { updates, building },
@@ -33,11 +37,16 @@ async function launch(updates: TexPackageUpdates, building = false) {
   return hook;
 }
 
-/** Quit, and come back `hours` later. */
+/**
+ * Quit, and come back `hours` later to a launch whose check runs: these
+ * tests are about the reminder's own pacing; the check's weekly clock is
+ * tex-package-update-action.test.tsx's.
+ */
 function relaunchAfter(hook: { unmount: () => void }, hours: number) {
   hook.unmount();
   clearAppLogs();
   vi.setSystemTime(Date.now() + hours * HOUR_MS);
+  localStorage.removeItem("lattice.tex-package-check.v1");
 }
 
 beforeEach(() => {
@@ -48,16 +57,39 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 describe("the TeX update reminder", () => {
-  it("offers the one-click update for the BasicTeX Lattice manages", async () => {
+  it("offers the one-click update for a TeX Live tree, which asks for the password once", async () => {
     const updates = fakeUpdates(outdated(true));
     await launch(updates);
     const [reminder] = reminders();
-    expect(reminder.detail).toBe("Updates available (2). Updating asks for administrator approval and can take a few minutes.");
+    expect(reminder.detail).toBe("Updates available (2). Updating asks for your password once; after that, Lattice keeps TeX up to date without asking.");
     expect(reminder.options.timeoutMs).toBe(0);
     expect(reminder.options.primaryAction?.label).toBe("Update TeX packages");
     expect(reminder.options.secondaryAction?.label).toBe("Later");
     await reminder.options.primaryAction?.onClick();
     expect(updates.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates a tree the writer owns silently, without a reminder", async () => {
+    const updates = fakeUpdates(outdated(true, true));
+    await launch(updates);
+    expect(updates.update).toHaveBeenCalledTimes(1);
+    expect(toasts()).toHaveLength(0);
+  });
+
+  it("updates silently only once no build runs", async () => {
+    const updates = fakeUpdates(outdated(true, true));
+    const hook = await launch(updates, true);
+    expect(updates.update).not.toHaveBeenCalled();
+    hook.rerender({ updates, building: false });
+    expect(updates.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the reminder when a silent update fails", async () => {
+    const updates = fakeUpdates(outdated(true, true), null, "TeX Live's package manager could not update the packages.");
+    await launch(updates);
+    const [reminder] = reminders();
+    expect(reminder.detail).toBe("Updates available (2). Updating can take a few minutes.");
+    expect(reminder.options.primaryAction?.label).toBe("Update TeX packages");
   });
 
   it("gives the command for a TeX the writer installed", async () => {
@@ -69,10 +101,10 @@ describe("the TeX update reminder", () => {
   });
 
   it("says nothing when packages are current or the repository could not be asked", async () => {
-    const current = await launch(fakeUpdates({ managed: true, packages: [] }));
+    const current = await launch(fakeUpdates({ managed: true, passwordless: true, packages: [] }));
     expect(reminders()).toHaveLength(0);
     relaunchAfter(current, 25);
-    await launch(fakeUpdates({ managed: true, packages: [], error: "offline" }));
+    await launch(fakeUpdates({ managed: true, passwordless: false, packages: [], error: "offline" }));
     expect(reminders()).toHaveLength(0);
   });
 
@@ -89,7 +121,6 @@ describe("the TeX update reminder", () => {
     expect(reminders()).toHaveLength(1);
     // Dismissed, then a check the same day (Settings cleared the check's own clock).
     relaunchAfter(first, 2);
-    localStorage.removeItem("lattice.tex-package-check.v1");
     const sameDay = await launch(fakeUpdates(outdated(true)));
     expect(reminders()).toHaveLength(0);
     relaunchAfter(sameDay, 24);
@@ -122,7 +153,7 @@ describe("the TeX update reminder", () => {
     relaunchAfter(hook, 25);
     const stale = fakeUpdates(outdated(true));
     const building = await launch(stale, true);
-    building.rerender({ updates: { ...stale, report: { managed: true, packages: [] } }, building: false });
+    building.rerender({ updates: { ...stale, report: { managed: true, passwordless: false, packages: [] } }, building: false });
     expect(reminders()).toHaveLength(0);
   });
 
@@ -139,7 +170,7 @@ describe("the TeX update reminder", () => {
     hook.rerender({ updates: { ...updates, run: running("updating-packages", 0.7) }, building: false });
     expect(toasts()[0].options.progress).toBe(0.7);
     hook.rerender({
-      updates: { ...updates, report: { managed: true, packages: [] }, run: { progress: { stage: "complete", progress: 1 }, running: false, error: null } },
+      updates: { ...updates, report: { managed: true, passwordless: false, packages: [] }, run: { progress: { stage: "complete", progress: 1 }, running: false, error: null } },
       building: false,
     });
     expect(toasts().map((toast) => toast.title)).toEqual(["TeX packages updated. Build again to use them."]);

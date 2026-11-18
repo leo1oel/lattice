@@ -2287,8 +2287,8 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "tex_setup/macos.rs",
-        literal: "Lattice only updates the BasicTeX it installs. In Terminal: {UPDATE_COMMAND}",
-        text: Text::Message("Lattice only updates the BasicTeX it installs. In Terminal: {command}", &[("command", Arg::Param(0))]),
+        literal: "Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: {UPDATE_COMMAND}",
+        text: Text::Message("Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: {command}", &[("command", Arg::Param(0))]),
     },
     Entry {
         file: "tex_setup/macos.rs",

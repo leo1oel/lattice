@@ -8947,8 +8947,8 @@ msgid "Lattice only"
 msgstr "Lattice only"
 
 #: src/platform/host-errors-setup.ts
-msgid "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
-msgstr "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
+msgid "Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: {command}"
+msgstr "Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: {command}"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
@@ -18375,8 +18375,12 @@ msgid "Updates available ({count}). In Terminal: {TEX_PACKAGE_UPDATE_COMMAND}"
 msgstr "Updates available ({count}). In Terminal: {TEX_PACKAGE_UPDATE_COMMAND}"
 
 #: src/app/use-tex-update-reminder.ts
-msgid "Updates available ({count}). Updating asks for administrator approval and can take a few minutes."
-msgstr "Updates available ({count}). Updating asks for administrator approval and can take a few minutes."
+msgid "Updates available ({count}). Updating asks for your password once; after that, Lattice keeps TeX up to date without asking."
+msgstr "Updates available ({count}). Updating asks for your password once; after that, Lattice keeps TeX up to date without asking."
+
+#: src/app/use-tex-update-reminder.ts
+msgid "Updates available ({count}). Updating can take a few minutes."
+msgstr "Updates available ({count}). Updating can take a few minutes."
 
 #: src/project/rename-dialog.tsx
 msgid "Updates every \\ref to it"
