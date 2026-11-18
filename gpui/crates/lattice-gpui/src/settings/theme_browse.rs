@@ -23,6 +23,7 @@ use lattice_ui::fluid_hover::FluidHover;
 use lattice_ui::{
     ActiveLattice as _, Appearance, TextRole, TextRoleStyle as _, TypeScale,
     components::{Button, Field, LayerPlacement, ModalLayer, Sheet},
+    interaction::mix,
 };
 use model::{Line, RowAction};
 
@@ -246,12 +247,14 @@ impl ThemeBrowse {
         if let Some(description) = theme.description.clone().filter(|text| !text.is_empty()) {
             text = text.child(caption(description.into(), palette.text_secondary));
         }
-        text = match &action {
-            RowAction::Blocked(entry) => {
-                text.child(caption(entry.reason.clone().into(), palette.danger))
-            }
-            _ if !meta.is_empty() => text.child(caption(meta.into(), palette.text_secondary)),
-            _ => text,
+        text = match listing.blocked_offers.get(&theme.id) {
+            Some(entry) if entry.action == "warn" => text.child(caption(
+                entry.reason.clone().into(),
+                mix(palette.warning, palette.text, 0.28),
+            )),
+            Some(entry) => text.child(caption(entry.reason.clone().into(), palette.danger)),
+            None if !meta.is_empty() => text.child(caption(meta.into(), palette.text_secondary)),
+            None => text,
         };
         if let Some(error) = self.errors.get(&theme.id) {
             text = text.child(controls::inline_message(Level::Error, error.clone(), cx));

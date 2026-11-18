@@ -17,7 +17,8 @@ pub enum RowAction {
 /// What a row offers for `theme`, given the list and the themes installed
 /// here (`rowAction`).
 pub fn row_action(theme: &IndexTheme, listing: &Listing, installed: &[ThemeInfo]) -> RowAction {
-    if let Some(entry) = listing.blocked_offers.get(&theme.id) {
+    let entry = listing.blocked_offers.get(&theme.id);
+    if let Some(entry) = entry.filter(|entry| entry.action != "warn") {
         return RowAction::Blocked(entry.clone());
     }
     let record = listing.installed.iter().find(|item| item.id == theme.id);
@@ -155,7 +156,16 @@ mod tests {
             url: None,
         };
         list.blocked_offers.insert(ink.id.clone(), entry.clone());
-        assert_eq!(row_action(&ink, &list, &[]), RowAction::Blocked(entry));
+        assert_eq!(
+            row_action(&ink, &list, &[]),
+            RowAction::Blocked(entry.clone())
+        );
+        let warned = BlockedEntry {
+            action: "warn".into(),
+            ..entry
+        };
+        list.blocked_offers.insert(ink.id.clone(), warned);
+        assert_eq!(row_action(&ink, &list, &[]), RowAction::Installed);
     }
 
     #[test]
