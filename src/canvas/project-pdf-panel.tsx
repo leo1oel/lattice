@@ -1,4 +1,4 @@
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useReducer, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { AgentHostSurface, AgentPdfDocumentPlace } from "../agent/agent-host-context";
@@ -128,9 +128,12 @@ export function ProjectPdfPanel(props: ProjectPdfPanelProps) {
   );
 }
 
+/** The root document the live viewer shows, and how many times it has turned from one to another. */
+type ShownTurn = Readonly<{ root: string; document: string | null; turns: number }>;
+
 /** The live PDF, in the PDF panel's own tab (or its window). */
 function LiveProjectPdf({
-  host, projectRoot, activeFile, pdf, citations, outline, review, selection, viewState, onLeaveEditor, livePreview, pdfWindow,
+  host, projectRoot, activeFile, pdf, citations, outline, review, selection, viewState, onLeaveEditor, livePreview, pdfWindow, rootPdfs,
 }: ProjectPdfPanelProps) {
   const { t } = useLingui();
   // Saved-view ownership for the PDF. Files without a preview of their own
@@ -147,6 +150,27 @@ function LiveProjectPdf({
   // Review mode's marked PDF has no SyncTeX of its own: jumps stay with the paper's.
   const marked = useMarkedPdf(projectRoot, pdf.pdfUrl);
   const previewPath = previewOwner ?? previewIdentity.path;
+  // One viewer shows every root document the project builds (main.tex, then
+  // rebuttal.tex), and a rebuild keeps the place it has. Turned to another
+  // document, it would keep the one it left: the paper came back from the
+  // rebuttal on the rebuttal's page. So each turn remounts it on the arriving
+  // document's own place, filed under that document as its own tab files it
+  // (root-pdf-tabs.tsx). The first document named after the project opens is
+  // no turn: that viewer mounted on the place it reopens at.
+  const [shown, setShown] = useReducer((_: ShownTurn, next: ShownTurn) => next, { root: projectRoot, document: null, turns: 0 });
+  const shownDocument = rootPdfs?.shown?.document ?? null;
+  if (shown.root !== projectRoot) {
+    setShown({ root: projectRoot, document: null, turns: 0 });
+  } else if (shownDocument && shownDocument !== shown.document) {
+    setShown({ root: projectRoot, document: shownDocument, turns: shown.document ? shown.turns + 1 : shown.turns });
+  }
+  const readPlace = () => (shown.turns > 0 && shown.document
+    ? viewState.getFileViewState?.(shown.document)?.pdf
+    : viewState.getFileViewState?.(previewPath)?.pdf);
+  const filePlace = (state: NonNullable<FileViewState["pdf"]>) => {
+    viewState.onFileViewState?.(previewPath, { pdf: state });
+    if (shown.document && shown.document !== previewPath) viewState.onFileViewState?.(shown.document, { pdf: state });
+  };
   // In its own window, the PDF leaves the panel: a layout that brings the
   // panel up anyway shows the way back. The window shows the paper's own
   // PDF, without review mode's marks or the live preview's layer.
@@ -193,10 +217,10 @@ function LiveProjectPdf({
       )}
       <LivePreviewSessionContext value={liveSession}>
       <ChunkGate chunk={loadPdfPreviewModule} fallback={<PdfPreviewLoading />}><Suspense fallback={<PdfPreviewLoading />}>
-        {/* One viewer per project, across its TeX files: it restores the place it mounts with. */}
+        {/* One viewer per project and root document, across its TeX files: it restores the place it mounts with. */}
         <SavedViewState<FileViewState["pdf"] | undefined>
-          key={`project-pdf:${projectRoot}`}
-          read={() => viewState.getFileViewState?.(previewPath)?.pdf}
+          key={`project-pdf:${projectRoot}:${shown.turns}`}
+          read={readPlace}
         >
           {(initialViewState) => (
             <PdfPreview
@@ -234,7 +258,7 @@ function LiveProjectPdf({
               onPageChange={pdf.onPdfPageChange}
               toolbarAction={pdfWindow?.onOpen && { label: t`Open in separate window`, icon: SquareArrowOutUpRight, run: pdfWindow.onOpen }}
               initialViewState={initialViewState}
-              onViewState={(state) => viewState.onFileViewState?.(previewPath, { pdf: state })}
+              onViewState={filePlace}
               outline={(
                 <DocumentOutline
                   nodes={outline.nodes}
