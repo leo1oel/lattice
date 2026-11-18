@@ -308,7 +308,7 @@ pub fn mark(mark: Mark, fresh: Option<(usize, Duration)>, palette: &Palette) -> 
                             |_, _, _| (),
                             move |bounds, _, window, _| {
                                 for part in loader_parts(&line, t) {
-                                    stroke::paint(&part, 100., bounds, 10., ink, window);
+                                    stroke::paint_moving(&part, 100., bounds, 10., ink, window);
                                 }
                             },
                         )
@@ -470,7 +470,7 @@ pub fn infinity_loader(
                         |_, _, _| (),
                         move |bounds, _, window, _| {
                             for part in loader_parts(&line, t) {
-                                stroke::paint(&part, 100., bounds, 10., ink, window);
+                                stroke::paint_moving(&part, 100., bounds, 10., ink, window);
                             }
                         },
                     )

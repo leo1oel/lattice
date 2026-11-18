@@ -7,8 +7,13 @@
 //! [`paint`] strokes points with round caps and joins, as the app's marks set
 //! `stroke-linecap` and `stroke-linejoin`, mapped from the grid into bounds.
 
-use gpui::{Bounds, Hsla, PathBuilder, PathStyle, Pixels, Point, StrokeOptions, Window, point, px};
-use lyon::tessellation::{LineCap, LineJoin};
+use gpui::{
+    Bounds, Hsla, Path, PathBuilder, PathStyle, PathVertex, Pixels, Point, StrokeOptions, Window,
+    point, px,
+};
+use lyon::tessellation::{
+    BuffersBuilder, LineCap, LineJoin, StrokeTessellator, StrokeVertex, VertexBuffers,
+};
 
 /// A path on its own grid, flattened, with the length run to each point.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -145,11 +150,8 @@ pub fn paint(
         return;
     }
     let scale = f32::from(bounds.size.width.min(bounds.size.height)) / grid;
-    let options = StrokeOptions::default()
-        .with_line_width(width * scale)
-        .with_line_cap(LineCap::Round)
-        .with_line_join(LineJoin::Round);
-    let mut path = PathBuilder::stroke(px(width * scale)).with_style(PathStyle::Stroke(options));
+    let mut path = PathBuilder::stroke(px(width * scale))
+        .with_style(PathStyle::Stroke(options(width * scale)));
     path.move_to(to_bounds(points[0], grid, bounds));
     for p in &points[1..] {
         path.line_to(to_bounds(*p, grid, bounds));
@@ -159,12 +161,123 @@ pub fn paint(
     }
 }
 
+/// [`paint`] for a line that is a different shape on every frame, as a
+/// looping loader's is.
+///
+/// [`PathBuilder::build`] keeps every path it tessellates for the next of
+/// the same shape (gpui-fast's `fast/path_cache.rs`). A loader's shape never
+/// comes round again, so each frame's would be kept for nothing until the
+/// kept shapes reach their 16 MB cap, pushing out shapes that are drawn
+/// again. This tessellates the line as that cache does, at its first point and
+/// then moved there, so the triangles are exactly the ones [`paint`] draws,
+/// and keeps none of them.
+pub fn paint_moving(
+    points: &[Point<f32>],
+    grid: f32,
+    bounds: Bounds<Pixels>,
+    width: f32,
+    color: Hsla,
+    window: &mut Window,
+) {
+    if color.a <= 0. {
+        return;
+    }
+    if let Some(path) = moving_path(points, grid, bounds, width) {
+        window.paint_path(path, color);
+    }
+}
+
+fn moving_path(
+    points: &[Point<f32>],
+    grid: f32,
+    bounds: Bounds<Pixels>,
+    width: f32,
+) -> Option<Path<Pixels>> {
+    if points.len() < 2 {
+        return None;
+    }
+    let scale = f32::from(bounds.size.width.min(bounds.size.height)) / grid;
+    let origin = to_bounds(points[0], grid, bounds);
+    let relative = |p: Point<f32>| {
+        let p = to_bounds(p, grid, bounds);
+        lyon::math::point(
+            f32::from(p.x) - f32::from(origin.x),
+            f32::from(p.y) - f32::from(origin.y),
+        )
+    };
+    let mut line = lyon::path::Path::builder().with_svg();
+    line.move_to(relative(points[0]));
+    for p in &points[1..] {
+        line.line_to(relative(*p));
+    }
+    let mut buffers: VertexBuffers<lyon::math::Point, u16> = VertexBuffers::new();
+    StrokeTessellator::new()
+        .tessellate_path(
+            &line.build(),
+            &options(width * scale),
+            &mut BuffersBuilder::new(&mut buffers, |vertex: StrokeVertex| vertex.position()),
+        )
+        .ok()?;
+    let at_origin = PathBuilder::build_path(buffers);
+    let first = at_origin.vertices.first()?;
+    let mut path = Path::new(first.xy_position + origin);
+    path.vertices = at_origin
+        .vertices
+        .iter()
+        .map(|vertex| PathVertex {
+            xy_position: vertex.xy_position + origin,
+            ..vertex.clone()
+        })
+        .collect();
+    path.bounds = Bounds {
+        origin: at_origin.bounds.origin + origin,
+        size: at_origin.bounds.size,
+    };
+    Some(path)
+}
+
+fn options(width: f32) -> StrokeOptions {
+    StrokeOptions::default()
+        .with_line_width(width)
+        .with_line_cap(LineCap::Round)
+        .with_line_join(LineJoin::Round)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn check() -> Line {
         Line::new([point(20., 6.), point(9., 17.), point(4., 12.)])
+    }
+
+    #[test]
+    fn a_moving_line_has_the_triangles_a_kept_one_has() {
+        let line = Line::new([point(0., 0.)]).cubic_to(
+            point(30., 90.),
+            point(70., 10.),
+            point(97.3, 55.1),
+            24,
+        );
+        let bounds = Bounds::new(point(px(311.37), px(18.6)), gpui::size(px(14.), px(14.)));
+        for t in [0., 0.37, 0.81] {
+            let points = line.window(line.length() * t, line.length() * (t + 0.6));
+            let scale = 14. / 100.;
+            let mut kept = PathBuilder::stroke(px(10. * scale))
+                .with_style(PathStyle::Stroke(options(10. * scale)));
+            kept.move_to(to_bounds(points[0], 100., bounds));
+            for p in &points[1..] {
+                kept.line_to(to_bounds(*p, 100., bounds));
+            }
+            let kept = kept.build().unwrap();
+            let moving = moving_path(&points, 100., bounds, 10.).unwrap();
+            assert_eq!(moving.bounds, kept.bounds);
+            assert_eq!(moving.vertices.len(), kept.vertices.len());
+            for (a, b) in moving.vertices.iter().zip(&kept.vertices) {
+                assert_eq!(a.xy_position, b.xy_position);
+                assert_eq!(a.st_position, b.st_position);
+            }
+        }
     }
 
     #[test]

@@ -26,7 +26,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
-    components::{Button, Field, Select, rise_in},
+    components::{Button, Field, Select, TrapFocus as _, rise_in},
     tokens::{CONTAINER_DIALOG_CREATE, FONT_WEIGHT_MEDIUM},
 };
 
@@ -319,7 +319,7 @@ impl Render for NewProjectDialog {
             .pt(viewport.height * 0.18)
             .bg(palette.scrim)
             .occlude()
-            .track_focus(&self.focus)
+            .trap_focus("new-project-trap", &self.focus)
             // Bubbling, so an open venue list takes its own Escape first.
             .on_key_down(cx.listener(|_, event: &KeyDownEvent, _, cx| {
                 if event.keystroke.key == "escape" {
