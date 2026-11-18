@@ -14,6 +14,8 @@ import { changeKind, PIERRE_UNSAFE_CSS, pierreFileDiff, usePierreResources, type
 export function FileDiffView(props: {
   change: DiffFileChange;
   onOpenLine?: (path: string, line: number) => void;
+  /** Wrap long lines instead of scrolling sideways. */
+  wrap?: boolean;
 }) {
   const { after, before, path } = props.change;
   const { t } = useLingui();
@@ -44,7 +46,7 @@ export function FileDiffView(props: {
       options={{
         diffStyle: "unified",
         lineDiffType: "word",
-        overflow: "scroll",
+        overflow: props.wrap ? "wrap" : "scroll",
         theme: resources.themeName,
         themeType: resources.theme,
         unsafeCSS: PIERRE_UNSAFE_CSS,
@@ -75,6 +77,7 @@ export function HistoryDiff(props: {
   binary?: boolean;
   onOpenLine?: (path: string, line: number) => void;
   headerAction?: ReactNode;
+  wrap?: boolean;
 }) {
   const { t } = useLingui();
   return (
@@ -86,7 +89,7 @@ export function HistoryDiff(props: {
       </div>
       {props.binary ? <p className="versions-binary">{t`Binary file changed`}</p> : (
         <div className="lattice-file-diff-body" aria-label={t`Diff for ${props.change.path}`}>
-          <FileDiffView change={props.change} onOpenLine={props.onOpenLine} />
+          <FileDiffView change={props.change} onOpenLine={props.onOpenLine} wrap={props.wrap} />
         </div>
       )}
     </div>

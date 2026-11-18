@@ -169,6 +169,29 @@ describe("CompareVersions", () => {
     await waitFor(() => expect(invokeCalls("git_compare_file").at(-1)).toMatchObject({ path: "refs.bib", to: null }));
   });
 
+  it("offers wrapping only for the source diff, and remembers the choice", async () => {
+    mockRepository();
+    renderCompare();
+    await openCompare();
+    expect(await screen.findByText("2 changed paragraphs")).toBeInTheDocument();
+    // Prose already wraps.
+    expect(screen.queryByRole("button", { name: "Wrap" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Source" }));
+    const wrap = await screen.findByRole("button", { name: "Wrap" });
+    expect(wrap).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(wrap);
+    expect(wrap).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("lattice.history.diff-wrap.v1")).toBe("true");
+
+    // Back to prose the switch goes away; the source diff comes back still wrapped.
+    fireEvent.click(screen.getByRole("tab", { name: "Prose" }));
+    expect(screen.queryByRole("button", { name: "Wrap" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Source" }));
+    expect(screen.getByRole("button", { name: "Wrap" })).toHaveAttribute("aria-pressed", "true");
+    localStorage.clear();
+  });
+
   it("reads Now again in place when the project's sources change", async () => {
     let current = after;
     mockRepository({ git_compare_file: () => ({ before, after: current, binary: false }) });

@@ -18943,6 +18943,10 @@ msgstr "工作区：{currentName}"
 msgid "Workspaces"
 msgstr "工作区"
 
+#: src/history/compare-versions.tsx
+msgid "Wrap"
+msgstr "自动换行"
+
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Wrap in \\iffalse … \\fi"
 msgstr "包裹在 \\iffalse … \\fi 中"
@@ -18970,6 +18974,10 @@ msgstr "套上 itemize"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Wrap in table float"
 msgstr "作为浮动表格"
+
+#: src/history/compare-versions.tsx
+msgid "Wrap long lines"
+msgstr "长行自动换行"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
