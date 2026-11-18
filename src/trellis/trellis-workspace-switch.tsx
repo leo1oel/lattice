@@ -20,14 +20,12 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { SlidingTabPill } from "../components/ui/motion";
-import { notifyInfo } from "../telemetry/app-notify";
 import { useCompositionGuard } from "../hooks/use-composition-guard";
+import { deleteWorkspace } from "./delete-workspace";
 import { useCurrentWorkspace, useTrellisUi, useWorkspaces, type TrellisController } from "./trellis-controller";
 import { spaceMixedScript } from "./trellis-titles";
 import { WORKSPACE_NAME_MAX, workspaceShortcut, type WorkspaceSummary } from "./trellis-workspaces";
 
-/** The toast that offers to bring a deleted workspace back; a later deletion's replaces it. */
-const DELETE_UNDO_TOAST = "trellis-workspace-deleted";
 /** How far a press must travel before it drags a workspace rather than clicking it. */
 const DRAG_THRESHOLD = 4;
 
@@ -59,28 +57,7 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
     const id = library.duplicate(entry.id, t`${name} copy`);
     if (id) rename(id);
   };
-  // No confirmation: the toast that reports it brings it back.
-  const remove = (entry: WorkspaceSummary) => {
-    const list = library.list();
-    const index = list.findIndex((item) => item.id === entry.id);
-    if (index < 0 || list.length < 2) return;
-    const wasCurrent = controller.ui.get().workspace === entry.id;
-    const fallback = (list[index + 1] ?? list[index - 1]).id;
-    if (wasCurrent) controller.switchWorkspace(fallback);
-    const removed = library.remove(entry.id);
-    if (!removed) return;
-    const { name } = entry;
-    notifyInfo(t`Layout`, spaceMixedScript(t`Deleted “${name}”`), {
-      dedupeKey: DELETE_UNDO_TOAST,
-      primaryAction: {
-        label: t`Undo`,
-        onClick: () => {
-          library.restore(removed);
-          if (wasCurrent && controller.ui.get().workspace === fallback) controller.switchWorkspace(entry.id);
-        },
-      },
-    });
-  };
+  const remove = (entry: WorkspaceSummary) => deleteWorkspace(controller, entry.id);
   const move = (entry: WorkspaceSummary, to: number) => {
     library.move(entry.id, to);
     const { name } = entry;
@@ -392,7 +369,7 @@ function WorkspaceActions({ controller, entry, dirty, workspaces, onRename, onDu
       <DropdownMenuSeparator />
       {/* The last workspace stays: a project is always in one. */}
       <DropdownMenuItem data-variant="destructive" disabled={count < 2} onSelect={() => onDelete(entry)}>
-        <Trash2 size={14} />{t`Delete`}
+        <Trash2 size={14} />{t`Delete workspace`}
       </DropdownMenuItem>
     </>
   );

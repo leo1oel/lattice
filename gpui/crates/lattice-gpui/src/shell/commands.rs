@@ -73,6 +73,7 @@ actions!(
         ToggleFocusMode,
         ResetLayout,
         NewWorkspace,
+        DeleteWorkspace,
         SaveWorkspace,
         RevertWorkspace,
         WritingPreset,
@@ -453,6 +454,18 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Section::Layout,
             NewWorkspace,
         ));
+        // The one the window is in, as its tab's menu does; the last workspace stays.
+        if context.workspaces.len() > 1 {
+            out.push(
+                Command::new(
+                    "workspace-delete",
+                    t!("Delete workspace"),
+                    Section::Layout,
+                    DeleteWorkspace,
+                )
+                .not_recent(),
+            );
+        }
         if context.dirty {
             out.push(Command::new(
                 "workspace-save",
@@ -577,6 +590,26 @@ mod tests {
         assert!(!has(&context, "workspace-save"));
         context.dirty = true;
         assert!(has(&context, "workspace-save") && has(&context, "workspace-revert"));
+    }
+
+    #[test]
+    fn delete_workspace_is_offered_while_another_remains() {
+        // use-command-table.ts: the last workspace stays.
+        let mut context = CommandContext {
+            in_project: true,
+            workspaces: vec![("ws-1".into(), "Workspace".into())],
+            ..CommandContext::default()
+        };
+        let delete = |context: &CommandContext| {
+            commands(context)
+                .into_iter()
+                .find(|command| command.id == "workspace-delete")
+        };
+        assert!(delete(&context).is_none());
+        context.workspaces.push(("ws-2".into(), "Review".into()));
+        let command = delete(&context).expect("the palette offers Delete workspace");
+        assert!(command.palette && command.label == "Delete workspace");
+        assert!(command.action.partial_eq(&DeleteWorkspace));
     }
 
     #[test]

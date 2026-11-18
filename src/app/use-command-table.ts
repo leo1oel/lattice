@@ -20,7 +20,6 @@ import type { TrellisController } from "../trellis/trellis-controller";
 import { closeDocumentTab } from "../trellis/close-document-tab";
 import { closeFocusedTerminal } from "../terminal/close-focused-terminal";
 import { setVimExRunner } from "../canvas/vim-ex-commands";
-import { WORKSPACE_SHORTCUTS } from "../trellis/trellis-workspaces";
 import { FOCUS_MODE_KEY, FRAME_TOGGLE_KEY } from "../trellis/trellis-keymap";
 import { PANEL_TITLES, spaceMixedScript } from "../trellis/trellis-titles";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -33,6 +32,7 @@ import { PANEL_TOGGLE_KEYS, SINGLETON_PANELS } from "./panel-toggles";
 import { projectPanelCommands } from "./project-panel-commands";
 import { journalExportCommand } from "./journal-export-command";
 import { projectSwitchCommands } from "./project-switch-commands";
+import { workspaceEditCommands, workspaceSwitchCommands } from "./workspace-commands";
 import type { SearchDialog } from "./app-search-dialogs";
 import { collectFilePaths } from "./workspace-restore";
 import { subscribeTauriEvent } from "./effect-helpers";
@@ -237,16 +237,7 @@ export function useCommandTable({
     trellisUi.framed
       ? { id: "frame", when: inProject, label: t`Restore the layout`, shortcut: FRAME_TOGGLE_KEY, group: "layout", run: () => trellis.ws?.navigation.frame("all") }
       : { id: "frame", when: inProject, label: t`Maximize focused panel`, shortcut: FRAME_TOGGLE_KEY, group: "layout", run: () => trellis.ws?.navigation.toggle() },
-    // The named workspaces: each by name here, and ⌘1 to ⌘9 by position (read when pressed, so a reorder counts at once).
-    ...trellis.workspaces.list().map(({ id, name }, index): AppCommand => ({
-      id: `workspace-${id}`, when: inProject, label: spaceMixedScript(t`Switch to ${name}`), group: "layout",
-      shortcut: index < WORKSPACE_SHORTCUTS ? { key: String(index + 1), mod: true } : undefined,
-      run: () => trellis.switchWorkspace(id),
-    })),
-    ...Array.from({ length: WORKSPACE_SHORTCUTS }, (_, index): AppCommand => ({
-      id: `workspace-${index + 1}`, when: inProject, label: t`Switch to a workspace by its place`, group: "layout", key: String(index + 1), palette: false,
-      run: () => trellis.switchWorkspaceAt(index),
-    })),
+    ...workspaceSwitchCommands(i18n, trellis, inProject),
     {
       id: "focus-mode", when: inProject, label: focusMode ? t`Leave focus mode` : t`Focus mode`,
       group: "layout", ...FOCUS_MODE_KEY, run: () => trellis.setFocus(!focusMode),
@@ -254,12 +245,7 @@ export function useCommandTable({
     ...(focusMode ? [{
       id: "focus-pdf", label: focusPdf ? t`Hide the PDF` : t`Show the PDF beside the editor`, group: "layout" as const, run: () => trellis.setFocusPdf(!focusPdf),
     }] : []),
-    { id: "workspace-new", when: inProject, label: t`New workspace`, group: "layout", run: () => void trellis.createWorkspace(t`Workspace`) },
-    // While the project's layout differs from its workspace's saved arrangement.
-    ...(workspaceDirty ? [
-      { id: "workspace-save", when: inProject, label: t`Save to workspace`, group: "layout" as const, run: () => trellis.saveWorkspace() },
-      { id: "workspace-revert", when: inProject, label: t`Revert to saved`, group: "layout" as const, recent: false as const, run: () => trellis.revertWorkspace() },
-    ] : []),
+    ...workspaceEditCommands(i18n, trellis, inProject, workspaceDirty),
     // Layout presets (also in the Panels menu); the one in use is not offered again.
     ...(["writing", "reading", "bibliography"] as const).filter((preset) => trellisUi.preset !== preset).map((preset): AppCommand => ({
       id: `preset-${preset}`, when: inProject, group: "layout",
