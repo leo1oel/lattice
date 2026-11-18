@@ -46,6 +46,19 @@ describe.skipIf(process.platform === "win32")("inapp-lock", () => {
     expect(lock("--thread", "B", "--wait", "1", "--", "true").status).toBe(0);
   });
 
+  it("returns the run's status and frees the lock when its process group may not be signalled", () => {
+    // macOS has refused killpg with EPERM once a long run ended; stand that in.
+    const refuse = "import errno, os, runpy, sys\n" +
+      "def killpg(pgid, sig): raise PermissionError(errno.EPERM, 'Operation not permitted')\n" +
+      "os.killpg = killpg\n" +
+      "sys.argv = sys.argv[1:]\n" +
+      "runpy.run_path(sys.argv[0], run_name='__main__')\n";
+    const run = spawnSync("python3", ["-c", refuse, script, "--thread", "A", "--", "sh", "-c", "exit 3"], { env, encoding: "utf8" });
+    expect(run.stderr).not.toContain("Traceback");
+    expect(run.status).toBe(3);
+    expect(lock("--thread", "B", "--wait", "0", "--", "true").status).toBe(0);
+  });
+
   it("keeps the lock when someone deletes and recreates its file", () => {
     expect(lock("--thread", "A", "hold", "30").status).toBe(0);
     rmSync(env.INAPP_LOCK_FILE);

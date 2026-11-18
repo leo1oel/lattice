@@ -179,10 +179,14 @@ def run(thread, wait, command):
         # whole run with it rather than leaving it on the screen unlocked.
         child = subprocess.Popen(command, start_new_session=True)
 
+        # The group may be gone (ProcessLookupError), or hold only processes
+        # this one may not signal, such as one that changed its user, or one
+        # macOS still counts there while it exits (PermissionError). Neither
+        # is a reason to fail the run or keep the lock.
         def forward(signum, _frame):
             try:
                 os.killpg(child.pid, signum)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
                 pass
 
         for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
@@ -192,6 +196,8 @@ def run(thread, wait, command):
             os.killpg(child.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            print(f"inapp-lock: could not end what is left of the run's process group {child.pid} (not permitted)", file=sys.stderr, flush=True)
         return status if status >= 0 else 128 - status
     finally:
         release(fd)
