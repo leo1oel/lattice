@@ -61,6 +61,9 @@ pub fn error_text(error: &PluginError) -> ErrorText {
             t!("This plugin asks for new permissions. Review them in Settings › Plugins.")
                 .to_string()
         }
+        PluginError::Blocked { reason } => {
+            t!("Lattice turned this plugin off: {reason}", reason = reason).to_string()
+        }
         PluginError::UnknownCommand => t!("This plugin no longer has this command.").to_string(),
         PluginError::Broken { message } => {
             t!("The plugin is broken: {detail}", detail = detail(message)).to_string()
