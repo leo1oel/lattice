@@ -11,7 +11,7 @@ const read = (file: string) => readFileSync(path.join(repo, file), "utf8");
 const linux = parse(read(".github/workflows/linux-appimage.yml")) as Workflow;
 const release = parse(read(".github/workflows/release.yml")) as Workflow;
 
-const SECRETS = { LATTICE_FIRECRAWL_KEY: "firecrawl-secret", VITE_TLDRAW_LICENSE_KEY: "tldraw-secret", LATTICE_FONTS_DEPLOY_KEY: "fonts-secret" };
+const SECRETS = { LATTICE_FIRECRAWL_KEY: "firecrawl-secret", LATTICE_FONTS_DEPLOY_KEY: "fonts-secret" };
 
 const runFor = (github: Record<string, Value>) => runWorkflow(linux, github, SECRETS);
 
@@ -42,7 +42,6 @@ describe("the Linux AppImage workflow", () => {
     expect(run.step("build", "Fetch the licensed interface fonts").runs).toBe(true);
     expect(run.step("build", "Build the AppImage").env).toMatchObject({
       LATTICE_FIRECRAWL_KEY: SECRETS.LATTICE_FIRECRAWL_KEY,
-      VITE_TLDRAW_LICENSE_KEY: SECRETS.VITE_TLDRAW_LICENSE_KEY,
     });
   });
 
@@ -61,7 +60,7 @@ describe("the Linux AppImage workflow", () => {
     const run = runFor(github);
     expect(run.jobs).not.toContain("attach");
     expect(run.step("build", "Fetch the licensed interface fonts").runs).toBe(false);
-    expect(run.step("build", "Build the AppImage").env).toMatchObject({ LATTICE_FIRECRAWL_KEY: "", VITE_TLDRAW_LICENSE_KEY: "" });
+    expect(run.step("build", "Build the AppImage").env).toMatchObject({ LATTICE_FIRECRAWL_KEY: "" });
   });
 
   it("takes libwayland-client out of the AppImage it builds, before checking or uploading it", () => {

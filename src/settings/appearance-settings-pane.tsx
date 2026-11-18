@@ -3,7 +3,7 @@ import { SegmentedControl } from "../components/ui/segmented-control";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
-import type { AppearanceSettings, TitlebarTool } from "./app-settings";
+import type { AppearanceSettings, TabStyle, TitlebarTool } from "./app-settings";
 import { CodeThemeSettingsGroup } from "./code-theme-settings";
 import { EditorFontSettingsGroups } from "./editor-font-settings";
 import { INTERFACE_SCALE_STEPS, interfaceScalePercent, nearestInterfaceStep } from "./interface-scale";
@@ -85,6 +85,17 @@ export function AppearanceSettingsPane(props: SettingsDialogProps) {
           }}
           onChange={(toastPosition) => patchAppearance(props, { toastPosition })}
         />
+        <SettingsRow data-setting="tab-style" label={t`Tab style`}>
+          <SegmentedControl<TabStyle>
+            ariaLabel={t`Tab style`}
+            value={props.appearance.tabStyle}
+            onChange={(tabStyle) => patchAppearance(props, { tabStyle })}
+            items={[
+              { value: "filled", label: t({ message: "Filled", context: "tab style" }) },
+              { value: "outlined", label: t({ message: "Outlined", context: "tab style" }) },
+            ]}
+          />
+        </SettingsRow>
       </SettingsGroup>
       <EditorFontSettingsGroups appearance={props.appearance} setAppearance={props.setAppearance} />
       <ThemeSettingsGroup {...props} />

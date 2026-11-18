@@ -2173,7 +2173,7 @@ describe("project tree and projects", () => {
   });
 
   it.each([
-    ["board", "sketch", "sketch.tldr", "board-editor-mock"],
+    ["board", "map", "map.excalidraw", "board-editor-mock"],
     ["spreadsheet", "results", "results.lattice-sheet", "spreadsheet-editor-mock"],
   ])("creates a %s from the header button with an inline name", async (kind, name, path, editor) => {
     renderApp({ ...refreshableProject(projectSnapshot({ files: [fileNode("notes.tex")] }), ""), create_project_entry: (args) => argPath(args) });
@@ -2271,9 +2271,9 @@ describe("project tree and projects", () => {
         type: "lattice:project-document-tool-result", id, ok: true, result: { path, documentType, opened: true },
       }), synaraHook.runtime.origin));
     };
-    const unregisterBoard = registerAgentCanvasAdapter("agent-board.tldr", { execute: () => ({}) });
-    await createThroughAgent("create-board", "agent-board.tldr", "board");
-    expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "agent-board.tldr", kind: "file", projectRoot: ROOT });
+    const unregisterBoard = registerAgentCanvasAdapter("agent.excalidraw", { execute: () => ({}) });
+    await createThroughAgent("create-board", "agent.excalidraw", "board");
+    expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "agent.excalidraw", kind: "file", projectRoot: ROOT });
     expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
     unregisterBoard();
     const spreadsheetDoc = new Y.Doc();

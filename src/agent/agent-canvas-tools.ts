@@ -1,8 +1,8 @@
 // Protocol half of the agent canvas tools: request parsing, adapter registry,
-// and execution dispatch. Deliberately free of any "tldraw" value import —
-// App.tsx loads this module eagerly, and a tldraw import here puts the whole
-// ~1.5 MB package in the startup chunk. The tldraw-facing adapter lives in
-// agent-canvas-tldraw-adapter.ts, loaded only with the lazy board editor.
+// and execution dispatch. Deliberately free of any Excalidraw value import —
+// App.tsx loads this module eagerly, and an Excalidraw import here puts the
+// whole package in the startup chunk. The Excalidraw-facing adapter lives in
+// agent-canvas-excalidraw-adapter.ts, loaded only with the lazy board editor.
 import { isRecord } from "../app-utils";
 import { createOpenWaiters, parseToolEnvelope, runAgentTool, toolError, type AgentToolResult } from "./agent-protocol";
 
@@ -61,7 +61,7 @@ export function executeAgentCanvasToolRequest(request: AgentCanvasToolRequest): 
       throw toolError("The canvas request expired before execution.", "canvas_tool_expired");
     }
     // eslint-disable-next-line lingui/no-unlocalized-strings -- tool error returned to the Agent model
-    if (!activeAdapter) throw toolError("Open a .tldr canvas before using canvas tools.", "canvas_not_open");
+    if (!activeAdapter) throw toolError("Open a board (.excalidraw) before using canvas tools.", "canvas_not_open");
     return activeAdapter.adapter.execute(request.action, request.args);
   }, false);
 }

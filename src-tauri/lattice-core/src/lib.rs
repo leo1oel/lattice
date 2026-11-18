@@ -18,6 +18,7 @@ mod alphaxiv;
 pub mod app_identity;
 pub mod app_state;
 pub mod bib_document;
+pub mod board;
 pub mod citation_audit;
 mod citation_batch;
 pub mod citation_health;
@@ -32,6 +33,7 @@ pub mod format_latex;
 pub mod fs_watch;
 mod fts;
 pub mod git;
+#[cfg(feature = "spellcheck")]
 pub mod harper;
 pub mod host;
 mod host_paths;
@@ -69,6 +71,7 @@ pub mod research_env;
 pub mod review_pdf;
 pub mod runtime;
 mod sidecar;
+#[cfg(feature = "spellcheck")]
 pub mod spelling;
 pub mod synara;
 pub mod terminal;

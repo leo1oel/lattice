@@ -6764,6 +6764,12 @@ msgstr "此版本的文件"
 msgid "Files the last build used are missing"
 msgstr "上次编译用到的文件已缺失"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgctxt "tab style"
+msgid "Filled"
+msgstr "填充"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
 msgstr "实心方块"
@@ -11108,6 +11114,10 @@ msgstr "共 {total} 个错误和警告，这里只列出前 {shown} 个。其余
 msgid "Only the listed graphics arguments will change. Image files stay in place."
 msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
 
+#: src/platform/host-errors-project.ts
+msgid "Only tldraw boards (.tldr) can be converted."
+msgstr "只能转换 tldraw 画板（.tldr）"
+
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 #: src/plugins/plugin-text.ts
@@ -11562,6 +11572,12 @@ msgstr "其他语言"
 #: src/canvas/document-outline.tsx
 msgid "Outline"
 msgstr "大纲"
+
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgctxt "tab style"
+msgid "Outlined"
+msgstr "描边"
 
 #: src/project/arxiv-export.ts
 msgid "Over arXiv’s size limit"
@@ -15709,6 +15725,11 @@ msgstr "语法高亮 配色 配色方案 编辑器 代码"
 msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgid "Tab style"
+msgstr "标签页样式"
+
 #: src/editor/latex/latex-text.ts
 msgid "table"
 msgstr "表格"
@@ -15736,6 +15757,11 @@ msgstr "插入表格"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Table of contents"
 msgstr "目录"
+
+#. Search words for the Tab style setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "tabs outline chip Linear"
+msgstr "标签页 标签 描边 边框 Linear"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Taking longer than usual"
@@ -16295,6 +16321,10 @@ msgstr "会议官方导出的引用与 Crossref 在这些字段上不一致：{0
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "缺少连接信息"
+
+#: src/platform/host-errors-project.ts
+msgid "The converted board could not be written: {error}"
+msgstr "无法写入转换后的画板：{error}"
 
 #: src/platform/host-errors-project.ts
 msgid "The converted figure could not be read."

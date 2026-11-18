@@ -460,6 +460,7 @@ fn file_kind(path: &Path) -> &'static str {
         Some("tex") => "tex",
         Some("bib") => "bib",
         Some("md") => "markdown",
+        Some("excalidraw") => "board",
         Some("tldr") => "tldr",
         Some("lattice-sheet") => "spreadsheet",
         Some("png" | "jpg" | "jpeg" | "pdf" | "svg" | "eps" | "webp") => "figure",

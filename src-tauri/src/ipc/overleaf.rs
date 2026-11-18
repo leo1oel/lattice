@@ -392,19 +392,19 @@ pub async fn overleaf_publish_project(
     .await
 }
 
-/// The folders on this Mac already linked to the listed projects, by project
-/// id, so the picker opens those instead of downloading again. `names` are the
-/// listed projects' names (each one's download folder is a candidate);
-/// `folders` are others the app knows of, such as its recent projects.
+/// The folders on this Mac already linked to Overleaf projects, by project
+/// id, so the picker opens those instead of downloading again. `folders` are
+/// ones the app knows of, such as its recent projects; every folder in the
+/// download folder is a candidate too, read by its link rather than matched
+/// by a project's title, which can change on Overleaf.
 #[tauri::command]
 pub async fn overleaf_local_copies(
-    app: AppHandle, names: Vec<String>, folders: Vec<String>,
+    app: AppHandle, folders: Vec<String>,
 ) -> Result<BTreeMap<String, overleaf::LocalCopy>, String> {
     let config = overleaf_config_dir(&app)?;
     let parent = overleaf_projects_dir(&app)?;
     run_blocking("Overleaf local copies", move || {
-        let downloads =
-            names.iter().filter_map(|name| overleaf::download_folder(&parent, name).ok());
+        let downloads = overleaf::download_folders(&parent);
         let candidates: Vec<PathBuf> = folders.iter().map(PathBuf::from).chain(downloads).collect();
         Ok(overleaf::local_copies(&config, &candidates))
     })
@@ -416,12 +416,18 @@ pub async fn overleaf_local_copies(
 #[tauri::command]
 pub async fn overleaf_reopen_local_copy(
     app: AppHandle, state: State<'_, AppState>, path: String, project_id: String,
-    access_level: Option<String>,
+    name: Option<String>, access_level: Option<String>,
 ) -> Result<(), String> {
     let config = overleaf_config_dir(&app)?;
     let _lease = state.lease(&path, Lease::Shared).await;
     run_blocking("Overleaf local copy", move || {
-        overleaf::reopen_local_copy(&config, Path::new(&path), &project_id, access_level.as_deref())
+        overleaf::reopen_local_copy(
+            &config,
+            Path::new(&path),
+            &project_id,
+            name.as_deref(),
+            access_level.as_deref(),
+        )
     })
     .await
 }

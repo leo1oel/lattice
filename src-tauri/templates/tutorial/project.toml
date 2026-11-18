@@ -15,5 +15,5 @@ default_view = "split"
 [demo]
 markdown = "notes.md"
 html = "attention-demo.html"
-board = "attention-map.tldr"
+board = "attention-map.excalidraw"
 spreadsheet = "attention-results.lattice-sheet"

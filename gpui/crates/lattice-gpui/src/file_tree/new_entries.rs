@@ -119,7 +119,7 @@ impl NewEntry {
             NewEntry::Markdown => file("md", true),
             NewEntry::Folder => Making::FOLDER,
             NewEntry::Spreadsheet => file("lattice-sheet", false),
-            NewEntry::Board => file("tldr", false),
+            NewEntry::Board => file("excalidraw", false),
             NewEntry::Presentation => Making {
                 deck: true,
                 ..Making::FOLDER
@@ -223,7 +223,10 @@ mod tests {
         let latex = NewEntry::Latex.making().unwrap();
         assert_eq!(latex.named("untitled.tex"), "untitled.tex");
         assert_eq!(latex.named("notes"), "notes.tex");
-        assert_eq!(NewEntry::Board.making().unwrap().named("map"), "map.tldr");
+        assert_eq!(
+            NewEntry::Board.making().unwrap().named("map"),
+            "map.excalidraw"
+        );
         assert!(NewEntry::Import.making().is_none());
         assert!(NewEntry::Presentation.making().unwrap().deck);
     }

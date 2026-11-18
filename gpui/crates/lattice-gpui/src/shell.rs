@@ -678,6 +678,33 @@ impl Shell {
             return None;
         }
         let path = path.canonicalize().unwrap_or(path);
+        // A tldraw board opens as the `.excalidraw` converted beside it, as
+        // in the Tauri app (`src/app/tldraw-board.ts`).
+        let path = if path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tldr"))
+        {
+            let root = self.root(cx)?;
+            let root = root.canonicalize().unwrap_or(root);
+            let relative = path
+                .strip_prefix(&root)
+                .ok()?
+                .to_string_lossy()
+                .replace('\\', "/");
+            match lattice_core::project::convert_tldr_board(&root, &relative) {
+                Ok(board) => root.join(board),
+                Err(error) => {
+                    notices::error(
+                        t!("Could not open the file"),
+                        crate::host_errors::text(&error),
+                        cx,
+                    );
+                    return None;
+                }
+            }
+        } else {
+            path
+        };
         if self.open_if_asset(&path, window, cx) {
             return None;
         }

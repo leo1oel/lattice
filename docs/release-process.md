@@ -168,7 +168,7 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
 
 1. **build** (`ubuntu-22.04`, so the AppImage's glibc floor is 22.04's):
    `pnpm tauri build --bundles appimage` with the same pinned Synara source,
-   licensed fonts, Firecrawl key and tldraw key as the Mac build, then
+   licensed fonts and Firecrawl key as the Mac build, then
    `.github/scripts/unbundle-wayland-client.sh`, which rebuilds the AppImage
    without the `libwayland-client` linuxdeploy bundled from 22.04 (the host's
    Mesa needs the host's own, or WebKit cannot create its EGL display and the
@@ -238,7 +238,7 @@ From the release's commit, on GitHub's runners:
    native packages. `pnpm tauri build --target x86_64-apple-darwin --bundles app,dmg`
    with the Developer ID, App Store Connect key and updater key that
    `release.yml` uses (so the app is signed and notarized and its updater
-   archive signed), the licensed fonts and the Firecrawl and tldraw keys. Then
+   archive signed), the licensed fonts and the Firecrawl key. Then
    `check-font-leaks.mjs app`, `app-size-report.mjs`,
    `.github/scripts/check-macos-arch.sh` (every Mach-O file in the bundle
    must contain x86_64), DMG notarization and stapling, and the same
@@ -284,7 +284,7 @@ repository's secrets are available — and attaches nothing.
 
 Once the Release workflow succeeds, `web-demo.yml` builds the website's interactive demo (`tools/web-demo/`, `node scripts/web-demo.mjs`) from the release's commit and publishes it to the `gh-pages` branch under `demo/`, so <https://leo1oel.github.io/lattice/demo/> always runs the version people download.
 It writes nothing outside `demo/`: the rest of `gh-pages` is the website.
-The build is checked before anything is published (no Timeless font, by name or by bytes; no bench or tldraw code; the startup download within its budget; the app opens in headless Chrome), and a failed check leaves the previous demo up.
+The build is checked before anything is published (no Timeless font, by name or by bytes; no bench code; the startup download within its budget; the app opens in headless Chrome), and a failed check leaves the previous demo up.
 
 ### `release-cache.yml`
 
@@ -310,7 +310,6 @@ Changing the Synara pin or preparation script creates a new cache key; the first
 | `TAURI_SIGNING_PRIVATE_KEY` | Updater signing private key (minisign) |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for it (empty string for the current key) |
 | `LATTICE_FIRECRAWL_KEY` | Shared Firecrawl key baked into release builds |
-| `VITE_TLDRAW_LICENSE_KEY` | tldraw license key inlined into the board editor; without it the release ships tldraw in its unlicensed, watermarked mode |
 | `LATTICE_FONTS_DEPLOY_KEY` | Read-only SSH deploy key for the private `leo1oel/lattice-fonts` repository (optional; without it the release ships the open-licensed fonts) |
 
 `GITHUB_TOKEN` is provided automatically by Actions; it does not need to be

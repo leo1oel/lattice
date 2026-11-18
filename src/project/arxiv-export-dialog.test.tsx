@@ -28,7 +28,7 @@ const PACKAGE: ArxivPackage = {
   ],
   totalBytes: 1_276_000,
   sizeLimitBytes: 50_000_000,
-  leftOut: ["attention-demo.html", "notes.md", "refs.bib", "slides/", "whiteboard.tldr"],
+  leftOut: ["attention-demo.html", "notes.md", "refs.bib", "slides/", "whiteboard.excalidraw"],
   figures: ["figures/attention.pdf"],
   missing: [],
   miscased: [],

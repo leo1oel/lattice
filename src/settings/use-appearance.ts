@@ -57,7 +57,7 @@ export function useAppearance(): Appearance {
   const [windowBacking, setWindowBacking] = useState<WindowBacking>("unsupported");
   const appLocale = resolveAppLocale(appearance.interfaceLanguage);
   const theme = themePreference === "system" ? osTheme : themePreference;
-  const { tint, accent, translucency, codeTheme, codeThemeVariant } = appearance;
+  const { tint, accent, translucency, codeTheme, codeThemeVariant, tabStyle } = appearance;
   const codeThemeKind = resolveCodeThemeKind(codeTheme, codeThemeVariant, theme);
 
   useEffect(() => {
@@ -77,6 +77,10 @@ export function useAppearance(): Appearance {
     if (isCustomAccent(accent)) root.style.setProperty("--accent", fitAccent(accent, theme));
     else root.style.removeProperty("--accent");
   }, [theme, tint, accent]);
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.tabStyle = tabStyle;
+  }, [tabStyle]);
 
   useLayoutEffect(() => {
     const root = document.documentElement;

@@ -443,10 +443,10 @@ impl OverleafPicker {
         if names.is_empty() || names == self.copies_for {
             return;
         }
-        self.copies_for = names.clone();
+        self.copies_for = names;
         self.copies_loading = true;
         let known = self.setup.known_folders.clone();
-        let read = cx.background_spawn(async move { sync::local_copies(&names, &known) });
+        let read = cx.background_spawn(async move { sync::local_copies(&known) });
         self.copies_task = Some(cx.spawn(async move |this, cx| {
             let copies = read.await;
             this.update(cx, |this, cx| {

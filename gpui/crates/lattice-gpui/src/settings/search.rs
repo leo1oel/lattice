@@ -105,6 +105,12 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
             t!("Bottom center"),
             t!("toast notification")
         )),
+        Entry::row(Appearance, appearance, "tab-style", t!("Tab style")).terms(format!(
+            "{} {} {}",
+            tc!("tab style", "Filled"),
+            tc!("tab style", "Outlined"),
+            t!("tabs outline chip Linear")
+        )),
         Entry::row(Appearance, source, "source-font", t!("Font")).terms(format!(
             "{source_terms} SF Mono Menlo Inter Atkinson Hyperlegible OpenDyslexic"
         )),
@@ -173,47 +179,6 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
             .description(t!(
                 "Comments are signed {0}, from Git or Overleaf",
                 known_author.unwrap_or("")
-            )),
-        Entry::row(Editor, editor, "spellcheck", t!("Check spelling"))
-            .terms(format!("{} Harper Hunspell", t!("Check spelling in prose"))),
-        Entry::row(Editor, editor, "spelling-languages", t!("Other languages")).terms(format!(
-            "{} babel polyglossia Hunspell {}",
-            t!("Check spelling"),
-            t!("Downloaded dictionaries")
-        )),
-        Entry::row(
-            Editor,
-            editor,
-            "project-dictionary",
-            t!("Project dictionary"),
-        )
-        .terms("Harper")
-        .description(t!("Open a project to add terms")),
-        Entry::row(Editor, editor, "grammar-dialect", t!("English variant")).terms(format!(
-            "{} {} {} Harper",
-            t!("Grammar"),
-            t!("American English"),
-            t!("British English")
-        )),
-        Entry::row(Editor, editor, "grammar-style", t!("Grammar style"))
-            .terms(format!(
-                "{} {} {} Harper",
-                t!("Grammar"),
-                t!("Academic"),
-                t!("Standard")
-            ))
-            .description(t!(
-                "Automatic checks LaTeX as academic writing and other files as everyday prose"
-            )),
-        Entry::row(Editor, editor, "grammar-rules", t!("Grammar rules"))
-            .terms(format!("{} Harper", t!("Grammar")))
-            .description(t!("Filter to find a rule; these apply to every project")),
-        Entry::row(Editor, editor, "grammar-ignored", t!("Ignored in this project"))
-            .terms(format!("{} {} Harper", t!("Grammar"), t!("Ignored sentences")))
-            .description(format!(
-                "{} {}",
-                t!("Open a project to ignore rules or sentences"),
-                t!("Choose Ignore on a grammar suggestion to add one")
             )),
         Entry::row(Editor, editor, "auto-build", t!("Automatic build"))
             .terms(format!("{} ⌘S", t!("Manual only"))),
@@ -482,7 +447,7 @@ mod tests {
             ("crossref", SettingsTab::Literature),
             ("plugin", SettingsTab::Plugins),
             ("third-party", SettingsTab::Acknowledgements),
-            ("british", SettingsTab::Editor),
+            ("emacs", SettingsTab::Editor),
         ] {
             assert_eq!(search(&all, query)[0].tab, tab, "{query}");
         }

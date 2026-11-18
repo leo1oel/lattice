@@ -68,7 +68,7 @@ export function useInlineCreation(
     const pending = pendingRef.current.get(source);
     if (!pending) return false;
     pendingRef.current.delete(source);
-    // Creation modes may pin an extension (e.g. boards → .tldr): a name typed
+    // Creation modes may pin an extension (e.g. boards → .excalidraw): a name typed
     // without one gets it, and an explicit user-typed extension wins.
     let destination = fromPierrePath(destinationPath);
     if (pending.extension && !/\.[^./\\]+$/.test(baseName(destination))) {

@@ -403,7 +403,7 @@ const FILE_VIEW_SHAPES: Record<keyof FileViewState, Field> = {
     scrollTop: nonNegative,
     scrollLeft: nonNegative,
   }),
-  board: shape({ pageId: nonEmptyText, camera: shape({ x: finite, y: finite, z: positive }) }),
+  board: shape({ scrollX: finite, scrollY: finite, zoom: positive }),
   image: shape({ ...SCROLL, scale: positive }),
   // Older HTML views were saved before zoom existed; they open at 100%.
   html: shape({ ...SCROLL, scale: (value) => value === undefined ? 1 : positive(value) }),
@@ -460,6 +460,8 @@ export type AppearanceSettings = {
   toastPosition: ToastPosition;
   /** Title-bar tool buttons the writer chose to hide (Settings → Appearance). */
   hiddenTitlebarTools: TitlebarTool[];
+  /** How panel tabs draw: `filled` marks only the selected tab; `outlined` rings every tab so the strip shows how many are open (trellis.css). */
+  tabStyle: TabStyle;
   /** The surfaces' hue; styles/theme.css holds each preset. */
   tint: ThemeTint;
   accent: ThemeAccent;
@@ -474,6 +476,9 @@ export type AppearanceSettings = {
 /** Where notifications stack. Top left is missing on purpose: the traffic lights live there. */
 const TOAST_POSITIONS = ["top-right", "top-center", "bottom-right", "bottom-center"] as const;
 export type ToastPosition = typeof TOAST_POSITIONS[number];
+
+const TAB_STYLES = ["filled", "outlined"] as const;
+export type TabStyle = typeof TAB_STYLES[number];
 
 /** The tool buttons at the right of the title bar, each of which can be hidden. */
 const TITLEBAR_TOOLS = ["comments", "overleaf", "git", "history", "browser"] as const;
@@ -511,6 +516,7 @@ export function loadAppearance(): AppearanceSettings {
     // the top right. A position the writer stored is kept.
     toastPosition: "bottom-right",
     hiddenTitlebarTools: [],
+    tabStyle: "filled",
     tint: "graphite",
     accent: "graphite",
     translucency: "subtle",
@@ -545,6 +551,7 @@ export function loadAppearance(): AppearanceSettings {
       hiddenTitlebarTools: Array.isArray(value?.hiddenTitlebarTools)
         ? TITLEBAR_TOOLS.filter((tool) => value.hiddenTitlebarTools?.includes(tool))
         : defaults.hiddenTitlebarTools,
+      tabStyle: oneOf(value?.tabStyle, TAB_STYLES, defaults.tabStyle),
       tint: oneOf(value?.tint, THEME_TINTS, defaults.tint),
       accent: normalizeAccent(value?.accent) ?? defaults.accent,
       translucency: oneOf(value?.translucency, TRANSLUCENCY_LEVELS, defaults.translucency),

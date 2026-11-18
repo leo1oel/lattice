@@ -87,8 +87,9 @@ futures = "0.3"
 image = { version = "0.25", default-features = false }
 # Lattice's domain logic, shared with the Tauri app (`../src-tauri/lattice-core`,
 # Apache-2.0): projects, the file tree, builds, SyncTeX, saving and the
-# project watcher.
-lattice-core = { path = "../src-tauri/lattice-core" }
+# project watcher. Without its `spellcheck` feature: the GPUI app has no
+# spell or grammar check, so Harper and the Hunspell dictionaries stay out.
+lattice-core = { path = "../src-tauri/lattice-core", default-features = false }
 lattice-editor = { path = "crates/lattice-editor" }
 lattice-i18n = { path = "crates/lattice-i18n" }
 lattice-settings = { path = "crates/lattice-settings" }

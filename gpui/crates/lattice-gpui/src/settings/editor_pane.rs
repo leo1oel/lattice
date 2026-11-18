@@ -1,24 +1,20 @@
 //! Settings › Editor & builds (`EditorSettingsPane` in settings-dialog.tsx)
 //! and Settings › TeX doctor (`doctor-settings.tsx`).
 //!
-//! The editor's keymap, the name that signs comments, spell checking and
-//! the project's dictionary; the automatic build, cleaning the auxiliary
-//! files and, with a project open, its engine, shell escape and whether a
-//! build stops at the first error (written to the project's manifest, as the
-//! Tauri app writes them); the other languages' dictionaries and the
-//! grammar choices (`grammar_group.rs`); and the app's version.
+//! The editor's keymap and the name that signs comments; the automatic
+//! build, cleaning the auxiliary files and, with a project open, its engine,
+//! shell escape and whether a build stops at the first error (written to the
+//! project's manifest, as the Tauri app writes them); and the app's version.
+//! The Tauri app's spell check, project dictionary and grammar choices are
+//! not here: the GPUI app does not check spelling.
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Entity, IntoElement, ParentElement as _, Styled as _,
-    Window, div, px,
+    AnyElement, App, Context, Entity, IntoElement, ParentElement as _, Styled as _, Window, div,
 };
 use lattice_core::project::{self, ManifestSettings};
 use lattice_i18n::t;
 use lattice_settings::{AutoBuildMode, EditorKeymap};
-use lattice_ui::{
-    ActiveLattice as _, TextRole, TextRoleStyle as _, TypeScale,
-    components::{Button, Field},
-};
+use lattice_ui::components::{Button, Field};
 
 use super::{
     controls::{self, PageWidth, Row, Wrap},
@@ -40,15 +36,6 @@ pub(super) fn row(dialog: &SettingsDialog, row: Row, width: PageWidth, cx: &App)
         .into_any_element()
 }
 
-/// Replace the project's dictionary, through lattice-core's manifest.
-pub fn set_spelling_words(project: &Entity<Project>, words: Vec<String>, cx: &mut App) {
-    let root = project.read(cx).root().to_path_buf();
-    match project::set_spelling_words(&root, words) {
-        Ok(_) => project.update(cx, |project, cx| project.reload_manifest(cx)),
-        Err(error) => crate::notices::error(t!("Could not save the setting"), error, cx),
-    }
-}
-
 /// Change the project's build settings, through lattice-core's manifest.
 fn update_manifest(project: &Entity<Project>, settings: ManifestSettings, cx: &mut App) {
     let root = project.read(cx).root().to_path_buf();
@@ -66,7 +53,6 @@ pub fn render(
 ) -> AnyElement {
     let groups = vec![
         editor(dialog, width, window, cx),
-        super::grammar_group::group(dialog, width, window, cx),
         builds(dialog, width, cx),
         updates(dialog, width, cx),
     ];
@@ -80,7 +66,6 @@ fn editor(
     cx: &mut Context<SettingsDialog>,
 ) -> AnyElement {
     let settings = super::get(cx).clone();
-    let palette = cx.palette().clone();
     let keymap = controls::select(
         "editor-keymap",
         vec![
@@ -91,98 +76,9 @@ fn editor(
         settings.appearance.editor_keymap,
         |keymap, _, cx| super::update_appearance(cx, |a| a.editor_keymap = keymap),
     );
-    let spellcheck = controls::switch(
-        "spellcheck",
-        settings.appearance.editor_spellcheck,
-        false,
-        |on, _, cx| super::update_appearance(cx, |a| a.editor_spellcheck = on),
-    );
-    let project = dialog.project.clone();
-    let words = project
-        .as_ref()
-        .map(|project| project.read(cx).manifest().spelling_words.clone())
-        .unwrap_or_default();
-    let draft = dialog
-        .fields
-        .project_word
-        .read(cx)
-        .value()
-        .trim()
-        .to_string();
-    let this = cx.entity();
-    let add = Button::new("project-dictionary-add", t!("Add"))
-        .disabled(project.is_none() || draft.is_empty())
-        .on_click(move |_: &ClickEvent, window, cx| {
-            this.update(cx, |dialog, cx| dialog.add_project_word_clicked(window, cx))
-        });
-    let terms = (!words.is_empty()).then(|| {
-        div()
-            .flex()
-            .flex_wrap()
-            .gap(px(4.))
-            .children(words.iter().map(|word| {
-                let project = project.clone();
-                let remove = word.clone();
-                let others: Vec<String> = words.iter().filter(|w| **w != remove).cloned().collect();
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(2.))
-                    .h(px(24.))
-                    .pl(px(8.))
-                    .pr(px(2.))
-                    .rounded(px(6.))
-                    .bg(palette.input)
-                    .border_1()
-                    .border_color(palette.line)
-                    .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
-                    .text_color(palette.text)
-                    .child(word.clone())
-                    .child(
-                        lattice_ui::components::IconButton::new(
-                            gpui::ElementId::Name(format!("project-word-remove-{word}").into()),
-                            lattice_ui::Icon::X,
-                        )
-                        .frame(px(20.), px(20.))
-                        .icon_size(px(10.))
-                        .tooltip(t!("Remove {word} from project dictionary", word = word))
-                        .on_click(move |_, _, cx| {
-                            if let Some(project) = &project {
-                                set_spelling_words(project, others.clone(), cx);
-                            }
-                        }),
-                    )
-            }))
-    });
-    let dictionary = div()
-        .flex()
-        .flex_col()
-        .gap(px(8.))
-        .w(controls::CONTROL_WIDTH)
-        .max_w_full()
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .gap(px(4.))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .child(Field::new(&dialog.fields.project_word).disabled(project.is_none())),
-                )
-                .child(add),
-        )
-        .children(terms);
-    let mut dictionary_row =
-        Row::new("project-dictionary", t!("Project dictionary")).control(dictionary);
-    if project.is_none() {
-        dictionary_row = dictionary_row.description(t!("Open a project to add terms"), cx);
-    }
     let name = div()
         .w(controls::CONTROL_WIDTH)
         .child(Field::new(&dialog.fields.author_name));
-    let languages = spelling_languages(dialog, cx);
     let rows = vec![
         row(
             dialog,
@@ -208,76 +104,8 @@ fn editor(
             width,
             cx,
         ),
-        row(
-            dialog,
-            Row::new("spellcheck", t!("Check spelling"))
-                .control(spellcheck)
-                .wrap(Wrap::Never),
-            width,
-            cx,
-        ),
-        row(dialog, languages, width, cx),
-        row(dialog, dictionary_row, width, cx),
     ];
     controls::first_group(Some(t!("Editor").into()), rows, cx)
-}
-
-/// How a document in another language is checked, and the dictionaries
-/// downloaded so far with the licence each came under
-/// (`spelling-languages-row.tsx`).
-fn spelling_languages(dialog: &mut SettingsDialog, cx: &mut Context<SettingsDialog>) -> Row {
-    let palette = cx.palette().clone();
-    let installs = crate::editor_panel::spelling::installs(cx);
-    let cached = dialog
-        .pages
-        .dictionaries
-        .take()
-        .filter(|(seen, _)| *seen == installs);
-    let downloaded = cached.map(|(_, list)| list).unwrap_or_else(|| {
-        crate::editor_panel::spelling::dictionary_store(cx)
-            .map(|store| lattice_core::spelling::dictionaries(&store))
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|dictionary| dictionary.installed)
-            .collect()
-    });
-    let list = if downloaded.is_empty() {
-        div()
-            .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
-            .text_color(palette.text)
-            .child(t!("No dictionary downloaded yet"))
-    } else {
-        div()
-            .flex()
-            .flex_wrap()
-            .gap(px(4.))
-            .children(downloaded.iter().map(|dictionary| {
-                let name = lattice_editor::latex::spelling::language_name(&dictionary.code);
-                div()
-                    .flex()
-                    .items_center()
-                    .min_h(px(24.))
-                    .px(px(8.))
-                    .rounded(px(6.))
-                    .bg(palette.input)
-                    .border_1()
-                    .border_color(palette.line)
-                    .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
-                    .text_color(palette.text)
-                    .child(t!(
-                        "{name}, licensed {license}",
-                        name = &name,
-                        license = &dictionary.license
-                    ))
-            }))
-    };
-    dialog.pages.dictionaries = Some((installs, downloaded));
-    Row::new("spelling-languages", t!("Other languages"))
-        .description(
-            t!("A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."),
-            cx,
-        )
-        .control(div().w(controls::CONTROL_WIDTH).max_w_full().child(list))
 }
 
 fn builds(

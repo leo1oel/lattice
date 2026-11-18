@@ -1,8 +1,8 @@
 /**
  * What the website's demo shows in place of the parts of Lattice that need
  * the Mac: the Agent (it drives the AI tools signed in there), the Git
- * workspace (the Agent's runtime serves it), whiteboards (tldraw is licensed
- * for the app, not the website) and Open Slide (a local server). Each is a card that says so and offers the download, standing in
+ * workspace (the Agent's runtime serves it), whiteboards (the board editor
+ * stays out of the demo's download) and Open Slide (a local server). Each is a card that says so and offers the download, standing in
  * the panel or tab the real surface would fill.
  *
  * Loaded only in the demo build (`import.meta.env.LATTICE_WEB_DEMO`), through
@@ -77,7 +77,7 @@ export function GitWorkspaceFrames(_props: ComponentProps<typeof RealGitWorkspac
 /** A whiteboard's tab: the tutorial's board as a still image. */
 export function BoardEditor({ path }: BoardEditorProps) {
   const { t } = useLingui();
-  const tutorialBoard = path.endsWith("attention-map.tldr");
+  const tutorialBoard = path.endsWith("attention-map.excalidraw");
   return (
     <DesktopOnlyCard
       icon={<Shapes size={20} />}

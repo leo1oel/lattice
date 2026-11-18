@@ -82,5 +82,8 @@ export default defineConfig({
     // `--shard` (CI's three test jobs) splits by estimated cost rather than
     // file count, so the App suites do not pile onto one shard.
     sequence: { sequencer: BalancedShardSequencer },
+    // Excalidraw's ESM build imports open-color's JSON without an import
+    // attribute, which Node refuses; inlining sends it through Vite instead.
+    server: { deps: { inline: ["@excalidraw/excalidraw"] } },
   },
 });

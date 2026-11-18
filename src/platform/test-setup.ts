@@ -170,11 +170,6 @@ function setupDomShims() {
   stub(Range.prototype, "getClientRects", () => []);
   stub(Range.prototype, "getBoundingClientRect", () => ({ bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0, x: 0, y: 0 }));
 
-  // tldraw's environment detection calls CSS.supports at module scope; jsdom
-  // exposes the CSS global without implementing it.
-  if (typeof globalThis.CSS === "undefined" || typeof globalThis.CSS.supports !== "function") {
-    (globalThis as unknown as { CSS: unknown }).CSS = { supports: () => false };
-  }
   // Radix UI (shadcn menus/tooltips/etc.) relies on APIs jsdom doesn't implement.
   if (!("ResizeObserver" in globalThis)) {
     (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {

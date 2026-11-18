@@ -223,6 +223,15 @@ impl Layout {
         Some((ix, (x - page.x) / self.scale, (y - page.y) / self.scale))
     }
 
+    /// Where a rebuild with `pages` pages shows the reader whose view of
+    /// this layout is scrolled to `(x, y)`: the same point of the same page,
+    /// or of the last page when the rebuild has fewer, as Overleaf keeps the
+    /// passage being read; `None` in an empty column or for no pages.
+    pub fn rebuilt_place(&self, (x, y): (f32, f32), pages: usize) -> Option<(usize, f32, f32)> {
+        let (page, x, y) = self.page_point_near(x, y)?;
+        Some((page.min(pages.checked_sub(1)?), x, y))
+    }
+
     /// The largest scroll offset in each direction.
     pub fn max_scroll(&self, viewport: (f32, f32)) -> (f32, f32) {
         (
@@ -336,6 +345,27 @@ mod tests {
         let tall = Layout::new(&[LETTER; 5], 0.5, 400.);
         assert_eq!(tall.current_page(0., 700., 0), 0);
         assert_eq!(layout.visible(10000., 300.), 4..5);
+    }
+
+    #[test]
+    fn a_rebuild_keeps_the_point_read_and_clamps_to_its_last_page() {
+        let layout = Layout::new(&[LETTER; 12], 0.5, 400.);
+        // 120 PDF points into page 8 (each page 396 tall plus a 10px gap).
+        let scroll = (0., 8. * 406. + 60.);
+        let (page, _, y) = layout.rebuilt_place(scroll, 12).unwrap();
+        assert_eq!(page, 8);
+        assert!((y - 120.).abs() < 1e-3);
+        // More pages: the same page and point.
+        assert_eq!(
+            layout.rebuilt_place(scroll, 14).map(|place| place.0),
+            Some(8)
+        );
+        // Fewer pages than the one read: the last, at the same point.
+        let (page, _, y) = layout.rebuilt_place(scroll, 5).unwrap();
+        assert_eq!(page, 4);
+        assert!((y - 120.).abs() < 1e-3);
+        assert_eq!(layout.rebuilt_place(scroll, 0), None);
+        assert_eq!(Layout::default().rebuilt_place(scroll, 3), None);
     }
 
     #[test]

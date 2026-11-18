@@ -132,6 +132,7 @@ pub use fast::composition::{
     PlatformCompositionSurface, PlatformCompositionSurfaceContent, PlatformSurfaceAttachment,
     WindowComposition, WindowCompositionSurface,
 };
+pub use fast::glyph_outline::GlyphOutlineCmd;
 pub use fast::dynamic_textures::{
     DynamicTexture, DynamicTextureId, DynamicTexturePlatform, set_dynamic_texture_platform,
 };

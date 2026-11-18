@@ -66,21 +66,21 @@ pub fn resolve_link(pasted: &str) -> Settled<PastedLink> {
     settled(overleaf::resolve_link(&config_dir(), pasted))
 }
 
-/// The folders on this Mac already linked to the listed projects, by
-/// project id: `known` (the recent projects), the folders the Tauri app
-/// remembers linking, each listed name's download folder, then this app's
-/// own list. The Tauri app's are read before the download folder, so the
-/// copy it has been syncing wins over one only sitting where downloads go.
-pub fn local_copies(names: &[String], known: &[PathBuf]) -> BTreeMap<String, LocalCopy> {
+/// The folders on this Mac already linked to Overleaf projects, by project
+/// id: `known` (the recent projects), the folders the Tauri app remembers
+/// linking, every folder in the download folder, then this app's own list.
+/// The Tauri app's are read before the download folder, so the copy it has
+/// been syncing wins over one only sitting where downloads go. Each is read
+/// by its own link, never matched by a title that may have changed on
+/// Overleaf.
+pub fn local_copies(known: &[PathBuf]) -> BTreeMap<String, LocalCopy> {
     let Ok(parent) = projects_dir() else {
         return BTreeMap::new();
     };
     let tauri = super::tauri_config_dir()
         .map(|dir| overleaf::remembered_local_copies(&dir))
         .unwrap_or_default();
-    let downloads = names
-        .iter()
-        .filter_map(|name| overleaf::download_folder(&parent, name).ok());
+    let downloads = overleaf::download_folders(&parent);
     let candidates: Vec<PathBuf> = known
         .iter()
         .cloned()
@@ -93,9 +93,10 @@ pub fn local_copies(names: &[String], known: &[PathBuf]) -> BTreeMap<String, Loc
 pub fn reopen_local_copy(
     path: &Path,
     project_id: &str,
+    name: &str,
     access: Option<&str>,
 ) -> Result<(), String> {
-    overleaf::reopen_local_copy(&config_dir(), path, project_id, access)
+    overleaf::reopen_local_copy(&config_dir(), path, project_id, Some(name), access)
 }
 
 /// Where a download goes: the folder the last one went to, else

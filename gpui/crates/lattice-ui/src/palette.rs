@@ -178,7 +178,7 @@ impl GlyphKind {
                     "png", "jpg", "jpeg", "gif", "svg", "eps", "webp", "tif", "tiff",
                 ],
             ),
-            (GlyphKind::Board, &["tldr"]),
+            (GlyphKind::Board, &["excalidraw", "tldr"]),
             (GlyphKind::Sheet, &["lattice-sheet", "csv", "tsv", "xlsx"]),
             (
                 GlyphKind::Code,

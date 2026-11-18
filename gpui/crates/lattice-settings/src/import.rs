@@ -42,7 +42,6 @@ pub const KEYS: &[&str] = &[
     "lattice.live-preview.v1",
     "lattice.live-preview-removed.v1",
     "lattice.build-output-docked.v1",
-    "lattice.grammar.v1",
     "lattice.papers.save-full-text.v1",
 ];
 
@@ -117,7 +116,6 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
             Some("0") => Some(false),
             _ => None,
         },
-        grammar: crate::model::Grammar::from_value(json("lattice.grammar.v1").as_ref()),
         // Stored as "true" or "false" (`save-full-text-setting.ts`).
         save_full_text: item("lattice.papers.save-full-text.v1") == Some("true"),
     }

@@ -11,12 +11,12 @@
  *   --dist DIR    serve or smoke-check a folder --build-only made instead of building
  *
  * The build is the production config with the demo flavor
- * (LATTICE_WEB_DEMO=1, which leaves out the Agent, tldraw and Open Slide),
+ * (LATTICE_WEB_DEMO=1, which leaves out the Agent, the board editor and Open Slide),
  * relative asset paths (it is served from a subfolder), no private fonts and
  * no VITE_ variables. Every build is then checked, and a failed check exits 1:
  *
  *   - no Timeless font, by name or by bytes (check-font-leaks.mjs `site`);
- *   - nothing from the performance bench or tldraw, and no absolute asset path;
+ *   - nothing from the performance bench, and no absolute asset path;
  *   - what a first visit downloads before the app can draw (startupBytes,
  *     gzipped) stays under STARTUP_BUDGET.
  *
@@ -40,8 +40,8 @@ const PORT = 18490;
  * own files); raise it only with the reason.
  */
 const STARTUP_BUDGET = 1_000_000;
-/** Text that must not be in a public build: the bench's fixture and hooks, and tldraw (licensed for the app only). */
-const FORBIDDEN = [/lattice-perf-fixture/, /__latticeBench/, /@tldraw\//, /tldraw\.com\/license/i, /VITE_TLDRAW_LICENSE_KEY/];
+/** Text that must not be in a public build: the bench's fixture and hooks. */
+const FORBIDDEN = [/lattice-perf-fixture/, /__latticeBench/];
 
 function parseArgs(argv) {
   const options = { buildOnly: null, dist: null, serve: false, smoke: false, port: PORT };

@@ -32,7 +32,7 @@ const DOCUMENTS: Array<{ name: string; key: string; kind: TrellisTabKind; tools:
   { name: "Paper", key: ".research/papers/1706.03762v7/paper.md", kind: "paper", tools: "paper" },
   { name: "BibTeX", key: "references.bib", kind: "file", tools: "views" },
   { name: "plain text", key: "README.txt", kind: "file", tools: null },
-  { name: "board", key: "sketch.tldr", kind: "file", tools: null },
+  { name: "board", key: "sketch.excalidraw", kind: "file", tools: null },
   { name: "spreadsheet", key: "data/results.csv", kind: "file", tools: null },
   { name: "slide deck", key: "talk/slides.deck.json", kind: "file", tools: null },
   { name: "image asset", key: "figures/plot.png", kind: "asset", tools: null },

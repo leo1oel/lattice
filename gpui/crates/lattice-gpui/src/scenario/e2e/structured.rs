@@ -10,7 +10,7 @@
 //!   (the queued overlay check: a deferred sheet over an island), and its
 //!   answer goes back to the page; hidden past the (shortened) hibernation
 //!   delay it is torn down, and comes back drawn with the edit;
-//! - a `.tldr` opens in the board island in the host's theme; a shape taken
+//! - an `.excalidraw` opens in the board island in the host's theme; a shape taken
 //!   out of the file on disk leaves the board; a rectangle drawn with native
 //!   input, its tab closed at once (inside the board's 300 ms debounce), is
 //!   in the file once the tab has gone;
@@ -32,22 +32,22 @@ use super::{Run, Steps};
 use crate::{editor_panel::EditorPanel, native};
 
 pub(super) const BOARD: &str =
-    include_str!("../../../../../../src-tauri/templates/tutorial/attention-map.tldr");
+    include_str!("../../../../../../src-tauri/templates/tutorial/attention-map.excalidraw");
 pub(super) const SHEET: &str =
     include_str!("../../../../../../src-tauri/templates/tutorial/attention-results.lattice-sheet");
 const DECK: &str = include_str!(
     "../../../../../../src-tauri/templates/tutorial/slides/understanding-attention/index.tsx"
 );
 
-/// How many shapes a `.tldr` holds.
+/// How many live elements an `.excalidraw` holds.
 pub(super) fn shape_count(text: &str) -> usize {
     serde_json::from_str::<Value>(text)
         .ok()
         .and_then(|file| {
-            file["records"].as_array().map(|records| {
-                records
+            file["elements"].as_array().map(|elements| {
+                elements
                     .iter()
-                    .filter(|record| record["typeName"] == "shape")
+                    .filter(|element| element["isDeleted"] != true)
                     .count()
             })
         })
@@ -367,17 +367,19 @@ impl Run {
     }
 
     async fn board_island(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
-        let path = root.join("e2e-map.tldr");
+        let path = root.join("e2e-map.excalidraw");
         std::fs::write(&path, BOARD)?;
         let Some((panel, island)) = self
             .open_structured(cx, &path, Duration::from_secs(40))
             .await?
         else {
-            steps.check("a .tldr opens in the board island", false, json!({}));
+            steps.check("an .excalidraw opens in the board island", false, json!({}));
             return Ok(());
         };
-        let shapes_on_board = "document.querySelectorAll('.tl-shape').length";
-        // tldraw draws its shapes once the page has laid out.
+        // Excalidraw draws on a canvas; the board root counts its live elements.
+        let shapes_on_board =
+            "Number(document.querySelector('.board-editor-root')?.dataset.elements ?? 0)";
+        // Excalidraw reports its scene once the page has laid out.
         let mut drawn_shapes = Value::Null;
         for _ in 0..50 {
             drawn_shapes = self.evaluate(cx, &island, shapes_on_board).await;
@@ -386,23 +388,22 @@ impl Run {
             }
             self.pause(cx, Duration::from_millis(200)).await;
         }
-        let dark_class = "!!document.querySelector('.tl-container.tl-theme__dark')";
+        let dark_class = "!!document.querySelector('.excalidraw.theme--dark')";
         let light = self.evaluate(cx, &island, dark_class).await;
         cx.update(|cx| LatticeTheme::set_appearance(Appearance::Dark, cx));
         self.pause(cx, Duration::from_millis(500)).await;
         let dark = self.evaluate(cx, &island, dark_class).await;
         cx.update(|cx| LatticeTheme::set_appearance(Appearance::Light, cx));
         steps.check(
-            "a .tldr opens in the board island with its shapes, and follows the host's light and dark",
+            "an .excalidraw opens in the board island with its shapes, and follows the host's light and dark",
             drawn_shapes.as_u64().unwrap_or(0) > 0 && light == false && dark == true,
             json!({ "shapes": drawn_shapes, "light_dark_class": light, "dark_dark_class": dark }),
         );
 
         self.island_shot(cx, "board-island").await?;
 
-        // A shape taken out of the file on disk leaves the board. The board
-        // writes the file once on opening (tldraw settles its records), so
-        // the edit waits for that save: an edit on disk reloads only a clean
+        // A shape taken out of the file on disk leaves the board. The edit
+        // waits for a clean buffer: an edit on disk reloads only a clean
         // buffer, and merges into an edited one on its next save.
         let clean = self
             .wait_for(cx, Duration::from_secs(10), |_, cx| {
@@ -411,18 +412,20 @@ impl Run {
             .await;
         self.pause(cx, Duration::from_millis(500)).await;
         let mut file: Value = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
-        let removed = file["records"].as_array_mut().and_then(|records| {
-            let parents: Vec<String> = records
+        // One no other element is inside or bound to, so it leaves alone.
+        let removed = file["elements"].as_array_mut().and_then(|elements| {
+            let held: Vec<String> = elements
                 .iter()
-                .filter_map(|record| record["parentId"].as_str().map(str::to_string))
+                .flat_map(|element| [&element["containerId"], &element["frameId"]])
+                .filter_map(|id| id.as_str().map(str::to_string))
                 .collect();
-            let index = records.iter().position(|record| {
-                record["typeName"] == "shape"
-                    && record["id"]
+            let index = elements.iter().position(|element| {
+                element["containerId"].is_null()
+                    && element["id"]
                         .as_str()
-                        .is_some_and(|id| !parents.iter().any(|parent| parent == id))
+                        .is_some_and(|id| !held.iter().any(|holder| holder == id))
             })?;
-            Some(records.remove(index))
+            Some(elements.remove(index))
         });
         let before = drawn_shapes.as_u64().unwrap_or(0);
         std::fs::write(&path, serde_json::to_string(&file)?)?;
@@ -440,9 +443,9 @@ impl Run {
             self.pause(cx, Duration::from_millis(250)).await;
         }
         steps.check(
-            "a shape taken out of the .tldr on disk leaves the board",
+            "a shape taken out of the .excalidraw on disk leaves the board",
             removed.is_some() && after < before,
-            json!({ "clean_first": clean, "before": before, "after": after, "removed": removed.map(|record| record["id"].clone()) }),
+            json!({ "clean_first": clean, "before": before, "after": after, "removed": removed.map(|element| element["id"].clone()) }),
         );
 
         // A rectangle drawn with native input; the tab closed at once.
@@ -473,7 +476,7 @@ impl Run {
             })
             .await;
         steps.check(
-            "a rectangle drawn with native input on the board is in the .tldr after its tab closes at once",
+            "a rectangle drawn with native input on the board is in the .excalidraw after its tab closes at once",
             drew && saved,
             json!({ "drew": drew, "saved": saved, "shapes_before": on_disk, "on_board_before_close": on_board,
                     "shapes_after": std::fs::read_to_string(&path).map(|text| shape_count(&text)).ok() }),

@@ -35,10 +35,11 @@ impl OverleafPicker {
         let reopen = {
             let path = path.clone();
             let id = project.id.clone();
+            let name = project.name.clone();
             let access = project.access_level.clone();
-            cx.background_spawn(
-                async move { sync::reopen_local_copy(&path, &id, access.as_deref()) },
-            )
+            cx.background_spawn(async move {
+                sync::reopen_local_copy(&path, &id, &name, access.as_deref())
+            })
         };
         self.task = Some(cx.spawn(async move |this, cx| {
             let reopened = reopen.await;

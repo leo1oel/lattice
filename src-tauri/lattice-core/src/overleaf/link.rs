@@ -195,6 +195,20 @@ impl SyncState {
         Permission::parse(self.permission.as_deref())
     }
 
+    /// Take the title Overleaf now reports. The title is only what the app
+    /// shows: everything the link does goes by `project_id`, and the folder
+    /// keeps the name it was given. Returns whether anything changed.
+    fn retitle(&mut self, title: Option<&str>) -> bool {
+        let Some(title) = title.map(str::trim).filter(|title| !title.is_empty()) else {
+            return false;
+        };
+        if self.project_name == title {
+            return false;
+        }
+        self.project_name = title.to_string();
+        true
+    }
+
     fn link(self) -> OverleafLink {
         let SyncState { project_id, project_name, host, last_sync, paused, .. } = self;
         OverleafLink { project_id, project_name, host, last_sync, paused }
@@ -277,7 +291,7 @@ pub fn set_permission(root: &Path, permission: &str) -> Result<(), String> {
 /// This is persisted before the frontend treats the channel as live, so the
 /// first automatic sync can upload new files without racing the socket join.
 pub fn set_realtime_metadata(
-    root: &Path, root_folder_id: &str, permission: &str,
+    root: &Path, root_folder_id: &str, permission: &str, project_name: Option<&str>,
 ) -> Result<(), String> {
     let root_folder_id = root_folder_id.trim();
     if root_folder_id.is_empty() {
@@ -292,7 +306,11 @@ pub fn set_realtime_metadata(
         Permission::Unknown => state.permission.clone(),
         _ => Some(permission.to_string()),
     };
-    if state.root_folder_id.as_deref() == Some(root_folder_id) && state.permission == permission {
+    let retitled = state.retitle(project_name);
+    if !retitled
+        && state.root_folder_id.as_deref() == Some(root_folder_id)
+        && state.permission == permission
+    {
         return Ok(());
     }
     state.root_folder_id = Some(root_folder_id.to_string());
@@ -349,9 +367,43 @@ pub fn clone_target(
     project_id: &str, project_name: &str, dest_parent: &Path,
 ) -> Result<CloneTarget, String> {
     let folder = sanitize_project_name(project_name)?;
+    if let Some(linked) = linked_download(dest_parent, project_id) {
+        let folder = linked.file_name().map_or(folder, |name| name.to_string_lossy().into_owned());
+        return Ok(CloneTarget {
+            kind: "open".into(),
+            path: linked.to_string_lossy().into_owned(),
+            folder,
+        });
+    }
     let root = dest_parent.join(&folder);
     let kind = occupancy(&root, project_id).to_string();
     Ok(CloneTarget { kind, path: root.to_string_lossy().into_owned(), folder })
+}
+
+/// Plenty for anyone's downloads, and a bound on what one lookup reads.
+const MAX_DOWNLOADS: usize = 500;
+
+/// The folders directly inside `dest_parent`, where projects download, each
+/// a candidate copy of some project. A download is named after the project's
+/// title when it was made, and Overleaf lets anyone rename a project, so the
+/// folder that holds a project is found by reading each one's own link, never
+/// by its name.
+pub fn download_folders(dest_parent: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(dest_parent) else { return Vec::new() };
+    let mut folders: Vec<PathBuf> = (entries.flatten())
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+        .map(|entry| entry.path())
+        .take(MAX_DOWNLOADS)
+        .collect();
+    folders.sort();
+    folders
+}
+
+/// The folder in `dest_parent` already linked to `project_id`, whatever the
+/// project is called now.
+fn linked_download(dest_parent: &Path, project_id: &str) -> Option<PathBuf> {
+    (download_folders(dest_parent).into_iter())
+        .find(|folder| load_state(folder).is_ok_and(|state| state.project_id == project_id))
 }
 
 /// Ready a folder already linked to `project_id` to open again, recording the
@@ -360,23 +412,20 @@ pub fn clone_target(
 /// writable role: unknown must fail closed until realtime supplies fresh
 /// evidence.
 pub fn reopen_local_copy(
-    config_dir: &Path, root: &Path, project_id: &str, access_level: Option<&str>,
+    config_dir: &Path, root: &Path, project_id: &str, project_name: Option<&str>,
+    access_level: Option<&str>,
 ) -> Result<(), String> {
     let mut state = load_state(root)?;
     if state.project_id != project_id {
         return Err(format!("{} is no longer linked to this Overleaf project.", root.display()));
     }
-    if state.permission.as_deref() != access_level {
+    let retitled = state.retitle(project_name);
+    if retitled || state.permission.as_deref() != access_level {
         state.permission = access_level.map(str::to_string);
         save_state(root, &state)?;
     }
     remember_local_copy(config_dir, root);
     Ok(())
-}
-
-/// The folder a project named `project_name` downloads into first.
-pub fn download_folder(dest_parent: &Path, project_name: &str) -> Result<PathBuf, String> {
-    Ok(dest_parent.join(sanitize_project_name(project_name)?))
 }
 
 /// Fold a project name into a safe folder name, mirroring
@@ -434,6 +483,12 @@ pub fn clone_project(
 ) -> Result<PathBuf, String> {
     let session = load_session(config_dir)?;
     let folder_name = sanitize_project_name(project_name)?;
+    // Renamed on Overleaf since it was downloaded: the folder keeps the old
+    // title, and it is still this project's copy.
+    if let Some(linked) = linked_download(dest_parent, project_id) {
+        reopen_local_copy(config_dir, &linked, project_id, Some(project_name), access_level)?;
+        return Ok(linked);
+    }
     let candidates = std::iter::once(folder_name.clone())
         .chain((2..100).map(|suffix| format!("{folder_name} ({suffix})")))
         .map(|name| dest_parent.join(name));
@@ -445,7 +500,13 @@ pub fn clone_project(
                 break;
             }
             "open" => {
-                reopen_local_copy(config_dir, &candidate, project_id, access_level)?;
+                reopen_local_copy(
+                    config_dir,
+                    &candidate,
+                    project_id,
+                    Some(project_name),
+                    access_level,
+                )?;
                 return Ok(candidate);
             }
             _ => {}

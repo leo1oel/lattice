@@ -44,7 +44,7 @@ Builds have read-only repository permissions and no repository secrets. They use
 the pinned Rust toolchain, Node/pnpm setup conventions, frozen pnpm lockfiles,
 MSVC/Windows SDK on the hosted runner and a separate Windows release cache.
 Open-licensed interface fonts are used. There are no private fonts or baked-in
-product-license keys; tldraw is in its unlicensed mode without a key.
+product-license keys.
 
 Only the final `attach` job gets `contents: write`, after all installation and
 native checks passed. It downloads the exact artifact ID from that run and

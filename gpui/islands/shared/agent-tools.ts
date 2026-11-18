@@ -36,8 +36,8 @@ export type AgentToolDocument = "board" | "sheet" | "deck";
 
 /**
  * The longest a routed call waits for its editor to register: a page the
- * owner routes to has drawn, but tldraw registers its adapter only once its
- * editor mounts, a moment later.
+ * owner routes to has drawn, but the board registers its adapter only once
+ * Excalidraw hands it its API, a moment later.
  */
 const REGISTRATION_WAIT_MS = 5_000;
 

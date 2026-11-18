@@ -1,4 +1,4 @@
-import { tauriEventApi, fileNode, fileNodes, dirNode, type CommandResult, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, rootDocument, markdownSnapshot, EMPTY_BOARD, BIB_SOURCE, PAPER_ABSTRACT, readFiles, readPathContent, deferred, selectPanelTab, selectDocumentView, findProjectTreeItem, queryProjectTreeItem, exposeGarbageCollector, expectNotification, emitTauriEvent, editorViewAt, appendToEditor, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, nextFrames, stubRect, persistLayout, paneContent, visualEditorOf, visualDocument, argPath, waitForSelectedTab, openTreeFile, stubScrollBox } from "./app-test-utils";
+import { tauriEventApi, fileNode, fileNodes, dirNode, type CommandResult, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, rootDocument, markdownSnapshot, BIB_SOURCE, PAPER_ABSTRACT, readFiles, readPathContent, deferred, selectPanelTab, selectDocumentView, findProjectTreeItem, queryProjectTreeItem, exposeGarbageCollector, expectNotification, emitTauriEvent, editorViewAt, appendToEditor, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, nextFrames, stubRect, persistLayout, paneContent, visualEditorOf, visualDocument, argPath, waitForSelectedTab, openTreeFile, stubScrollBox } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { documentCanvas } from "./app-test-canvas";
 import { invoke } from "@tauri-apps/api/core";
@@ -609,12 +609,12 @@ describe("documents and editors", () => {
       files: [
         fileNode("main.tex"), dirNode("notes", [fileNode("notes/index.md")]),
         dirNode("slides", [dirNode("slides/native", [fileNode("slides/native/index.tsx")])]),
-        ...fileNodes("results.lattice-sheet", "sketch.tldr"),
+        ...fileNodes("results.lattice-sheet", "map.excalidraw"),
       ],
     });
     const contentByPath: Record<string, string> = {
-      "notes/index.md": "[Open slides](slides/native/index.tsx)\n\n[Open sheet](results.lattice-sheet)\n\n[Open board](sketch.tldr)",
-      "slides/native/index.tsx": "export default [];\n", "results.lattice-sheet": "{}", "sketch.tldr": EMPTY_BOARD,
+      "notes/index.md": "[Open slides](slides/native/index.tsx)\n\n[Open sheet](results.lattice-sheet)\n\n[Open board](map.excalidraw)",
+      "slides/native/index.tsx": "export default [];\n", "results.lattice-sheet": "{}", "map.excalidraw": "{}",
     };
     persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", canvasMode: "split" });
 
@@ -635,7 +635,7 @@ describe("documents and editors", () => {
     expect(invoke).not.toHaveBeenCalledWith("read_project_file", { path: "notes/slides/native/index.tsx", projectRoot: snapshot.root });
 
     for (const [link, editor, path] of [
-      ["Open sheet", "spreadsheet-editor-mock", "results.lattice-sheet"], ["Open board", "board-editor-mock", "sketch.tldr"],
+      ["Open sheet", "spreadsheet-editor-mock", "results.lattice-sheet"], ["Open board", "board-editor-mock", "map.excalidraw"],
     ]) {
       fireEvent.click(screen.getByRole("tab", { name: /index\.md/ }));
       fireEvent.click(await screen.findByRole("link", { name: link }));

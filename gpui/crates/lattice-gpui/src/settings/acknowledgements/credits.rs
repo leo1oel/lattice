@@ -1,6 +1,7 @@
 //! The work Settings › About › Acknowledgements names first, before the full
 //! list of every package the app ships (`acknowledged-software.ts`, the
-//! same entries in the same order).
+//! same entries in the same order, less Harper, which only the Tauri app
+//! ships).
 //!
 //! Choosing what is prominent is the only hand-kept part. Version and license
 //! come from THIRD_PARTY_NOTICES.md through `package`, so they move with the
@@ -104,8 +105,12 @@ pub const CORE_SOFTWARE: &[Credit] = &[
         "@open-slide/core",
     ),
     licensed(
-        of(credit("tldraw", "https://tldraw.dev"), Npm, "tldraw"),
-        "tldraw license",
+        of(
+            credit("Excalidraw", "https://excalidraw.com"),
+            Npm,
+            "@excalidraw/excalidraw",
+        ),
+        "MIT",
     ),
     Credit {
         attribution: Some("Uses Trellis by DanFessler - github.com/DanFessler/trellis"),
@@ -132,11 +137,6 @@ pub const CORE_SOFTWARE: &[Credit] = &[
     of(credit("KaTeX", "https://katex.org"), Npm, "katex"),
     of(credit("Pele", "https://pele.run"), Npm, "pele"),
     of(credit("Shiki", "https://shiki.style"), Npm, "shiki"),
-    of(
-        credit("Harper", "https://writewithharper.com"),
-        Crates,
-        "harper-core",
-    ),
     of(
         credit("tantivy", "https://github.com/quickwit-oss/tantivy"),
         Crates,

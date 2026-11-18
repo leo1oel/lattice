@@ -205,7 +205,7 @@ impl Run {
         // Overleaf names the root folder over its live channel, which the
         // stand-in refuses; uploads need it, so it is recorded as a join
         // would record it.
-        lattice_core::overleaf::set_realtime_metadata(&clone_root, "root-mock", "owner")
+        lattice_core::overleaf::set_realtime_metadata(&clone_root, "root-mock", "owner", None)
             .map_err(|error| anyhow!(error))?;
 
         let control = linked
