@@ -36,9 +36,6 @@
 .theme-browse-row:last-child { border-bottom: 0; }
 .theme-browse-skeleton { border-radius: var(--radius-control); border-bottom: 0; margin-bottom: var(--space-2); background: var(--surface-panel-raised); }
 
-.theme-browse-art .theme-window,
-.theme-browse-art .theme-window-split { width: 76px; }
-
 .theme-browse-text { min-width: 0; display: grid; gap: 1px; }
 .theme-browse-title { margin: 0; display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
 .theme-browse-name {

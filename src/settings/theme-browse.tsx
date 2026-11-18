@@ -44,7 +44,13 @@ export function BrowseThemesSheet(props: {
   onClose: () => void;
 }) {
   const { t } = useLingui();
-  const [load, setLoad] = useReducer((current: Load, next: Partial<Load>) => ({ ...current, ...next }), {
+  // `cached` fills in only while nothing is shown: a cached answer that
+  // lands after the fetched one is older.
+  const [load, setLoad] = useReducer((current: Load, { cached, ...next }: Partial<Load> & { cached?: RegistryListing }) => ({
+    ...current,
+    ...next,
+    listing: next.listing ?? current.listing ?? cached ?? null,
+  }), {
     listing: null,
     refreshing: true,
     failure: null,
@@ -63,7 +69,7 @@ export function BrowseThemesSheet(props: {
   // fetched and verified.
   useEffect(() => {
     let active = true;
-    registryIndex(false).then((listing) => { if (active) setLoad({ listing }); }, () => {});
+    registryIndex(false).then((cached) => { if (active) setLoad({ cached }); }, () => {});
     registryIndex(true).then(
       (listing) => { if (active) setLoad({ listing, refreshing: false }); },
       (reason: unknown) => { if (active) setLoad({ refreshing: false, failure: hostErrorMessage(reason) }); },
