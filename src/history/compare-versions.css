@@ -42,7 +42,8 @@
 .compare-range { display: inline-flex; align-items: center; gap: var(--space-3); min-width: 0; max-width: 100%; color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .compare-range b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-semibold); }
 .compare-range svg { flex: none; color: var(--text-secondary); }
-.compare-mode { flex: none; margin-inline-start: auto; }
+.compare-tools { display: inline-flex; flex: none; align-items: center; gap: var(--space-4); margin-inline-start: auto; }
+.compare-mode, .compare-wrap { flex: none; }
 .compare-none { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 
 .compare-file { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); min-width: 0; }

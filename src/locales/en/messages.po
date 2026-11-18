@@ -18493,6 +18493,10 @@ msgstr "Workspace: {currentName}"
 msgid "Workspaces"
 msgstr "Workspaces"
 
+#: src/history/compare-versions.tsx
+msgid "Wrap"
+msgstr "Wrap"
+
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Wrap in \\iffalse … \\fi"
 msgstr "Wrap in \\iffalse … \\fi"
@@ -18520,6 +18524,10 @@ msgstr "Wrap in itemize"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Wrap in table float"
 msgstr "Wrap in table float"
+
+#: src/history/compare-versions.tsx
+msgid "Wrap long lines"
+msgstr "Wrap long lines"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"

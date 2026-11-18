@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, FileDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, FileDown, WrapText } from "lucide-react";
 import type { GitFileDiff, GitLogEntry, GitLogFileKind } from "../app-types";
 import { Button } from "../components/ui/button";
 import { InlineEdits } from "../components/ui/inline-edits";
@@ -29,6 +29,8 @@ import { isAutomaticVersion, versionMessageLabel } from "./version-messages";
 import { PROSE_FILE, changedWords, joinedPassage, prosePassages, sectionAt, type ProsePassage } from "./version-prose";
 import { dayName, clockTime, fullTime } from "./history-time";
 import { ExportChangesDialog } from "./export-changes-dialog";
+import { diffWrapSetting } from "./diff-wrap-setting";
+import { useSharedSetting } from "../settings/shared-setting";
 import "./compare-versions.css";
 
 /** The newer side when it is the files as they are, not a saved version. */
@@ -74,6 +76,7 @@ export function CompareVersions(props: {
   const [chosenPath, setChosenPath] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [mode, setMode] = useState<"prose" | "source">("prose");
+  const [wrap, setWrap] = useSharedSetting(diffWrapSetting);
   const files = useLatestLoad<ComparedFile[]>();
   const fileDiff = useLatestLoad<GitFileDiff>();
   // Until a side is picked, From is the newest version someone saved or named
@@ -147,6 +150,8 @@ export function CompareVersions(props: {
   // Counted as the diff found them; read with the short words between edits joined in.
   const counts = passages ? changedWords(passages) : null;
   const readable = passages?.map(joinedPassage) ?? null;
+  // Prose already wraps; only the source diff scrolls sideways.
+  const showsSource = Boolean(path && diffReady && !diffReady.binary && (mode === "source" || !passages));
   const now = t`Now`;
   const fromName = sideName(from, entries, now);
   const toName = sideName(to, entries, now);
@@ -216,15 +221,29 @@ export function CompareVersions(props: {
           <ArrowRight size={12} aria-hidden="true" />
           <b title={toName}>{toName}</b>
         </span>
-        {passages && (
-          <SegmentedControl
-            className="compare-mode"
-            value={mode}
-            onChange={setMode}
-            ariaLabel={t`Show changes as`}
-            items={[{ value: "prose", label: t`Prose` }, { value: "source", label: t`Source` }]}
-          />
-        )}
+        <span className="compare-tools">
+          {showsSource && (
+            <button
+              type="button"
+              className="ui-compact-selectable compare-wrap"
+              title={t`Wrap long lines`}
+              aria-pressed={wrap}
+              onClick={() => setWrap((wrapped) => !wrapped)}
+            >
+              <WrapText size={13} aria-hidden="true" />
+              <span>{t`Wrap`}</span>
+            </button>
+          )}
+          {passages && (
+            <SegmentedControl
+              className="compare-mode"
+              value={mode}
+              onChange={setMode}
+              ariaLabel={t`Show changes as`}
+              items={[{ value: "prose", label: t`Prose` }, { value: "source", label: t`Source` }]}
+            />
+          )}
+        </span>
       </div>
       {files.error && <InlineMessage level="error">{files.error}</InlineMessage>}
       {!changed && !files.error && <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Comparing…`}</p>}
@@ -255,6 +274,7 @@ export function CompareVersions(props: {
           diff={diffReady}
           passages={mode === "prose" ? readable : null}
           counts={counts}
+          wrap={wrap}
           onOpenLine={to === NOW && props.onOpenFile ? (line) => props.onOpenFile?.(path, line) : undefined}
         />
       )}
@@ -298,13 +318,14 @@ function ComparedFileChanges(props: {
   diff: GitFileDiff;
   passages: ProsePassage[] | null;
   counts: { added: number; removed: number } | null;
+  wrap: boolean;
   onOpenLine?: (line: number) => void;
 }) {
   const { t } = useLingui();
   const { counts, diff, path, passages } = props;
   const [stepped, setStepped] = useState(0);
   const passageRefs = useRef<Array<HTMLElement | null>>([]);
-  if (!passages) return <HistoryDiff change={{ path, before: diff.before, after: diff.after }} binary={diff.binary} />;
+  if (!passages) return <HistoryDiff change={{ path, before: diff.before, after: diff.after }} binary={diff.binary} wrap={props.wrap} />;
 
   // Now read again may hold fewer changes than the one stepped through.
   const current = Math.min(stepped, Math.max(0, passages.length - 1));
