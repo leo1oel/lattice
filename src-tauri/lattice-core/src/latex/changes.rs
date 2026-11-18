@@ -22,7 +22,7 @@
 //! the plainer markup would not have finished either.
 
 mod guard;
-mod input_loop;
+pub(super) mod input_loop;
 mod repair;
 mod review;
 
