@@ -37,7 +37,10 @@ impl Drop for Guarded {
 /// a build machine without bubblewrap, FUSE or user namespaces is not a
 /// failure of the guard. `LATTICE_REQUIRE_BIBLIOGRAPHY_GUARD` makes it one.
 fn guard_available() -> bool {
-    let Some(reason) = missing() else { return true };
+    // Asked once for the whole run: the answer is the machine's, and each
+    // asking starts a sandbox of its own beside the other tests' mounts.
+    static MISSING: std::sync::OnceLock<Option<&'static str>> = std::sync::OnceLock::new();
+    let Some(reason) = *MISSING.get_or_init(missing) else { return true };
     assert!(
         std::env::var_os("LATTICE_REQUIRE_BIBLIOGRAPHY_GUARD").is_none(),
         "the bibliography guard cannot run here: {reason}"

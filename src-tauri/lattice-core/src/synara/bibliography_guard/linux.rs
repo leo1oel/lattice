@@ -121,16 +121,35 @@ fn find_program(name: &str) -> Option<PathBuf> {
 /// Whether bubblewrap can build a sandbox at all here: user namespaces can
 /// be turned off by a sysctl or by AppArmor.
 fn sandbox_starts(bubblewrap: &Path) -> bool {
-    let mut probe = Command::new(bubblewrap);
-    probe
-        .args(["--unshare-pid", "--ro-bind", "/", "/", "--proc", "/proc", "--"])
-        .arg(bubblewrap)
-        .arg("--version")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    host_environment(&mut probe).status().is_ok_and(|status| status.success())
+    let probe = || {
+        let mut probe = Command::new(bubblewrap);
+        probe
+            .args(["--unshare-pid", "--ro-bind", "/", "/", "--proc", "/proc", "--"])
+            .arg(bubblewrap)
+            .arg("--version")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        host_environment(&mut probe).status().is_ok_and(|status| status.success())
+    };
+    // Binding `/` takes every mount on the system along, and one unmounted
+    // meanwhile fails the bind (`Unable to apply mount flags: remount`),
+    // though nothing is wrong with the system: the filter of a guard that
+    // is just ending, or any other FUSE mount. Asked again before the
+    // answer is that it cannot.
+    (0..PROBE_ATTEMPTS).any(|attempt| {
+        if attempt > 0 {
+            thread::sleep(PROBE_PAUSE);
+        }
+        probe()
+    })
 }
+
+/// How often [`sandbox_starts`] asks before it answers no, and how long it
+/// waits in between: a system that really cannot start one answers a
+/// fraction of a second later.
+const PROBE_ATTEMPTS: u32 = 3;
+const PROBE_PAUSE: Duration = Duration::from_millis(100);
 
 /// Run the guard around a command and exit with its status, when Lattice
 /// was started in [`FLAG`] mode. Call before anything else starts.
