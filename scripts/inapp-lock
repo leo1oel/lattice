@@ -10,11 +10,11 @@ sessions run at once. A taker here also checks that the file it locked is
 still the one at the path (its inode), and takes it again when not.
 
 The holder writes who it is into the file (pid, thread, command, since), so a
-waiter can say what it waits on, and \`status\` can tell a live holder from a
+waiter can say what it waits on, and `status` can tell a live holder from a
 gone one. flock is released by the kernel when its holder dies, so a dead
 holder never keeps the lock; when the recorded pid is gone and the lock is
 still held, some other process holds it (one that took it another way, or a
-child that inherited it), and \`status\` names it from lsof.
+child that inherited it), and `status` names it from lsof.
 
 Usage:
   inapp-lock [--thread CODE] [--wait SECONDS] -- COMMAND [ARGS...]
@@ -86,7 +86,7 @@ def held():
 
 
 def acquire(thread, command, wait):
-    """Take the lock, or return None after \`wait\` seconds (None: no limit)."""
+    """Take the lock, or return None after `wait` seconds (None: no limit)."""
     started = time.monotonic()
     last_note = None
     while True:
