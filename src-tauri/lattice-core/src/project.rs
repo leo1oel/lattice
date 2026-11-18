@@ -33,6 +33,7 @@ mod archive;
 mod assets;
 mod bibliography;
 mod bibliography_target;
+mod board_conversion;
 mod build_pdf;
 mod citation_lookup;
 mod create;
@@ -81,6 +82,7 @@ pub(crate) use bibliography::{
     parse_bibliography_fields_syntax,
 };
 pub use bibliography_target::{citation_bibliography, BibliographyTarget};
+pub use board_conversion::convert_tldr_board;
 pub use build_pdf::default_root_pdf;
 #[cfg(all(test, unix))]
 pub(crate) use citation_lookup::forget_doi_citations;

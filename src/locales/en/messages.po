@@ -11095,6 +11095,10 @@ msgstr "Only the first {shown} of {total} errors and warnings are listed. The ra
 msgid "Only the listed graphics arguments will change. Image files stay in place."
 msgstr "Only the listed graphics arguments will change. Image files stay in place."
 
+#: src/platform/host-errors-project.ts
+msgid "Only tldraw boards (.tldr) can be converted."
+msgstr "Only tldraw boards (.tldr) can be converted."
+
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 #: src/plugins/plugin-text.ts
@@ -16278,6 +16282,10 @@ msgstr "The conference's own citation export and Crossref disagree on: {0}. The 
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
+
+#: src/platform/host-errors-project.ts
+msgid "The converted board could not be written: {error}"
+msgstr "The converted board could not be written: {error}"
 
 #: src/platform/host-errors-project.ts
 msgid "The converted figure could not be read."

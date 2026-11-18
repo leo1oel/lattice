@@ -11095,6 +11095,10 @@ msgstr "共 {total} 个错误和警告，这里只列出前 {shown} 个。其余
 msgid "Only the listed graphics arguments will change. Image files stay in place."
 msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
 
+#: src/platform/host-errors-project.ts
+msgid "Only tldraw boards (.tldr) can be converted."
+msgstr "只能转换 tldraw 画板（.tldr）"
+
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 #: src/plugins/plugin-text.ts
@@ -16278,6 +16282,10 @@ msgstr "会议官方导出的引用与 Crossref 在这些字段上不一致：{0
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "缺少连接信息"
+
+#: src/platform/host-errors-project.ts
+msgid "The converted board could not be written: {error}"
+msgstr "无法写入转换后的画板：{error}"
 
 #: src/platform/host-errors-project.ts
 msgid "The converted figure could not be read."
