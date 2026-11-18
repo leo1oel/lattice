@@ -3,9 +3,8 @@
 //! order, and each draws its page. Providers, MCP, Skills and Usage & limits
 //! share Synara's one settings surface, switched to the section asked for;
 //! Model endpoint, Environment and Literature services draw their rows, and
-//! Settings search finds the pages and reveals their rows. Editor & builds
-//! holds the other languages' dictionaries and the grammar choices, which
-//! reach the editors' check; with Literature services' full-text choice off,
+//! Settings search finds the pages and reveals their rows. With Literature
+//! services' full-text choice off,
 //! adding a Zotero paper attaches no PDF. Acknowledgements lists the shipped
 //! notices and opens them in a sheet over Settings, which Escape closes
 //! before Settings.
@@ -14,7 +13,7 @@ use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result};
 use gpui::AsyncApp;
-use lattice_settings::{Choice as _, GrammarDialect, SettingsTab};
+use lattice_settings::{Choice as _, SettingsTab};
 use serde_json::json;
 
 use super::{super::Run, Steps};
@@ -35,7 +34,7 @@ const PAGES: &[(SettingsTab, Option<&str>, Option<&str>)] = &[
     (SettingsTab::ModelEndpoint, Some("model-endpoint-address"), None),
     (SettingsTab::Environment, Some("agent-restart"), None),
     (SettingsTab::Literature, Some("literature-email"), None),
-    (SettingsTab::Editor, Some("grammar-dialect"), None),
+    (SettingsTab::Editor, Some("auto-build"), None),
     (SettingsTab::Acknowledgements, None, None),
 ];
 
@@ -95,7 +94,7 @@ impl Run {
             ("mcp", SettingsTab::Mcp, None),
             ("https_proxy", SettingsTab::Environment, None),
             ("crossref", SettingsTab::Literature, Some("literature-email")),
-            ("english variant", SettingsTab::Editor, Some("grammar-dialect")),
+            ("automatic build", SettingsTab::Editor, Some("auto-build")),
         ] {
             let result = cx.update(|cx| {
                 let dialog = dialog.read(cx);
@@ -115,12 +114,11 @@ impl Run {
             found.push(json!({ "query": query, "ok": ok, "revealed": revealed }));
         }
         steps.check(
-            "Settings search finds the agent, integration and grammar pages and reveals their rows",
+            "Settings search finds the agent, integration and build pages and reveals their rows",
             searched,
             json!({ "found": found }),
         );
 
-        self.english_variant(cx, steps).await;
         self.citation_only_import(cx, steps, root).await?;
 
         // Acknowledgements opens the notices in a sheet; Escape closes it
@@ -152,7 +150,6 @@ impl Run {
         // Put everything back.
         cx.update(|cx| {
             settings::update(cx, |s| {
-                s.grammar = before.grammar.clone();
                 s.save_full_text = before.save_full_text;
                 s.settings_tab = before.settings_tab;
             })
@@ -160,55 +157,6 @@ impl Run {
         self.with_window(cx, |shell, _, cx| shell.update(cx, |shell, cx| shell.close_settings(cx)))?;
         self.pause(cx, Duration::from_millis(200)).await;
         Ok(())
-    }
-
-    /// The English variant reaches the open editor's check: Harper's
-    /// dictionary marks "colour" as a misspelling in American English and
-    /// accepts it in British English.
-    async fn english_variant(&self, cx: &mut AsyncApp, steps: &mut Steps) {
-        const STEP: &str = "Editor & builds' English variant decides whether the open editor marks \"colour\"";
-        let editor = cx.update(|cx| self.shell.read(cx).active_editor());
-        let spelling = editor
-            .as_ref()
-            .and_then(|editor| cx.update(|cx| editor.read(cx).spelling().cloned()));
-        let (Some(editor), Some(spelling)) = (editor, spelling) else {
-            steps.check(STEP, false, json!({ "error": "no open editor checks spelling" }));
-            return;
-        };
-        let buffer = cx.update(|cx| editor.read(cx).lattice_editor().read(cx).buffer().clone());
-        let inserted = cx.update(|cx| {
-            settings::update(cx, |s| s.grammar.dialect = GrammarDialect::American);
-            buffer.update(cx, |buffer, cx| {
-                let end = buffer.len();
-                buffer.edit([(end..end, VARIANT_TEXT)], None, cx);
-                end..end + VARIANT_TEXT.len()
-            })
-        });
-        let flagged = |want: bool| {
-            let (spelling, buffer) = (spelling.clone(), buffer.clone());
-            move |_: &gpui::Entity<crate::shell::Shell>, cx: &mut gpui::App| {
-                let text = buffer.read(cx).text();
-                let marked = spelling
-                    .read(cx)
-                    .findings(cx)
-                    .iter()
-                    .any(|finding| text.get(finding.range.clone()) == Some("colour"));
-                marked == want
-            }
-        };
-        let american = self
-            .wait_for(cx, Duration::from_secs(10), flagged(true))
-            .await;
-        cx.update(|cx| settings::update(cx, |s| s.grammar.dialect = GrammarDialect::British));
-        let british = self
-            .wait_for(cx, Duration::from_secs(10), flagged(false))
-            .await;
-        cx.update(|cx| buffer.update(cx, |buffer, cx| buffer.edit([(inserted, "")], None, cx)));
-        steps.check(
-            STEP,
-            american && british,
-            json!({ "american_marks": american, "british_accepts": british }),
-        );
     }
 
     /// With Literature services' full-text choice off, a Zotero paper with
@@ -282,9 +230,6 @@ impl Run {
         Ok(())
     }
 }
-
-/// A sentence whose spelling only American English marks.
-const VARIANT_TEXT: &str = "\nThe colour of each bar marks the optimum.\n";
 
 /// A pasted entry, which is imported as it stands without a lookup.
 const CITATION_ONLY_KEY: &str = "e2ecitationonly2024";

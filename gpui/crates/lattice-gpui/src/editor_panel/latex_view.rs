@@ -95,10 +95,8 @@ impl EditorPanel {
         let project = self.project.clone();
         let relative = self.relative.clone();
         let source = self.buffer.read(cx).text();
-        let dictionaries = super::spelling::dictionary_store(cx);
-        let document = cx.new(|cx| {
-            StructuredDocument::latex_visual(&project, relative, source, dictionaries, window, cx)
-        });
+        let document =
+            cx.new(|cx| StructuredDocument::latex_visual(&project, relative, source, window, cx));
         // Edits, undo, redo and the caret are a Markdown visual editor's;
         // the rest is the page's own (`latex_visual_events.rs`).
         self._subscriptions
@@ -213,7 +211,6 @@ impl EditorPanel {
             );
         });
         self.forward_latex_outline(cx);
-        self.forward_latex_spelling(cx);
         self.forward_latex_review(cx);
     }
 

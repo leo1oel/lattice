@@ -31,7 +31,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Proofread, Polish and Rewrite](docs/proofread.md): asks the agent to proofread, polish or rewrite a selection, and reviews its edits in place.
 - [Project tree](docs/project-tree.md): opens a project folder as the Tauri app does, in the Project tree with its file operations and Git status.
 - [Saving and outside edits](docs/saving.md): saves as the Tauri app does, and takes outside edits into clean buffers and merges them into edited ones.
-- [Settings](docs/settings.md): Settings (⌘,) as the Tauri app's, with the interface size, sounds, spell checking and translucency.
+- [Settings](docs/settings.md): Settings (⌘,) as the Tauri app's, with the interface size, sounds and translucency.
 - [Selection toolbar and highlights](docs/selection-toolbar.md): formats, links, headings and highlights a selection from the Tauri app's selection toolbar and highlighter palette.
 - [Source editor](docs/editor.md): edits sources in Zed's editor with LaTeX, BibTeX and HTML highlighting, search, Vim, the editor adapter's cards, completion and diagnostics, the gutter, the outline rail and a `.tex` file's Visual view.
 - [Terminal panel](docs/terminal.md): the Tauri app's Terminal panel, on Zed's alacritty-based terminal.
@@ -193,7 +193,7 @@ fixtures/e2e          the project the e2e scenario runs on (copy it first)
 ### lattice-core
 
 The app depends on `../src-tauri/lattice-core` by path, the crate the Tauri app's commands call, so both apps run one backend: opening a project (and adopting a folder Lattice did not create, with its `.research/` folder), the Project tree's scan and file operations, the build, SyncTeX, the editor save that merges an outside edit, and the project watcher.
-Its dependencies resolve in this workspace's `Cargo.lock`, at the Tauri app's versions where it pins them (`harper-core` and its family are held at the Tauri app's 2.7.0).
+Its dependencies resolve in this workspace's `Cargo.lock`, at the Tauri app's versions where it pins them.
 `lattice-core`'s version follows the app's; `../scripts/bump-version.mjs` rewrites its entry in this lockfile too, so `cargo build --locked` keeps passing after a release.
 Zed's `sqlez` and `lattice-core`'s `rusqlite` link different `libsqlite3-sys` versions, which Cargo refuses in one graph; `compat/sqlite` gives 0.38 the version 0.30 (its README).
 

@@ -33,6 +33,7 @@ pub mod format_latex;
 pub mod fs_watch;
 mod fts;
 pub mod git;
+#[cfg(feature = "spellcheck")]
 pub mod harper;
 pub mod host;
 mod host_paths;
@@ -70,6 +71,7 @@ pub mod research_env;
 pub mod review_pdf;
 pub mod runtime;
 mod sidecar;
+#[cfg(feature = "spellcheck")]
 pub mod spelling;
 pub mod synara;
 pub mod terminal;

@@ -23,10 +23,6 @@
 //!   command its modules invoke (`read_project_file`);
 //! - a citation's Go to entry (`tex:open-citation`), opened at its entry in
 //!   the primary bibliography as the source editor's card opens it;
-//! - the spell check's settings, the project's dictionary and its ignored
-//!   rules and sentences (`tex:spelling`), and a word added or a rule or
-//!   sentence ignored from a lint's card ([`LatexEvent::AddWord`],
-//!   [`LatexEvent::Ignore`]), written to the manifest as the source's are;
 //! - the labels and citation keys nothing uses (`tex:unused`), read from the
 //!   project's sources when TexLab is not there to report them, as the Tauri
 //!   app's `list_unused_symbols` reads them;
@@ -60,11 +56,9 @@
 //! The backend commands its modules invoke are answered in
 //! `latex_services.rs`.
 
-use std::path::PathBuf;
-
 use gpui::{AppContext as _, Context, Entity};
 use lattice_core::project::EditorComment;
-use lattice_editor::{index::ProjectIndex, latex::spelling::Ignore, texlab::TexlabService};
+use lattice_editor::{index::ProjectIndex, texlab::TexlabService};
 use serde_json::{Value, json};
 
 use super::{
@@ -77,10 +71,6 @@ use crate::project::{Project, ProjectEvent};
 /// editor's asks ([`MarkdownEvent`]).
 #[derive(Clone, Debug)]
 pub enum LatexEvent {
-    /// Add a word to the project's dictionary.
-    AddWord(String),
-    /// Leave a rule or a sentence unchecked in the project.
-    Ignore(Ignore),
     /// List a label's (`"label"`) or citation key's (`"citation"`) uses.
     FindReferences {
         kind: String,
@@ -163,8 +153,6 @@ pub(super) struct LatexSession {
     root_document: Option<String>,
     /// `{ rootDocument, auxFolder }` of the last build that wrote a PDF.
     build: Value,
-    /// `{ enabled, words, ignores: { rules, sentences } }`, as `tex:spelling` sends it.
-    spelling: Value,
     /// `{ labels, citations }` nothing uses.
     unused: Value,
     /// `{ nodes, rootPath, pdf }` for the outline rail.
@@ -260,7 +248,6 @@ impl StructuredDocument {
         project: &Entity<Project>,
         relative: String,
         source: String,
-        dictionaries: Option<PathBuf>,
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -278,7 +265,6 @@ impl StructuredDocument {
             index: index_payload(index.read(cx)),
             root_document: None,
             build: Value::Null,
-            spelling: Value::Null,
             unused: json!({ "labels": [], "citations": [] }),
             outline: Value::Null,
             annotations: Value::Null,
@@ -288,7 +274,7 @@ impl StructuredDocument {
             unused_generation: 0,
         });
         let texlab = project.read(cx).texlab().clone();
-        this.latex_services = Some(LatexServices::new(texlab, dictionaries));
+        this.latex_services = Some(LatexServices::new(texlab));
         this._subscriptions
             .push(cx.observe(&index, |this, index, cx| this.index_changed(&index, cx)));
         // A source changing on disk (a save among them) may use a label or
@@ -345,24 +331,6 @@ impl StructuredDocument {
             .ok();
         })
         .detach();
-    }
-
-    /// Whether Settings checks spelling, the project's dictionary and the
-    /// rules and sentences it leaves unchecked.
-    pub fn set_spelling(
-        &mut self,
-        enabled: bool,
-        words: &[String],
-        rules: &[String],
-        sentences: &[String],
-        cx: &mut Context<Self>,
-    ) {
-        let payload = json!({
-            "enabled": enabled,
-            "words": words,
-            "ignores": { "rules": rules, "sentences": sentences },
-        });
-        self.set_latex_value(payload, "tex:spelling", |session| &mut session.spelling, cx);
     }
 
     /// The manuscript's outline for the rail, as `OutlineNode`s, its root
@@ -448,12 +416,6 @@ impl StructuredDocument {
                 self.open_citation(payload, cx);
                 return true;
             }
-            "tex:add-word" => LatexEvent::AddWord(text("word")),
-            "tex:ignore" => match (payload.get("rule"), payload.get("sentence")) {
-                (Some(_), _) => LatexEvent::Ignore(Ignore::Rule(text("rule"))),
-                (_, Some(_)) => LatexEvent::Ignore(Ignore::Sentence(text("sentence"))),
-                _ => return true,
-            },
             "tex:find-references" => LatexEvent::FindReferences {
                 kind: text("kind"),
                 symbol: text("symbol"),
@@ -613,7 +575,6 @@ impl StructuredDocument {
         payload["index"] = session.index.clone();
         payload["rootDocument"] = json!(session.root_document);
         payload["build"] = session.build.clone();
-        payload["spelling"] = session.spelling.clone();
         payload["unused"] = session.unused.clone();
         payload["outline"] = session.outline.clone();
         payload["annotations"] = session.annotations.clone();

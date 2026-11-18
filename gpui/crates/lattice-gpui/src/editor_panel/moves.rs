@@ -48,14 +48,6 @@ impl EditorPanel {
         if let Some(papers) = self.bib.papers.clone() {
             self.attach_citations(&papers, cx);
         }
-        // The spell check follows the file, or starts once it is prose.
-        match &self.spelling {
-            Some(spelling) => {
-                let relative = self.relative.clone();
-                spelling.update(cx, |spelling, cx| spelling.set_path(relative, cx));
-            }
-            None => self.attach_spelling(cx),
-        }
         self.disk = DiskVersion::Unread;
         let language = latex::language_for_path(&self.path, cx);
         self.buffer
