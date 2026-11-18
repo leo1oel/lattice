@@ -57,6 +57,8 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "appearance", place: proseEditor, id: "prose-font-size", label: t`Font size`, terms: proseTerms },
     { tab: "appearance", place: proseEditor, id: "prose-line-height", label: t`Line height`, terms: proseTerms },
     { tab: "appearance", place: appearance, id: "color-theme", label: t`Color theme`, terms: `${t`Theme`} ${t`Light`} ${t`Dark`}` },
+    { tab: "appearance", place: appearance, id: "theme-palette", label: t`Palette`, terms: `${t`Theme`} ${t`Lattice`} Rosé Pine Nord` },
+    { tab: "appearance", place: appearance, id: "theme-files", label: t`Theme files`, terms: `${t`Theme`} ${t`Install from file…`} ${t`Show themes folder`} ${t`Remove theme`}` },
     { tab: "appearance", place: appearance, id: "theme-tint", label: t`Tint`, terms: `${t`Theme`} ${t`Graphite`} ${t({ message: "Paper", context: "theme tint" })} ${t`Sage`} ${t`Mist`} ${t`Dusk`}` },
     { tab: "appearance", place: appearance, id: "theme-accent", label: t`Accent`, terms: `${t`Theme`} ${t({ message: "color", comment: "Search words for the Accent setting, space-separated" })} ${t`Custom`}` },
     { tab: "appearance", place: appearance, id: "translucency", label: t`Translucency`, terms: t({ message: "frosted glass transparent vibrancy desktop", comment: "Search words for the Translucency setting, space-separated" }), description: `${t`Off while Reduce transparency is on in System Settings`} ${t`Only in the Lattice window on macOS`}` },

@@ -19,7 +19,7 @@
 //!   ground, both variants split on a diagonal for a theme that has two, a
 //!   moon on one that is dark only; its name under it, checked when chosen.
 
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, ContentMask, ElementId, FontStyle, FontWeight, Hsla,
@@ -27,6 +27,7 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, Window, canvas, div, fill, point,
     prelude::FluentBuilder as _, px, rgb, size, svg,
 };
+use lattice_core::themes::format::ThemeFile;
 use lattice_ui::{
     Accent, ActiveLattice as _, Appearance, CodeTheme, Icon, Palette, TextRole, TextRoleStyle as _,
     Tint, TypeScale,
@@ -211,6 +212,36 @@ pub fn window_art(appearance: Option<Appearance>, tint: Tint, cx: &App) -> AnyEl
     let accent = cx.palette().accent;
     let light = Palette::new(Appearance::Light, tint, accent_preset);
     let dark = Palette::new(Appearance::Dark, tint, accent_preset);
+    paired_window_art(appearance, (light, accent), (dark, accent))
+}
+
+/// A theme's art (theme-settings.tsx `ThemeArt`): the same window in the
+/// theme's colors for each appearance, its own accent where it has one, and
+/// Graphite where it has no variant for an appearance.
+pub fn theme_window_art(
+    theme: &Arc<ThemeFile>,
+    appearance: Option<Appearance>,
+    cx: &App,
+) -> AnyElement {
+    let current = cx.palette().accent;
+    let half = |appearance: Appearance| {
+        let palette =
+            Palette::new(appearance, Tint::Graphite, Accent::Theme).with_theme(Some(theme.clone()));
+        let own = palette
+            .themed
+            .as_ref()
+            .is_some_and(|themed| themed.accent.is_some());
+        let accent = if own { palette.accent } else { current };
+        (palette, accent)
+    };
+    paired_window_art(appearance, half(Appearance::Light), half(Appearance::Dark))
+}
+
+fn paired_window_art(
+    appearance: Option<Appearance>,
+    (light, light_accent): (Palette, Hsla),
+    (dark, dark_accent): (Palette, Hsla),
+) -> AnyElement {
     let width = px(88.);
     let height = width * (52. / 84.);
     div()
@@ -222,14 +253,14 @@ pub fn window_art(appearance: Option<Appearance>, tint: Tint, cx: &App) -> AnyEl
             canvas(
                 |_, _, _| {},
                 move |bounds, _, window, _| match appearance {
-                    Some(Appearance::Light) => paint_window(bounds, &light, accent, window),
-                    Some(Appearance::Dark) => paint_window(bounds, &dark, accent, window),
+                    Some(Appearance::Light) => paint_window(bounds, &light, light_accent, window),
+                    Some(Appearance::Dark) => paint_window(bounds, &dark, dark_accent, window),
                     None => {
-                        paint_window(bounds, &light, accent, window);
+                        paint_window(bounds, &light, light_accent, window);
                         for mask in diagonal_masks(bounds, 0.58, 0.42) {
                             window
                                 .with_content_mask(Some(ContentMask { bounds: mask }), |window| {
-                                    paint_window(bounds, &dark, accent, window)
+                                    paint_window(bounds, &dark, dark_accent, window)
                                 });
                         }
                     }

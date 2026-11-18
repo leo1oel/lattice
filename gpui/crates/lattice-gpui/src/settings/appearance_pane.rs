@@ -23,7 +23,7 @@ use lattice_ui::{
 use super::{
     controls::{self, PageWidth, Row, Wrap},
     dialog::SettingsDialog,
-    theme_art,
+    theme_art, theme_files,
 };
 
 /// A face Settings offers by name: its stored family and the name it shows.
@@ -372,6 +372,8 @@ fn theme(
     let appearance = &settings.appearance;
     let tint = super::tint(appearance.tint);
     let wraps = width.wraps();
+    let themed = theme_files::chosen(dialog, cx).map(|entry| entry.file.clone());
+    let theme_rows = theme_files::rows(dialog, width, window, cx);
 
     let modes = [
         (ThemePreference::System, t!("Match system"), None),
@@ -405,7 +407,12 @@ fn theme(
                 (!wraps).then_some(px(56.)),
                 theme_art::tint_art(super::tint(choice), cx),
                 appearance.tint == choice,
-                move |_: &ClickEvent, _, cx| super::update_appearance(cx, |a| a.tint = choice),
+                move |_: &ClickEvent, _, cx| {
+                    // While a theme is in effect it sets what a tint would.
+                    if super::get(cx).appearance.theme.is_empty() {
+                        super::update_appearance(cx, |a| a.tint = choice)
+                    }
+                },
                 window,
                 cx,
             )
@@ -448,6 +455,27 @@ fn theme(
             )
         })
         .collect();
+    if let Some(theme) = themed.clone() {
+        let color = Palette::new(palette.appearance, palette.tint, lattice_ui::Accent::Theme)
+            .with_theme(Some(theme))
+            .accent;
+        swatches.insert(
+            0,
+            theme_art::swatch(
+                "theme-accent-theme".into(),
+                color,
+                appearance.accent == StoredAccent::Theme,
+                color,
+                palette.accent_contrast,
+                false,
+                std::rc::Rc::new(|_, _, cx| {
+                    super::update_appearance(cx, |a| a.accent = StoredAccent::Theme)
+                }),
+                window,
+                cx,
+            ),
+        );
+    }
     let this = cx.entity();
     let custom_color = match custom {
         Some(_) => palette.accent,
@@ -516,27 +544,29 @@ fn theme(
         _ => None,
     };
 
-    let mut rows = vec![
-        row(
-            dialog,
-            Row::new("color-theme", t!("Color theme"))
-                .control(tiles(12., mode_tiles))
-                .wrap(Wrap::Line)
-                .roomy(),
-            width,
-            cx,
-        ),
-        row(
-            dialog,
-            Row::new("theme-tint", t!("Tint"))
-                .control(tiles(10., tint_tiles))
-                .wrap(Wrap::Line)
-                .roomy(),
-            width,
-            cx,
-        ),
-        row(dialog, accent_row, width, cx),
-    ];
+    let mut rows = vec![row(
+        dialog,
+        Row::new("color-theme", t!("Color theme"))
+            .control(tiles(12., mode_tiles))
+            .wrap(Wrap::Line)
+            .roomy(),
+        width,
+        cx,
+    )];
+    rows.extend(
+        theme_rows
+            .into_iter()
+            .map(|theme_row| row(dialog, theme_row, width, cx)),
+    );
+    let mut tint_row = Row::new("theme-tint", t!("Tint"))
+        .control(tiles(10., tint_tiles).when(themed.is_some(), |this| this.opacity(0.45)))
+        .wrap(Wrap::Line)
+        .roomy();
+    if themed.is_some() {
+        tint_row = tint_row.description(t!("Set by the theme"), cx);
+    }
+    rows.push(row(dialog, tint_row, width, cx));
+    rows.push(row(dialog, accent_row, width, cx));
     if dialog.fields.custom_accent_open {
         rows.push(custom_accent(dialog, width, cx));
     }
