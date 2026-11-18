@@ -4770,6 +4770,7 @@ dependencies = [
  "harper-core",
  "jieba-rs",
  "keyring",
+ "lattice-theme",
  "libc",
  "log",
  "lopdf",
@@ -4805,6 +4806,14 @@ dependencies = [
  "windows-sys 0.61.2",
  "yaml-rust2",
  "zip 9.0.5",
+]
+
+[[package]]
+name = "lattice-theme"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

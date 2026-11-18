@@ -2,8 +2,11 @@
  * The theme choices in Settings → Appearance beyond light and dark: a tint
  * for the surfaces, an accent, and how translucent the window is. The presets
  * themselves are palette blocks in styles/theme.css keyed by `data-tint` and
- * `data-accent`; this module names them, validates stored values, and fits a
- * custom accent to the same contrast floor as the presets.
+ * `data-accent`; this module names them and validates stored values. A custom
+ * accent is fitted to the presets' contrast floor by the app's Rust side
+ * (`lattice_theme::color`, through themes.ts), the one fitter both apps use.
+ * The contrast helpers below serve the build-time code-theme export and the
+ * highlight palette; `color-parity.test.ts` holds them to the Rust ones.
  */
 
 import type { Theme } from "./app-settings";
@@ -13,8 +16,12 @@ export type ThemeTint = typeof THEME_TINTS[number];
 
 export const ACCENT_PRESETS = ["graphite", "blue", "purple", "pink", "orange", "green", "teal"] as const;
 export type AccentPreset = typeof ACCENT_PRESETS[number];
-/** A preset, or a custom color as `#rrggbb`. */
-export type ThemeAccent = AccentPreset | `#${string}`;
+/**
+ * A preset, a custom color as `#rrggbb`, or `theme`: the chosen theme's own
+ * accent, or Graphite's without one. Any other choice wins over the theme's
+ * (docs/themes.md, decision L13).
+ */
+export type ThemeAccent = AccentPreset | "theme" | `#${string}`;
 
 export const TRANSLUCENCY_LEVELS = ["off", "subtle", "strong"] as const;
 export type Translucency = typeof TRANSLUCENCY_LEVELS[number];
@@ -29,6 +36,7 @@ export function isCustomAccent(accent: ThemeAccent): accent is `#${string}` {
 export function normalizeAccent(value: unknown): ThemeAccent | undefined {
   if (typeof value !== "string") return undefined;
   if ((ACCENT_PRESETS as readonly string[]).includes(value)) return value as AccentPreset;
+  if (value === "theme") return "theme";
   return HEX_COLOR.test(value) ? value.toLowerCase() as `#${string}` : undefined;
 }
 
@@ -74,35 +82,6 @@ function fromOklch(lightness: number, chroma: number, hue: number): Rgb | null {
   ];
   if (linear.some((channel) => channel < -1e-4 || channel > 1 + 1e-4)) return null;
   return linear.map((channel) => toGamma(Math.min(1, Math.max(0, channel)))) as Rgb;
-}
-
-/**
- * The accent luminance each theme allows. The accent colors text on every
- * surface, so it must read at 4.6:1 (the presets' floor) on the surface
- * closest to it: Dusk's chrome (#f0edf7) in light, Graphite's lift (#252528,
- * menus and dialogs) in dark. Each theme's --accent-contrast label then
- * clears 5:1.
- */
-const ACCENT_GROUND_LUMINANCE: Record<Theme, number> = { light: 0.8581, dark: 0.01871 };
-const ACCENT_FLOOR = 4.6;
-
-/** The accent's contrast on the surface closest to it in `theme`, the one fitAccent holds to its floor. */
-export function accentContrast(hex: string, theme: Theme): number {
-  const [lighter, darker] = [luminance(parseHex(hex)), ACCENT_GROUND_LUMINANCE[theme]].sort((a, b) => b - a);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-const ACCENT_LUMINANCE_LIMIT: Record<Theme, (value: number) => boolean> = {
-  light: (value) => (ACCENT_GROUND_LUMINANCE.light + 0.05) / (value + 0.05) >= ACCENT_FLOOR,
-  dark: (value) => (value + 0.05) / (ACCENT_GROUND_LUMINANCE.dark + 0.05) >= ACCENT_FLOOR,
-};
-
-/**
- * A custom accent as the theme can use it: the color itself when it already
- * reads on every surface, otherwise the nearest color with its hue that does.
- */
-export function fitAccent(hex: string, theme: Theme): string {
-  return fitLightness(hex, ACCENT_LUMINANCE_LIMIT[theme], theme);
 }
 
 /** The WCAG contrast ratio between two `#rrggbb` colors. */

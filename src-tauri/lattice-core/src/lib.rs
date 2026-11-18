@@ -80,6 +80,7 @@ pub mod test_support;
 pub mod tex_setup;
 pub mod texcount;
 pub mod texlab;
+pub mod themes;
 mod ttl_cache;
 pub mod util;
 mod web_metadata;

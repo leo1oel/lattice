@@ -6750,6 +6750,7 @@ dependencies = [
  "futures-util",
  "jieba-rs",
  "keyring",
+ "lattice-theme",
  "libc",
  "log",
  "lopdf",
@@ -6912,6 +6913,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lattice-theme"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lattice-ui"
 version = "0.1.0"
 dependencies = [
@@ -6919,6 +6928,7 @@ dependencies = [
  "gpui",
  "gpui-kit",
  "lattice-i18n",
+ "lattice-theme",
  "log",
  "lyon",
  "serde_json",

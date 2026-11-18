@@ -11,7 +11,7 @@ license = "Apache-2.0"
 [workspace]
 # The shell and the core it ships on share this lockfile and target/, and
 # `cargo test`, `cargo clippy` and `cargo fmt` here cover both.
-members = ["lattice-core"]
+members = ["lattice-core", "lattice-theme"]
 default-members = [".", "lattice-core"]
 
 [lib]

@@ -1,0 +1,12 @@
+/* Settings › Appearance › Theme, beside dialogs.css's tiles and swatches:
+   what a theme (docs/themes.md) adds to the group. */
+
+/* While a theme is in effect it sets the colors a tint would, so the tints
+   stay in view but cannot be chosen. */
+.theme-tile:disabled { cursor: default; opacity: 0.45; }
+.theme-tile:disabled:hover .theme-tile-art { box-shadow: 0 0 0 1px var(--border-subtle); }
+
+/* Theme files: the buttons sit at the row's trailing edge like every other
+   control, and an install's error under them. */
+.theme-file-actions { display: grid; justify-items: end; gap: var(--space-3); min-width: 0; }
+.theme-file-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }

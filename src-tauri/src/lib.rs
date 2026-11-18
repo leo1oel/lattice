@@ -74,11 +74,6 @@ use window_labels::window_state_tracks;
 fn keeps_running_without_windows(browser_resident: bool) -> bool {
     cfg!(target_os = "macos") || browser_resident
 }
-const BROWSER_HOST_ARG: &str = "--browser-host";
-
-fn browser_host_launch() -> bool {
-    std::env::args_os().any(|argument| argument == BROWSER_HOST_ARG)
-}
 
 /// A desktop workspace window: the launch window (`center`) or a project
 /// window, which the window-state plugin places. The main window in
@@ -109,7 +104,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
     Ok(window)
 }
 
-fn show_desktop_window(app: &AppHandle) -> Result<(), String> {
+pub(crate) fn show_desktop_window(app: &AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Regular)
         .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
@@ -229,7 +224,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(synara::SynaraRuntime::new(&resources, events));
     app.manage(presentation::PresentationRuntime::new(&resources)?);
     app.manage(ipc::plugins::Plugins::new(&resources));
-    let background = browser_host_launch();
+    app.manage(ipc::themes::Themes::new(&resources));
+    let background = browser_host::launched_as_host();
     // Explicit, browser-host and measurement launches should use their own workspace.
     let restore_tabs =
         !background && std::env::var_os("LATTICE_PROJECT").is_none() && !cfg!(feature = "perf-lab");
@@ -265,24 +261,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         show_desktop_window(app.handle()).map_err(std::io::Error::other)?;
     }
     Ok(())
-}
-
-/// Dock click with no window showing: bring back whichever surface this
-/// launch uses — the browser entry or the desktop window.
-#[cfg(target_os = "macos")]
-fn reopen(app: &AppHandle) {
-    let browser = app.state::<browser_host::BrowserHost>();
-    match browser.reopen_entry(app) {
-        Ok(true) => {}
-        Ok(false) => {
-            if let Err(reason) = show_desktop_window(app) {
-                log::error!(target: "lattice::app", "could not reopen Lattice: {reason}");
-            }
-        }
-        Err(reason) => {
-            log::error!(target: "lattice::browser", "could not reopen browser entry: {reason}");
-        }
-    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -659,6 +637,12 @@ pub fn run() {
             ipc::plugins::plugins_set_secret,
             ipc::plugins::plugins_run,
             ipc::plugins::plugins_cancel,
+            ipc::themes::themes_list,
+            ipc::themes::themes_install_file,
+            ipc::themes::themes_remove,
+            ipc::themes::themes_reveal_folder,
+            ipc::themes::themes_resolve,
+            ipc::themes::themes_fit_accent,
             save_before_close::enable_save_before_close,
             save_before_close::disable_save_before_close,
             save_before_close::finish_save_before_close,
@@ -668,7 +652,9 @@ pub fn run() {
     app.run(|app_handle, event| match event {
         tauri::RunEvent::Exit => shutdown_child_runtimes(app_handle),
         #[cfg(target_os = "macos")]
-        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => reopen(app_handle),
+        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => {
+            browser_host::reopen(app_handle)
+        }
         // `code` is None only when the last window closed; ⌘Q and a restart
         // exit with a code.
         tauri::RunEvent::ExitRequested { code: None, api, .. }

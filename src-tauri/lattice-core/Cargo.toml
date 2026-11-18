@@ -78,6 +78,9 @@ futures-util = { version = "0.3.33", default-features = false, features = ["std"
 # `rt-multi-thread` for the runtime `runtime` falls back to when no shell
 # installed its own (unit tests); tauri already compiles it in.
 tokio = { version = "1", features = ["sync", "net", "time", "rt", "rt-multi-thread"] }
+# The theme format and resolver (themes.rs), shared with the GPUI app's
+# lattice-ui, which does not depend on the rest of the core.
+lattice-theme = { path = "../lattice-theme" }
 axum = { version = "0.8", features = ["ws"] }
 # The URL type tauri re-exports, for TexLab's file URIs.
 url = "2"

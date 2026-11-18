@@ -42,6 +42,7 @@ pub(crate) mod plugins_pane;
 mod providers_pane;
 pub(crate) mod search;
 mod theme_art;
+mod theme_files;
 
 use std::{
     path::PathBuf,
@@ -273,6 +274,23 @@ pub fn locale_for(language: InterfaceLanguage, scripted: bool) -> Locale {
     lattice_i18n::resolve_locale(fixed, &system)
 }
 
+/// The installed themes (`<app data>/themes/`, `docs/themes.md`).
+pub fn theme_store() -> lattice_core::themes::ThemeStore {
+    lattice_core::themes::ThemeStore::new(&crate::structured::resources::app_dirs().data)
+}
+
+/// Read the chosen theme again and apply it: after the choice changes, and
+/// after the chosen theme is reinstalled or removed. A theme that no longer
+/// exists applies as no theme.
+pub fn reload_theme(cx: &mut App) {
+    let id = get(cx).appearance.theme.clone();
+    let file = (!id.is_empty())
+        .then(|| theme_store().get(&id))
+        .flatten()
+        .map(std::sync::Arc::new);
+    LatticeTheme::set_theme(file, cx);
+}
+
 pub fn tint(tint: StoredTint) -> Tint {
     match tint {
         StoredTint::Graphite => Tint::Graphite,
@@ -289,6 +307,7 @@ pub fn accent(accent: &lattice_settings::Accent) -> Accent {
             .custom_rgb()
             .map(|[r, g, b]| Accent::Custom(u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b)))
             .unwrap_or_default(),
+        lattice_settings::Accent::Theme => Accent::Theme,
         lattice_settings::Accent::Preset(preset) => match preset {
             AccentPreset::Graphite => Accent::Graphite,
             AccentPreset::Blue => Accent::Blue,
@@ -360,6 +379,9 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
     LatticeTheme::set_tint(tint(a.tint), cx);
     LatticeTheme::set_accent(accent(&a.accent), cx);
     LatticeTheme::set_code_theme(code_theme(a.code_theme), cx);
+    if changed(|was, now| was.appearance.theme == now.appearance.theme) {
+        reload_theme(cx);
+    }
     if changed(|was, now| {
         let (was, now) = (&was.appearance, &now.appearance);
         (

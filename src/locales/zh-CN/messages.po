@@ -52,6 +52,10 @@ msgstr "终端中的“{command}”"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
 
+#: src/platform/host-errors-themes.ts
+msgid "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
+msgstr "“{id}”是 Lattice 自带主题的 ID，请为你的主题另取一个 ID。"
+
 #: src/project/import-conflict-dialog.tsx
 msgid "“{name}” is already in {targetDirectory}"
 msgstr "{targetDirectory} 中已有“{name}”"
@@ -4792,6 +4796,10 @@ msgstr "无法创建接口设置文件夹：{error}"
 msgid "Could not create the report folder: {error}"
 msgstr "无法创建报告文件夹：{error}"
 
+#: src/platform/host-errors-themes.ts
+msgid "Could not create the themes folder: {error}"
+msgstr "无法创建主题文件夹：{error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
 msgstr "无法创建 ZIP 压缩包：{error}"
@@ -4962,6 +4970,7 @@ msgid "Could not reach the TeX Live package repository. Check the network connec
 msgstr "无法连接 TeX Live 组件仓库。请检查网络连接后重试。"
 
 #: src/build/tex-doctor-messages.ts
+#: src/platform/host-errors-themes.ts
 #: src/platform/host-errors-workspace.ts
 msgid "Could not read {path}: {error}"
 msgstr "无法读取 {path}：{error}"
@@ -5003,6 +5012,10 @@ msgstr "无法删除 {citationCommand}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not remove rtex: {error}"
 msgstr "无法删除 rtex：{error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "Could not remove the theme: {error}"
+msgstr "无法移除主题：{error}"
 
 #: src/platform/host-errors-project.ts
 msgid "Could not rename “{old}” in {path}; the file changed."
@@ -5074,6 +5087,10 @@ msgstr "项目没保存成功"
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "报告没能保存，请别关窗口以保留结果"
 
+#: src/platform/host-errors-themes.ts
+msgid "Could not save the theme: {error}"
+msgstr "无法保存主题：{error}"
+
 #: src/platform/host-errors-setup.ts
 msgid "Could not search the MiKTeX packages: {error}"
 msgstr "无法搜索 MiKTeX 组件：{error}"
@@ -5090,6 +5107,10 @@ msgstr "无法在访达中显示。{message}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not show the diagnostic log in Finder: {error}"
 msgstr "无法在访达中显示诊断日志：{error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "Could not show the themes folder in Finder: {error}"
+msgstr "无法在访达中显示主题文件夹：{error}"
 
 #: src/platform/host-errors-setup.ts
 msgid "Could not start {program}: {error}"
@@ -8155,6 +8176,10 @@ msgstr "安装"
 msgid "Install {tool} to update this figure."
 msgstr "请安装 {tool} 以更新此图。"
 
+#: src/settings/theme-settings.tsx
+msgid "Install a .lattice-theme.json file. Lattice keeps its own copy."
+msgstr "安装一个 .lattice-theme.json 文件，Lattice 会保存一份副本。"
+
 #: src/settings/settings-dialog.tsx
 msgid "Install automatically"
 msgstr "自动安装"
@@ -8166,6 +8191,11 @@ msgstr "安装 LaTeX（{TEX_INSTALL_SIZE_HINT}）"
 #: src/build/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-file-actions.tsx
+msgid "Install from file…"
+msgstr "从文件安装…"
 
 #: src/plugins/plugin-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -8843,6 +8873,8 @@ msgid "latexmk version"
 msgstr "latexmk 版本"
 
 #: src/app/whats-new.ts
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
 msgid "Lattice"
 msgstr "Lattice"
 
@@ -8923,6 +8955,10 @@ msgstr "没能自动重启，请退出后重新打开"
 msgid "Lattice couldn’t write {file}"
 msgstr "Lattice 无法写入 {file}"
 
+#: src/settings/theme-file-actions.tsx
+msgid "Lattice goes back to its own colors. Installing the file again brings the theme back."
+msgstr "Lattice 会恢复自己的配色。再次安装该文件即可找回这个主题。"
+
 #. placeholder {0}: props.host
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
@@ -8953,6 +8989,10 @@ msgstr "Lattice 只更新安装在 /usr/local/texlive 下的 TeX Live。请在�
 #: src/onboarding/get-started-panel.tsx
 msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
 msgstr "Lattice 会像终端一样在 PATH 里找到它并运行。装在别处？在「设置 › 模型」里填上它的路径。"
+
+#: src/settings/theme-file-actions.tsx
+msgid "Lattice theme"
+msgstr "Lattice 主题"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
@@ -11910,6 +11950,11 @@ msgstr "页码"
 msgid "Pale {name}"
 msgstr "淡{name}"
 
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Palette"
+msgstr "配色"
+
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "Pan down"
 msgstr "向下平移"
@@ -13158,6 +13203,7 @@ msgstr "重新载入面板"
 #: src/plugins/plugin-settings.tsx
 #: src/project/deadline-card.tsx
 #: src/project/submission-items.tsx
+#: src/settings/theme-file-actions.tsx
 msgid "Remove"
 msgstr "移除"
 
@@ -13175,6 +13221,7 @@ msgid "Remove {key} from the bibliography?"
 msgstr "从文献中删除 {key}？"
 
 #: src/plugins/plugin-settings.tsx
+#: src/settings/theme-file-actions.tsx
 msgid "Remove {name}?"
 msgstr "移除 {name}？"
 
@@ -13237,6 +13284,11 @@ msgstr "删除这个版本名“{0}”？"
 #: src/papers/bib-entry-detail.tsx
 msgid "Remove the {name} field"
 msgstr "删除 {name} 字段"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-file-actions.tsx
+msgid "Remove theme"
+msgstr "移除主题"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "removed"
@@ -14724,6 +14776,10 @@ msgstr "服务"
 msgid "Set as main document"
 msgstr "设为主文档"
 
+#: src/settings/theme-settings.tsx
+msgid "Set by the theme"
+msgstr "由主题决定"
+
 #: src/settings/agent-environment-settings.tsx
 msgid "Set HTTPS_PROXY or ANTHROPIC_BASE_URL in your shell startup file, or turn on a proxy in macOS, then restart the agent."
 msgstr "在 shell 启动文件中设置 HTTPS_PROXY 或 ANTHROPIC_BASE_URL，或在 macOS 中开启代理，然后重启 AI 助手。"
@@ -14932,6 +14988,11 @@ msgstr "并排看 PDF"
 #: src/history/review-mode-bar.tsx
 msgid "Show the PDF without changes"
 msgstr "显示不含改动的 PDF"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-file-actions.tsx
+msgid "Show themes folder"
+msgstr "显示主题文件夹"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -17115,6 +17176,10 @@ msgstr "无法搜索 TeX Live 组件仓库。\n"
 msgid "The text is too large to save as a copy."
 msgstr "文本太大，无法另存为副本"
 
+#: src/platform/host-errors-themes.ts
+msgid "The theme file is larger than 256 KiB."
+msgstr "主题文件大于 256 KiB。"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "无法从应用包中读取第三方声明。"
@@ -17200,6 +17265,19 @@ msgstr "主题"
 #: src/app/use-command-table.ts
 msgid "theme appearance"
 msgstr "主题 外观 theme appearance"
+
+#: src/settings/theme-settings.tsx
+msgid "Theme default"
+msgstr "跟随主题"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Theme files"
+msgstr "主题文件"
+
+#: src/platform/host-errors-themes.ts
+msgid "Themes can only be installed from a Lattice window."
+msgstr "只能在 Lattice 窗口中安装主题。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -17643,6 +17721,10 @@ msgstr "此终端已关闭"
 #: src/settings/tex-package-check-problem.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 TeX Live 后重试。"
+
+#: src/platform/host-errors-themes.ts
+msgid "This theme comes with Lattice and cannot be removed."
+msgstr "这个主题是 Lattice 自带的，不能移除。"
 
 #: src/platform/host-errors-papers.ts
 msgid "This title has no independently verifiable identifier. Supply its official BibTeX or URL instead."

@@ -1,7 +1,10 @@
 //! The app-wide look: the palette, the fonts and the code theme, kept in one
 //! GPUI global and pushed to GPUI Kit whenever it changes.
 
+use std::sync::Arc;
+
 use gpui::{App, Global, WindowAppearance};
+use lattice_theme::ThemeFile;
 
 use crate::{Accent, Appearance, Glass, Palette, Tint, editor_theme::CodeTheme, fonts::Fonts, kit};
 
@@ -57,24 +60,50 @@ impl LatticeTheme {
 
     pub fn set_appearance(appearance: Appearance, cx: &mut App) {
         Self::update(cx, |theme| {
-            theme.palette =
-                Palette::new(appearance, theme.palette.tint, theme.palette.accent_preset)
-                    .with_glass(theme.palette.glass)
+            theme.palette = rebuilt(
+                &theme.palette,
+                appearance,
+                theme.palette.tint,
+                theme.palette.accent_preset,
+                theme.palette.theme.clone(),
+            )
         });
     }
 
     pub fn set_tint(tint: Tint, cx: &mut App) {
         Self::update(cx, |theme| {
-            theme.palette =
-                Palette::new(theme.palette.appearance, tint, theme.palette.accent_preset)
-                    .with_glass(theme.palette.glass)
+            theme.palette = rebuilt(
+                &theme.palette,
+                theme.palette.appearance,
+                tint,
+                theme.palette.accent_preset,
+                theme.palette.theme.clone(),
+            )
         });
     }
 
     pub fn set_accent(accent: Accent, cx: &mut App) {
         Self::update(cx, |theme| {
-            theme.palette = Palette::new(theme.palette.appearance, theme.palette.tint, accent)
-                .with_glass(theme.palette.glass)
+            theme.palette = rebuilt(
+                &theme.palette,
+                theme.palette.appearance,
+                theme.palette.tint,
+                accent,
+                theme.palette.theme.clone(),
+            )
+        });
+    }
+
+    /// Choose a theme (`docs/themes.md`), or none.
+    pub fn set_theme(file: Option<Arc<ThemeFile>>, cx: &mut App) {
+        Self::update(cx, |theme| {
+            theme.palette = rebuilt(
+                &theme.palette,
+                theme.palette.appearance,
+                theme.palette.tint,
+                theme.palette.accent_preset,
+                file,
+            )
         });
     }
 
@@ -90,7 +119,7 @@ impl LatticeTheme {
         Self::update(cx, |theme| theme.code_theme = code_theme);
     }
 
-    /// Change the theme, then bring GPUI Kit along and redraw every window.
+    /// Change the look, then bring GPUI Kit along and redraw every window.
     /// Observers of the global (the Zed editor theme, in the app) run after.
     fn update(cx: &mut App, edit: impl FnOnce(&mut LatticeTheme)) {
         let before = (cx.lattice().palette.clone(), cx.lattice().code_theme);
@@ -101,4 +130,17 @@ impl LatticeTheme {
         kit::apply(cx);
         cx.refresh_windows();
     }
+}
+
+/// The palette for these choices, keeping `current`'s window material.
+fn rebuilt(
+    current: &Palette,
+    appearance: Appearance,
+    tint: Tint,
+    accent: Accent,
+    theme: Option<Arc<ThemeFile>>,
+) -> Palette {
+    Palette::new(appearance, tint, accent)
+        .with_theme(theme)
+        .with_glass(current.glass)
 }

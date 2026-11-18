@@ -133,7 +133,39 @@ pub(super) struct CodePalette {
 }
 
 impl CodePalette {
+    /// The code theme's colours, under the colours a chosen theme gives the
+    /// token roles (`--syntax-*` set after the code theme's in the app).
     pub fn new(theme: CodeTheme, palette: &Palette) -> Self {
+        let mut colors = Self::of_code_theme(theme, palette);
+        if let Some(themed) = &palette.themed {
+            let syntax = &mut colors.syntax;
+            for (role, color) in &themed.syntax {
+                let slot = match *role {
+                    "keyword" => &mut syntax.keyword,
+                    "operator" => &mut syntax.operator,
+                    "function" => &mut syntax.function,
+                    "type" => &mut syntax.type_,
+                    "variable" => &mut syntax.variable,
+                    "variable-special" => &mut syntax.variable_special,
+                    "property" => &mut syntax.property,
+                    "attribute" => &mut syntax.attribute,
+                    "string" => &mut syntax.string,
+                    "comment" => &mut syntax.comment,
+                    "comment-doc" => &mut syntax.comment_doc,
+                    "number" => &mut syntax.number,
+                    "constant" => &mut syntax.constant,
+                    "bracket" => &mut syntax.bracket,
+                    "citation" => &mut syntax.citation,
+                    "reference" => &mut syntax.reference,
+                    _ => continue,
+                };
+                *slot = crate::token_types::hex(color.rgb).hsla();
+            }
+        }
+        colors
+    }
+
+    fn of_code_theme(theme: CodeTheme, palette: &Palette) -> Self {
         let Some(source) = theme.source() else {
             return Self::weft_and_warp(palette);
         };
