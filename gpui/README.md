@@ -128,7 +128,7 @@ On every platform, Vim's normal and visual modes keep ⌃M as their next-line st
 It signs with the Developer ID in `APPLE_SIGNING_IDENTITY` (ad hoc without one), notarizes with the App Store Connect key release.yml uses when `APPLE_API_KEY`, `APPLE_API_ISSUER` and `APPLE_API_KEY_PATH` are set, and writes a `.dmg`, a `.zip` and the updater's archive, signed for the GPUI channel with `TAURI_SIGNING_PRIVATE_KEY` ([App updater](docs/updater.md)).
 `../.github/workflows/gpui-package.yml` (Actions › GPUI package › Run workflow) does the same with the release secrets and keeps the files as the run's artifact; it publishes nothing.
 It keeps its data in the GPUI app's own folders (`~/Library/Application Support/lattice-gpui`, `~/Library/Caches/lattice-gpui`), apart from Lattice.app's.
-The Tauri app's local Beta flavor (`../docs/release-process.md`, "Build Lattice Beta") is another app with the same file name, `Lattice Beta.app`; only one of the two fits in /Applications.
+The Tauri app's local Beta flavor is named Lattice Tauri Beta (`../docs/release-process.md`), so the two install side by side.
 Only Apple silicon macOS is packaged so far.
 
 ## CI

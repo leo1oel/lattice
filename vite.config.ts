@@ -11,7 +11,7 @@ import { privateFontsPlugin } from "./scripts/private-fonts.ts";
 import { reactCompilerSuppressionRules } from "./scripts/react-compiler-suppressions.ts";
 
 const host = process.env.TAURI_DEV_HOST;
-// `LATTICE_FLAVOR=beta` builds Lattice Beta (docs/release-process.md), read by
+// `LATTICE_FLAVOR=beta` builds Lattice Tauri Beta (docs/release-process.md), read by
 // src-tauri/build.rs too. Any other value is a typo that would silently build
 // the release flavor.
 const flavor = process.env.LATTICE_FLAVOR ?? "";
