@@ -1401,6 +1401,16 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("That Overleaf project name cannot be used as a folder name.", &[]),
     },
     Entry {
+        file: "overleaf/destination.rs",
+        literal: "That folder no longer exists. Choose another one.",
+        text: Text::Message("That folder no longer exists. Choose another one.", &[]),
+    },
+    Entry {
+        file: "overleaf/destination.rs",
+        literal: "Lattice can't save files in that folder. Choose another one.",
+        text: Text::Message("Lattice can't save files in that folder. Choose another one.", &[]),
+    },
+    Entry {
         file: "overleaf/link.rs",
         literal: "This project is already linked to an Overleaf project.",
         text: Text::Message("This project is already linked to an Overleaf project.", &[]),
@@ -2277,8 +2287,8 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "tex_setup/macos.rs",
-        literal: "Lattice only updates the BasicTeX it installs. In Terminal: {UPDATE_COMMAND}",
-        text: Text::Message("Lattice only updates the BasicTeX it installs. In Terminal: {command}", &[("command", Arg::Param(0))]),
+        literal: "Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: {UPDATE_COMMAND}",
+        text: Text::Message("Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: {command}", &[("command", Arg::Param(0))]),
     },
     Entry {
         file: "tex_setup/macos.rs",

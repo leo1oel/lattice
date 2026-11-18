@@ -1,0 +1,25 @@
+[package]
+name = "lattice-board"
+version = "0.1.0"
+description = "The .excalidraw whiteboard as a native GPUI view: quiet.md's port of Excalidraw's canvas, tools and chrome, in Lattice's look."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# The model, geometry, editing algorithms and history (MIT, from quiet.md).
+lattice-board-core = { path = "../lattice-board-core" }
+lattice-i18n.workspace = true
+lattice-ui.workspace = true
+base64 = "0.22"
+gpui.workspace = true
+image = { workspace = true, features = ["png", "jpeg", "gif", "webp"] }
+log.workspace = true
+# The stroke caps and joins the board tessellates with: the lyon GPUI paths use.
+lyon = "1.0"
+# Copy as PNG rasterizes the board's SVG export, with the resvg GPUI draws
+# SVGs with.
+resvg = { version = "0.45", default-features = false, features = ["text", "system-fonts", "memmap-fonts"] }
+rustc-hash = "2"
+serde_json.workspace = true
+unicode-segmentation = "1"

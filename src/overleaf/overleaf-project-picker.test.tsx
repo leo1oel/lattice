@@ -43,6 +43,7 @@ function mockConnectedPicker(extra: CommandTable = {}) {
     overleaf_status: connected,
     overleaf_list_projects: listed(),
     overleaf_clone_project: "/tmp/cloned/Attention Paper",
+    overleaf_download_parent: DOWNLOADS,
     ...extra,
   });
 }
@@ -54,9 +55,12 @@ function renderPicker(props: Partial<Parameters<typeof OverleafPickerDialog>[0]>
   return callbacks;
 }
 
+/** Where downloads go. */
+const DOWNLOADS = { path: "/tmp/cloned", display: "/tmp/cloned" };
+
 /** What `overleaf_clone_project` is sent for the Attention Paper row. */
 const cloneArgs = (overrides: Record<string, unknown> = {}) => ({
-  projectId: "p1", name: "Attention Paper", accessLevel: "owner", adopt: false, ...overrides,
+  projectId: "p1", name: "Attention Paper", parent: DOWNLOADS.path, accessLevel: "owner", adopt: false, ...overrides,
 });
 
 /** Select the Attention Paper row and press Open. */
@@ -467,9 +471,9 @@ describe("Overleaf picker dialog", () => {
     expect(screen.queryByText("Attention Paper")).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("overleaf_resolve_link", { link });
     fireEvent.keyDown(search, { key: "Enter" });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", {
-      projectId: shared.id, name: "Shared Paper", accessLevel: "readWrite", adopt: false,
-    }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs({
+      projectId: shared.id, name: "Shared Paper", accessLevel: "readWrite",
+    })));
   });
 
   it("asks Overleaf once for a link typed out by hand", async () => {

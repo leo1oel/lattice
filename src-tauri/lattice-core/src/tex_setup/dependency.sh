@@ -16,3 +16,7 @@ status installing-dependency
 tlmgr_with_fallback update --self
 CURRENT_STEP="Installing TeX Live package ${PACKAGE}"
 tlmgr_with_fallback install "${PACKAGE}" 2>&1 | relay_progress installing-dependency
+
+# Last, so the files tlmgr wrote as root are handed over too.
+CURRENT_STEP="Handing the TeX Live folder to the signed-in user"
+hand_over_tree

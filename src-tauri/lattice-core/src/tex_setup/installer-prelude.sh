@@ -10,6 +10,13 @@ ROOT=__ROOT_PATH__
 STATUS="${ROOT}/status"
 LOG="${ROOT}/install.log"
 CURRENT_STEP="Preparing the __INSTALLER_NAME__ installation"
+# The TeX Live year tree to give the signed-in user (HANDOFF_UID) when this
+# script's tlmgr runs end, successful or not, so later updates and package
+# installs run as that user without the administrator prompt; files tlmgr
+# just wrote as root are handed over with the rest. "" when the script runs
+# as that user already, or the TeX is not a TeX Live year tree.
+HANDOFF_TREE=__HANDOFF_TREE__
+HANDOFF_UID=__HANDOFF_UID__
 
 umask 077
 if ! /bin/mkdir -m 711 "${ROOT}"; then
@@ -42,12 +49,26 @@ log_diagnostic() {
   fi
 }
 
+# -P: a symbolic link inside the tree is re-owned itself, never followed.
+hand_over_tree() {
+  if [[ -z "${HANDOFF_TREE}" || ! -d "${HANDOFF_TREE}" ]]; then
+    return 0
+  fi
+  if [[ -L "${HANDOFF_TREE}" ]]; then
+    echo "Refusing to hand over a symbolic-link TeX Live tree: ${HANDOFF_TREE}"
+    return 1
+  fi
+  /usr/sbin/chown -R -P "${HANDOFF_UID}" "${HANDOFF_TREE}"
+}
+
 fail() {
   code=$?
   trap - ERR EXIT
   set +e
   printf '%s failed.\n' "${CURRENT_STEP}" >&3
   log_diagnostic >&3
+  # A failed run still hands the tree over, so trying again needs no prompt.
+  hand_over_tree >> "${LOG}" 2>&1
   cleanup
   exit "${code}"
 }

@@ -336,6 +336,28 @@
 .overleaf-project-local > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .overleaf-project-local svg { flex: none; }
 
+/* Where a download goes, with the way to choose another folder. */
+.overleaf-destination {
+  margin-top: var(--space-6);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  color: var(--text-secondary);
+  font-size: var(--type-micro-size);
+}
+.overleaf-destination svg { flex: none; color: var(--text-tertiary); }
+.overleaf-destination-label { flex: none; }
+.overleaf-destination-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+.overleaf-destination .ui-button { flex: none; }
+.overleaf-destination-error { margin-top: var(--space-4); flex: none; }
 
 .overleaf-publish-card { margin-top: var(--space-8); flex: none; display: grid; gap: var(--space-6); }
 .overleaf-publish-head { display: flex; align-items: center; gap: var(--space-6); }

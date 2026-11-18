@@ -3816,6 +3816,10 @@ msgstr "选择克隆仓库的位置"
 msgid "Choose where to create the project"
 msgstr "选择项目位置"
 
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Choose where to download Overleaf projects"
+msgstr "选择 Overleaf 项目的下载位置"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Choose where to export the Excel workbook."
 msgstr "请选择 Excel 工作簿的导出位置"
@@ -3852,6 +3856,7 @@ msgstr "选择文献库的 .bib 文件"
 msgid "Choose Zotero folder…"
 msgstr "选择 Zotero 文件夹…"
 
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
@@ -5909,6 +5914,10 @@ msgstr "下载 PDF"
 #: src/overleaf/overleaf-download-bar.tsx
 msgid "Download progress"
 msgstr "下载进度"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Download to"
+msgstr "下载到"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/spelling-languages-row.tsx
@@ -8881,6 +8890,10 @@ msgstr "Lattice 用这台 Mac 上的 LaTeX 编译 PDF，BasicTeX 约 1 GB。"
 msgid "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck."
 msgstr "Lattice 用这台电脑上的 TeX Live 编译 PDF，请从发行版的软件源安装，然后选择“重新检测”。"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Lattice can't save files in that folder. Choose another one."
+msgstr "Lattice 无法在该文件夹中保存文件，请选择其他文件夹。"
+
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "{activeFile} 暂停同步，Lattice 正在核对"
@@ -8970,8 +8983,8 @@ msgid "Lattice only"
 msgstr "仅 Lattice"
 
 #: src/platform/host-errors-setup.ts
-msgid "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
-msgstr "Lattice 只更新它安装的 BasicTeX。请在终端中运行：{command}"
+msgid "Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: {command}"
+msgstr "Lattice 只更新安装在 /usr/local/texlive 下的 TeX Live。请在终端中运行：{command}"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
@@ -16062,6 +16075,10 @@ msgstr "该文件或文件夹已不存在"
 msgid "That folder already exists and is not empty."
 msgstr "该文件夹已存在且不为空"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "That folder no longer exists. Choose another one."
+msgstr "该文件夹已不存在，请选择其他文件夹。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "That history entry no longer exists."
 msgstr "这条历史记录已不存在"
@@ -18440,8 +18457,12 @@ msgid "Updates available ({count}). In Terminal: {TEX_PACKAGE_UPDATE_COMMAND}"
 msgstr "有可用更新（{count} 个）。在终端中运行：{TEX_PACKAGE_UPDATE_COMMAND}"
 
 #: src/app/use-tex-update-reminder.ts
-msgid "Updates available ({count}). Updating asks for administrator approval and can take a few minutes."
-msgstr "有可用更新（{count} 个）。更新时需要输入 Mac 密码，可能需要几分钟。"
+msgid "Updates available ({count}). Updating asks for your password once; after that, Lattice keeps TeX up to date without asking."
+msgstr "有可用更新（{count} 个）。更新时只需输入一次 Mac 密码，之后 Lattice 会自动保持 TeX 为最新，不再询问。"
+
+#: src/app/use-tex-update-reminder.ts
+msgid "Updates available ({count}). Updating can take a few minutes."
+msgstr "有可用更新（{count} 个）。更新可能需要几分钟。"
 
 #: src/project/rename-dialog.tsx
 msgid "Updates every \\ref to it"

@@ -412,7 +412,7 @@ impl TexSetupCenter {
         })
     }
 
-    /// Under the checklist, for the BasicTeX Lattice installed: the
+    /// Under the checklist, for a TeX Live tree Lattice manages: the
     /// one-click update, its progress and its result.
     fn package_actions(&self, center: &Entity<TexSetupCenter>, cx: &App) -> AnyElement {
         let palette = cx.palette().clone();

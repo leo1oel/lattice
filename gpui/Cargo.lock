@@ -6703,6 +6703,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "lattice-board"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "gpui",
+ "image",
+ "lattice-board-core",
+ "lattice-i18n",
+ "lattice-ui",
+ "log",
+ "lyon",
+ "resvg 0.45.1",
+ "rustc-hash 2.1.1",
+ "serde_json",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "lattice-board-core"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "html5ever 0.27.0",
+ "markup5ever_rcdom 0.3.0",
+ "miniz_oxide",
+ "regex",
+ "rustc-hash 2.1.1",
+ "serde_json",
+ "sha1_smol",
+ "unicode-normalization",
+]
+
+[[package]]
 name = "lattice-core"
 version = "0.16.19"
 dependencies = [
@@ -6812,6 +6845,7 @@ dependencies = [
  "image",
  "indexmap",
  "language",
+ "lattice-board",
  "lattice-core",
  "lattice-editor",
  "lattice-i18n",

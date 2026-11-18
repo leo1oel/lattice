@@ -73,7 +73,7 @@ fn package_update_script_updates_tlmgr_then_every_package_with_progress() {
     let root = workspace.join("root");
     let tlmgr = StubTlmgr::new(&workspace, &root, false);
 
-    let output = run_installer(&package_update_script(&root, &tlmgr.path));
+    let output = run_installer(&package_update_script(&root, &tlmgr.path, None));
 
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     assert_eq!(StubTlmgr::lines(&tlmgr.calls), ["update --self", "update --all"]);
@@ -92,7 +92,7 @@ fn package_update_script_reports_a_failed_update_with_tlmgrs_words() {
     let root = workspace.join("root");
     let tlmgr = StubTlmgr::new(&workspace, &root, true);
 
-    let output = run_installer(&package_update_script(&root, &tlmgr.path));
+    let output = run_installer(&package_update_script(&root, &tlmgr.path, None));
 
     assert!(!output.status.success());
     // The configured repository, then each fallback mirror.
@@ -123,7 +123,7 @@ fn basic_tex_install_goes_on_after_a_failed_package_update_and_warns() {
     let texbin = workspace.join("texbin");
     fs::create_dir(&texbin).unwrap();
     let tlmgr = StubTlmgr::new(&texbin, &root, true);
-    let shipped = basic_tex_script(&workspace.join("BasicTeX.pkg"), &root, false);
+    let shipped = basic_tex_script(&workspace.join("BasicTeX.pkg"), &root, false, None);
     let system_texbin = "TEXBIN=\"/Library/TeX/texbin\"\n";
     assert_eq!(shipped.matches(system_texbin).count(), 1);
     let script = shipped
@@ -151,4 +151,73 @@ fn basic_tex_install_goes_on_after_a_failed_package_update_and_warns() {
     );
     assert!(warning.contains("could not get texlive.tlpdb"), "{warning}");
     assert!(!root.exists());
+}
+
+/// The signed-in user's uid, which a handoff to oneself may chown to
+/// without root.
+fn current_uid() -> u32 {
+    // SAFETY: getuid has no preconditions and cannot fail.
+    unsafe { libc::getuid() }
+}
+
+#[test]
+fn a_handoff_runs_after_the_update_and_also_after_a_failed_one() {
+    for fail_update_all in [false, true] {
+        let workspace = crate::test_support::TempDir::new("package-update-handoff-test");
+        let root = workspace.join("root");
+        let tree = workspace.join("texlive");
+        fs::create_dir(&tree).unwrap();
+        let tlmgr = StubTlmgr::new(&workspace, &root, fail_update_all);
+        let tree_path = tree.to_string_lossy();
+        let handoff = Handoff { tree: &tree_path, uid: current_uid() };
+        let script = package_update_script(&root, &tlmgr.path, Some(handoff));
+        // A stand-in chown that records its arguments, as root's is not ours.
+        let chown_calls = workspace.join("chown-calls");
+        let chown = workspace.join("chown");
+        fs::write(
+            &chown,
+            format!(
+                "#!/bin/bash\nprintf '%s\\n' \"$*\" >> {}\n",
+                shell_quote(&chown_calls.to_string_lossy())
+            ),
+        )
+        .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&chown, fs::Permissions::from_mode(0o755)).unwrap();
+        let script = script.replace("/usr/sbin/chown", &chown.to_string_lossy());
+
+        let output = run_installer(&script);
+
+        assert_eq!(
+            output.status.success(),
+            !fail_update_all,
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            StubTlmgr::lines(&chown_calls),
+            [format!("-R -P {} {}", current_uid(), tree_path)],
+            "fail_update_all: {fail_update_all}"
+        );
+        assert!(!root.exists());
+    }
+}
+
+#[test]
+fn a_handoff_refuses_a_symbolic_link_tree() {
+    let workspace = crate::test_support::TempDir::new("package-update-handoff-link-test");
+    let root = workspace.join("root");
+    let target = workspace.join("elsewhere");
+    fs::create_dir(&target).unwrap();
+    let tree = workspace.join("texlive");
+    std::os::unix::fs::symlink(&target, &tree).unwrap();
+    let tlmgr = StubTlmgr::new(&workspace, &root, false);
+    let tree_path = tree.to_string_lossy();
+    let handoff = Handoff { tree: &tree_path, uid: current_uid() };
+
+    let output = run_installer(&package_update_script(&root, &tlmgr.path, Some(handoff)));
+
+    assert!(!output.status.success());
+    let error = package_update_error(&String::from_utf8_lossy(&output.stderr));
+    assert!(error.contains("Refusing to hand over a symbolic-link TeX Live tree"), "{error}");
 }

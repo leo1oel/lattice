@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 use std::ptr::NonNull;
-use std::sync::{LazyLock, Mutex, PoisonError};
+use std::sync::{LazyLock, Mutex, Once, OnceLock, PoisonError};
 
 static PDF_COPY_TEXT: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -172,6 +172,107 @@ pub fn install_copy_shortcut_monitor(app: tauri::AppHandle) {
             }
         }
     });
+}
+
+/// Longest range, in UTF-16 units, that AppKit may have the web view turn
+/// into styled text. Input methods and dictation ask for a few characters
+/// around the caret and Writing Tools for an ordinary selection, all far
+/// below this.
+const MAX_ATTRIBUTED_SUBSTRING_LENGTH: usize = 4_000;
+
+type AttributedSubstringHandler =
+    block2::Block<dyn Fn(*mut objc2_foundation::NSAttributedString, objc2_foundation::NSRange)>;
+type AttributedSubstringImp = unsafe extern "C-unwind" fn(
+    &objc2::runtime::AnyObject,
+    objc2::runtime::Sel,
+    objc2_foundation::NSRange,
+    Option<&AttributedSubstringHandler>,
+);
+
+static ORIGINAL_ATTRIBUTED_SUBSTRING: OnceLock<AttributedSubstringImp> = OnceLock::new();
+
+/// Stop AppKit from rebuilding a huge selection as styled text over and over
+/// (#1115).
+///
+/// To decide whether to show the Writing Tools affordance, AppKit asks the
+/// web view for the attributed string of the whole selection after every
+/// selection change, on mouse events and from a dwell timer that reschedules
+/// itself. WebKit answers `attributedSubstringForProposedRange:completionHandler:`
+/// by walking the range and styling every run on the web content main thread,
+/// so with thousands of lines selected the editor gets no time to scroll or
+/// paint. `writingToolsBehavior = .none` does not stop the check.
+///
+/// The hook answers ranges longer than `MAX_ATTRIBUTED_SUBSTRING_LENGTH` with
+/// `(nil, {NSNotFound, 0})`, which is what WebKit itself answers when it has
+/// no text for a range, and forwards every other request unchanged. The
+/// selector is WebKit's private NSTextInputClient extension, so a WebKit
+/// without it, or with a different signature, is left alone. Installing twice
+/// is a no-op.
+pub fn cap_attributed_substring_requests() {
+    static INSTALL: Once = Once::new();
+    INSTALL.call_once(|| {
+        use objc2::runtime::Imp;
+        use objc2::{sel, ClassType};
+        use objc2_web_kit::WKWebView;
+
+        let Some(method) = WKWebView::class()
+            .instance_method(sel!(attributedSubstringForProposedRange:completionHandler:))
+        else {
+            log::info!(
+                target: "lattice::window",
+                "this WebKit has no async attributed-substring request; leaving it alone"
+            );
+            return;
+        };
+        let argument_is = |index: usize, expected: &dyn Fn(&[u8]) -> bool| {
+            method.argument_type(index).is_some_and(|encoding| expected(encoding.to_bytes()))
+        };
+        let signature_matches = method.arguments_count() == 4
+            && method.return_type().to_bytes() == b"v"
+            && argument_is(2, &|encoding| encoding.starts_with(b"{_NSRange="))
+            && argument_is(3, &|encoding| encoding == b"@?");
+        if !signature_matches {
+            log::warn!(
+                target: "lattice::window",
+                "WebKit's attributed-substring request has an unexpected signature; leaving it alone"
+            );
+            return;
+        }
+        // SAFETY: the signature checked above is (self, _cmd, NSRange, block)
+        // returning void, which is exactly AttributedSubstringImp. The
+        // original is stored before the swap so the hook can always forward.
+        unsafe {
+            let original = std::mem::transmute::<Imp, AttributedSubstringImp>(method.implementation());
+            let _ = ORIGINAL_ATTRIBUTED_SUBSTRING.set(original);
+            method.set_implementation(std::mem::transmute::<AttributedSubstringImp, Imp>(
+                decline_large_attributed_substrings,
+            ));
+        }
+        log::info!(
+            target: "lattice::window",
+            "declining styled-text requests over {MAX_ATTRIBUTED_SUBSTRING_LENGTH} UTF-16 units"
+        );
+    });
+}
+
+unsafe extern "C-unwind" fn decline_large_attributed_substrings(
+    this: &objc2::runtime::AnyObject, cmd: objc2::runtime::Sel, range: objc2_foundation::NSRange,
+    handler: Option<&AttributedSubstringHandler>,
+) {
+    if range.length <= MAX_ATTRIBUTED_SUBSTRING_LENGTH {
+        if let Some(original) = ORIGINAL_ATTRIBUTED_SUBSTRING.get() {
+            // SAFETY: forwards the runtime's own arguments to the
+            // implementation this hook replaced.
+            unsafe { original(this, cmd, range, handler) };
+            return;
+        }
+    }
+    if let Some(handler) = handler {
+        handler.call((
+            std::ptr::null_mut(),
+            objc2_foundation::NSRange::new(objc2_foundation::NSNotFound as usize, 0),
+        ));
+    }
 }
 
 /// The window's NSWindow pointer as an address that can cross threads.
@@ -606,5 +707,40 @@ mod tests {
             permissions.iter().any(|permission| permission == "core:window:allow-destroy"),
             "the browser host bridge needs core:window:allow-destroy"
         );
+    }
+
+    #[test]
+    fn large_attributed_substring_requests_are_declined_once_hooked() {
+        use objc2::runtime::NSObject;
+        use objc2::{sel, ClassType};
+        use objc2_foundation::{NSNotFound, NSRange};
+        use objc2_web_kit::WKWebView;
+        use std::cell::Cell;
+        use std::rc::Rc;
+
+        super::cap_attributed_substring_requests();
+        super::cap_attributed_substring_requests();
+        let selector = sel!(attributedSubstringForProposedRange:completionHandler:);
+        let method = WKWebView::class().instance_method(selector).expect("WebKit has the request");
+        let hook = super::decline_large_attributed_substrings as super::AttributedSubstringImp;
+        assert_eq!(method.implementation() as usize, hook as usize);
+        // A second install must not capture the hook as the original.
+        let original = *super::ORIGINAL_ATTRIBUTED_SUBSTRING.get().expect("original kept");
+        assert_ne!(original as usize, hook as usize);
+
+        let answer = Rc::new(Cell::new(None));
+        let seen = Rc::clone(&answer);
+        let handler = block2::RcBlock::new(
+            move |text: *mut objc2_foundation::NSAttributedString, range: NSRange| {
+                seen.set(Some((text.is_null(), range)));
+            },
+        );
+        let receiver = NSObject::new();
+        let range = NSRange::new(0, super::MAX_ATTRIBUTED_SUBSTRING_LENGTH + 1);
+        // SAFETY: an over-long range never touches the receiver.
+        unsafe {
+            super::decline_large_attributed_substrings(&receiver, selector, range, Some(&handler))
+        };
+        assert_eq!(answer.get(), Some((true, NSRange::new(NSNotFound as usize, 0))));
     }
 }

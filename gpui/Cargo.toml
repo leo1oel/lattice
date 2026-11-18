@@ -9,6 +9,8 @@ members = [
     "compat/gpui-fast/gpui-fast-platform",
     "compat/gpui-fast/gpui-fast-web",
     "compat/sqlite/libsqlite3-sys",
+    "crates/lattice-board",
+    "crates/lattice-board-core",
     "crates/lattice-editor",
     "crates/lattice-gpui",
     "crates/lattice-i18n",
@@ -90,6 +92,7 @@ image = { version = "0.25", default-features = false }
 # project watcher. Without its `spellcheck` feature: the GPUI app has no
 # spell or grammar check, so Harper and the Hunspell dictionaries stay out.
 lattice-core = { path = "../src-tauri/lattice-core", default-features = false }
+lattice-board = { path = "crates/lattice-board" }
 lattice-editor = { path = "crates/lattice-editor" }
 lattice-i18n = { path = "crates/lattice-i18n" }
 lattice-settings = { path = "crates/lattice-settings" }
