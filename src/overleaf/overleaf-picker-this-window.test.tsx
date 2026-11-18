@@ -28,6 +28,7 @@ function mockConnected(extra: Record<string, unknown> = {}) {
       invites: [],
     },
     overleaf_clone_project: "/tmp/cloned/Attention Paper",
+    overleaf_download_parent: { path: "/tmp/cloned", display: "/tmp/cloned" },
     ...extra,
   });
 }

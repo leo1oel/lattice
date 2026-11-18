@@ -98,26 +98,40 @@ pub fn reopen_local_copy(
     overleaf::reopen_local_copy(&config_dir(), path, project_id, access)
 }
 
-/// What downloading `name` would meet: nothing, the linked folder, or a
-/// folder of that name holding other files.
-pub fn clone_target(project_id: &str, name: &str) -> Result<CloneTarget, String> {
-    overleaf::clone_target(project_id, name, &projects_dir()?)
+/// Where a download goes: the folder the last one went to, else
+/// `Documents/Overleaf Projects` (`overleaf_download_parent`).
+pub fn download_parent() -> Result<PathBuf, String> {
+    Ok(overleaf::download_parent(&config_dir(), &projects_dir()?))
 }
 
-/// Download a project (or, with `adopt`, link the folder already sitting
-/// where it would go) and start its version history, reporting progress.
+/// Whether a project can be downloaded into `parent`, a folder just chosen.
+pub fn check_download_parent(parent: &Path) -> Result<(), String> {
+    overleaf::check_download_parent(parent)
+}
+
+/// What downloading `name` into `parent` would meet: nothing, the linked
+/// folder, or a folder of that name holding other files.
+pub fn clone_target(project_id: &str, name: &str, parent: &Path) -> Result<CloneTarget, String> {
+    overleaf::check_download_parent(parent)?;
+    overleaf::clone_target(project_id, name, parent)
+}
+
+/// Download a project into `parent` (or, with `adopt`, link the folder
+/// already sitting where it would go) and start its version history,
+/// reporting progress. `parent` is where the next download goes too.
 pub fn clone(
     project_id: &str,
     name: &str,
+    parent: &Path,
     access: Option<&str>,
     adopt: bool,
     report: impl Fn(DownloadProgress) + Sync,
 ) -> Settled<PathBuf> {
     let run = || -> Result<PathBuf, String> {
         let config = config_dir();
-        let parent = projects_dir()?;
+        overleaf::check_download_parent(parent)?;
         if adopt {
-            let target = overleaf::clone_target(project_id, name, &parent)?;
+            let target = overleaf::clone_target(project_id, name, parent)?;
             if target.kind == "occupied" {
                 return overleaf::adopt_project(
                     &config,
@@ -129,7 +143,9 @@ pub fn clone(
             }
         }
         let progress = throttled(report);
-        overleaf::clone_project(&config, project_id, name, &parent, access, &progress)
+        let root = overleaf::clone_project(&config, project_id, name, parent, access, &progress)?;
+        overleaf::remember_download_parent(&config, parent);
+        Ok(root)
     };
     let (root, expired) = settled(run());
     // A cloned project starts its version history at once, so the Versions

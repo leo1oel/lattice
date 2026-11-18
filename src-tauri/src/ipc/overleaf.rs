@@ -310,19 +310,21 @@ pub async fn overleaf_resolve_link(
     settled(&app, run_blocking(TASK, move || overleaf::resolve_link(&config, &link)).await).await
 }
 
-/// Where Overleaf projects are downloaded to.
-fn overleaf_projects_dir(app: &AppHandle) -> Result<PathBuf, String> {
+/// Where Overleaf projects are downloaded to unless the writer chooses
+/// another folder.
+pub(super) fn overleaf_projects_dir(app: &AppHandle) -> Result<PathBuf, String> {
     documents_folder(app, "Overleaf Projects", "the Overleaf Projects folder")
 }
 
-/// What opening this project would do, so the app can ask before it acts.
+/// What opening this project in `parent` would do, so the app can ask before
+/// it acts.
 #[tauri::command]
 pub async fn overleaf_clone_target(
-    app: AppHandle, project_id: String, name: String,
+    project_id: String, name: String, parent: String,
 ) -> Result<overleaf::CloneTarget, String> {
-    let parent = overleaf_projects_dir(&app)?;
     run_blocking("Overleaf project location", move || {
-        overleaf::clone_target(&project_id, &name, &parent)
+        overleaf::check_download_parent(Path::new(&parent))?;
+        overleaf::clone_target(&project_id, &name, Path::new(&parent))
     })
     .await
 }
@@ -333,6 +335,8 @@ pub async fn overleaf_clone_project(
     window: Window,
     project_id: String,
     name: String,
+    // The folder to download into, which the next download offers again.
+    parent: String,
     access_level: Option<String>,
     // `adopt`: link the folder already sitting there instead of downloading a
     // second copy beside it. Only meaningful when `overleaf_clone_target`
@@ -340,8 +344,9 @@ pub async fn overleaf_clone_project(
     adopt: Option<bool>,
 ) -> Result<String, String> {
     let config = overleaf_config_dir(&app)?;
-    let parent = overleaf_projects_dir(&app)?;
+    let parent = PathBuf::from(parent);
     let downloaded = run_blocking("The Overleaf download", move || {
+        overleaf::check_download_parent(&parent)?;
         let access_level = access_level.as_deref();
         let progress = report_download(window);
         if adopt.unwrap_or(false) {
@@ -357,7 +362,10 @@ pub async fn overleaf_clone_project(
                 );
             }
         }
-        overleaf::clone_project(&config, &project_id, &name, &parent, access_level, &progress)
+        let root =
+            overleaf::clone_project(&config, &project_id, &name, &parent, access_level, &progress)?;
+        overleaf::remember_download_parent(&config, &parent);
+        Ok(root)
     })
     .await;
     let root = settled(&app, downloaded).await?;

@@ -133,6 +133,11 @@ pub struct OverleafPicker {
     downloaded: Option<(DownloadTrack, Instant)>,
     publishing: bool,
     transfer_error: Option<SharedString>,
+    /// Where a download goes: the folder the last one went to, else
+    /// `Documents/Overleaf Projects`; `None` until it can be resolved.
+    destination: Option<PathBuf>,
+    /// Why the folder just chosen cannot take a download.
+    destination_error: Option<SharedString>,
     pasted: Pasted,
     login: Entity<Login>,
     scroll: ScrollHandle,
@@ -301,6 +306,8 @@ impl OverleafPicker {
             downloaded: None,
             publishing: false,
             transfer_error: None,
+            destination: None,
+            destination_error: None,
             pasted: Pasted::default(),
             login,
             scroll: ScrollHandle::new(),
@@ -313,6 +320,16 @@ impl OverleafPicker {
             _subscriptions: subscriptions,
         };
         picker.load_status(cx);
+        let parent = cx.background_spawn(async { sync::download_parent().ok() });
+        cx.spawn(async move |this, cx| {
+            let parent = parent.await;
+            this.update(cx, |this, cx| {
+                this.destination = this.destination.take().or(parent);
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
         picker
     }
 

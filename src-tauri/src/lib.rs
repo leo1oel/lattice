@@ -578,6 +578,8 @@ pub fn run() {
             ipc::overleaf::overleaf_list_projects,
             ipc::overleaf::overleaf_resolve_link,
             ipc::overleaf::overleaf_clone_target,
+            ipc::overleaf_destination::overleaf_download_parent,
+            ipc::overleaf_destination::overleaf_check_download_parent,
             ipc::overleaf::overleaf_local_copies,
             ipc::overleaf::overleaf_reopen_local_copy,
             ipc::overleaf::overleaf_clone_project,

@@ -1391,6 +1391,16 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("That Overleaf project name cannot be used as a folder name.", &[]),
     },
     Entry {
+        file: "overleaf/destination.rs",
+        literal: "That folder no longer exists. Choose another one.",
+        text: Text::Message("That folder no longer exists. Choose another one.", &[]),
+    },
+    Entry {
+        file: "overleaf/destination.rs",
+        literal: "Lattice can't save files in that folder. Choose another one.",
+        text: Text::Message("Lattice can't save files in that folder. Choose another one.", &[]),
+    },
+    Entry {
         file: "overleaf/link.rs",
         literal: "This project is already linked to an Overleaf project.",
         text: Text::Message("This project is already linked to an Overleaf project.", &[]),

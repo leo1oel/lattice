@@ -3812,6 +3812,10 @@ msgstr "Choose where to clone the repository"
 msgid "Choose where to create the project"
 msgstr "Choose where to create the project"
 
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Choose where to download Overleaf projects"
+msgstr "Choose where to download Overleaf projects"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Choose where to export the Excel workbook."
 msgstr "Choose where to export the Excel workbook."
@@ -3848,6 +3852,7 @@ msgstr "Choose your library's .bib file"
 msgid "Choose Zotero folder…"
 msgstr "Choose Zotero folder…"
 
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
@@ -5888,6 +5893,10 @@ msgstr "Download PDF"
 #: src/overleaf/overleaf-download-bar.tsx
 msgid "Download progress"
 msgstr "Download progress"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Download to"
+msgstr "Download to"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/spelling-languages-row.tsx
@@ -8842,6 +8851,10 @@ msgstr "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is abou
 #: src/onboarding/get-started-steps.ts
 msgid "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck."
 msgstr "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Lattice can't save files in that folder. Choose another one."
+msgstr "Lattice can't save files in that folder. Choose another one."
 
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -15974,6 +15987,10 @@ msgstr "That file or folder no longer exists."
 #: src/platform/host-errors-project.ts
 msgid "That folder already exists and is not empty."
 msgstr "That folder already exists and is not empty."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "That folder no longer exists. Choose another one."
+msgstr "That folder no longer exists. Choose another one."
 
 #: src/platform/host-errors-workspace.ts
 msgid "That history entry no longer exists."
