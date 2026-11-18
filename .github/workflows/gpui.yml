@@ -2,11 +2,13 @@ name: GPUI
 
 # The GPUI preview app in gpui/ is a Cargo workspace of its own, built from
 # Zed's crates (about 1,200 of them), and nothing in the Tauri app depends on
-# it. Its builds take 30-60 minutes a run, so pull requests and pushes to main
-# do not run this workflow; the optional local `pnpm signoff`
-# (docs/agent-validation.md) runs the GPUI unit tests and the e2e scenario
-# when a change touches gpui/. It runs for a release tag, on demand (Actions > GPUI > Run
-# workflow), and weekly on main, which is what keeps its Rust caches warm.
+# it. Its builds take 30-60 minutes a run, so a push runs it only when the
+# change reaches what the app builds from (scripts/ci-tier.mjs, `gpui`; the
+# list follows), and a newer push to the branch cancels the older run. It runs
+# in full for a release tag, weekly on main (which keeps its Rust caches
+# warm), for a dispatch on main or with `full`, and for a `CI: full`
+# trailer or the `ci:full` label; ci.yml's header has the rest. `pnpm
+# ci:local` runs the same jobs on a Mac (docs/agent-validation.md).
 #
 # The app builds on the backend crate it shares with the Tauri app
 # (src-tauri/lattice-core). The other files outside gpui/ it reads are the
@@ -24,15 +26,26 @@ name: GPUI
 # src/editor/latex/latex-text.ts, and the app's styles, i18n and utilities.
 on:
   push:
+    branches: ["**"]
     tags: ["v*"]
   schedule:
     # Monday 06:41 UTC, away from the hour and from ci.yml's weekly run.
     - cron: "41 6 * * 1"
   workflow_dispatch:
+    inputs:
+      full:
+        description: Run every job, whatever the branch changed
+        type: boolean
+        default: false
+      base:
+        description: Compare with this ref instead of the merge base with origin/main
+        type: string
+        default: ""
 
+# As in ci.yml: one run per branch, the newest; main and tags by commit.
 concurrency:
-  group: gpui-${{ github.sha }}
-  cancel-in-progress: false
+  group: gpui-${{ github.ref }}-${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) && github.sha || 'branch' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
   contents: read
@@ -62,9 +75,39 @@ env:
 # They are written even when a test fails: the compiled crates are what the
 # next run needs, and a red test does not make them wrong.
 jobs:
+  # Whether this change reaches the GPUI app (scripts/ci-tier.mjs), and whether
+  # a green local pass (`pnpm ci:local`, its CI-local trailer) already stands
+  # for the macOS job. Every job runs unless this says `false`.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      gpui: ${{ steps.tier.outputs.gpui }}
+      macos-local: ${{ steps.tier.outputs.macos-local }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - id: tier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          INPUT_FULL: ${{ inputs.full }}
+          INPUT_BASE: ${{ inputs.base }}
+        run: node scripts/ci-tier.mjs --github
+
   # The export imports only the two TypeScript modules, which import nothing
   # at run time, so Node alone runs it: no pnpm install.
   code-themes:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.gpui != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     defaults:
@@ -81,6 +124,8 @@ jobs:
   # gpui/patches holds upstream crates with Lattice's diffs; this rebuilds
   # them from upstream at their pins and fails unless they match.
   patches:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.gpui != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -93,6 +138,8 @@ jobs:
   # leaves room for a cold release build (about 30 minutes), the tests and a
   # 45-minute e2e.
   macos:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.gpui != 'false' && needs.changes.outputs.macos-local != 'true' }}
     runs-on: macos-latest
     timeout-minutes: 120
     steps:
@@ -155,9 +202,9 @@ jobs:
           # As on Windows: the builds, cleans and notices in the job's log.
           LATTICE_GPUI_LOG=info target/release/lattice-gpui "$project" --scenario e2e --out "$out"
           cat "$out"
-          jq -e '.passed == true' "$out" > /dev/null
-          file="$(jq -r '.after_quit.file' "$out")"
-          grep -qF "$(jq -r '.after_quit.text' "$out")" "$file" || { echo "quitting did not save $file"; exit 1; }
+          # Fails on a step main passes, not on the ones main fails today
+          # (scripts/gpui-e2e-known-failures.json), which it lists apart.
+          node ../scripts/gpui-e2e-verdict.mjs --platform macos --check-quit "$out"
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
@@ -196,6 +243,8 @@ jobs:
           if-no-files-found: ignore
 
   windows:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.gpui != 'false' }}
     runs-on: windows-latest
     timeout-minutes: 120
     defaults:
@@ -243,18 +292,37 @@ jobs:
             $restored = $LASTEXITCODE -eq 0
           }
           if (-not $restored) {
-            # choco retries nothing itself; the CTAN mirror it downloads from
-            # stalls now and then.
-            foreach ($attempt in 1..3) {
-              choco install miktex --no-progress -y --execution-timeout=600
-              if ($LASTEXITCODE -eq 0) { break }
-              if ($attempt -eq 3) { throw "choco could not install MiKTeX" }
-              Start-Sleep -Seconds 20
+            # choco retries nothing itself, and MiKTeX's setup first asks
+            # api2.miktex.org for a mirror, which timed out from the runners
+            # for minutes at a time (run 44171052878: three attempts within
+            # two minutes, each "Timeout was reached" on /hello, after the
+            # cache had been evicted). So each attempt names a CTAN mirror
+            # itself (/Mirror), which skips that lookup, and waits longer
+            # before the next; only the last lets MiKTeX choose.
+            $mirrors = @(
+              "https://mirrors.mit.edu/CTAN/systems/win32/miktex/tm/packages/",
+              "https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/",
+              "https://mirror.las.iastate.edu/tex-archive/systems/win32/miktex/tm/packages/",
+              ""
+            )
+            $repository = $null
+            foreach ($attempt in 0..($mirrors.Count - 1)) {
+              $mirror = $mirrors[$attempt]
+              if ($mirror) {
+                choco install miktex --no-progress -y --execution-timeout=600 --params "/Mirror:$mirror"
+              } else {
+                choco install miktex --no-progress -y --execution-timeout=600
+              }
+              if ($LASTEXITCODE -eq 0) { $repository = $mirror; break }
+              if ($attempt -eq $mirrors.Count - 1) { throw "choco could not install MiKTeX from any mirror" }
+              Start-Sleep -Seconds (30 * ($attempt + 1))
             }
             $bin = @("C:\Program Files\MiKTeX\miktex\bin\x64", "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64") |
               Where-Object { Test-Path "$_\initexmf.exe" } | Select-Object -First 1
             if (-not $bin) { throw "MiKTeX's binaries were not found after the install" }
             & "$bin\initexmf.exe" --admin --set-config-value=[MPM]AutoInstall=1
+            # Packages fetched on first use come from the mirror that worked.
+            if ($repository) { & "$bin\initexmf.exe" --admin --set-config-value=[MPM]RemoteRepository=$repository }
             & "$bin\miktex.exe" --admin packages update-package-database
             & "$bin\miktex.exe" --admin packages install latexmk
             & "$bin\latexmk.exe" --version
@@ -302,12 +370,16 @@ jobs:
           if (-not $app.WaitForExit(2400000)) { $app.Kill(); throw "the e2e scenario did not finish in 40 minutes" }
           Get-Content $out
           $result = Get-Content $out -Raw | ConvertFrom-Json
-          if (-not $result.passed) { throw "the e2e scenario failed" }
+          # As on macOS: only a step main passes fails the job
+          # (scripts/gpui-e2e-known-failures.json).
+          node ../scripts/gpui-e2e-verdict.mjs --platform windows $out
+          $newFailures = $LASTEXITCODE -ne 0
           # As on macOS: the text typed just before the scenario quit is saved.
           # The path is a verbatim one (\\?\D:\...), whose `?` Get-Content
           # would read as a wildcard, so .NET reads it.
           $quit = $result.after_quit
           if (-not [System.IO.File]::ReadAllText($quit.file).Contains($quit.text)) { throw "quitting did not save $($quit.file)" }
+          if ($newFailures) { throw "the e2e scenario failed a step main passes" }
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
