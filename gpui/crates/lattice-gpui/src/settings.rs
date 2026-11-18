@@ -38,6 +38,7 @@ mod model_endpoint_pane;
 mod nav;
 pub(crate) mod overleaf_pane;
 mod pages;
+pub(crate) mod plugins_pane;
 mod providers_pane;
 pub(crate) mod search;
 mod theme_art;

@@ -201,6 +201,24 @@ pub fn latex_citation_drop(source: &str, drop: usize, key: &str) -> Option<Citat
     })
 }
 
+/// The edit that cites `key` at the caret, byte `caret` of LaTeX `source`
+/// (a plugin's Insert citation): joined to the key list of a live citation
+/// command the caret is in, else `\cite{key}` right there; `None` when the
+/// key is already in that list or is not one a citation can hold.
+pub fn latex_citation_at_caret(source: &str, caret: usize, key: &str) -> Option<CitationEdit> {
+    if !writable_key(key) || !source.is_char_boundary(caret.min(source.len())) {
+        return None;
+    }
+    let caret = caret.min(source.len());
+    if citation_list(source, caret).is_some() {
+        return latex_citation_drop(source, caret, key);
+    }
+    Some(CitationEdit {
+        range: caret..caret,
+        insert: format!("\\cite{{{key}}}"),
+    })
+}
+
 /// Where the drop caret goes for `key` dropped at byte `drop` of LaTeX
 /// `source`: where [`latex_citation_drop`] puts it, or `None` when that drop
 /// inserts nothing.
@@ -350,6 +368,21 @@ mod tests {
         let mut cited = source.to_string();
         cited.replace_range(edit.range, &edit.insert);
         assert_eq!(cited, "See~\\citep{attention2017} \\citep{older,later}.");
+    }
+
+    #[test]
+    fn a_plugin_citation_joins_the_cite_at_the_caret_or_goes_in_as_cite() {
+        let source = "See \\cite{a} and more.";
+        let inside = source.find('a').unwrap() + 1;
+        let edit = latex_citation_at_caret(source, inside, "b").unwrap();
+        assert_eq!(&source[edit.range.clone()], "a");
+        assert_eq!(edit.insert, "a, b");
+        assert_eq!(latex_citation_at_caret(source, inside, "a"), None);
+        let end = source.len();
+        let edit = latex_citation_at_caret(source, end, "b").unwrap();
+        assert_eq!(edit.range, end..end);
+        assert_eq!(edit.insert, "\\cite{b}");
+        assert_eq!(latex_citation_at_caret(source, end, "bad key"), None);
     }
 
     #[test]

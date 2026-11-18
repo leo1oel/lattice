@@ -146,6 +146,7 @@ choice!(
         ModelEndpoint = "model-endpoint",
         Overleaf = "overleaf",
         Literature = "literature",
+        Plugins = "plugins",
         Api = "api",
         Doctor = "doctor",
         Logs = "logs",

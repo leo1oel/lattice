@@ -1,45 +1,39 @@
 //! The one question an import asks, as the Tauri app's
 //! `import-conflict-dialog.tsx` asks it: what to do with the names the
-//! target folder already has, answered once for the whole batch. Keep both
-//! is chosen first, as the answer that loses nothing; Replace overwrites
-//! files of the same name and merges folders; Skip leaves them out. Escape
+//! target folder already has, answered once for the whole batch. Each answer
+//! is its own button, as Finder asks it: Keep both is the default (Enter), as
+//! the answer that loses nothing; Replace overwrites files of the same name
+//! and merges folders, drawn in the danger ink; Skip leaves them out. Escape
 //! or Cancel imports nothing.
 //!
 //! A 420px small dialog at the upper third: the warning mark, the title
-//! naming the folder, the first three names in the editor's face (the rest
-//! counted), and the three answers as a radio group whose plate slides to
-//! the chosen one; ↑ ↓ move the choice and Enter imports.
+//! naming the one taken name and the folder (or counting several), the
+//! sentence saying what Replace and Keep both do, several names listed in the
+//! editor's face (the first three, the rest counted), then Cancel, Skip,
+//! Replace and Keep both.
 
 use gpui::{
     App, AppContext as _, Context, Entity, FocusHandle, Global, InteractiveElement as _,
-    IntoElement, KeyDownEvent, ParentElement as _, Render, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    IntoElement, KeyDownEvent, ParentElement as _, Render, SharedString, Styled as _, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use lattice_core::project::NameConflict;
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
     components::{Button, LayerPlacement, ModalLayer, rise_in},
-    interaction::{hover_wash, mix},
-    motion::Motion,
-    sliding::SlidingPlate,
-    tokens::FONT_WEIGHT_SEMIBOLD,
 };
 
 /// Names listed before the rest are counted.
 const LISTED_NAMES: usize = 3;
-const CHOICES: [NameConflict; 3] = [
-    NameConflict::KeepBoth,
-    NameConflict::Replace,
-    NameConflict::Skip,
-];
+/// What Enter answers: the answer that loses nothing.
+const DEFAULT_ANSWER: NameConflict = NameConflict::KeepBoth;
 
 type Answer = Box<dyn FnOnce(Option<NameConflict>, &mut Window, &mut App)>;
 
 struct Question {
     names: Vec<String>,
     target: String,
-    choice: usize,
     answer: Answer,
 }
 
@@ -82,7 +76,6 @@ pub fn ask(
         host.open = Some(Question {
             names,
             target,
-            choice: 0,
             answer: Box::new(answer),
         });
         cx.notify();
@@ -102,31 +95,26 @@ impl ImportConflict {
         }
     }
 
-    fn step(&mut self, by: isize, cx: &mut Context<Self>) {
-        if let Some(question) = self.open.as_mut() {
-            let count = CHOICES.len() as isize;
-            question.choice = (question.choice as isize + by).rem_euclid(count) as usize;
-            cx.notify();
-        }
-    }
-
-    /// The title, naming the folder.
-    fn title(names: usize, target: &str) -> SharedString {
+    /// The title: the one taken name and its folder, or how many there are.
+    fn title(names: &[String], target: &str) -> SharedString {
         match (names, target.is_empty()) {
-            (1, true) => t!("An item with this name is already in the project root").to_string(),
-            (1, false) => t!(
-                "An item with this name is already in {targetDirectory}",
+            ([name], true) => {
+                t!("“{name}” is already in the project root", name = name).to_string()
+            }
+            ([name], false) => t!(
+                "“{name}” is already in {targetDirectory}",
+                name = name,
                 targetDirectory = target
             )
             .to_string(),
-            (count, true) => t!(
+            (names, true) => t!(
                 "{count} items with these names are already in the project root",
-                count = count
+                count = names.len()
             )
             .to_string(),
-            (count, false) => t!(
+            (names, false) => t!(
                 "{count} items with these names are already in {targetDirectory}",
-                count = count,
+                count = names.len(),
                 targetDirectory = target
             )
             .to_string(),
@@ -134,19 +122,18 @@ impl ImportConflict {
         .into()
     }
 
-    /// Whether a question is up, and its choice, for a scenario.
+    /// Whether a question is up, and what Enter answers, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn asking(&self) -> Option<(SharedString, NameConflict)> {
         self.open.as_ref().map(|question| {
             (
-                Self::title(question.names.len(), &question.target),
-                CHOICES[question.choice],
+                Self::title(&question.names, &question.target),
+                DEFAULT_ANSWER,
             )
         })
     }
 
-    /// Choose `choice` and press Import, as the writer would, for a
-    /// scenario.
+    /// Press `choice`'s button, as the writer would, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn choose(&mut self, choice: NameConflict, window: &mut Window, cx: &mut Context<Self>) {
         self.answer(Some(choice), window, cx);
@@ -160,15 +147,14 @@ impl Render for ImportConflict {
         };
         let palette = cx.palette().clone();
         let editor = cx.lattice().fonts.editor.clone();
-        let count = question.names.len();
-        let title = Self::title(count, &question.target);
+        let title = Self::title(&question.names, &question.target);
         let serial = self.serial;
-        let choice = question.choice;
-        let hidden = count.saturating_sub(LISTED_NAMES);
+        let several = question.names.len() > 1;
+        let hidden = question.names.len().saturating_sub(LISTED_NAMES);
         let names = div()
             .flex()
             .flex_col()
-            .mb(px(16.))
+            .pt(px(8.))
             .children(question.names.iter().take(LISTED_NAMES).map(|name| {
                 div()
                     .overflow_hidden()
@@ -187,126 +173,40 @@ impl Render for ImportConflict {
                         .child(t!("and {hidden} more", hidden = hidden)),
                 )
             });
-        let labels: [(SharedString, Option<SharedString>); 3] = [
-            (t!("Keep both").into(), None),
-            (
-                t!("Replace").into(),
-                Some(t!("Overwrite files of the same name; merge folders").into()),
-            ),
-            (t!("Skip").into(), None),
-        ];
-        let plate = SlidingPlate::new(("import-conflict-plate", serial), Some(choice), window, cx);
-        let plate_drawn = plate.is_drawn(cx);
-        let rows = labels
-            .into_iter()
-            .enumerate()
-            .map(|(ix, (label, description))| {
-                let selected = ix == choice;
-                let on = lattice_ui::interaction::fade(
-                    ("import-conflict-on", serial * 4 + ix),
-                    selected,
-                    Motion::Fast,
-                    window,
+        // Each answer plays the dialog's exit before it runs.
+        let answer_button =
+            |button: Button, choice: Option<NameConflict>, cx: &mut Context<Self>| {
+                button.on_click(ModalLayer::closing(
+                    ("import-conflict", serial),
                     cx,
-                );
-                // The ring gives way to the dot, which springs in from 30%.
-                let radio = div()
-                    .relative()
-                    .flex_none()
-                    .size(px(16.))
-                    .child(
-                        div()
-                            .absolute()
-                            .inset_0()
-                            .rounded_full()
-                            .border(px(1.5))
-                            .border_color(mix(
-                                palette.line_strong,
-                                palette.line_strong.opacity(0.),
-                                on,
-                            )),
-                    )
-                    .child(
-                        div()
-                            .absolute()
-                            .inset_0()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .opacity(on)
-                            .child(
-                                div()
-                                    .size(px(8. * (0.3 + 0.7 * on)))
-                                    .rounded_full()
-                                    .bg(palette.text),
-                            ),
-                    );
-                let row = div()
-                    .id(("import-conflict-choice", serial * 4 + ix))
-                    .relative()
-                    .h(px(50.))
-                    .flex()
-                    .gap(px(8.))
-                    .px(px(10.))
-                    .pt(px(8.))
-                    .rounded(px(8.))
-                    .cursor_pointer()
-                    .when(selected && !plate_drawn, |this| this.bg(palette.pressed))
-                    .child(div().h(px(18.)).flex().items_center().child(radio))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .text_role(TextRole::Body, cx)
-                                    .font_weight(if selected {
-                                        FONT_WEIGHT_SEMIBOLD
-                                    } else {
-                                        lattice_ui::tokens::FONT_WEIGHT_REGULAR
-                                    })
-                                    .text_color(if selected {
-                                        palette.text
-                                    } else {
-                                        palette.text_secondary
-                                    })
-                                    .child(label),
-                            )
-                            .children(description.map(|description| {
-                                div()
-                                    .overflow_hidden()
-                                    .text_ellipsis()
-                                    .whitespace_nowrap()
-                                    .text_role(TextRole::Micro, cx)
-                                    .text_color(palette.text_secondary)
-                                    .child(description)
-                            })),
-                    )
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        if let Some(question) = this.open.as_mut() {
-                            question.choice = ix;
-                            cx.notify();
-                        }
-                    }));
-                let row = hover_wash(
-                    row,
-                    ("import-conflict-hover", serial * 4 + ix),
-                    gpui::transparent_black(),
-                    palette.hover,
-                    window,
-                    cx,
-                );
-                plate.item(ix, row)
-            });
-        let rows: Vec<_> = rows.collect();
-        let group = plate.strip(
-            div()
-                .relative()
-                .mx(px(-10.))
-                .children(plate.plate(|plate| plate.rounded(px(8.)).bg(palette.pressed), cx))
-                .children(rows),
-        );
+                    move |this, window, cx| this.answer(choice, window, cx),
+                ))
+            };
+        let actions = div()
+            .flex()
+            .justify_end()
+            .gap(px(8.))
+            .pt(px(24.))
+            .child(answer_button(
+                Button::new(("import-conflict-cancel", serial), t!("Cancel")).ghost(),
+                None,
+                cx,
+            ))
+            .child(answer_button(
+                Button::new(("import-conflict-skip", serial), t!("Skip")),
+                Some(NameConflict::Skip),
+                cx,
+            ))
+            .child(answer_button(
+                Button::new(("import-conflict-replace", serial), t!("Replace")).ghost_danger(),
+                Some(NameConflict::Replace),
+                cx,
+            ))
+            .child(answer_button(
+                Button::new(("import-conflict-keep-both", serial), t!("Keep both")).primary(),
+                Some(NameConflict::KeepBoth),
+                cx,
+            ));
         let card = div()
             .w(px(420.).min(window.viewport_size().width - px(40.)))
             .flex()
@@ -335,64 +235,34 @@ impl Render for ImportConflict {
                     .mb(px(4.))
                     .child(title),
             )
-            .child(names)
-            .child(group)
             .child(
                 div()
-                    .flex()
-                    .justify_end()
-                    .gap(px(8.))
-                    .pt(px(24.))
-                    .child(
-                        Button::new(("import-conflict-cancel", serial), t!("Cancel"))
-                            .ghost()
-                            .on_click(ModalLayer::closing(
-                                ("import-conflict", serial),
-                                cx,
-                                |this, window, cx| this.answer(None, window, cx),
-                            )),
-                    )
-                    .child(
-                        Button::new(("import-conflict-import", serial), t!("Import"))
-                            .primary()
-                            .on_click(ModalLayer::closing(
-                                ("import-conflict", serial),
-                                cx,
-                                move |this, window, cx| {
-                                    let choice =
-                                        this.open.as_ref().map(|question| CHOICES[question.choice]);
-                                    this.answer(choice, window, cx)
-                                },
-                            )),
-                    ),
-            );
+                    .text_role(TextRole::Body, cx)
+                    .text_color(palette.text_secondary)
+                    .child(t!(
+                        "Replace overwrites files of the same name and merges folders. Keep both imports a numbered copy."
+                    )),
+            )
+            .when(several, |this| this.child(names))
+            .child(actions);
         let keys = div()
             .id(("import-conflict-keys", serial))
             .track_focus(&self.focus)
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                match event.keystroke.key.as_str() {
-                    "up" | "left" => this.step(-1, cx),
-                    "down" | "right" => this.step(1, cx),
-                    "enter" => {
-                        // Enter answers as Import does, after the exit.
-                        let view = cx.entity().downgrade();
-                        let serial = this.serial;
-                        ModalLayer::leave(
-                            ("import-conflict", serial),
-                            window,
-                            cx,
-                            move |window, cx| {
-                                view.update(cx, |this, cx| {
-                                    let choice =
-                                        this.open.as_ref().map(|question| CHOICES[question.choice]);
-                                    this.answer(choice, window, cx)
-                                })
-                                .ok();
-                            },
-                        );
-                    }
-                    _ => return,
+                if event.keystroke.key != "enter" {
+                    return;
                 }
+                // Enter answers as Keep both does, after the exit.
+                let view = cx.entity().downgrade();
+                ModalLayer::leave(
+                    ("import-conflict", this.serial),
+                    window,
+                    cx,
+                    move |window, cx| {
+                        view.update(cx, |this, cx| this.answer(Some(DEFAULT_ANSWER), window, cx))
+                            .ok();
+                    },
+                );
                 cx.stop_propagation();
             }))
             .child(rise_in(("import-conflict-rise", serial), card));
@@ -416,13 +286,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_title_names_the_folder_and_counts_several() {
+    fn the_title_names_one_item_and_its_folder_and_counts_several() {
         assert_eq!(
-            &*ImportConflict::title(1, "figures"),
-            "An item with this name is already in figures"
+            &*ImportConflict::title(&["main.tex".into()], "figures"),
+            "“main.tex” is already in figures"
         );
         assert_eq!(
-            &*ImportConflict::title(3, ""),
+            &*ImportConflict::title(&["main.tex".into()], ""),
+            "“main.tex” is already in the project root"
+        );
+        assert_eq!(
+            &*ImportConflict::title(&["a".into(), "b".into(), "c".into()], ""),
             "3 items with these names are already in the project root"
         );
     }

@@ -52,6 +52,14 @@ msgstr "终端中的“{command}”"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "“{name}” is already in {targetDirectory}"
+msgstr "{targetDirectory} 中已有“{name}”"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "“{name}” is already in the project root"
+msgstr "项目根目录中已有“{name}”"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}”和磁盘上的 {file} 大小写不一致，Overleaf 和 arXiv 可能找不到它"
@@ -2257,14 +2265,6 @@ msgstr "导入的源文件"
 #: src/papers/bibliography-audit.tsx
 msgid "An index matched, but the official proceedings could not be reached"
 msgstr "索引已对上，但没能连上官方论文集"
-
-#: src/project/import-conflict-dialog.tsx
-msgid "An item with this name is already in {targetDirectory}"
-msgstr "{targetDirectory} 中已有同名项目"
-
-#: src/project/import-conflict-dialog.tsx
-msgid "An item with this name is already in the project root"
-msgstr "项目根目录中已有同名项目"
 
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
@@ -7033,10 +7033,6 @@ msgstr "任意"
 msgid "For developing a plugin: Lattice runs the folder in place, so your edits apply on the next run."
 msgstr "用于开发插件：Lattice 直接运行该文件夹，修改会在下次运行时生效。"
 
-#: src/project/import-conflict-dialog.tsx
-msgid "For each item already here"
-msgstr "对每个同名项目"
-
 #: src/app/format-document.ts
 msgid "Format"
 msgstr "排版"
@@ -7754,7 +7750,6 @@ msgid "Implies"
 msgstr "蕴含"
 
 #: src/app/use-project-tree.ts
-#: src/project/import-conflict-dialog.tsx
 msgid "Import"
 msgstr "导入"
 
@@ -11840,10 +11835,6 @@ msgstr "导读"
 msgid "Overview only"
 msgstr "只有概览"
 
-#: src/project/import-conflict-dialog.tsx
-msgid "Overwrite files of the same name; merge folders"
-msgstr "覆盖同名文件，合并同名文件夹"
-
 #. Search words for the agent Model endpoint settings page, space-separated
 #: src/settings/settings-search-index.ts
 msgid "own API base URL custom"
@@ -13402,6 +13393,10 @@ msgstr "全局替换"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Replace listed usages"
 msgstr "替换列出的使用位置"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "Replace overwrites files of the same name and merges folders. Keep both imports a numbered copy."
+msgstr "替换会覆盖同名文件并合并文件夹；保留两者会导入一份带编号的副本"
 
 #: src/project/submission-items.tsx
 msgid "Replace template"

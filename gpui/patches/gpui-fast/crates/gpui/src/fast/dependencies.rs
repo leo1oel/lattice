@@ -549,16 +549,36 @@ impl App {
             || self.globals_or_states_changed(dependencies)
     }
 
-    fn globals_or_states_changed(&self, dependencies: &RenderDependencies) -> bool {
+    /// Whether any of `entities` changed, or was written while the window
+    /// drew, since `dependencies` were recorded: what a deferred draw
+    /// accessed, judged by the recording of the view that asked for it.
+    pub(crate) fn entities_changed_since(
+        &self,
+        entities: &[EntityId],
+        dependencies: &RenderDependencies,
+    ) -> bool {
+        let log = &self.entities.access_log;
+        log.changed_since(entities, dependencies.updates, true)
+            || log.written_since(entities, &dependencies.writes)
+    }
+
+    /// Whether a global `dependencies` read changed since they were
+    /// recorded.
+    pub(crate) fn globals_changed(&self, dependencies: &RenderDependencies) -> bool {
         dependencies.globals.iter().any(|global| {
             self.dependencies
                 .global_changed_at
                 .get(global)
                 .is_some_and(|changed_at| *changed_at > dependencies.generation)
-        }) || dependencies
-            .states
-            .iter()
-            .any(|(version, read_at)| version.get() != *read_at)
+        })
+    }
+
+    fn globals_or_states_changed(&self, dependencies: &RenderDependencies) -> bool {
+        self.globals_changed(dependencies)
+            || dependencies
+                .states
+                .iter()
+                .any(|(version, read_at)| version.get() != *read_at)
     }
 }
 

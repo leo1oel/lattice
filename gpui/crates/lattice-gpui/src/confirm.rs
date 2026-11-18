@@ -6,20 +6,28 @@
 use std::rc::Rc;
 
 use gpui::{
-    App, AppContext as _, Context, Entity, Global, IntoElement, Render, SharedString, Window, div,
+    App, AppContext as _, Context, Entity, Global, IntoElement, ParentElement as _, Render,
+    SharedString, Styled as _, Window, div, px,
 };
 use lattice_i18n::{t, tc};
 use lattice_ui::{
-    ActiveLattice as _, Icon,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{Button, DialogCard, LayerPlacement, ModalLayer},
 };
 
 type Answer = Rc<dyn Fn(&mut Window, &mut App)>;
 type Dismissal = Box<dyn FnOnce(&mut App)>;
 
+/// Over the window's deferred overlays (the palette and Settings, at 10, in
+/// `shell/layers.rs`), which a question can be asked from (Settings ›
+/// Plugins and Overleaf ask theirs there), and under the notices (50).
+const PRIORITY: usize = 20;
+
 pub struct Confirm {
     title: SharedString,
     body: Option<SharedString>,
+    /// Bullets under the body (`ul`), as a plugin's permissions are listed.
+    list: Vec<SharedString>,
     confirm_label: SharedString,
     /// The other answer's words, when not "Cancel": a question whose two
     /// answers both act names what each does.
@@ -40,6 +48,7 @@ impl Confirm {
         Self {
             title: title.into(),
             body: None,
+            list: Vec::new(),
             confirm_label: tc!("dialog button", "OK").into(),
             cancel_label: None,
             destructive: false,
@@ -51,6 +60,11 @@ impl Confirm {
 
     pub fn body(mut self, body: impl Into<SharedString>) -> Self {
         self.body = Some(body.into());
+        self
+    }
+
+    pub fn list(mut self, lines: impl IntoIterator<Item = impl Into<SharedString>>) -> Self {
+        self.list = lines.into_iter().map(Into::into).collect();
         self
     }
 
@@ -169,6 +183,13 @@ impl ConfirmHost {
 
     /// The open question's body, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn question_list(&self) -> Vec<SharedString> {
+        self.pending
+            .as_ref()
+            .map(|question| question.list.clone())
+            .unwrap_or_default()
+    }
+
     pub fn question_body(&self) -> Option<SharedString> {
         self.pending
             .as_ref()
@@ -217,6 +238,24 @@ impl Render for ConfirmHost {
         if let Some(body) = &question.body {
             card = card.body(body.clone());
         }
+        if !question.list.is_empty() {
+            // `.plugin-permissions`: the body's face in the primary ink,
+            // each line after its bullet, 16px in and 2px apart.
+            card = card.field(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(2.))
+                    .text_role(TextRole::Body, cx)
+                    .text_color(palette.text)
+                    .children(question.list.iter().map(|line| {
+                        div()
+                            .flex()
+                            .child(div().flex_none().w(px(16.)).child("•"))
+                            .child(div().flex_1().min_w_0().child(line.clone()))
+                    })),
+            );
+        }
         let mut card = card.action(
             Button::new(
                 ("confirm-cancel", self.serial),
@@ -256,6 +295,7 @@ impl Render for ConfirmHost {
                 view.update(cx, |this, cx| this.close(cx)).ok();
             },
         )
+        .priority(PRIORITY)
         .into_any_element()
     }
 }
