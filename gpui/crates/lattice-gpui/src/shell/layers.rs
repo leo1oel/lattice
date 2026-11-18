@@ -66,6 +66,18 @@ impl Shell {
                     .into_any_element(),
             );
         }
+        // The question asked over them (`confirm.rs`) draws by its own
+        // priority, but GPUI hit-tests a deferred layer nested in another
+        // above every layer of a shallower nesting, whatever their
+        // priorities: a dialog built on `ModalLayer` defers itself inside
+        // the deferred above, so a question drawn one level up showed over
+        // Settings and let its clicks through to Settings. Nested as deep
+        // as the dialogs, it takes the pointer where it is drawn.
+        overlays.push(
+            deferred(self.confirm.clone().into_any_element())
+                .with_priority(OVERLAY_PRIORITY)
+                .into_any_element(),
+        );
         overlays.push(
             deferred(self.notices.clone().into_any_element())
                 .with_priority(TOAST_PRIORITY)
