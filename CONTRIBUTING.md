@@ -184,9 +184,8 @@ repository, `~/.local` and `~/.cargo`, and prints the `PATH` line for you to add
 rather than editing your shell profile. Read it as executable documentation of
 the correct bootstrap order.
 
-Licensed whiteboard builds also require `VITE_TLDRAW_LICENSE_KEY` in
-`.env.local`; see [`.env.example`](.env.example), which documents that and every
-other environment variable this repository reads — including the two credentials
+[`.env.example`](.env.example) documents every environment variable this
+repository reads — including the two credentials
 (`OPENALEX_API_KEY`, `LATTICE_FIRECRAWL_KEY`) that must be exported in your
 shell rather than put in `.env.local`, because Vite only loads `.env.local` for
 the frontend. If you add a new one, add it there in the same commit.
@@ -267,10 +266,6 @@ Lattice is licensed under the **Apache License, Version 2.0** (see
 agree that your contribution is offered under those terms, as section 5 of the
 license describes. There is no CLA and no copyright assignment. Releases up to
 and including 0.1.341 were GPL-3.0-or-later and remain available under it.
-
-The tldraw SDK (`tldraw`, `@tldraw/editor`, `@tldraw/driver`) is not covered by
-the Apache License; it stays under the tldraw license, whose verbatim text is
-in `public/licenses/tldraw-LICENSE.md`. Never commit a tldraw license key.
 
 Trellis (`@danfessler/trellis`, `@danfessler/trellis-react`), the workspace's
 panel layout, is not covered by the Apache License either: it is licensed under

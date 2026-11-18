@@ -65,48 +65,6 @@ The board editor is [Excalidraw](https://github.com/excalidraw/excalidraw), pinn
 
 Excalidraw's defaults load its fonts from `esm.sh`. Lattice instead serves the package's own `dist/prod/fonts` (Excalifont, Virgil, Nunito, Lilita One, Comic Shanns, Cascadia Code, Liberation Sans, Assistant and the Xiaolai CJK subsets) from the application through `scripts/excalidraw-assets.ts` and `src/editor/board/board-asset-urls.ts`. They are distributed under their own licenses: the SIL Open Font License 1.1 for all but Comic Shanns, which is MIT.
 
-## tldraw
-
-The board editor is built with the [tldraw SDK](https://github.com/tldraw/tldraw), pinned at `tldraw@5.2.5` in `package.json`.
-
-**The verbatim license text is vendored at [`public/licenses/tldraw-LICENSE.md`](public/licenses/tldraw-LICENSE.md).** It has to be: the published npm packages do not contain it. `node_modules/tldraw/LICENSE.md` is 104 bytes and reads, in full, "This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)" — a link, not a license — while the license itself lists among its conditions:
-
-> To include a verbatim copy of this License in any distribution of the Software.
-
-Vite copies `public/` into `dist/`, and `src-tauri/tauri.conf.json` sets `frontendDist: "../dist"`, so the vendored copy is embedded in the shipped application binary as well as tracked in the source tree. `scripts/generate-notices.mjs` fails if the file goes missing, and reproduces it in the generated section below.
-
-### Which tldraw packages are actually covered
-
-The scope is narrower than the package names suggest, and the `license` fields are not a reliable guide:
-
-- `tldraw`, `@tldraw/editor` and `@tldraw/driver` declare `"SEE LICENSE IN LICENSE.md"` and ship the link stub. These are the packages the tldraw license governs.
-- `@tldraw/utils` and `@tldraw/validate` also declare `"SEE LICENSE IN LICENSE.md"`, but the file they point at is an ordinary **MIT** license, Copyright (c) 2024 tldraw Inc. The declaration is misleading; the shipped text governs.
-- `@tldraw/state`, `@tldraw/state-react`, `@tldraw/store` and `@tldraw/tlschema` declare `"MIT"` and ship the MIT text.
-- `@tldraw/assets` declares `"SEE LICENSE IN LICENSE.md"` and ships the link stub, so its icons, translations and embed icons are covered by the tldraw license too. Its fonts are not tldraw's: see the next section.
-
-### Board fonts (`@tldraw/assets`)
-
-tldraw's defaults load the board's fonts, icons, translations and embed icons from `cdn.tldraw.com`. Lattice instead bundles them from `@tldraw/assets@5.2.5` (pinned to the `tldraw` version) through `src/editor/board/board-asset-urls.ts`; Vite emits them into `dist/assets/`, so they ship inside the application.
-The sixteen `.woff2` files are IBM Plex Sans, Serif and Mono (Copyright © 2017 IBM Corp. with Reserved Font Name "Plex") and Shantell Sans (Copyright 2022 The Shantell Sans Project Authors), all under the SIL Open Font License 1.1 and bundled unmodified.
-Their metadata carries the copyright lines and a pointer to the OFL but not its text, so the license ships separately at [`public/licenses/tldraw-fonts-OFL.txt`](public/licenses/tldraw-fonts-OFL.txt) (both copyright notices plus the OFL), which Vite copies into the shipped application.
-
-### Terms that bear on redistribution
-
-tldraw 5.x is **not** Apache-2.0 and not an OSI-approved license. Quoting the text (see the vendored copy for the whole document):
-
-- Permissions are limited to using the Software in "Development Environments", modifying it, and bundling it "with your own projects".
-- Among the conditions: "Not to use the Software in Production Environments"; "Not to disable, change, or interfere with the Software's License Key enforcement"; "Not to remove any copyright or other notices from the Software"; and **"Not to make the Software available under a license that supersedes or negates the effect of this License."**
-- Production use is reached only through the separate "Trial license" and "Commercial license" sections, each of which turns on a License Key issued by tldraw.
-- Both the warranty disclaimer and the liability limitation say "You must pass this \[…\] on whenever you distribute the Software or derivative works."
-
-**Carve-out.** Lattice is Apache-2.0, but the `tldraw`, `@tldraw/editor` and `@tldraw/driver` packages (and the parts of `@tldraw/assets` listed above) are licensed under the tldraw license, not Apache-2.0; `NOTICE` says so explicitly. Lattice does not relicense them, so the condition against making the Software "available under a license that supersedes or negates the effect of this License" is respected. The license key stays out of this repository: forks build tldraw in its unlicensed, watermarked mode, which does not interfere with key enforcement. (While Lattice was GPL-3.0, these restrictions conflicted with GPL-3.0 §7; that conflict ended with the relicense.)
-
-### What this repository can and cannot verify about its own grant
-
-The board editor reads a license key from the `VITE_TLDRAW_LICENSE_KEY` environment variable at build time; the release workflow passes it from the `VITE_TLDRAW_LICENSE_KEY` repository secret. Builds without that key, including release builds when the secret is unset, run tldraw in its unlicensed, watermarked mode. **The specific grant the maintainer holds is not recorded anywhere in this repository** and needs confirming against whatever tldraw issued with the key.
-
-An earlier revision of this file asserted that Lattice "ships under a tldraw Hobby license key". That claim is withdrawn: the license text defines only Development, Trial and Commercial categories and never uses the word "Hobby". A "Hobby" tier exists on tldraw's pricing page as a free, application-gated offering, but its watermark and commercial-use conditions are not published in the legal text, so nothing here can state what they are.
-
 ## Lucide file glyphs (`src/components/ui/file-glyphs.ts`, `src/project/project-tree-css.ts`)
 
 The file and folder glyphs in the project tree, the workspace tabs and the pickers are adapted from [Lucide](https://lucide.dev) icons (ISC). Lucide's license and copyright notice are reproduced with the `lucide-react` package in the generated notices below.
@@ -319,7 +277,7 @@ Spell checking in languages other than English reads Hunspell dictionaries with 
 Everything below is **shipped in the app or the repository but is not yet
 properly attributed above**. This list exists so the gap is visible rather than
 silent. Appearing here does not by itself mean an item is a problem — for most
-of them it only means nobody has checked; a few (tldraw, the conference
+of them it only means nobody has checked; a few (the conference
 templates, the Claude Agent SDK, the Synara client's Central icons) are flagged because a real question was found.
 Remove an entry when it has been given a real section.
 
@@ -335,7 +293,6 @@ installed packages cannot answer.
   - The client ships raw SVGs from `apps/web/public/central-icons-fill/` and `central-icons-reversed/` ("Central icons", rendered by `apps/web/src/lib/central-icons.tsx`). The Synara repository records **no license or provenance** for them. If they are the commercial Central Icon System, redistributing the raw SVGs may not be permitted. This needs an answer from the Synara upstream.
   - Every other package compiled into the client bundle (rather than installed in `node_modules`) is likewise unattributed until the generator, or Synara's own build, emits a notices file for it.
 - **The Claude Agent SDK's redistribution grant.** See the section above. Attribution is now complete — the terms are quoted in full — but whether Lattice may redistribute proprietary, all-rights-reserved JavaScript inside its application is a question only Anthropic can close.
-- **tldraw's license grant** (`tldraw@5.2.5`). See the tldraw section above. Attribution and the Apache-2.0 carve-out are resolved: the verbatim license is vendored at `public/licenses/tldraw-LICENSE.md`, reaches the shipped binary, and `NOTICE` excludes the tldraw packages from the Apache License. Still open: which grant the project's `VITE_TLDRAW_LICENSE_KEY` corresponds to, which only tldraw can confirm.
 - **Packages that declare a license but ship no text, and found none upstream.** The generated "Unresolved attribution" sections list these, each with what `pnpm notices --fetch-upstream` found when it looked in the package's repository. Most packages that ship no text — nearly all of them crates whose published archive omits the `LICENSE` file at the root of their workspace — now have that file recovered from their repository, at the commit they were published from where one is recorded, and reproduced in the generated section: 115 in the npm and crates closures and 2 in the Open Slide runtime. The Synara sidecar section is carried over from a staging of an older pin, so it still lists five; four of those texts are already recovered in `licenses/upstream/` and leave the list when `pnpm prepare:synara` and `pnpm notices` next regenerate it. What remains has no license file in its repository at all: the SPDX identifier is known, but MIT, BSD and ISC require the *copyright notice* specifically, and nothing upstream states one. The packages that used to declare no license at all are resolved: `buffers@0.1.1` left the tree when ExcelJS's `unzipper` was moved to a release without it (a `pnpm.overrides` entry; ExcelJS's browser build, which is what Vite bundles, never contained it), `khroma@2.1.0` is no longer a dependency, and `@univerjs/telemetry@0.25.1` ships the Apache-2.0 license of the Univer repository, which the generator now records for it.
 - **`harper-core`'s dictionary data** (`src-tauri/Cargo.toml`). The crate itself is now attributed (Apache-2.0, though it ships no license text — see above). Its bundled dictionary and corpus data (`dictionary.dict`, `annotations.json`, the irregular-verb and proper-noun tables) may carry separate terms from the code; that has not been checked, and the generator only reads a crate's own license files.
 - **Phosphor Icons** (`src/animated-icons/bakai/*`). These components are hand-rebuilt from Phosphor glyphs (each file's header names the source glyph and weight, e.g. `Faders`, FILL weight). Phosphor Icons is MIT; the required copyright notice is not reproduced anywhere in this repository. Not a dependency, so not covered by the generator.

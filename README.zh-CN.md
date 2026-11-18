@@ -70,7 +70,7 @@ Lattice 不自带模型，也没有自己的 AI 订阅。
 
 <img src="docs/images/formats.webp" alt="编辑区打开白板 attention-map.tldr，旁边是排版好的 Markdown 文档 notes.md；项目文件树里还有同一项目的 HTML 页面、表格和幻灯片" width="900" />
 
-块编辑的 Markdown 笔记、tldraw 白板、可交互的 HTML 页面和带公式的表格，都和论文放在同一个项目里。
+块编辑的 Markdown 笔记、Excalidraw 白板、可交互的 HTML 页面和带公式的表格，都和论文放在同一个项目里。
 幻灯片是基于 [Open Slide](https://github.com/open-slide/open-slide) 的 React 演示文稿：可以编辑、评论、让智能体修改，并直接在 Lattice 中放映。
 **导入文件…** 可以带入 Mac 上的任何其他文件。
 
@@ -91,4 +91,4 @@ Lattice 不自带模型，也没有自己的 AI 订阅。
 
 ## 致谢与许可
 
-致谢（包括 Inkeep 的 [Open Knowledge](https://github.com/inkeep/open-knowledge)，Lattice 早期可视化 Markdown 编辑器的起点）与许可条款（Apache-2.0，以及 tldraw 和 Trellis 各自的条款；`gpui/` 中的 GPUI 预览版为 GPL-3.0-or-later）以 [English README](README.md#acknowledgements) 为准。
+致谢（包括 Inkeep 的 [Open Knowledge](https://github.com/inkeep/open-knowledge)，Lattice 早期可视化 Markdown 编辑器的起点）与许可条款（Apache-2.0，以及 Trellis 自己的条款；`gpui/` 中的 GPUI 预览版为 GPL-3.0-or-later）以 [English README](README.md#acknowledgements) 为准。
