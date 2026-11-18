@@ -18710,6 +18710,11 @@ msgstr "Use valid CSV or TSV with at most 20 rows and 20 columns."
 msgid "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
 msgstr "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "User Guide"
+msgstr "User Guide"
+
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "Using environment key"

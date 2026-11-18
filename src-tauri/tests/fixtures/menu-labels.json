@@ -41,6 +41,8 @@
   "closeTab": "关闭标签页",
   "closeWindow": "关闭窗口",
   "help": "帮助",
+  "userGuide": "使用指南",
+  "userGuideUrl": "https://leo1oel.github.io/lattice/guide/zh-CN/",
   "whatsNew": "Lattice 新功能",
   "reportProblem": "报告问题…",
   "website": "Lattice 网站",

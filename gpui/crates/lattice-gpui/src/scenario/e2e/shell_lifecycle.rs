@@ -201,6 +201,7 @@ impl Run {
                 && file.contains(&"Export for arXiv…".to_string())
                 && view.contains(&"Enter Full Screen".to_string())
                 && window.last().is_some_and(|item| item == "Close Window")
+                && help.first().is_some_and(|item| item == "User Guide")
                 && help.ends_with(&["Lattice Website".to_string(), "Lattice on GitHub".to_string()]),
             json!({ "titles": titles, "lattice": app, "file": file, "view": view, "window": window, "help": help }),
         );

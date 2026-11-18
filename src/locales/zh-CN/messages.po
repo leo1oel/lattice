@@ -18710,6 +18710,11 @@ msgstr "请使用有效的 CSV 或 TSV，最多支持 20 行、20 列。"
 msgid "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
 msgstr "填写地址、密钥和模型名称，使用你自己的兼容 OpenAI 或 Anthropic 的 API。AI 助手通过 Pi 运行它，无需安装命令行工具。"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "User Guide"
+msgstr "使用指南"
+
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "使用系统环境的密钥"
