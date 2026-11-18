@@ -218,6 +218,12 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
             .terms(format!("{builds} halt-on-error")),
         ]);
     }
+    out.push(Entry::row(
+        Editor,
+        editor,
+        "app-updates",
+        t!("Preview updates"),
+    ));
     out.push(Entry::row(Editor, editor, "version", t!("Version")));
     let agent = t!("Agent");
     let endpoint = t!("Model endpoint");
@@ -378,7 +384,7 @@ pub fn with_live_preview(mut entries: Vec<Entry>) -> Vec<Entry> {
     ));
     let at = entries
         .iter()
-        .position(|entry| entry.id == Some("version"))
+        .position(|entry| entry.id == Some("app-updates"))
         .unwrap_or(entries.len());
     entries.insert(at, entry);
     entries

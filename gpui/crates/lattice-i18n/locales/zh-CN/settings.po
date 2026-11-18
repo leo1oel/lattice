@@ -1,6 +1,14 @@
 #: lattice-gpui/src/settings/editor_pane.rs
+msgid "Check the GPUI preview’s own release channel at launch and every six hours, and offer each new version. Off until you turn it on."
+msgstr "在启动时和每六小时检查一次 GPUI 预览版自己的发布渠道，有新版本时提示你更新。默认关闭，打开后才会检查。"
+
+#: lattice-gpui/src/settings/editor_pane.rs
 msgid "Could not save the setting"
 msgstr "设置没保存成功"
+
+#: lattice-gpui/src/settings/editor_pane.rs
+msgid "Preview updates"
+msgstr "预览版更新"
 
 #: lattice-gpui/src/settings/logs_export.rs
 msgid "This run keeps no log folder."

@@ -7,10 +7,13 @@
 //! The offer to restart later ("Lattice {version} is ready") comes with the
 //! automatic mode's Settings row.
 //!
-//! It is off: the GPUI app has no release channel yet, and none ships until
-//! one is approved. [`GPUI_CHANNEL`] is where its manifest and the key that
-//! signs its archives go; until then the updater checks nothing, the menu
-//! has no Check for Updates…, and Report a problem files at once.
+//! It is off until the writer turns on Settings › Editor & builds › Preview
+//! updates (`appUpdates`): until then it checks nothing, the menu has no
+//! Check for Updates…, and Report a problem files at once. Its channel
+//! ([`GPUI_ENDPOINT`]) is the GPUI app's own, apart from the Tauri app's
+//! `latest.json`, and its archives are signed with the Tauri updater's key
+//! (`scripts/gpui-bundle.mjs` signs them, as tauri-action signs the Tauri
+//! app's).
 
 pub mod install;
 pub mod manifest;
@@ -34,13 +37,21 @@ pub struct Channel {
     pub public_key: String,
 }
 
-/// The GPUI app's release channel: none until one is approved.
-pub const GPUI_CHANNEL: Option<(&str, &str)> = None;
+/// The GPUI app's release manifest: the `latest.json` asset of the
+/// `gpui-channel` prerelease, which only GPUI builds are published to. A
+/// prerelease is never GitHub's latest release, so the Tauri app's
+/// `releases/latest/download/latest.json` never sees it.
+pub const GPUI_ENDPOINT: &str =
+    "https://github.com/leo1oel/lattice/releases/download/gpui-channel/latest.json";
 
-/// The channel this run updates from, if any.
+/// The channel this run updates from: [`GPUI_ENDPOINT`], checked with the
+/// Tauri updater's public key (`plugins.updater.pubkey` in tauri.conf.json).
 pub fn channel() -> Option<Channel> {
-    GPUI_CHANNEL.map(|(endpoint, public_key)| Channel {
-        endpoint: endpoint.to_string(),
+    let config: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../src-tauri/tauri.conf.json")).ok()?;
+    let public_key = config["plugins"]["updater"]["pubkey"].as_str()?;
+    Some(Channel {
+        endpoint: GPUI_ENDPOINT.to_string(),
         public_key: public_key.to_string(),
     })
 }
@@ -74,7 +85,8 @@ pub struct Updater {
 struct UpdaterGlobal(Entity<Updater>);
 impl Global for UpdaterGlobal {}
 
-/// Make the updater; with a channel, check at launch and every six hours.
+/// Make the updater; with a channel, check at launch and every six hours
+/// while Preview updates is on.
 pub fn install(scripted: bool, cx: &mut App) -> Entity<Updater> {
     let updater = cx.new(|cx| {
         let mut updater = Updater {
@@ -106,13 +118,22 @@ pub fn global(cx: &App) -> Option<Entity<Updater>> {
         .map(|global| global.0.clone())
 }
 
+/// Preview updates was turned on or off: check at once when it comes on,
+/// and add or take away Check for Updates….
+pub fn setting_changed(cx: &mut App) {
+    if let Some(updater) = global(cx) {
+        updater.update(cx, |updater, cx| updater.check(false, cx));
+    }
+    crate::shell::menus::refresh(cx);
+}
+
 /// Lattice ▸ Check for Updates…, or Restart to Update… once one is
 /// installed; nothing while the updater is off.
 pub fn menu_item(cx: &App) -> Option<MenuItem> {
     // Off without a channel: no Check for Updates… at all.
     let updater = global(cx)?;
     let updater = updater.read(cx);
-    updater.channel.as_ref()?;
+    updater.active_channel(cx)?;
     Some(match updater.phase {
         Phase::Ready(_) => {
             MenuItem::action(tc!("macOS menu bar", "Restart to Update…"), CheckForUpdates)
@@ -145,10 +166,17 @@ fn source() -> String {
 }
 
 impl Updater {
+    /// The channel, while Preview updates is on.
+    fn active_channel(&self, cx: &App) -> Option<Channel> {
+        self.channel
+            .clone()
+            .filter(|_| crate::settings::get(cx).app_updates)
+    }
+
     /// Check the channel; `announce` (the menu) also says when nothing is
     /// new or the check failed.
     pub fn check(&mut self, announce: bool, cx: &mut Context<Self>) {
-        let Some(channel) = self.channel.clone() else {
+        let Some(channel) = self.active_channel(cx) else {
             return;
         };
         if let Phase::Ready(_) = self.phase {
@@ -240,7 +268,8 @@ impl Updater {
 
     /// Download, check and install the release offered, then restart into it.
     pub fn install(&mut self, cx: &mut Context<Self>) {
-        let (Phase::Available(release), Some(channel)) = (self.phase.clone(), self.channel.clone())
+        let (Phase::Available(release), Some(channel)) =
+            (self.phase.clone(), self.active_channel(cx))
         else {
             return;
         };
@@ -387,8 +416,8 @@ pub fn register_actions(cx: &mut App) {
     });
 }
 
-/// Point the updater at `channel`, for a scenario (a run's env is set
-/// before it starts).
+/// Point the updater at `channel` and turn Preview updates on, for a
+/// scenario (a run's env is set before it starts).
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) fn use_channel(channel: Channel, cx: &mut App) {
     if let Some(updater) = global(cx) {
@@ -397,5 +426,19 @@ pub(crate) fn use_channel(channel: Channel, cx: &mut App) {
             updater.phase = Phase::Idle;
             cx.notify();
         });
+    }
+    crate::settings::update(cx, |settings| settings.app_updates = true);
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_channel_is_the_gpui_feed_checked_with_the_tauri_updaters_key() {
+        let channel = super::channel().unwrap();
+        assert_eq!(channel.endpoint, super::GPUI_ENDPOINT);
+        assert!(!channel.endpoint.contains("/latest/download/"));
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../src-tauri/tauri.conf.json")).unwrap();
+        assert_eq!(channel.public_key, config["plugins"]["updater"]["pubkey"]);
     }
 }

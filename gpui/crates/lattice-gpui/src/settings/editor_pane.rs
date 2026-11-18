@@ -368,21 +368,47 @@ fn updates(
     width: PageWidth,
     cx: &mut Context<SettingsDialog>,
 ) -> AnyElement {
-    // The GPUI preview does not update itself yet; each release is on
-    // GitHub, as the Tauri app says where it cannot update itself.
-    let releases = Button::new("github-releases", t!("GitHub Releases"))
-        .ghost()
-        .compact()
-        .icon(lattice_ui::Icon::ARROW_RIGHT)
-        .on_click(|_, _, cx| cx.open_url(LATEST_RELEASE_URL));
-    let rows = vec![row(
-        dialog,
-        Row::new("version", t!("Version"))
-            .description(t!("Version {version}", version = lattice_core::VERSION), cx)
-            .control(releases),
-        width,
-        cx,
-    )];
+    // The GPUI app updates itself only from its own channel, and only once
+    // the writer turns that on (`crate::updater`); until then each release
+    // is on GitHub, as the Tauri app says where it cannot update itself.
+    let on = super::get(cx).app_updates;
+    let version = if on {
+        Button::new("check-for-updates", t!("Check for updates"))
+            .compact()
+            .on_click(|_, _, cx| {
+                if let Some(updater) = crate::updater::global(cx) {
+                    updater.update(cx, |updater, cx| updater.check(true, cx));
+                }
+            })
+            .into_any_element()
+    } else {
+        Button::new("github-releases", t!("GitHub Releases"))
+            .ghost()
+            .compact()
+            .icon(lattice_ui::Icon::ARROW_RIGHT)
+            .on_click(|_, _, cx| cx.open_url(LATEST_RELEASE_URL))
+            .into_any_element()
+    };
+    let rows = vec![
+        row(
+            dialog,
+            Row::new("app-updates", t!("Preview updates"))
+                .control(controls::switch("app-updates", on, false, |on, _, cx| {
+                    super::update(cx, |settings| settings.app_updates = on)
+                }))
+                .description(t!("Check the GPUI preview’s own release channel at launch and every six hours, and offer each new version. Off until you turn it on."), cx),
+            width,
+            cx,
+        ),
+        row(
+            dialog,
+            Row::new("version", t!("Version"))
+                .description(t!("Version {version}", version = lattice_core::VERSION), cx)
+                .control(version),
+            width,
+            cx,
+        ),
+    ];
     controls::group(Some(t!("App updates").into()), rows, cx)
 }
 

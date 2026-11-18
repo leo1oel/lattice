@@ -485,6 +485,10 @@ pub struct Settings {
     /// only its citation (`lattice.papers.save-full-text.v1`); off until the
     /// writer turns it on.
     pub save_full_text: bool,
+    /// Settings › Editor & builds › Preview updates: the GPUI app checks its
+    /// own release channel (`crate::updater`) only while this is on; off
+    /// until the writer turns it on.
+    pub app_updates: bool,
 }
 
 impl Settings {
@@ -542,6 +546,7 @@ impl Settings {
             live_preview_removed: field("livePreviewRemoved") == Some(&Value::Bool(true)),
             build_output_docked: field("buildOutputDocked").and_then(Value::as_bool),
             save_full_text: field("saveFullText") == Some(&Value::Bool(true)),
+            app_updates: field("appUpdates") == Some(&Value::Bool(true)),
         }
     }
 
