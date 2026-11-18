@@ -891,8 +891,11 @@ pub struct App {
     platform_owned_drag: Option<PlatformOwnedDrag>,
     pub(crate) background_executor: BackgroundExecutor,
     pub(crate) foreground_executor: ForegroundExecutor,
+    /// Installed by the first [`App::foreground_journal`] call: until
+    /// something reads the journal, recording into its 4 MB ring is work and
+    /// memory for nobody.
     #[cfg(feature = "profiler")]
-    foreground_journal: crate::profiler::journal::ForegroundJournal,
+    foreground_journal: std::cell::OnceCell<crate::profiler::journal::ForegroundJournal>,
     #[cfg(all(feature = "profiler", not(target_family = "wasm")))]
     hang_monitor: Option<crate::profiler::hang::HangMonitor>,
     pub(crate) entities: EntityMap,
@@ -1005,8 +1008,6 @@ impl App {
             background_executor.is_main_thread(),
             "must construct App on main thread"
         );
-        #[cfg(feature = "profiler")]
-        let foreground_journal = crate::profiler::journal::install_foreground_journal();
         let synced_animation_epoch = background_executor.now();
 
         let text_system = Arc::new(TextSystem::new(platform.text_system()));
@@ -1033,7 +1034,7 @@ impl App {
                 background_executor,
                 foreground_executor,
                 #[cfg(feature = "profiler")]
-                foreground_journal,
+                foreground_journal: std::cell::OnceCell::new(),
                 #[cfg(all(feature = "profiler", not(target_family = "wasm")))]
                 hang_monitor: None,
                 svg_renderer: SvgRenderer::new(asset_source.clone()),
@@ -2403,10 +2404,13 @@ impl App {
     }
 
     /// Returns the foreground work journal for this app's foreground thread.
-    /// Apps constructed on the same thread share the stream.
+    /// Apps constructed on the same thread share the stream. The journal
+    /// starts recording at the first call, so it holds nothing from before.
     #[cfg(feature = "profiler")]
     pub fn foreground_journal(&self) -> crate::profiler::journal::ForegroundJournal {
-        self.foreground_journal.clone()
+        self.foreground_journal
+            .get_or_init(crate::profiler::journal::install_foreground_journal)
+            .clone()
     }
 
     /// Starts detecting foreground hangs on a dedicated thread.

@@ -726,14 +726,18 @@ impl ForegroundJournalWriter {
 thread_local! {
     static FOREGROUND_RUNNABLES: ForegroundRunnableCounter = ForegroundRunnableCounter::new();
     static FOREGROUND_JOURNAL: RefCell<Option<ForegroundJournalWriter>> = const { RefCell::new(None) };
+    /// How deep in foreground turns this thread is, kept with or without a
+    /// journal, so one installed in the middle of a turn ends it in step.
+    static FOREGROUND_TURN_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 pub(crate) fn foreground_runnable_counter() -> ForegroundRunnableCounter {
     FOREGROUND_RUNNABLES.with(Clone::clone)
 }
 
-/// Starts journaling on the calling thread. Called once by `App` construction
-/// on the main thread; every other thread's recording calls are no-ops.
+/// Starts journaling on the calling thread. Called by the first
+/// `App::foreground_journal` on the main thread; until then, and on every
+/// other thread, recording calls are no-ops.
 /// Idempotent so that multiple `App`s on one thread (tests) share one journal.
 pub(crate) fn install_foreground_journal() -> ForegroundJournal {
     let foreground_runnables = foreground_runnable_counter();
@@ -747,10 +751,9 @@ pub(crate) fn install_foreground_journal() -> ForegroundJournal {
 
         let (handle, publisher) =
             ForegroundJournal::new(MAX_JOURNAL_ENTRIES, MAX_PENDING_JOURNAL_ENTRIES);
-        *journal = Some(ForegroundJournalWriter::new(
-            foreground_runnables,
-            publisher,
-        ));
+        let mut writer = ForegroundJournalWriter::new(foreground_runnables, publisher);
+        writer.turn_depth = FOREGROUND_TURN_DEPTH.get();
+        *journal = Some(writer);
         handle
     })
 }
@@ -1007,6 +1010,7 @@ pub(crate) fn foreground_turn() -> ForegroundTurnGuard {
 }
 
 pub(crate) fn begin_foreground_turn() {
+    FOREGROUND_TURN_DEPTH.set(FOREGROUND_TURN_DEPTH.get() + 1);
     // Observing before the turn's work takes its start time means a suspend
     // detected here never invalidates the work that follows it.
     with_journal(|journal| {
@@ -1016,6 +1020,7 @@ pub(crate) fn begin_foreground_turn() {
 }
 
 pub(crate) fn end_foreground_turn() {
+    FOREGROUND_TURN_DEPTH.set(FOREGROUND_TURN_DEPTH.get().saturating_sub(1));
     with_journal(|journal| journal.end_turn(Instant::now()));
 }
 
@@ -1516,6 +1521,22 @@ mod tests {
 
     use super::*;
     use crate::{WindowId, profiler::YieldTime};
+
+    #[test]
+    fn a_journal_installed_inside_a_turn_ends_it_in_step() {
+        let previous = FOREGROUND_JOURNAL.with(|journal| journal.borrow_mut().take());
+        begin_foreground_turn();
+        begin_foreground_turn();
+        let _journal = install_foreground_journal();
+        end_foreground_turn();
+        end_foreground_turn();
+        let depth = FOREGROUND_JOURNAL.with(|journal| {
+            let depth = journal.borrow().as_ref().map(|writer| writer.turn_depth);
+            *journal.borrow_mut() = previous;
+            depth
+        });
+        assert_eq!(depth, Some(0));
+    }
 
     #[test]
     fn platform_signals_are_journaled_without_sealing_or_occupying_time() {
