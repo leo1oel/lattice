@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   executeAgentProjectDocumentToolRequest,
   parseAgentProjectDocumentToolRequest,
+  rejectAgentProjectDocumentToolRequest,
   SYNARA_PROJECT_DOCUMENT_TOOL_REQUEST,
   type AgentProjectDocumentToolRequest,
 } from "./agent-project-document-tools";
@@ -30,6 +31,22 @@ describe("agent project document host protocol", () => {
     expect(parseAgentProjectDocumentToolRequest(request("../model.excalidraw", "board"))).toBeNull();
     expect(parseAgentProjectDocumentToolRequest(request("model.lattice-sheet", "board"))).toBeNull();
     expect(parseAgentProjectDocumentToolRequest(request("model.excalidraw", "spreadsheet"))).toBeNull();
+  });
+
+  it("creates a board an older runtime names .tldr as its .excalidraw", () => {
+    expect(parseAgentProjectDocumentToolRequest(request("figures/plan.tldr", "board"))?.args)
+      .toEqual({ path: "figures/plan.excalidraw", documentType: "board" });
+    expect(parseAgentProjectDocumentToolRequest(request("plan.TLDR", "board"))?.args.path).toBe("plan.excalidraw");
+    expect(parseAgentProjectDocumentToolRequest(request("plan.tldr", "spreadsheet"))).toBeNull();
+  });
+
+  it("answers a request it refuses at once instead of leaving the Agent to time out", async () => {
+    await expect(rejectAgentProjectDocumentToolRequest(request("plan.pdf", "board"))).resolves.toMatchObject({
+      id: "request-1",
+      ok: false,
+      error: { code: "project_document_invalid_arguments" },
+    });
+    expect(rejectAgentProjectDocumentToolRequest({ type: "synara:canvas-tool-request", version: 1, id: "x", expiresAt: 1 })).toBeNull();
   });
 
   it("creates and reports an opened document through the registered host callback", async () => {
