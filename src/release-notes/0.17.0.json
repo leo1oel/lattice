@@ -10,7 +10,7 @@
       },
       "body": {
         "en": "Settings › Appearance › Theme now picks a palette as well as light or dark: Lattice's own, Rosé Pine or Nord, or a .lattice-theme.json theme you install from a file. A theme brings its own accent, and an accent you pick yourself is adjusted to stay readable on the theme's colors.",
-        "zh": "设置 › 外观 › 主题现在除了浅色或深色，还可以选择配色：Lattice 自带的配色、Rosé Pine、Nord，或从文件安装的 `.lattice-theme.json` 主题。主题自带强调色；你自己选的强调色会自动调整，以便在主题的配色上保持清晰可读。"
+        "zh": "设置 › 外观 › 主题现在除了浅色或深色，还可以选择配色：Lattice 自带的配色、Rosé Pine、Nord，或从文件安装的 .lattice-theme.json 主题。主题自带强调色；你自己选的强调色会自动调整，以便在主题的配色上保持清晰可读。"
       }
     },
     {
@@ -43,7 +43,7 @@
       },
       "body": {
         "en": "Boards now open, edit and save as .excalidraw files. A .tldr board opens as an .excalidraw copy converted beside it, and the original is left as it was.",
-        "zh": "白板现在以 `.excalidraw` 文件打开、编辑和保存。`.tldr` 白板会在旁边转换出一份 `.excalidraw` 副本并打开它，原文件保持不变。"
+        "zh": "白板现在以 .excalidraw 文件打开、编辑和保存。.tldr 白板会在旁边转换出一份 .excalidraw 副本并打开它，原文件保持不变。"
       }
     },
     {
@@ -113,7 +113,7 @@
     },
     {
       "en": "REVTeX's generated <job>Notes.bib no longer shows up in the file tree. Thanks to @ajay-mk for the fix (#1106).",
-      "zh": "REVTeX 生成的 `<job>Notes.bib` 不再出现在文件树中。感谢 @ajay-mk 提供修复（#1106）。"
+      "zh": "REVTeX 生成的 <job>Notes.bib 不再出现在文件树中。感谢 @ajay-mk 提供修复（#1106）。"
     },
     {
       "en": "Importing files whose names are already taken asks with one row of buttons instead of a list and an Import button.",
