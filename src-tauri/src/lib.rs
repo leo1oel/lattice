@@ -104,7 +104,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
     Ok(window)
 }
 
-fn show_desktop_window(app: &AppHandle) -> Result<(), String> {
+pub(crate) fn show_desktop_window(app: &AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Regular)
         .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
@@ -259,24 +259,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         show_desktop_window(app.handle()).map_err(std::io::Error::other)?;
     }
     Ok(())
-}
-
-/// Dock click with no window showing: bring back whichever surface this
-/// launch uses — the browser entry or the desktop window.
-#[cfg(target_os = "macos")]
-fn reopen(app: &AppHandle) {
-    let browser = app.state::<browser_host::BrowserHost>();
-    match browser.reopen_entry(app) {
-        Ok(true) => {}
-        Ok(false) => {
-            if let Err(reason) = show_desktop_window(app) {
-                log::error!(target: "lattice::app", "could not reopen Lattice: {reason}");
-            }
-        }
-        Err(reason) => {
-            log::error!(target: "lattice::browser", "could not reopen browser entry: {reason}");
-        }
-    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -660,7 +642,7 @@ pub fn run() {
     app.run(|app_handle, event| match event {
         tauri::RunEvent::Exit => shutdown_child_runtimes(app_handle),
         #[cfg(target_os = "macos")]
-        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => reopen(app_handle),
+        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => browser_host::reopen(app_handle),
         // `code` is None only when the last window closed; ⌘Q and a restart
         // exit with a code.
         tauri::RunEvent::ExitRequested { code: None, api, .. }

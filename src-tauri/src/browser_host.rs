@@ -44,6 +44,23 @@ const PREFERRED_PORT: u16 = if cfg!(lattice_beta) { 18472 } else { 18452 };
 pub(crate) fn launched_as_host() -> bool {
     std::env::args_os().any(|argument| argument == "--browser-host")
 }
+
+/// Dock click with no window showing: bring back whichever surface this
+/// launch uses — the browser entry or the desktop window.
+#[cfg(target_os = "macos")]
+pub(crate) fn reopen(app: &tauri::AppHandle) {
+    match app.state::<BrowserHost>().reopen_entry(app) {
+        Ok(true) => {}
+        Ok(false) => {
+            if let Err(reason) = super::show_desktop_window(app) {
+                log::error!(target: "lattice::app", "could not reopen Lattice: {reason}");
+            }
+        }
+        Err(reason) => {
+            log::error!(target: "lattice::browser", "could not reopen browser entry: {reason}");
+        }
+    }
+}
 const SERVER_UNAVAILABLE: &str = "Browser server state is unavailable.";
 
 #[derive(Default)]
