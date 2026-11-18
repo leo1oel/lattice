@@ -1502,6 +1502,10 @@ msgstr "有模型名称为空或包含空格。"
 msgid "A newer Overleaf connection replaced this one."
 msgstr "已被更新的 Overleaf 连接取代"
 
+#: src/platform/host-errors-plugins.ts
+msgid "A node plugin needs `main`."
+msgstr "node 插件需要 `main`。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "分子 a，分母 b"
@@ -1521,6 +1525,18 @@ msgstr "PDF 只能附加到已引用的文献上。"
 #: src/platform/host-errors-overleaf.ts
 msgid "A pending Overleaf move also changes its name."
 msgstr "待同步的 Overleaf 移动同时改了名字"
+
+#: src/platform/host-errors-plugins.ts
+msgid "A plugin declares between 1 and 32 commands."
+msgstr "一个插件须声明 1 到 32 个命令。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "A plugin with the id {id} is already installed. Remove it first."
+msgstr "已安装 ID 为 {id} 的插件。请先移除它。"
+
+#: src/plugins/plugin-settings.tsx
+msgid "A plugin’s .zip release over https, checked against the SHA-256 its author publishes."
+msgstr "通过 https 下载插件的 .zip 发布包，并用作者公布的 SHA-256 校验。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "A possible record conflicts with this reference"
@@ -1680,6 +1696,10 @@ msgstr "已接受"
 msgid "Accepts images"
 msgstr "支持图片"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Access"
+msgstr "权限"
+
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
 msgstr "密钥被拒，请检查"
@@ -1804,6 +1824,10 @@ msgstr "加一段"
 msgid "Add comment"
 msgstr "添加评论"
 
+#: src/plugins/plugin-run.tsx
+msgid "Add entry"
+msgstr "添加条目"
+
 #: src/papers/bib-entry.ts
 msgid "Add exactly one bibliography entry at a time."
 msgstr "一次只能加一条"
@@ -1863,6 +1887,14 @@ msgstr "添加文献"
 #: src/project/deadline-card.tsx
 msgid "Add the submission deadline"
 msgstr "添加投稿截止时间"
+
+#: src/plugins/plugin-run.tsx
+msgid "Add this entry to {file}?"
+msgstr "将此条目添加到 {file}？"
+
+#: src/plugins/plugin-text.ts
+msgid "Add to bibliography"
+msgstr "添加到参考文献"
 
 #: src/canvas/paper-selection-actions.tsx
 msgid "Add to note"
@@ -1968,6 +2000,10 @@ msgstr "已取消管理员授权，未安装任何内容。"
 #: src/build/tex-package-updates.ts
 msgid "Administrator approval was cancelled, so nothing was updated."
 msgstr "已取消管理员授权，未更新任何内容。"
+
+#: src/plugins/plugin-run.tsx
+msgid "After"
+msgstr "修改后"
 
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
@@ -2194,6 +2230,10 @@ msgstr "修改还在传，请稍后再拒绝"
 msgid "An encrypted PDF cannot be annotated."
 msgstr "加密的 PDF 无法添加批注"
 
+#: src/platform/host-errors-plugins.ts
+msgid "An exec plugin needs `[targets]`."
+msgstr "exec 插件需要 `[targets]`。"
+
 #: src/papers/bib-format.ts
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "有一条文献的引用名无效"
@@ -2290,7 +2330,7 @@ msgstr "已删除批注"
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Annotations"
 msgstr "批注"
@@ -2386,6 +2426,7 @@ msgid "App updates"
 msgstr "更新"
 
 #: src/app/palette-sections.ts
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Appearance"
@@ -2517,6 +2558,10 @@ msgstr "正在重新请 AI 助手修改…"
 #: src/settings/model-endpoint-settings.tsx
 msgid "Asking the first model to call a tool. This can take up to 45 seconds."
 msgstr "正在请第一个模型调用一个工具，最多可能需要 45 秒。"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Asks for new permissions"
+msgstr "请求了新的权限"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Asterisk operator"
@@ -2922,12 +2967,12 @@ msgstr "会议/书名"
 msgid "Bottom / false"
 msgstr "底元 / 假"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Bottom center"
 msgstr "底部居中"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Bottom right"
 msgstr "右下角"
@@ -3204,6 +3249,8 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/linked-library-sheet.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/plugins/plugin-run.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/clone-repository-dialog.tsx
 #: src/project/deadline-card.tsx
@@ -3252,6 +3299,10 @@ msgstr "正在取消…"
 msgid "Cancelled"
 msgstr "已取消"
 
+#: src/plugins/plugin-text.ts
+msgid "Cancelled."
+msgstr "已取消。"
+
 #: src/papers/audit-messages.ts
 msgid "Candidate does not match reference"
 msgstr "找到的记录对不上"
@@ -3276,9 +3327,21 @@ msgstr "{path} 在实时协作之外被修改过，无法应用这次实时更�
 msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 msgstr "找不到所选内容在源码中的位置，请切到源码视图再批注"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot read the plugin registry: {error}"
+msgstr "无法读取插件注册表：{error}"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot read the plugin's secret: {error}"
+msgstr "无法读取插件的密钥：{error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot remove the reference because {path} changed. Try again."
 msgstr "{path} 已被修改，未能删除这条引用，请重试"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot remove the secret: {error}"
+msgstr "无法移除密钥：{error}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot restore {path} because it changed after this history entry. Review the newer changes first."
@@ -3704,6 +3767,10 @@ msgstr "选择要导入到 {targetDirectory} 的文件和文件夹"
 msgid "Choose files and folders to import into the project root"
 msgstr "选择要导入到项目根目录的文件和文件夹"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Choose folder…"
+msgstr "选择文件夹…"
+
 #: src/settings/grammar-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Choose Ignore on a grammar suggestion to add one"
@@ -3971,6 +4038,7 @@ msgid "Cleaning…"
 msgstr "正在清理…"
 
 #: src/papers/bibliography-audit.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/telemetry/app-log.tsx
 msgid "Clear"
 msgstr "清空"
@@ -4237,6 +4305,7 @@ msgstr "命令"
 
 #: src/app/command-palette.tsx
 #: src/app/use-command-table.ts
+#: src/plugins/plugin-run.tsx
 msgid "Command palette"
 msgstr "命令面板"
 
@@ -4465,6 +4534,10 @@ msgstr "全等"
 msgid "Connect a model endpoint"
 msgstr "连接模型接口"
 
+#: src/plugins/plugin-text.ts
+msgid "Connect to localhost:{port}"
+msgstr "连接 localhost:{port}"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Connect to Overleaf"
@@ -4554,12 +4627,14 @@ msgid "Convert selection to inline math"
 msgstr "改成公式"
 
 #: src/agent/agent-visual-dialog.tsx
+#: src/app/plugin-palette-host.ts
 #: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
 msgstr "已复制"
 
 #: src/components/copy-button.tsx
+#: src/plugins/plugin-text.ts
 #: src/project/paper-library.tsx
 #: src/telemetry/toast-stack.tsx
 msgid "Copy"
@@ -5182,6 +5257,10 @@ msgstr "无法保存诊断日志"
 msgid "Couldn’t start the paper tools"
 msgstr "无法启动论文工具"
 
+#: src/plugins/plugin-text.ts
+msgid "Couldn’t start the plugin: {detail}"
+msgstr "无法启动插件：{detail}"
+
 #: src/editor/latex/citation-roles.ts
 msgctxt "why a passage cites a paper"
 msgid "Counterexample"
@@ -5549,6 +5628,11 @@ msgstr "详情"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "行列式样式的矩阵"
+
+#. Search words for the Install from folder plugin setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "develop"
+msgstr "开发"
 
 #: src/app/report-problem.ts
 msgid "Diagnostic log saved"
@@ -6207,7 +6291,7 @@ msgstr "接口"
 msgid "Endpoint removed."
 msgstr "接口已删除。"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
 msgstr "英文"
@@ -6232,6 +6316,10 @@ msgstr "请输入要删除的引用名"
 #: src/platform/host-errors-workspace.ts
 msgid "Enter a DOI, arXiv id, or paper title."
 msgstr "请输入 DOI、arXiv 编号或论文标题"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Enter a replacement"
+msgstr "输入新值以替换"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/model-endpoint-settings.tsx
@@ -6337,6 +6425,7 @@ msgstr "可逆箭头"
 msgid "Equivalent / congruent"
 msgstr "恒等 / 同余"
 
+#: src/plugins/plugin-run.tsx
 #: src/telemetry/app-log.tsx
 msgid "Error"
 msgstr "错误"
@@ -6893,6 +6982,10 @@ msgstr "已折叠的代码"
 msgid "Folded lines"
 msgstr "已折叠行"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Folder {source}"
+msgstr "文件夹 {source}"
+
 #: src/papers/zotero-browser.tsx
 msgid "Folders"
 msgstr "分类"
@@ -6935,6 +7028,10 @@ msgstr "在光标处插入脚注"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "For all"
 msgstr "任意"
+
+#: src/plugins/plugin-settings.tsx
+msgid "For developing a plugin: Lattice runs the folder in place, so your edits apply on the next run."
+msgstr "用于开发插件：Lattice 直接运行该文件夹，修改会在下次运行时生效。"
 
 #: src/project/import-conflict-dialog.tsx
 msgid "For each item already here"
@@ -6991,6 +7088,10 @@ msgstr "起"
 #: src/history/compare-versions.tsx
 msgid "From {name}"
 msgstr "从“{name}”起"
+
+#: src/plugins/plugin-settings.tsx
+msgid "From {source}"
+msgstr "来自 {source}"
 
 #: src/project/local-templates.tsx
 msgid "From folder"
@@ -7124,7 +7225,7 @@ msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try aga
 msgstr "未安装 Git。请先安装 Xcode 命令行工具，再重试"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Git status and commit"
 msgstr "Git 提交"
 
@@ -7899,6 +8000,7 @@ msgstr "靛蓝色"
 msgid "Infinity"
 msgstr "无穷"
 
+#: src/plugins/plugin-run.tsx
 #: src/telemetry/app-log.tsx
 msgid "Info"
 msgstr "信息"
@@ -7983,6 +8085,7 @@ msgstr "插入图片路径（需要 graphicx）"
 
 #: src/app/app-search-dialogs.tsx
 #: src/app/use-command-table.ts
+#: src/plugins/plugin-text.ts
 msgid "Insert citation"
 msgstr "插入引用"
 
@@ -8034,6 +8137,7 @@ msgid "Inspect and replace"
 msgstr "检查与替换"
 
 #: src/build/compile-diagnostics-panel.tsx
+#: src/plugins/plugin-settings.tsx
 msgid "Install"
 msgstr "安装"
 
@@ -8052,6 +8156,16 @@ msgstr "安装 LaTeX（{TEX_INSTALL_SIZE_HINT}）"
 #: src/build/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
+
+#: src/plugins/plugin-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Install from folder…"
+msgstr "从文件夹安装…"
+
+#: src/plugins/plugin-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Install from URL…"
+msgstr "从 URL 安装…"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Install later"
@@ -8156,17 +8270,17 @@ msgstr "服务连接"
 msgid "Interface"
 msgstr "界面"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface language"
 msgstr "语言"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface size"
 msgstr "界面大小"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "提示音"
@@ -8227,6 +8341,10 @@ msgstr "年份应是四位数"
 #: src/platform/host-errors-setup.ts
 msgid "Invalid missing TeX dependency name."
 msgstr "缺失的 TeX 组件名称无效"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Invalid or repeated command id `{id}`."
+msgstr "命令 ID `{id}` 无效或重复。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Invalid Overleaf host: {error}"
@@ -8308,6 +8426,10 @@ msgstr "它在 Lattice 之外被删除了，而且没有未保存的修改，所
 msgid "It was moved outside Lattice, and its tab followed it."
 msgstr "它在 Lattice 之外被移动了，标签页已跟到新位置。"
 
+#: src/plugins/plugin-settings.tsx
+msgid "It will be able to:"
+msgstr "它将能够："
+
 #: src/web-demo/desktop-only.tsx
 msgid "It works through the AI tools you are signed in to there. Proofread, Polish and Revise from annotations answer here from a script."
 msgstr "它通过你在 Mac 上登录的 AI 工具工作。这里的校对、润色和根据批注修改由脚本作答。"
@@ -8325,6 +8447,10 @@ msgstr "斜体文本"
 #: src/project/submission-items.tsx
 msgid "Item"
 msgstr "事项"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Its commands leave the palette, and its data and saved secrets are deleted."
+msgstr "它的命令会从命令面板中移除，其数据和已保存的密钥也会被删除。"
 
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Its owner may have turned link sharing off or reset the link. Ask them for a new one."
@@ -8936,6 +9062,10 @@ msgstr "还剩不到 1 分钟"
 msgid "Less than or equal"
 msgstr "小于或等于"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Licence: {license}"
+msgstr "许可证：{license}"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "License text"
 msgstr "许可证文本"
@@ -9013,6 +9143,7 @@ msgstr "第 {0} 行"
 
 #: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
+#: src/plugins/plugin-run.tsx
 msgid "line {line}"
 msgstr "第 {line} 行"
 
@@ -9080,6 +9211,10 @@ msgstr "关联此文件夹"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Link to a page or external URL."
 msgstr "链接到页面或网址"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Link to the .zip (https://…)"
+msgstr "指向 .zip 的链接（https://…）"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
@@ -9468,7 +9603,7 @@ msgstr "跟随应用"
 msgid "Match case"
 msgstr "区分大小写"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/theme-settings.tsx
 msgid "Match system"
 msgstr "跟随系统"
@@ -10107,6 +10242,10 @@ msgstr "项目中没有这个名称的 \\label。"
 msgid "No abstract from this source"
 msgstr "此来源没有摘要"
 
+#: src/plugins/plugin-text.ts
+msgid "No access beyond the project’s name"
+msgstr "除项目名称外无其他访问权限"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "No Agent logs yet"
 msgstr "还没有 AI 日志"
@@ -10402,10 +10541,18 @@ msgstr "还没有论文"
 msgid "No PDF yet"
 msgstr "还没有 PDF"
 
+#: src/plugins/plugin-settings.tsx
+msgid "No plugins installed."
+msgstr "尚未安装插件。"
+
 #: src/editor/latex/visual/visual-float-widget.ts
 #: src/editor/latex/visual/visual-widgets.ts
 msgid "No preview for {path}; the PDF shows it."
 msgstr "{path} 无法预览，请在 PDF 中查看。"
+
+#: src/plugins/plugin-run.tsx
+msgid "No problems found"
+msgstr "未发现问题"
 
 #: src/settings/synara-settings-pane.tsx
 msgid "No project open"
@@ -10664,6 +10811,10 @@ msgstr "不在此 PDF 中"
 msgid "Not reached"
 msgstr "未到达"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Not saved"
+msgstr "未保存"
+
 #: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -10711,6 +10862,10 @@ msgstr "这个地址没有响应。请检查地址和协议。"
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "没有阻碍投稿的问题"
+
+#: src/plugins/plugin-run.tsx
+msgid "Nothing found"
+msgstr "没有找到结果"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Nothing has changed on Overleaf since this version"
@@ -10767,7 +10922,7 @@ msgstr "无需重新编译"
 msgid "Nothing to show"
 msgstr "没有内容"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Notification position"
 msgstr "通知位置"
@@ -10782,6 +10937,7 @@ msgstr "提醒我"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/plugins/plugin-run.tsx
 msgid "Now"
 msgstr "现在"
 
@@ -10946,6 +11102,7 @@ msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
 
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
+#: src/plugins/plugin-text.ts
 #: src/project/figure-source-run.ts
 msgid "Open"
 msgstr "打开"
@@ -11095,7 +11252,8 @@ msgstr "新手教程"
 
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/plugins/plugin-text.ts
+#: src/settings/appearance-settings-pane.tsx
 msgid "Open in browser"
 msgstr "在浏览器中打开"
 
@@ -11196,6 +11354,10 @@ msgstr "打开发布页面"
 
 #: src/app/use-command-table.ts
 msgid "Open settings"
+msgstr "打开设置"
+
+#: src/plugins/plugin-run.tsx
+msgid "Open Settings"
 msgstr "打开设置"
 
 #: src/app/use-apply-open-slide-mutation.ts
@@ -11400,6 +11562,7 @@ msgstr "超出 arXiv 的大小限制"
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
@@ -11911,6 +12074,10 @@ msgstr "粘贴文献"
 msgid "Paste the Overleaf session cookie first."
 msgstr "请先粘贴 Overleaf 会话 Cookie"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Paste the value"
+msgstr "粘贴值"
+
 #: src/settings/literature-settings.tsx
 #: src/settings/model-endpoint-settings.tsx
 msgid "Paste your API key"
@@ -12140,6 +12307,38 @@ msgstr "纯文本"
 msgid "Please confirm that you want to continue."
 msgstr "请确认要继续"
 
+#. Search words for the Plugins settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "plugin extension add-on sandbox permissions"
+msgstr "插件 扩展 附加组件 沙盒 权限"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugin URL"
+msgstr "插件 URL"
+
+#: src/app/command-palette.tsx
+#: src/plugins/plugin-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Plugins"
+msgstr "插件"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on."
+msgstr "插件为命令面板（⌘K）添加命令。每个插件都在沙盒中运行，只能访问你在启用时允许的内容。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugins install only over https."
+msgstr "插件只能通过 https 安装。"
+
+#: src/plugins/plugin-text.ts
+msgid "Plugins run only on macOS for now."
+msgstr "插件目前仅能在 macOS 上运行。"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins run only on macOS for now. They are listed here, but can’t be turned on."
+msgstr "插件目前仅能在 macOS 上运行。它们会列在这里，但无法启用。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
 msgstr "正负号"
@@ -12339,6 +12538,10 @@ msgstr "主参考文献文件 {file}（缺失）"
 msgid "Prime"
 msgstr "撇号"
 
+#: src/plugins/plugin-run.tsx
+msgid "Problems"
+msgstr "问题"
+
 #: src/editor/latex/latex-command-completions.ts
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Product"
@@ -12390,7 +12593,7 @@ msgstr "全局替换"
 #: src/app/app-history-drawers.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Project history"
 msgstr "项目历史"
 
@@ -12626,6 +12829,14 @@ msgstr "完整日志"
 #: src/settings/model-endpoint-probe.ts
 msgid "Reached the address"
 msgstr "地址可访问"
+
+#: src/plugins/plugin-text.ts
+msgid "Read the open file, selection and cursor"
+msgstr "读取打开的文件、选区和光标位置"
+
+#: src/plugins/plugin-text.ts
+msgid "Read the project’s bibliography"
+msgstr "读取项目的参考文献"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
@@ -12924,6 +13135,7 @@ msgstr "重新载入面板"
 #: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/live-preview/live-preview-settings.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/deadline-card.tsx
 #: src/project/submission-items.tsx
 msgid "Remove"
@@ -12941,6 +13153,10 @@ msgstr "从 Overleaf 删除 {0} 个文件？"
 #: src/agent/agent-reference-removal.ts
 msgid "Remove {key} from the bibliography?"
 msgstr "从文献中删除 {key}？"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Remove {name}?"
+msgstr "移除 {name}？"
 
 #: src/project/paper-row.tsx
 msgid "Remove {title}"
@@ -13614,6 +13830,7 @@ msgid "Restored {path}."
 msgstr "已恢复 {path}"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/plugins/plugin-run.tsx
 msgid "Results"
 msgstr "结果"
 
@@ -13726,6 +13943,10 @@ msgstr "预览源码修改"
 #: src/pdf/pdf-comment-popups.tsx
 msgid "Review the proposal"
 msgstr "审阅这条建议"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Review…"
+msgstr "查看…"
 
 #. placeholder {0}: rounds.revisable
 #: src/editor/comments/editor-comments-panel.tsx
@@ -13907,6 +14128,10 @@ msgstr "行内段落标题"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Lattice 固定版本文献工具所用的运行器"
 
+#: src/plugins/plugin-run.tsx
+msgid "Running {title}…"
+msgstr "正在运行 {title}…"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Sage"
@@ -13935,6 +14160,7 @@ msgstr "饱和度与亮度"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/settings/literature-settings.tsx
 #: src/settings/model-endpoint-settings.tsx
 msgid "Save"
@@ -14085,6 +14311,7 @@ msgstr "请先保存修改再导出。"
 
 #: src/canvas/status-save-state.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "已保存"
@@ -14451,6 +14678,10 @@ msgstr "发送"
 msgid "Send reply"
 msgstr "发送回复"
 
+#: src/plugins/plugin-text.ts
+msgid "Send requests to {origin}"
+msgstr "向 {origin} 发送请求"
+
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Sent to Crossref"
@@ -14510,6 +14741,14 @@ msgstr "多个组件都提供此文件"
 #: src/build/tex-dependency-installer.tsx
 msgid "Several TeX Live packages provide {0}. Choose the one to install."
 msgstr "TeX Live 中有多个组件提供 {0}，请选择要安装的组件"
+
+#: src/plugins/plugin-settings.tsx
+msgid "SHA-256 (64 hexadecimal characters)"
+msgstr "SHA-256（64 位十六进制字符）"
+
+#: src/plugins/plugin-settings.tsx
+msgid "SHA-256 checksum"
+msgstr "SHA-256 校验值"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
@@ -14748,7 +14987,7 @@ msgstr "标题相近"
 msgid "Similar to"
 msgstr "相似"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Simplified Chinese"
 msgstr "简体中文"
@@ -15914,6 +16153,14 @@ msgstr "批注的段落已改动或移动，无法放置这条建议。请在批
 msgid "The annotated text changed or moved. Select it again and annotate it to ask about it."
 msgstr "批注的文字已改动或移动。请重新选中并批注后再请 AI 助手修改。"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The archive has no {file} at its root."
+msgstr "压缩包根目录中没有 {file}。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The archive holds a link ({name}); plugins may not."
+msgstr "压缩包中包含链接（{name}），插件不允许包含链接。"
+
 #: src/build/compile-explain.ts
 msgid "The argument of {command} contains a blank line, which usually means a missing {BRACE_CLOSE}. Close the argument before the paragraph ends."
 msgstr "{command} 的参数里有空行，通常是少了一个 {BRACE_CLOSE}。在段落结束前关闭这个参数。"
@@ -16101,6 +16348,10 @@ msgstr "文档没有加载 Times：在模板之后加上 {command}，再点“�
 msgid "the documents area"
 msgstr "文档区"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The download failed: HTTP {status}."
+msgstr "下载失败：HTTP {status}。"
+
 #: src/platform/host-errors-setup.ts
 msgid "The download was cancelled."
 msgstr "下载已取消。"
@@ -16108,6 +16359,10 @@ msgstr "下载已取消。"
 #: src/telemetry/update-recovery.ts
 msgid "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
 msgstr "下载中断：连接超时或已断开。请重试，或从发布页面下载 Lattice {version}。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The download's SHA-256 is {actual}, not the one given. Nothing was installed."
+msgstr "下载文件的 SHA-256 为 {actual}，与给定值不符。未安装任何内容。"
 
 #: src/platform/host-errors-setup.ts
 msgid "The downloaded {what} failed its security check."
@@ -16515,6 +16770,54 @@ msgstr "标出修改的 PDF 编译了 {minutes} 分钟仍未完成，已被停�
 msgid "The PDF with changes marked was stopped when its build used {gigabytes} GB of memory. Build the paper itself to check that it finishes, then export again."
 msgstr "标出修改的 PDF 编译时占用了 {gigabytes} GB 内存，已被停止。请先编译论文本身，确认它能编译完成，然后再导出。"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin archive has too many files."
+msgstr "插件压缩包中的文件过多。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin archive is larger than 50 MiB."
+msgstr "插件压缩包超过 50 MiB。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin archive unpacks to more than 200 MiB."
+msgstr "插件压缩包解压后超过 200 MiB。"
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin didn’t finish within 2 minutes."
+msgstr "插件未能在 2 分钟内完成。"
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin failed."
+msgstr "插件运行失败。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin id must be reverse-domain, like dev.example.my-plugin."
+msgstr "插件 ID 必须是反向域名格式，例如 dev.example.my-plugin。"
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin is broken: {detail}"
+msgstr "插件已损坏：{detail}"
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin sent something Lattice couldn’t read: {detail}"
+msgstr "插件返回了 Lattice 无法读取的内容：{detail}"
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin stopped without an answer."
+msgstr "插件未作答便已停止。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's id changed. Remove it and install it again."
+msgstr "插件的 ID 已更改。请移除后重新安装。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's licence ({license}) is not one Lattice accepts for installed plugins."
+msgstr "插件的许可证（{license}）不在 Lattice 接受的安装许可证之列。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's result has no kind."
+msgstr "插件返回的结果缺少类型。"
+
 #: src/platform/host-errors-setup.ts
 msgid "The presentation project must be a directory."
 msgstr "演示文稿项目必须是一个文件夹"
@@ -16675,6 +16978,10 @@ msgstr "是否使用连续逗号属于出版风格，不同会议和作者的选
 #: src/platform/host-errors-papers.ts
 msgid "The server returned HTTP {status} for the PDF."
 msgstr "服务器返回了 HTTP {status}，没有拿到 PDF"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The SHA-256 must be 64 hexadecimal characters."
+msgstr "SHA-256 必须是 64 位十六进制字符。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -16859,6 +17166,14 @@ msgstr "定理块（需要 amsthm，并声明 \\newtheorem）"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "There exists"
 msgstr "存在"
+
+#: src/plugins/plugin-run.tsx
+msgid "There is no entry “{key}” in {file}."
+msgstr "{file} 中没有条目“{key}”。"
+
+#: src/plugins/plugin-bib.ts
+msgid "There is no entry “{key}” to update any more."
+msgstr "条目“{key}”已不存在，无法更新。"
 
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "There is no text to comment on in this selection."
@@ -17159,6 +17474,42 @@ msgstr "这个 PDF 没有 SyncTeX 数据，无法与源码对应。在 Lattice �
 msgid "This PDF was removed from the project."
 msgstr "这个 PDF 已从项目移除"
 
+#: src/plugins/plugin-text.ts
+msgid "This plugin asks for new permissions. Review them in Settings › Plugins."
+msgstr "此插件请求了新的权限。请在“设置 › 插件”中查看。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "This plugin does not declare that secret."
+msgstr "此插件没有声明该密钥。"
+
+#: src/plugins/plugin-text.ts
+msgid "This plugin is no longer installed."
+msgstr "此插件已不再安装。"
+
+#: src/plugins/plugin-text.ts
+msgid "This plugin is turned off. Turn it on in Settings › Plugins."
+msgstr "此插件已关闭。请在“设置 › 插件”中启用。"
+
+#: src/plugins/plugin-text.ts
+msgid "This plugin needs plugin API level {level}, which this Lattice doesn’t support."
+msgstr "此插件需要插件 API 级别 {level}，当前 Lattice 不支持。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "This plugin needs plugin API level {needed}; this Lattice has {level}."
+msgstr "此插件需要插件 API 级别 {needed}；当前 Lattice 为 {level}。"
+
+#: src/plugins/plugin-text.ts
+msgid "This plugin no longer has this command."
+msgstr "此插件已不再提供该命令。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "This plugin's manifest format ({format}) needs a newer Lattice."
+msgstr "此插件的清单格式（{format}）需要更新版本的 Lattice。"
+
+#: src/plugins/plugin-run.tsx
+msgid "This project has no bibliography to add to."
+msgstr "此项目没有可添加条目的参考文献。"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "This project has no files that can be uploaded to Overleaf."
 msgstr "这个项目没有可以上传到 Overleaf 的文件"
@@ -17335,7 +17686,7 @@ msgstr "提示"
 msgid "Title"
 msgstr "标题"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Title bar tools"
 msgstr "标题栏工具"
@@ -17433,12 +17784,12 @@ msgstr "工具"
 msgid "Top / true"
 msgstr "顶元 / 真"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Top center"
 msgstr "顶部居中"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Top right"
 msgstr "右上角"
@@ -17543,6 +17894,22 @@ msgstr "清华大学学位论文（{name}）"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "TSV (tab)"
 msgstr "TSV（制表符分隔）"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Turn off {name}"
+msgstr "关闭 {name}"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Turn on"
+msgstr "启用"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Turn on {name}"
+msgstr "启用 {name}"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Turn on {name}?"
+msgstr "启用 {name}？"
 
 #: src/build/compile-explain.ts
 msgid "Two places set {command}, so references to it may point at the wrong one. Rename one of them."
@@ -17708,6 +18075,10 @@ msgstr "一族集合的并"
 msgid "Unknown"
 msgstr "未知"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Unknown `project-read` value `{value}`."
+msgstr "未知的 `project-read` 值 `{value}`。"
+
 #: src/papers/audit-messages.ts
 msgid "Unknown bibliography entry type `{type}`."
 msgstr "未知的条目类型 `{type}`"
@@ -17817,6 +18188,10 @@ msgstr "论文资源清单的版本不受支持"
 msgid "Unsupported paper asset type: {type}"
 msgstr "论文资源类型不受支持：{type}"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Unsupported path {path}"
+msgstr "不支持的路径 {path}"
+
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "不支持的电子表格协作格式：{version}"
@@ -17874,6 +18249,10 @@ msgstr "上下箭头"
 msgid "Up-down double arrow"
 msgstr "上下双线箭头"
 
+#: src/plugins/plugin-run.tsx
+msgid "Update “{key}” in {file}?"
+msgstr "更新 {file} 中的“{key}”？"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Update annotation…"
 msgstr "修改批注…"
@@ -17885,6 +18264,11 @@ msgstr "已更新"
 #: src/papers/audit-messages.ts
 msgid "Update available"
 msgstr "有更新"
+
+#: src/plugins/plugin-run.tsx
+#: src/plugins/plugin-text.ts
+msgid "Update entry"
+msgstr "更新条目"
 
 #: src/project/figure-source-refresh.ts
 msgid "Update figure"
@@ -18045,6 +18429,10 @@ msgstr "浅色"
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Use the passive voice"
 msgstr "改用被动语态"
+
+#: src/plugins/plugin-text.ts
+msgid "Use the saved secret “{name}”"
+msgstr "使用已保存的密钥“{name}”"
 
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -18330,6 +18718,7 @@ msgid "WARN"
 msgstr "警告"
 
 #: src/editor/markdown/engine/views/component-views.tsx
+#: src/plugins/plugin-run.tsx
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "警告"

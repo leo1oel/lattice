@@ -36,6 +36,7 @@ export const AppCommandOverlays = memo(function AppCommandOverlays({ commands, o
           hasProject={palette.hasProject}
           knownAuthorName={palette.knownAuthorName}
           onFileIntent={palette.onFileIntent}
+          plugins={palette.plugins}
           onClose={overlay.close}
           onChoose={overlay.choose}
         />

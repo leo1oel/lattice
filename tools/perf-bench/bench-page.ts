@@ -35,6 +35,7 @@ import { BENCH_PAPERS, LIBRARY_PAPERS, LITERATURE_HITS } from "./bench-papers";
 import { rootsAnswer } from "./bench-roots";
 import { terminalAnswer } from "./bench-terminal";
 import { zoteroAnswer } from "./bench-zotero";
+import { pluginsAnswer } from "./bench-plugins";
 import type { ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
@@ -336,6 +337,8 @@ function answer(command: string, args: Args): unknown {
   // `?zotero=library` (or `long`, `missing`) stages a Zotero library with annotations (bench-zotero.ts).
   const zotero = zoteroAnswer(command, args, { params, files: () => current.files });
   if (zotero !== NOT_HANDLED) return zotero;
+  const plugin = pluginsAnswer(command, args, params, tauri.sendOnChannel);
+  if (plugin !== NOT_HANDLED) return plugin;
   const shell = terminalAnswer(command, args, () => current);
   if (shell !== NOT_HANDLED) return shell;
   const bibliography = bibliographyAnswer(command, args, {
@@ -359,6 +362,9 @@ function answer(command: string, args: Args): unknown {
       return { files: ["main.tex", "appendix.tex", "styles/学校学位论文与实验室联合投稿格式文件.cls", "figures/多语言图示与较长资源文件名称.png"], root: "main.tex", engine: "xelatex" };
     case "save_local_template":
       return { ...args?.template as object, id: "87654321-1234-4234-8234-123456789abc" };
+    case "load_project_tab_group":
+    case "save_project_tab_group":
+      return null;
     case "initial_project":
       // `?tutorial=1` starts in the tutorial project, as after its Guided tutorial entry.
       if (params.has("crossrefs")) return openCrossrefs();

@@ -30,6 +30,7 @@ mod open_slide_presenter;
 mod pdf_window;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
+mod project_tab_groups;
 mod save_before_close;
 #[cfg(target_os = "macos")]
 mod title_bar;
@@ -158,6 +159,7 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         window.state::<ipc::project_tabs::ProjectTabMoves>().reject_destination(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
+        window.state::<project_tab_groups::ProjectTabGroups>().destroyed(window.label());
         let browser = window.state::<browser_host::BrowserHost>();
         browser.activate_source(window.label(), &state);
         browser.hide_desktop_shell_if_browser_only(window.app_handle());
@@ -226,7 +228,16 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let events = std::sync::Arc::new(ipc::WindowEvents(app.handle().clone()));
     app.manage(synara::SynaraRuntime::new(&resources, events));
     app.manage(presentation::PresentationRuntime::new(&resources)?);
+    app.manage(ipc::plugins::Plugins::new(&resources));
     let background = browser_host_launch();
+    // Explicit, browser-host and measurement launches should use their own workspace.
+    let restore_tabs =
+        !background && std::env::var_os("LATTICE_PROJECT").is_none() && !cfg!(feature = "perf-lab");
+    app.manage(if restore_tabs {
+        project_tab_groups::ProjectTabGroups::load(&resources.app_data_dir)
+    } else {
+        project_tab_groups::ProjectTabGroups::default()
+    });
     if let Err(reason) = app.state::<browser_host::BrowserHost>().start(app.handle()) {
         if background {
             return Err(std::io::Error::other(reason).into());
@@ -249,7 +260,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     if background {
         #[cfg(target_os = "macos")]
         app.handle().set_activation_policy(tauri::ActivationPolicy::Accessory)?;
-    } else {
+    } else if !project_tab_groups::restore_windows(app.handle()) {
         show_desktop_window(app.handle()).map_err(std::io::Error::other)?;
     }
     Ok(())
@@ -368,6 +379,8 @@ pub fn run() {
             ipc::workspace::save_local_template,
             ipc::workspace::open_tutorial_project,
             ipc::workspace::initial_project,
+            project_tab_groups::load_project_tab_group,
+            project_tab_groups::save_project_tab_group,
             ipc::workspace::open_project,
             ipc::workspace::project_shown_elsewhere,
             ipc::workspace::import_project_zip,
@@ -633,6 +646,15 @@ pub fn run() {
             ipc::terminal::terminal_ack,
             ipc::terminal::terminal_running_command,
             ipc::terminal::terminal_close,
+            ipc::plugins::plugins_list,
+            ipc::plugins::plugins_commands,
+            ipc::plugins::plugins_install_folder,
+            ipc::plugins::plugins_install_url,
+            ipc::plugins::plugins_set_enabled,
+            ipc::plugins::plugins_remove,
+            ipc::plugins::plugins_set_secret,
+            ipc::plugins::plugins_run,
+            ipc::plugins::plugins_cancel,
             save_before_close::enable_save_before_close,
             save_before_close::disable_save_before_close,
             save_before_close::finish_save_before_close,
