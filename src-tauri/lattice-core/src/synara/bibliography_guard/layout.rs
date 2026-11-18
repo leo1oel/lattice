@@ -5,7 +5,7 @@
 //! unless a mount here covers it:
 //!
 //! - system folders and `/run` straight from the host, read-only, so
-//!   programs load at full speed and the session's sockets still connect;
+//!   programs load at full speed;
 //! - `/dev` and a `/proc` of the sandbox's own process namespace, so no host
 //!   process can be reached through `/proc/<pid>/root`, signalled or traced;
 //! - `/tmp` and the hidden folders of the home folder straight from the
@@ -13,7 +13,14 @@
 //!   and sockets must be the very ones a provider running outside Lattice
 //!   uses, and neither survives a FUSE layer in between. No bibliography
 //!   there is guarded, so Lattice refuses to run the agent on a project in
-//!   one of them ([`Layout::guards`]).
+//!   one of them ([`Layout::guards`]);
+//! - an empty folder of the sandbox's own over the user's runtime folder
+//!   (`XDG_RUNTIME_DIR`) and over the X server's sockets. A read-only mount
+//!   still lets a socket in it be connected to, and through the session bus
+//!   there the sandbox could start a process outside itself (systemd's user
+//!   manager, the portals) or read the keyring Lattice keeps its credentials
+//!   in, which has no access control of its own; through the display it
+//!   could type into other windows. No provider needs either.
 //!
 //! A hard link or a rename cannot cross from one of those mounts into the
 //! filter, and the sidecar cannot change the mounts: bubblewrap drops its
@@ -25,12 +32,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Folders the sandbox takes from the host as they are, read-only: programs,
-/// libraries and configuration, the kernel's `/sys`, and `/run` with the
-/// session's sockets.
+/// libraries and configuration, the kernel's `/sys`, and `/run`, where the
+/// system's resolver and other daemons' state live.
 const READ_ONLY: [&str; 12] = [
     "/usr", "/etc", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32", "/nix", "/gnu", "/sys",
     "/run",
 ];
+
+/// Where the X server's sockets are, in the host's `/tmp`.
+const X11_SOCKETS: &str = "/tmp/.X11-unix";
+
+/// What tells a program where the session bus and the display are. With the
+/// sockets gone the values would only point at nothing.
+const SESSION_VARIABLES: [&str; 5] =
+    ["DBUS_SESSION_BUS_ADDRESS", "DISPLAY", "WAYLAND_DISPLAY", "WAYLAND_SOCKET", "XAUTHORITY"];
 
 /// How the sandbox sees one folder and everything under it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,10 +70,11 @@ pub(super) struct Layout {
 }
 
 impl Layout {
-    /// The layout for the user whose home folder is `home`, with the
-    /// sidecar's own state in `agent_home`. Both are given as the host
-    /// resolves them: a mount is made on a real folder, not through a link.
-    pub(super) fn new(home: Option<&Path>, agent_home: &Path) -> Self {
+    /// The layout for the user whose home folder is `home` and whose runtime
+    /// folders are `runtime`, with the sidecar's own state in `agent_home`.
+    /// All are given as the host resolves them: a mount is made on a real
+    /// folder, not through a link.
+    pub(super) fn new(home: Option<&Path>, runtime: &[PathBuf], agent_home: &Path) -> Self {
         let real_folder =
             |path: &Path| fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir());
         let mut mounts =
@@ -68,7 +84,8 @@ impl Layout {
         let fixed = [("/dev/shm", View::Private)]
             .into_iter()
             .chain(READ_ONLY.map(|path| (path, View::ReadOnly)))
-            .chain([("/run/media", View::Filtered), ("/tmp", View::Direct)]);
+            .chain([("/run/media", View::Filtered), ("/tmp", View::Direct)])
+            .chain([(X11_SOCKETS, View::Private)]);
         mounts.extend(
             fixed
                 .map(|(path, view)| (PathBuf::from(path), view))
@@ -93,6 +110,14 @@ impl Layout {
             mounts.push((app_data.to_path_buf(), View::Filtered));
         }
         mounts.push((agent_home.to_path_buf(), View::Direct));
+        // Last, over whichever mount above shows them: `/run`, or `/tmp`
+        // where a system keeps them there.
+        mounts.extend(
+            runtime
+                .iter()
+                .filter(|path| real_folder(path))
+                .map(|path| (path.clone(), View::Private)),
+        );
         Self { mounts }
     }
 
@@ -129,6 +154,9 @@ impl Layout {
         // type into the terminal Lattice was started from (TIOCSTI,
         // CVE-2017-5226).
         add(&["--unshare-pid", "--die-with-parent", "--new-session"].map(OsStr::new));
+        for variable in SESSION_VARIABLES {
+            add(&["--unsetenv", variable].map(OsStr::new));
+        }
         add(&["--bind".as_ref(), filter.as_os_str(), "/".as_ref()]);
         for (path, view) in &self.mounts {
             let path = path.as_os_str();
@@ -164,6 +192,25 @@ pub(super) fn home_folder() -> Option<PathBuf> {
     home.parent().is_some().then_some(home)
 }
 
+/// The user's runtime folders, as the host resolves them: the one
+/// `XDG_RUNTIME_DIR` names, and systemd's `/run/user/<uid>`, which is where
+/// a program looks for the session bus when that variable is unset.
+pub(super) fn runtime_folders() -> Vec<PathBuf> {
+    // SAFETY: `getuid` takes nothing and cannot fail.
+    let systemd = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
+    let named = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
+    let mut folders: Vec<PathBuf> = named
+        .into_iter()
+        .chain([systemd])
+        .filter(|folder| folder.is_absolute())
+        .filter_map(|folder| fs::canonicalize(folder).ok())
+        // Not `/`, which would take the whole tree with it.
+        .filter(|folder| folder.parent().is_some())
+        .collect();
+    folders.dedup();
+    folders
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,10 +224,12 @@ mod tests {
             ("/run", View::ReadOnly),
             ("/run/media", View::Filtered),
             ("/tmp", View::Direct),
+            ("/tmp/.X11-unix", View::Private),
             ("/home/ada/.cache", View::Direct),
             ("/home/ada/.local", View::Direct),
             ("/home/ada/.local/share/lattice", View::Filtered),
             ("/home/ada/.local/share/lattice/synara", View::Direct),
+            ("/run/user/1000", View::Private),
         ];
         Layout { mounts: mounts.map(|(path, view)| (PathBuf::from(path), view)).to_vec() }
     }
@@ -206,6 +255,8 @@ mod tests {
             "/home/ada/.local/share/other",
             "/home/ada/.local/share/lattice/synara/workspace",
             "/run/user/1000/paper",
+            "/run/user/1001/paper",
+            "/tmp/.X11-unix/paper",
             "/usr/share/doc",
             "/dev/shm/paper",
             // Each holds a folder the sandbox takes straight from the host.
@@ -226,6 +277,9 @@ mod tests {
         let drives = format!("{filter}/run/media");
         let expected: Vec<&str> = [
             &["--unshare-pid", "--die-with-parent", "--new-session"][..],
+            &["--unsetenv", "DBUS_SESSION_BUS_ADDRESS", "--unsetenv", "DISPLAY"],
+            &["--unsetenv", "WAYLAND_DISPLAY", "--unsetenv", "WAYLAND_SOCKET"],
+            &["--unsetenv", "XAUTHORITY"],
             &["--bind", filter, "/"],
             &["--dev-bind", "/dev", "/dev"],
             &["--proc", "/proc"],
@@ -234,6 +288,7 @@ mod tests {
             &["--ro-bind", "/run", "/run"],
             &["--bind", &drives, "/run/media"],
             &["--bind", "/tmp", "/tmp"],
+            &["--tmpfs", "/tmp/.X11-unix"],
             &["--bind", "/home/ada/.cache", "/home/ada/.cache"],
             &["--bind", "/home/ada/.local", "/home/ada/.local"],
             &["--bind", &through, app_data],
@@ -242,9 +297,39 @@ mod tests {
                 "/home/ada/.local/share/lattice/synara",
                 "/home/ada/.local/share/lattice/synara",
             ],
+            &["--tmpfs", "/run/user/1000"],
             &["--tmpfs", "/run/user/1000/lattice-agent-guard"],
         ]
         .concat();
         assert_eq!(arguments, expected);
+    }
+
+    /// The runtime folder here is under the system temp dir, which the
+    /// sandbox takes from the host: it is only hidden if its own mount comes
+    /// after that one.
+    #[test]
+    fn the_runtime_folder_is_hidden_and_every_mount_follows_its_parents() {
+        let scratch = crate::test_support::TempDir::new("bib-guard-layout");
+        let scratch = fs::canonicalize(&scratch).unwrap();
+        let (home, runtime) = (scratch.join("home"), scratch.join("runtime"));
+        let agent_home = home.join(".local/share/lattice/synara");
+        for folder in [&home.join(".cache"), &agent_home, &runtime] {
+            fs::create_dir_all(folder).unwrap();
+        }
+        let layout = Layout::new(Some(&home), std::slice::from_ref(&runtime), &agent_home);
+        assert_eq!(layout.view(&runtime.join("bus")), View::Private);
+        assert!(!layout.guards(&runtime));
+        for (index, (mount, _)) in layout.mounts.iter().enumerate() {
+            let parent = layout.mounts[index + 1..]
+                .iter()
+                .find(|(other, _)| other != mount && mount.starts_with(other));
+            if let Some((parent, _)) = parent {
+                panic!(
+                    "{} is mounted before {}, which covers it",
+                    mount.display(),
+                    parent.display()
+                );
+            }
+        }
     }
 }

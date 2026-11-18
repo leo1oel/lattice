@@ -8,7 +8,7 @@
 //! waits for it. The sandbox ends with that process, and that process with
 //! Lattice.
 
-use super::layout::{home_folder, Layout};
+use super::layout::{home_folder, runtime_folders, Layout};
 use super::name_filter;
 use crate::commands::host_environment;
 use std::ffi::{OsStr, OsString};
@@ -47,7 +47,7 @@ pub(in crate::synara) const UNGUARDED_FOLDER: &str = "The built-in agent is off 
 /// bibliographies would not be behind the filter.
 pub(in crate::synara) fn unguarded(workspace: &Path, agent_home: &Path) -> Option<&'static str> {
     let agent_home = fs::canonicalize(agent_home).unwrap_or_else(|_| agent_home.to_path_buf());
-    let layout = Layout::new(home_folder().as_deref(), &agent_home);
+    let layout = Layout::new(home_folder().as_deref(), &runtime_folders(), &agent_home);
     (!layout.guards(workspace)).then_some(UNGUARDED_FOLDER)
 }
 
@@ -177,7 +177,7 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
     let mountpoint = Mountpoint::create(&agent_home)?;
     let filter = name_filter::mount(Path::new("/"), &mountpoint.0)
         .map_err(|error| format!("could not mount the bibliography filter: {error}"))?;
-    let layout = Layout::new(home_folder().as_deref(), &agent_home);
+    let layout = Layout::new(home_folder().as_deref(), &runtime_folders(), &agent_home);
     let mut command = Command::new(&bubblewrap);
     command.args(layout.arguments(&mountpoint.0)).arg("--").args(&program);
     host_environment(&mut command).env_remove(FUSERMOUNT_PATH);
