@@ -4,7 +4,7 @@
 
 use super::{run_blocking, windows::free_project_window_label};
 use crate::app_state::{AppState, Lease};
-use crate::{latex, models::ProjectSnapshot, project};
+use crate::{latex, models::ProjectSnapshot, project, project_tab_groups::ProjectTabGroups};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -50,6 +50,7 @@ struct ProjectMove {
     source_root: PathBuf,
     root: PathBuf,
     destination: String,
+    before_root: Option<PathBuf>,
 }
 
 struct PendingMove {
@@ -181,15 +182,16 @@ pub async fn move_project_tab(
         // Check the manifest before opening a native window so unreadable
         // projects report a failure in the original window.
         let path = root.clone();
-        run_blocking("Project opening", move || project::open(&path)).await?;
+        let snapshot = run_blocking("Project opening", move || project::open(&path)).await?;
         // Pick the label only after that await, so a window opened meanwhile
         // can't take it. `check_bindings` still refuses one that appears while
         // the transfer waits for project leases.
         let destination = free_project_window_label(&app, &state);
-        let movement = ProjectMove { source, source_root, root, destination };
+        let movement = ProjectMove { source, source_root, root, destination, before_root: None };
         transfer_binding(&state, &movement, None, || true).await?;
         return match crate::workspace_window(&app, &movement.destination, false) {
             Ok(created) => {
+                persist_transfer(&state, &app.state::<ProjectTabGroups>(), &movement, &snapshot);
                 let _ = created.set_focus();
                 Ok(true)
             }
@@ -217,7 +219,13 @@ pub async fn move_project_tab(
     }
     let Some(receiver) = app.get_webview_window(&destination) else { return Ok(false) };
     let (reply, mut answer) = oneshot::channel();
-    let movement = ProjectMove { source, source_root, root, destination: destination.clone() };
+    let movement = ProjectMove {
+        source,
+        source_root,
+        root,
+        destination: destination.clone(),
+        before_root: target.before_root.as_ref().map(PathBuf::from),
+    };
     {
         let mut pending = moves.pending();
         if pending.contains_key(&id) {
@@ -248,7 +256,7 @@ pub async fn move_project_tab(
 #[tauri::command]
 pub async fn receive_project_tab(
     window: WebviewWindow, state: State<'_, AppState>, moves: State<'_, ProjectTabMoves>,
-    id: String, active_root: Option<String>,
+    groups: State<'_, ProjectTabGroups>, id: String, active_root: Option<String>,
 ) -> Result<Option<ProjectSnapshot>, String> {
     let destination = window.label();
     let Some(active_root) = active_root else {
@@ -267,10 +275,30 @@ pub async fn receive_project_tab(
         accepted.is_some()
     })
     .await?;
+    if moved {
+        persist_transfer(&state, &groups, &movement, &snapshot);
+    }
     if let Some(request) = accepted {
         let _ = request.reply.send(moved);
     }
     Ok(moved.then_some(snapshot))
+}
+
+fn persist_transfer(
+    state: &AppState, groups: &ProjectTabGroups, movement: &ProjectMove, snapshot: &ProjectSnapshot,
+) {
+    // A close can release the destination after the move claimed it. Update
+    // the source either way, and hold this binding until the journal is written.
+    let Ok(roots) = state.roots() else { return };
+    let destination = (roots.get(&movement.destination) == Some(&movement.root))
+        .then_some(movement.destination.as_str());
+    groups.transfer(
+        &movement.source,
+        destination,
+        &movement.root,
+        &snapshot.manifest.name,
+        movement.before_root.as_deref(),
+    );
 }
 
 #[cfg(test)]
@@ -288,6 +316,7 @@ mod tests {
             source_root: "/b".into(),
             root: "/b".into(),
             destination: "main".into(),
+            before_root: None,
         };
         assert!(movement.check_bindings(&roots, Some(Path::new("/old"))).is_err());
         movement.check_bindings(&roots, Some(Path::new("/a"))).unwrap();
@@ -313,6 +342,7 @@ mod tests {
             source_root: "/a".into(),
             root: "/a".into(),
             destination: destination.into(),
+            before_root: None,
         };
         moves.pending().insert(id.into(), PendingMove { movement, reply });
         answer
