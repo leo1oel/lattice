@@ -385,6 +385,19 @@ impl EditorPanel {
         // Writing goes on in the source when it comes back.
         if view != DocumentView::Preview {
             window.focus(&self.editor.focus_handle(cx), cx);
+        } else if self.editor.focus_handle(cx).contains_focused(window, cx)
+            && let Some(focus) = self
+                .views
+                .as_ref()
+                .and_then(|views| views.preview.as_ref())
+                .and_then(|preview| preview.focus_handle(cx))
+        {
+            // Preview draws no source, and a window left focused on a
+            // handle it no longer draws dispatches every action from its
+            // root, past the shell's own (the palette's Dark PDF pages
+            // after Preview Markdown did nothing), so the page takes the
+            // keyboard instead.
+            window.focus(&focus, cx);
         }
         self.bib_view_chosen(view, window, cx);
         lattice_webview::check_drawn_after_frame(window, cx);
