@@ -10283,7 +10283,7 @@ msgstr "New terminal"
 msgid "New version {version}"
 msgstr "New version {version}"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "New workspace"
 msgstr "New workspace"
@@ -14039,7 +14039,7 @@ msgstr "Reveal cursor in PDF"
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "Revert to saved"
@@ -14438,7 +14438,7 @@ msgstr "Save the project before repairing."
 msgid "Save these items as a template…"
 msgstr "Save these items as a template…"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Save to workspace"
 msgstr "Save to workspace"
@@ -15700,11 +15700,11 @@ msgstr "Switch away from “{name}”?"
 msgid "Switch project"
 msgstr "Switch project"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 msgid "Switch to {name}"
 msgstr "Switch to {name}"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 msgid "Switch to a workspace by its place"
 msgstr "Switch to a workspace by its place"
 
@@ -19141,7 +19141,7 @@ msgstr "Working offline"
 msgid "Working…"
 msgstr "Working…"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-labels.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspaces.ts

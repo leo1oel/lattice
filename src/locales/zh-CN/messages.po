@@ -10283,7 +10283,7 @@ msgstr "新建终端"
 msgid "New version {version}"
 msgstr "新版本 {version}"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "New workspace"
 msgstr "新建工作区"
@@ -14039,7 +14039,7 @@ msgstr "在 PDF 中定位"
 msgid "Reverse turnstile"
 msgstr "反向断言符"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "还原布局"
@@ -14438,7 +14438,7 @@ msgstr "请先保存再修复"
 msgid "Save these items as a template…"
 msgstr "将这些事项存为模板…"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Save to workspace"
 msgstr "保存到工作区"
@@ -15700,11 +15700,11 @@ msgstr "离开“{name}”？"
 msgid "Switch project"
 msgstr "切换项目"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 msgid "Switch to {name}"
 msgstr "切换到{name}"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 msgid "Switch to a workspace by its place"
 msgstr "切换工作区"
 
@@ -19141,7 +19141,7 @@ msgstr "离线工作中"
 msgid "Working…"
 msgstr "正在处理…"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-labels.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspaces.ts
