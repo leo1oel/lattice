@@ -83,10 +83,30 @@ pub(super) fn privileged_command(script: &str) -> String {
     format!("/bin/bash -c {}", shell_quote(script))
 }
 
+/// The TeX Live year tree a privileged script gives the signed-in user
+/// (`uid`) when it ends, so the next update or package install needs no
+/// administrator prompt. `tree` is `package_updates::tex_live_root`'s.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Handoff<'a> {
+    pub tree: &'a str,
+    pub uid: u32,
+}
+
+/// Fill the prelude's handoff: none for a script that runs as the user.
+fn with_handoff(script: &str, handoff: Option<Handoff<'_>>) -> String {
+    let (tree, uid) =
+        handoff.map_or((String::new(), 0), |handoff| (handoff.tree.into(), handoff.uid));
+    script
+        .replace("__HANDOFF_TREE__", &shell_quote(&tree))
+        .replace("__HANDOFF_UID__", &uid.to_string())
+}
+
 /// The BasicTeX installer script: copies and re-verifies the downloaded
 /// `package` when `install_base`, then installs the required packages.
-pub(super) fn basic_tex_script(package: &Path, root: &Path, install_base: bool) -> String {
-    BASIC_SCRIPT
+pub(super) fn basic_tex_script(
+    package: &Path, root: &Path, install_base: bool, handoff: Option<Handoff<'_>>,
+) -> String {
+    with_handoff(BASIC_SCRIPT, handoff)
         .replace("__INSTALLER_NAME__", "BasicTeX")
         .replace("__SOURCE_PACKAGE__", &shell_quote(&package.to_string_lossy()))
         .replace("__ROOT_PATH__", &shell_quote(&root.to_string_lossy()))
@@ -98,8 +118,9 @@ pub(super) fn basic_tex_script(package: &Path, root: &Path, install_base: bool) 
 /// the configured one could not be searched.
 pub(super) fn dependency_script(
     root: &Path, tlmgr: &Path, package: &str, repository: Option<&str>,
+    handoff: Option<Handoff<'_>>,
 ) -> String {
-    DEPENDENCY_SCRIPT
+    with_handoff(DEPENDENCY_SCRIPT, handoff)
         .replace("__INSTALLER_NAME__", "LaTeX package")
         .replace("__ROOT_PATH__", &shell_quote(&root.to_string_lossy()))
         .replace("__TLMGR_PATH__", &shell_quote(&tlmgr.to_string_lossy()))
@@ -108,8 +129,10 @@ pub(super) fn dependency_script(
 }
 
 /// The script that updates tlmgr and every package of the TeX at `tlmgr`.
-pub(super) fn package_update_script(root: &Path, tlmgr: &Path) -> String {
-    UPDATE_SCRIPT
+pub(super) fn package_update_script(
+    root: &Path, tlmgr: &Path, handoff: Option<Handoff<'_>>,
+) -> String {
+    with_handoff(UPDATE_SCRIPT, handoff)
         .replace("__INSTALLER_NAME__", "TeX package update")
         .replace("__ROOT_PATH__", &shell_quote(&root.to_string_lossy()))
         .replace("__TLMGR_PATH__", &shell_quote(&tlmgr.to_string_lossy()))
@@ -407,9 +430,13 @@ mod tests {
     fn installer_scripts_are_fully_filled_in() {
         let root = Path::new("/private/var/tmp/lattice-root");
         let scripts = [
-            basic_tex_script(Path::new("/tmp/Ada's/BasicTeX.pkg"), root, true),
-            dependency_script(root, Path::new("/Library/TeX/texbin/tlmgr"), "newtx", None),
-            package_update_script(root, Path::new("/Library/TeX/texbin/tlmgr")),
+            basic_tex_script(Path::new("/tmp/Ada's/BasicTeX.pkg"), root, true, None),
+            dependency_script(root, Path::new("/Library/TeX/texbin/tlmgr"), "newtx", None, None),
+            package_update_script(
+                root,
+                Path::new("/Library/TeX/texbin/tlmgr"),
+                Some(Handoff { tree: "/usr/local/texlive/2026", uid: 501 }),
+            ),
         ];
         for script in &scripts {
             assert!(!script.contains("__"), "unfilled placeholder in:\n{script}");
@@ -433,6 +460,9 @@ mod tests {
             assert!(!DEPENDENCY_SCRIPT.contains(unexpected), "{unexpected}");
         }
         assert!(scripts[2].contains("TLMGR='/Library/TeX/texbin/tlmgr'\n"));
+        // A script that runs as the user hands nothing over.
+        assert!(scripts[0].contains("HANDOFF_TREE=''\n"));
+        assert!(scripts[2].contains("HANDOFF_TREE='/usr/local/texlive/2026'\nHANDOFF_UID=501\n"));
     }
 
     #[test]

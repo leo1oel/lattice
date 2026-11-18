@@ -3,7 +3,7 @@
  * the account's connection, its project list, what the user has typed and
  * chosen, and the download or upload in flight.
  */
-import type { LocalCopy, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
+import type { DownloadParent, LocalCopy, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
 import { NOTHING_RECEIVED, recordDownload, type DownloadProgress, type DownloadTrack } from "./overleaf-download-progress";
 
 export type PickerState = {
@@ -28,6 +28,10 @@ export type PickerState = {
   publishing: boolean;
   transferError: string | null;
   publishName: string;
+  /** Where a download goes: the last folder used, else Documents/Overleaf Projects. */
+  destination: DownloadParent | null;
+  /** Why the folder just chosen cannot take a download. */
+  destinationError: string | null;
 };
 
 export type PickerAction =
@@ -52,7 +56,9 @@ export type PickerAction =
   | { type: "downloaded"; progress: DownloadProgress; at: number }
   /** An upload starts (clearing the last transfer's error) or ends. */
   | { type: "publishing"; publishing: boolean }
-  | { type: "transferFailed"; error: string };
+  | { type: "transferFailed"; error: string }
+  | { type: "destination"; destination: DownloadParent }
+  | { type: "destinationFailed"; error: string };
 
 export function initialPickerState(publishName: string): PickerState {
   return {
@@ -60,6 +66,7 @@ export function initialPickerState(publishName: string): PickerState {
     list: null, projectsLoading: false, projectsError: null, invitationOpened: false, localCopies: {},
     search: "", showArchived: false, selected: null,
     opening: null, cloning: null, downloaded: null, publishing: false, transferError: null, publishName,
+    destination: null, destinationError: null,
   };
 }
 
@@ -95,5 +102,7 @@ export function reducePicker(state: PickerState, action: PickerAction): PickerSt
     case "publishing":
       return { ...state, publishing: action.publishing, transferError: action.publishing ? null : state.transferError };
     case "transferFailed": return { ...state, transferError: action.error };
+    case "destination": return { ...state, destination: action.destination, destinationError: null };
+    case "destinationFailed": return { ...state, destinationError: action.error };
   }
 }

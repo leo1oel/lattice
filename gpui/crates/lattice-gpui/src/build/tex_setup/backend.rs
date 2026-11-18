@@ -51,7 +51,8 @@ pub trait TexSetupBackend: Send + Sync {
     /// What the TeX Live repository has newer than what is installed;
     /// `None` without a tlmgr to ask.
     fn check_package_updates(&self) -> Option<TexPackageUpdates>;
-    /// Update tlmgr and every package of the BasicTeX Lattice installed.
+    /// Update tlmgr and every package of a TeX Live tree under
+    /// /usr/local/texlive, prompting only until the tree is the writer's.
     fn update_packages(&self, progress: Progress) -> Result<(), String>;
 }
 
@@ -308,6 +309,7 @@ impl TexSetupBackend for StubTexSetup {
         let updated = self.state().packages_updated;
         Some(TexPackageUpdates {
             managed: true,
+            passwordless: false,
             packages: if updated {
                 Vec::new()
             } else {

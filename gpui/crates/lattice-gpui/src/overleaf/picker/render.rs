@@ -258,7 +258,10 @@ impl Render for OverleafPicker {
                     }),
                 );
             let (stage, list) = self.stage(window, cx);
-            body = body.child(controls).child(frame(list, false).child(stage));
+            body = body
+                .child(controls)
+                .child(frame(list, false).child(stage))
+                .child(self.destination_row(cx));
             if self.setup.current_project.is_some() {
                 body = body.child(self.publish_card(cx));
             }
