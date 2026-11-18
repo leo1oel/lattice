@@ -12,7 +12,8 @@
 //!   container with any host folder mounted in it, outside the filter. All
 //!   it gets back is the file the resolver is configured in, read-only, and
 //!   the links in `/run` and on the way there from `/etc/resolv.conf`, as
-//!   links ([`from_run`]); removable drives under `/run/media` are filtered
+//!   links, save one that could lead it to a socket ([`from_run`],
+//!   [`Layout::may_make`]); removable drives under `/run/media` are filtered
 //!   as anywhere else;
 //! - `/dev` and a `/proc` of the sandbox's own process namespace, so no host
 //!   process can be reached through `/proc/<pid>/root`, signalled or traced;
@@ -169,7 +170,29 @@ impl Layout {
                 .filter(|path| real_folder(path))
                 .map(|path| (path.clone(), View::Private)),
         );
-        Self { mounts, links, ssh_agent: None }
+        let mut layout = Self { mounts, links: Vec::new(), ssh_agent: None };
+        layout.links = links.into_iter().filter(|(link, _)| layout.may_make(link)).collect();
+        layout
+    }
+
+    /// Whether the link at `link` in the host's `/run` may be made again in
+    /// the sandbox's. A link is resolved inside the sandbox, and must not
+    /// lead it to a socket there, now or later: where it leads on the host is
+    /// a regular file, a folder or nothing yet, and the sandbox has that
+    /// place read-only from the system or of its own, with nothing else
+    /// mounted under it. Not `/tmp` or a hidden folder of the home folder,
+    /// which it shares with the host writable, and not the filter, through
+    /// which a socket does not connect but is still one.
+    fn may_make(&self, link: &Path) -> bool {
+        let (_, Some(end)) = follow(link) else { return false };
+        let leads_to = match fs::symlink_metadata(&end) {
+            Ok(metadata) => metadata.is_file() || metadata.is_dir(),
+            Err(error) => error.kind() == std::io::ErrorKind::NotFound,
+        };
+        let sealed = |view: View| matches!(view, View::ReadOnly | View::Private);
+        leads_to
+            && sealed(self.view(&end))
+            && !self.mounts.iter().any(|(mount, view)| !sealed(*view) && mount.starts_with(&end))
     }
 
     /// The layout with the SSH agent listening on `socket`, a path as the
@@ -294,24 +317,36 @@ pub(super) fn runtime_folders() -> Vec<PathBuf> {
     folders
 }
 
-/// What the sandbox has back of the host's `run` folder, as the host
+/// What the sandbox may have back of the host's `run` folder, as the host
 /// resolves it: the file that `resolver` leads to, if it is in there, to be
 /// bound read-only (`/run/systemd/resolve/stub-resolv.conf`,
 /// `/run/NetworkManager/resolv.conf`, …), and the links on the way there and
-/// directly in `run`, to be made again. A link is resolved inside the
-/// sandbox, so it reaches nothing the sandbox has not got already; NixOS and
-/// Guix keep the system's programs behind one (`/run/current-system`).
-/// Nothing else: not a socket, and not the folder the file is in, beside
-/// which systemd-resolved listens.
+/// directly in `run`, to be made again as links where
+/// [`Layout::may_make`] says so. NixOS and Guix keep the system's programs
+/// behind one (`/run/current-system`). Nothing else: not a socket, and not
+/// the folder the file is in, beside which systemd-resolved listens.
 fn from_run(resolver: &Path, run: &Path) -> (Vec<PathBuf>, Vec<(PathBuf, PathBuf)>) {
+    let (on_the_way, end) = follow(resolver);
     let mut links: Vec<(PathBuf, PathBuf)> = fs::read_dir(run)
         .into_iter()
         .flatten()
         .flatten()
         .filter_map(|entry| Some((entry.path(), fs::read_link(entry.path()).ok()?)))
+        .chain(on_the_way.into_iter().filter(|(at, _)| at.starts_with(run)))
         .collect();
-    let mut files = Vec::new();
-    let mut next = resolver.to_path_buf();
+    links.sort();
+    links.dedup();
+    let files = end.filter(|end| end.starts_with(run) && end.is_file()).into_iter().collect();
+    (files, links)
+}
+
+/// The way from `path` as the host resolves it: each link on it, where it
+/// really is and what it names, then where the way ends, which is not a
+/// link and may not exist, in a folder that does. No end where a folder on
+/// the way is missing or the links go round.
+fn follow(path: &Path) -> (Vec<(PathBuf, PathBuf)>, Option<PathBuf>) {
+    let mut links = Vec::new();
+    let mut next = path.to_path_buf();
     // No further than the kernel follows links before it gives up.
     for _ in 0..40 {
         let (Some(folder), Some(name)) = (next.parent(), next.file_name()) else { break };
@@ -319,20 +354,11 @@ fn from_run(resolver: &Path, run: &Path) -> (Vec<PathBuf>, Vec<(PathBuf, PathBuf
         // reached through (`/var/run`, `/etc/../run`).
         let Ok(folder) = fs::canonicalize(folder) else { break };
         let at = folder.join(name);
-        let Ok(target) = fs::read_link(&at) else {
-            if at.starts_with(run) && at.is_file() {
-                files.push(at);
-            }
-            break;
-        };
+        let Ok(target) = fs::read_link(&at) else { return (links, Some(at)) };
         next = folder.join(&target);
-        if at.starts_with(run) {
-            links.push((at, target));
-        }
+        links.push((at, target));
     }
-    links.sort();
-    links.dedup();
-    (files, links)
+    (links, None)
 }
 
 /// The SSH agent's socket, as the host resolves it: what `SSH_AUTH_SOCK`
@@ -535,7 +561,8 @@ mod tests {
 
     /// The resolver's file and the links to it come back from `/run`, as
     /// the host resolves them, and nothing else there does: not the socket
-    /// beside the file, nor a container engine's.
+    /// beside the file, nor a container engine's, nor a link that leads to a
+    /// socket the sandbox would reach, or to where one could be made.
     #[test]
     fn of_run_the_sandbox_gets_the_resolvers_file_and_the_links() {
         use std::os::unix::fs::symlink;
@@ -544,14 +571,34 @@ mod tests {
         let scratch = fs::canonicalize(&scratch).unwrap();
         let (etc, run) = (scratch.join("etc"), scratch.join("run"));
         let resolve = run.join("systemd/resolve");
+        let (store, tmp, docker) =
+            (scratch.join("nix/store"), scratch.join("tmp"), scratch.join("home/.docker"));
         for folder in [&etc, &resolve, &run.join("NetworkManager"), &scratch.join("var")] {
+            fs::create_dir_all(folder).unwrap();
+        }
+        for folder in [&store.join("0-nixos-system"), &tmp, &docker.join("desktop")] {
             fs::create_dir_all(folder).unwrap();
         }
         let stub = resolve.join("stub-resolv.conf");
         fs::write(&stub, "nameserver 127.0.0.53\n").unwrap();
-        let _listeners = [resolve.join("io.systemd.Resolve"), run.join("docker.sock")]
-            .map(|socket| UnixListener::bind(socket).unwrap());
-        symlink("/nix/store/0-nixos-system", run.join("current-system")).unwrap();
+        let (in_tmp, desktop) = (tmp.join("agent.sock"), docker.join("desktop/docker.sock"));
+        let _listeners = [&resolve.join("io.systemd.Resolve"), &run.join("engine.sock")]
+            .into_iter()
+            .chain([&in_tmp, &desktop])
+            .map(|socket| UnixListener::bind(socket).unwrap())
+            .collect::<Vec<_>>();
+        let nixos = store.join("0-nixos-system");
+        symlink(&nixos, run.join("current-system")).unwrap();
+        // To a socket the sandbox has from the host, to a folder that holds
+        // them, to where one could be made later, and to a device.
+        symlink(&desktop, run.join("docker.sock")).unwrap();
+        symlink(&in_tmp, run.join("agent.sock")).unwrap();
+        symlink(&tmp, run.join("tmp")).unwrap();
+        symlink(scratch.join("home"), run.join("home")).unwrap();
+        symlink(docker.join("desktop/later.sock"), run.join("later.sock")).unwrap();
+        symlink("/dev/null", run.join("null")).unwrap();
+        // Into the sandbox's own `/run`, where it leads to nothing.
+        symlink("missing.conf", run.join("gone")).unwrap();
         symlink("../run", scratch.join("var/run")).unwrap();
         // systemd-resolved's, through a relative link, and through a second
         // link in `/run` as `resolvconf` makes it.
@@ -569,12 +616,19 @@ mod tests {
         symlink("loop", run.join("loop")).unwrap();
         symlink("../run/loop", etc.join("looping")).unwrap();
 
-        let in_run = |at: &str, to: &str| (run.join(at), PathBuf::from(to));
-        let links_in_run = [
-            in_run("current-system", "/nix/store/0-nixos-system"),
-            in_run("loop", "loop"),
-            (resolvconf.clone(), stub.clone()),
+        // The sandbox's mounts over these, as `Layout::new` makes them.
+        let mounts = [
+            (run.clone(), View::Private),
+            (scratch.join("nix"), View::ReadOnly),
+            (tmp.clone(), View::Direct),
+            (stub.clone(), View::ReadOnly),
+            (docker.clone(), View::Direct),
         ];
+        let layout = Layout { mounts: mounts.to_vec(), links: Vec::new(), ssh_agent: None };
+        let made = |links: Vec<(PathBuf, PathBuf)>| -> Vec<String> {
+            let made = links.into_iter().filter(|(link, _)| layout.may_make(link));
+            made.map(|(link, _)| link.strip_prefix(&run).unwrap().display().to_string()).collect()
+        };
         for (resolver, files) in [
             ("resolved", vec![stub.clone()]),
             ("resolvconf", vec![stub.clone()]),
@@ -585,7 +639,9 @@ mod tests {
         ] {
             let (found, links) = from_run(&etc.join(resolver), &run);
             assert_eq!(found, files, "{resolver}");
-            assert_eq!(links, links_in_run.to_vec(), "{resolver}");
+            // Every link in `/run` is asked about; not the socket there.
+            assert_eq!(links.len(), 10, "{resolver}: {links:?}");
+            assert_eq!(made(links), ["current-system", "gone", "resolv.conf"], "{resolver}");
         }
     }
 }

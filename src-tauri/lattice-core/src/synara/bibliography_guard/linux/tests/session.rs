@@ -330,7 +330,9 @@ impl Drop for InRun {
 /// socket a process can start a container with any host folder mounted in
 /// it, outside the filter: Docker's and rootful Podman's are in `/run`,
 /// rootless Podman's in the runtime folder. Inside, nothing in `/run` is a
-/// socket and none of those paths is there. A test cannot listen where the
+/// socket or leads to one through the links made again there (save the
+/// drives in `/run/media`, which are the filter's), and none of those paths
+/// is there. A test cannot listen where the
 /// engines do without root, so stand-ins listen in `/run/lock` and in a
 /// stand-in runtime folder, and an engine this machine has is tried too.
 #[test]
@@ -369,7 +371,9 @@ fn the_sandbox_cannot_reach_the_container_engines_or_other_sockets_in_run() {
 
     let sockets: Vec<&PathBuf> =
         stand_ins.iter().chain(engines.iter().map(|(_, socket)| socket)).collect();
-    let script = "[ -z \"$(find /run -path /run/media -prune -o -type s -print)\" ] || exit 1; \
+    let script =
+        "[ -z \"$(find -L /run -path /run/media -prune -o -type s -print 2>/dev/null)\" ] \
+         || exit 1; \
          for socket in \"$@\"; do [ ! -e \"$socket\" ] || exit 2; done; exit 0";
     let status = sandbox.command(script).args(&sockets).status().expect("run sandboxed command");
     assert_eq!(status.code(), Some(0), "1: a socket in /run inside; 2: one of the paths is there");
