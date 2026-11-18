@@ -35,6 +35,16 @@ impl Run {
         })
     }
 
+    /// The window as it is now, for `LATTICE_FOCUS_SHOTS`: the scenario's
+    /// capture is macOS's (`shot.rs`), so elsewhere there is none.
+    async fn focus_shot(&self, cx: &mut AsyncApp, out: &std::path::Path) -> Result<()> {
+        #[cfg(target_os = "macos")]
+        self.capture(cx, &out.to_string_lossy()).await?;
+        #[cfg(not(target_os = "macos"))]
+        let _ = (cx, out);
+        Ok(())
+    }
+
     /// Open one surface from the document, walk it both ways, close it with
     /// Escape, and check where the keyboard ended up.
     async fn walk_surface(
@@ -82,7 +92,7 @@ impl Run {
                     .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
                     .collect();
                 let out = std::path::Path::new(&dir).join(format!("{slug}.png"));
-                self.capture(cx, &out.to_string_lossy()).await?;
+                self.focus_shot(cx, &out).await?;
             }
         }
         steps.check(
@@ -173,7 +183,7 @@ impl Run {
                 && let Some(dir) = std::env::var_os("LATTICE_FOCUS_SHOTS")
             {
                 let out = std::path::Path::new(&dir).join("confirm-over-settings.png");
-                self.capture(cx, &out.to_string_lossy()).await?;
+                self.focus_shot(cx, &out).await?;
             }
         }
         self.trap_key(cx, "escape")?;
