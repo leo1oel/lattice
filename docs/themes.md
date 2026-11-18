@@ -131,6 +131,9 @@ to GitHub Pages (`index.json`, `blocked.json` and their `.minisig` files).
   which nothing installs), and one row per theme with a tile painted from the
   index's colors, so nothing downloads before Install. Install chooses the
   theme with the same accent rule as a file install; Update keeps the choice.
+  GPUI draws the same sheet (`gpui/crates/lattice-gpui/src/settings/theme_browse.rs`),
+  calling `Registry` off the main thread, and `settings::reload_theme` asks
+  `Registry::turned_off` before it applies a theme file.
 
 The Tauri commands are `registry_index` (`refresh: true` fetches first) and
 `registry_install_theme` in `src-tauri/src/ipc/themes.rs`.
