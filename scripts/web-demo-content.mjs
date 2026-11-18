@@ -35,16 +35,6 @@ const BUILD_INPUTS = /^(?:main\.tex|references\.bib|neurips\.sty|figures\/.+\.(?
 const SOURCE_DATE_EPOCH = "1767225600";
 
 /**
- * A file's bytes as Git stores them: a Windows checkout writes text files
- * with CRLF, which would change the demo's edits' matches and its inputs'
- * hash. The figures' PNGs and PDFs are read as they are.
- */
-function stored(file) {
-  const bytes = readFileSync(file);
-  return /\.(?:png|pdf)$/i.test(file) ? bytes : Buffer.from(bytes.toString("utf8").replaceAll("\r\n", "\n"));
-}
-
-/**
  * The tutorial as the demo opens it, by project-relative path: the bundled
  * one with the demo's edits (content/overrides.json), its figures replaced
  * by Lattice's own, and the NeurIPS style beside it as a new tutorial gets
@@ -54,15 +44,15 @@ export function demoTutorial() {
   const files = new Map();
   for (const file of walkFiles(TUTORIAL)) {
     const relative = path.relative(TUTORIAL, file).split(path.sep).join("/");
-    if (!relative.startsWith("figures/")) files.set(relative, stored(file));
+    if (!relative.startsWith("figures/")) files.set(relative, readFileSync(file));
   }
   for (const { file, find, replace } of readJson(path.join(CONTENT, "overrides.json")).edits) {
     const text = files.get(file)?.toString("utf8") ?? "";
     if (text.split(find).length !== 2) throw new Error(`content/overrides.json: ${file} must hold ${JSON.stringify(find)} exactly once`);
     files.set(file, Buffer.from(text.replace(find, () => replace)));
   }
-  for (const figure of FIGURES) files.set(`figures/${figure}`, stored(path.join(CONTENT, "figures", figure)));
-  const style = stored(path.join(projectRoot, "src-tauri/templates/neurips-2026/neurips_2026.sty")).toString("utf8")
+  for (const figure of FIGURES) files.set(`figures/${figure}`, readFileSync(path.join(CONTENT, "figures", figure)));
+  const style = readFileSync(path.join(projectRoot, "src-tauri/templates/neurips-2026/neurips_2026.sty"), "utf8")
     .replace("\\ProvidesPackage{neurips_2026}", "\\ProvidesPackage{neurips}");
   files.set("neurips.sty", Buffer.from(style));
   return files;
@@ -72,7 +62,7 @@ export function demoTutorial() {
 export function buildInputsHash(files = demoTutorial()) {
   const hash = [...files].filter(([file]) => BUILD_INPUTS.test(file)).sort(([a], [b]) => a.localeCompare(b))
     .map(([file, bytes]) => `${file}\0${sha256(bytes)}`).join("\n");
-  return sha256(`${hash}\n${sha256(stored(FIGURE_SOURCE))}`);
+  return sha256(`${hash}\n${sha256(readFileSync(FIGURE_SOURCE))}`);
 }
 
 const tool = (command, args, cwd) => capture(command, args, {
