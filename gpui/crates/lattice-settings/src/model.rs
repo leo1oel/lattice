@@ -223,12 +223,6 @@ pub struct Appearance {
     pub prose_font_size: f32,
     pub prose_line_height: f32,
     pub editor_keymap: EditorKeymap,
-    /// Stored as `spellCheck`, not the Tauri app's `editorSpellcheck`: the
-    /// check is off by default here (Harper's dictionary and the spelling
-    /// state cost about 120 MB on a long file), and every older store,
-    /// imported from Tauri or saved by this app, holds `editorSpellcheck:
-    /// true` without anyone having chosen it.
-    #[serde(rename = "spellCheck")]
     pub editor_spellcheck: bool,
     pub interface_sounds: bool,
     pub toast_position: ToastPosition,
@@ -252,7 +246,7 @@ impl Default for Appearance {
             prose_font_size: PROSE_FONT_SIZE,
             prose_line_height: PROSE_LINE_HEIGHT,
             editor_keymap: EditorKeymap::Default,
-            editor_spellcheck: false,
+            editor_spellcheck: true,
             interface_sounds: true,
             // Clear of the PDF toolbar and the build's diagnostics card,
             // which share the top right.
@@ -406,9 +400,8 @@ impl Appearance {
                 defaults.prose_line_height,
             ),
             editor_keymap: choice(field("editorKeymap"), defaults.editor_keymap),
-            // Only an explicit true turns it on; the old `editorSpellcheck`
-            // key is not read (see the field).
-            editor_spellcheck: field("spellCheck") == Some(&Value::Bool(true)),
+            // Absent means "never chose"; only an explicit false turns it off.
+            editor_spellcheck: field("editorSpellcheck") != Some(&Value::Bool(false)),
             interface_sounds: field("interfaceSounds") != Some(&Value::Bool(false)),
             toast_position: choice(field("toastPosition"), defaults.toast_position),
             hidden_titlebar_tools: hidden,
@@ -602,21 +595,7 @@ mod tests {
         assert_eq!(appearance, Appearance::default());
         assert_eq!(appearance.toast_position, ToastPosition::BottomRight);
         assert_eq!(appearance.translucency, Translucency::Subtle);
-        assert!(!appearance.editor_spellcheck);
-    }
-
-    #[test]
-    fn spell_checking_is_on_only_when_chosen_under_its_own_key() {
-        let read = |stored: Value| Appearance::from_value(&stored, false).editor_spellcheck;
-        assert!(!read(json!({ "editorSpellcheck": true })));
-        assert!(!read(json!({ "spellCheck": "yes" })));
-        assert!(read(json!({ "spellCheck": true })));
-        let on = Appearance {
-            editor_spellcheck: true,
-            ..Appearance::default()
-        };
-        let stored = serde_json::to_value(&on).unwrap();
-        assert_eq!(Appearance::from_value(&stored, false), on);
+        assert!(appearance.editor_spellcheck);
     }
 
     #[test]
@@ -631,7 +610,7 @@ mod tests {
                 "proseFontSize": 0,
                 "proseLineHeight": -1,
                 "editorKeymap": "vim",
-                "spellCheck": true,
+                "editorSpellcheck": false,
                 "interfaceSounds": "no",
                 "toastPosition": "top-left",
                 "hiddenTitlebarTools": ["git", "nope", "comments"],
@@ -651,7 +630,7 @@ mod tests {
         assert_eq!(appearance.prose_font_size, PROSE_FONT_SIZE);
         assert_eq!(appearance.prose_line_height, PROSE_LINE_HEIGHT);
         assert_eq!(appearance.editor_keymap, EditorKeymap::Vim);
-        assert!(appearance.editor_spellcheck);
+        assert!(!appearance.editor_spellcheck);
         // Only an explicit false turns a switch off.
         assert!(appearance.interface_sounds);
         assert_eq!(appearance.toast_position, ToastPosition::BottomRight);
