@@ -78,5 +78,5 @@ jobs:
       - name: Run the patch tests
         working-directory: ${{ env.GPUI_FAST_DIR }}
         run: |
-          cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom fast::backdrop fast::tests::retained fast::rounded_clip profiler::journal
+          cargo test -p gpui --lib --features test-support,profiler,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom fast::backdrop fast::tests::retained fast::rounded_clip profiler::journal
           cargo test -p gpui_apple --lib --features runtime_shaders,font-kit -- fast::backdrop fast::font_smoothing fast::glyph_outline
