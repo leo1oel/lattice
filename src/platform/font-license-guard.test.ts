@@ -48,6 +48,15 @@ const LICENSED_FONTS: Record<string, string> = {
   "gpui/crates/lattice-ui/assets/fonts/reading-aids/opendyslexic-latin-400-italic.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/reading-aids/opendyslexic-latin-700-normal.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/reading-aids/opendyslexic-latin-700-italic.ttf": "OFL-1.1",
+  // The GPUI whiteboard's Excalidraw faces (gpui/crates/lattice-board),
+  // unmodified from Excalidraw's packages/excalidraw/fonts, with OFL.txt and
+  // LICENSE-ComicShanns.txt beside them.
+  "gpui/crates/lattice-board/assets/fonts/excalidraw/CascadiaCode-Regular.ttf": "OFL-1.1",
+  "gpui/crates/lattice-board/assets/fonts/excalidraw/ComicShanns-Regular.ttf": "MIT",
+  "gpui/crates/lattice-board/assets/fonts/excalidraw/Excalifont-Regular.ttf": "OFL-1.1",
+  "gpui/crates/lattice-board/assets/fonts/excalidraw/LilitaOne-Regular.ttf": "OFL-1.1",
+  "gpui/crates/lattice-board/assets/fonts/excalidraw/Nunito-Medium.ttf": "OFL-1.1",
+  "gpui/crates/lattice-board/assets/fonts/excalidraw/Virgil-Regular.ttf": "OFL-1.1",
 };
 
 /** Every path Git tracks or would add (untracked, not ignored). */

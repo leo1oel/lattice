@@ -1,6 +1,6 @@
 /**
  * The GPUI app's island pages (`gpui/README.md`, "Webview islands"): the
- * spreadsheet, the board, the Open Slide workspace, the visual Markdown
+ * spreadsheet, the Open Slide workspace, the visual Markdown
  * editor, the Agent's Synara host and the math page the editor's cards
  * picture KaTeX through, each a page built from the Tauri app's own modules
  * in `src/`,
@@ -23,13 +23,12 @@ import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
-import { excalidrawAssetsPlugin } from "../../scripts/excalidraw-assets.ts";
 import { privateFontsPlugin } from "../../scripts/private-fonts.ts";
 import { reactCompilerSuppressionRules } from "../../scripts/react-compiler-suppressions.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
-const ISLANDS = ["sheet", "board", "slides", "markdown", "latex", "agent", "math"] as const;
+const ISLANDS = ["sheet", "slides", "markdown", "latex", "agent", "math"] as const;
 
 /**
  * `virtual:webkit-polyfills`, as the app's config serves it: the PDF.js
@@ -73,7 +72,6 @@ export default defineConfig({
       ],
     }),
     tailwindcss(),
-    excalidrawAssetsPlugin(),
     privateFontsPlugin(),
   ],
   resolve: {
