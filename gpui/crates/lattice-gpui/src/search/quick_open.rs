@@ -27,7 +27,7 @@ use gpui::{
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_ui::{
     ActiveLattice as _, Elevation, GlyphKind, Icon, TextRole, TextRoleStyle as _,
-    components::{Keycap, rise_in},
+    components::{Keycap, TrapFocus as _, rise_in},
     fluid_hover::FluidHover,
     icons::{ICON, ICON_SMALL, file_glyph},
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
@@ -834,7 +834,7 @@ impl Render for QuickOpen {
             .pt(viewport.height * 0.18)
             .bg(palette.scrim)
             .occlude()
-            .track_focus(&self.focus)
+            .trap_focus("quick-open-trap", &self.focus)
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                 let keystroke = &event.keystroke;
                 let control = keystroke.modifiers.control && !keystroke.modifiers.platform;
