@@ -7,6 +7,12 @@
 //! Windows, the measurements on macOS):
 //! `lattice-gpui PROJECT_DIR --scenario e2e|perf|ime --out RESULT.json`.
 
+/// The name the app shows for itself: its window titles, the app menu's
+/// About, Hide and Quit, the About panel, and what it says is not there yet.
+/// It ships beside the Tauri Lattice as Lattice Beta (scripts/gpui-bundle.mjs
+/// names the bundle the same).
+pub const APP_NAME: &str = "Lattice Beta";
+
 mod agent;
 mod annotations;
 mod app;
