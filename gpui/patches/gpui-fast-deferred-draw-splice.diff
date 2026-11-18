@@ -1,0 +1,323 @@
+diff --git a/gpui-fast/crates/gpui/src/fast/dependencies.rs b/gpui-fast/crates/gpui/src/fast/dependencies.rs
+--- a/gpui-fast/crates/gpui/src/fast/dependencies.rs
++++ b/gpui-fast/crates/gpui/src/fast/dependencies.rs
+@@ -549,16 +549,36 @@ impl App {
+             || self.globals_or_states_changed(dependencies)
+     }
+ 
+-    fn globals_or_states_changed(&self, dependencies: &RenderDependencies) -> bool {
++    /// Whether any of `entities` changed, or was written while the window
++    /// drew, since `dependencies` were recorded: what a deferred draw
++    /// accessed, judged by the recording of the view that asked for it.
++    pub(crate) fn entities_changed_since(
++        &self,
++        entities: &[EntityId],
++        dependencies: &RenderDependencies,
++    ) -> bool {
++        let log = &self.entities.access_log;
++        log.changed_since(entities, dependencies.updates, true)
++            || log.written_since(entities, &dependencies.writes)
++    }
++
++    /// Whether a global `dependencies` read changed since they were
++    /// recorded.
++    pub(crate) fn globals_changed(&self, dependencies: &RenderDependencies) -> bool {
+         dependencies.globals.iter().any(|global| {
+             self.dependencies
+                 .global_changed_at
+                 .get(global)
+                 .is_some_and(|changed_at| *changed_at > dependencies.generation)
+-        }) || dependencies
+-            .states
+-            .iter()
+-            .any(|(version, read_at)| version.get() != *read_at)
++        })
++    }
++
++    fn globals_or_states_changed(&self, dependencies: &RenderDependencies) -> bool {
++        self.globals_changed(dependencies)
++            || dependencies
++                .states
++                .iter()
++                .any(|(version, read_at)| version.get() != *read_at)
+     }
+ }
+ 
+diff --git a/gpui-fast/crates/gpui/src/fast/splice.rs b/gpui-fast/crates/gpui/src/fast/splice.rs
+--- a/gpui-fast/crates/gpui/src/fast/splice.rs
++++ b/gpui-fast/crates/gpui/src/fast/splice.rs
+@@ -377,18 +377,12 @@ impl Window {
+         // Deferred views are prepainted after their ancestors have closed
+         // their records, so they are not among the nested gaps above. Their
+         // reads belong to the ancestor's dependencies, but not its own reads.
+-        // Copying a deferred draw outside the rebuilt gaps could therefore
+-        // replay a dirty view. Rebuild the ancestor to reach those draws;
+-        // deferred draws inside a gap are safe because that gap rebuilds them.
+-        let mut deferred_cursor = record.prepaint_range.start.deferred_draws_index;
+-        for &gap in &gaps {
+-            let range = &records[gap].prepaint_range;
+-            if deferred_cursor != range.start.deferred_draws_index {
+-                return None;
+-            }
+-            deferred_cursor = range.end.deferred_draws_index;
+-        }
+-        if deferred_cursor != record.prepaint_range.end.deferred_draws_index {
++        // A deferred draw outside the rebuilt gaps is copied as it was only
++        // if it is as it was: no view drawn in it is dirty and nothing it
++        // read changed (`deferred_outside_gaps_unchanged`). Otherwise the ancestor
++        // is rebuilt to reach it; deferred draws inside a gap are safe
++        // because that gap rebuilds them.
++        if !self.deferred_outside_gaps_unchanged(record, &gaps, cx) {
+             return None;
+         }
+ 
+@@ -548,17 +542,9 @@ impl Window {
+         if gaps.is_empty() {
+             return None;
+         }
+-        // As in `splice_layout`: deferred draws outside the gaps could replay
+-        // a dirty view.
+-        let mut deferred_cursor = record.prepaint_range.start.deferred_draws_index;
+-        for &gap in &gaps {
+-            let range = &records[gap].prepaint_range;
+-            if deferred_cursor != range.start.deferred_draws_index {
+-                return None;
+-            }
+-            deferred_cursor = range.end.deferred_draws_index;
+-        }
+-        if deferred_cursor != record.prepaint_range.end.deferred_draws_index {
++        // As in `splice_layout`: deferred draws outside the gaps are copied
++        // only if they are as they were.
++        if !self.deferred_outside_gaps_unchanged(record, &gaps, cx) {
+             return None;
+         }
+ 
+@@ -613,6 +599,105 @@ impl Window {
+         })
+     }
+ 
++    /// Whether the deferred draws the view last frame's `record` stands for
++    /// asked for outside the views of `gaps` (indices of records nested in
++    /// it, in order) are as they were, so that a splice can copy them.
++    /// Copying one replays its prepaint and paint as they were, the views
++    /// drawn in it included.
++    fn deferred_outside_gaps_unchanged(
++        &self,
++        record: &RetainedSubtree,
++        gaps: &[usize],
++        cx: &App,
++    ) -> bool {
++        let records = &self.rendered_frame.retained.records;
++        let mut outside = Vec::new();
++        let mut cursor = record.prepaint_range.start.deferred_draws_index;
++        for &gap in gaps {
++            let range = &records[gap].prepaint_range;
++            outside.push(cursor..range.start.deferred_draws_index);
++            cursor = range.end.deferred_draws_index;
++        }
++        outside.push(cursor..record.prepaint_range.end.deferred_draws_index);
++        let mut draws = Vec::new();
++        for range in outside.into_iter().filter(|range| !range.is_empty()) {
++            let Some(found) = self.rendered_frame.deferred_draws.get(range) else {
++                return false;
++            };
++            draws.extend(found);
++        }
++        if draws.is_empty() {
++            return true;
++        }
++        let dependencies = &record.dependencies;
++        if cx.globals_changed(dependencies) {
++            return false;
++        }
++        let nodes = &self.rendered_frame.dispatch_tree.nodes;
++        let notified = &self.retained_state.notified_entities;
++        let changed =
++            |entity: &EntityId| self.dirty_views.contains(entity) || notified.contains(entity);
++        let mut views = FxHashSet::default();
++        for draw in &draws {
++            let range = &draw.prepaint_range;
++            let start = range.start.dispatch_tree_index.min(nodes.len());
++            let end = range.end.dispatch_tree_index.clamp(start, nodes.len());
++            views.extend(nodes[start..end].iter().filter_map(|node| node.view_id));
++            let entities: Vec<EntityId> = draw.accessed_entities.iter().copied().collect();
++            if entities.iter().any(changed) || cx.entities_changed_since(&entities, dependencies) {
++                return false;
++            }
++        }
++        if views.iter().any(changed) {
++            return false;
++        }
++        // A view drawn deferred renders as the view around it lays out, but
++        // is prepainted after the records around it close, so it is not
++        // nested in them, and a change of what it read leaves it clean. One
++        // with a record of its own is judged by it. What one without read
++        // is among what the view around it read, which cannot tell it apart
++        // from what the gaps read: what the gaps read is left out, as they
++        // are built again for it (a deferred view showing it too is taken to
++        // observe it, as a GPUI view does what it shows), and the rest must
++        // be as it was.
++        let mut unrecorded = false;
++        for view in &views {
++            let mut own = records
++                .iter()
++                .filter(|nested| view_entity(&nested.id) == Some(*view))
++                .peekable();
++            if own.peek().is_none() {
++                unrecorded = true;
++            } else if !own.all(|nested| self.reusable_retained(&nested.id, cx).is_some()) {
++                return false;
++            }
++        }
++        if !unrecorded {
++            return true;
++        }
++        // The view around them is dirty for the gaps; what it read itself
++        // was judged with the splice.
++        let in_gaps: FxHashSet<EntityId> = gaps
++            .iter()
++            .flat_map(|&gap| {
++                let gap = &records[gap];
++                gap.dependencies
++                    .entities
++                    .iter()
++                    .copied()
++                    .chain(view_entity(&gap.id))
++            })
++            .chain(view_entity(&record.id))
++            .collect();
++        let read: Vec<EntityId> = dependencies
++            .entities
++            .iter()
++            .copied()
++            .filter(|entity| !in_gaps.contains(entity))
++            .collect();
++        !read.iter().any(changed) && !cx.entities_changed_since(&read, dependencies)
++    }
++
+     /// Whether the view `splice` draws around its gaps came out of this
+     /// frame's layout as it did last frame, so that what it drew around them
+     /// still stands. Checked once layout is computed, when a gap was laid out
+diff --git a/gpui-fast/crates/gpui/src/fast/tests/retained.rs b/gpui-fast/crates/gpui/src/fast/tests/retained.rs
+--- a/gpui-fast/crates/gpui/src/fast/tests/retained.rs
++++ b/gpui-fast/crates/gpui/src/fast/tests/retained.rs
+@@ -2197,6 +2197,119 @@ fn simultaneously_changed_flow_and_reused_deferred_views_match_full_render() {
+     changed_flow_and_deferred_views_match_full_render(true);
+ }
+ 
++struct DeferredBesideFlow {
++    flow: Entity<Tinted>,
++    overlay: Entity<Tinted>,
++    builds: Rc<Cell<usize>>,
++}
++
++impl Render for DeferredBesideFlow {
++    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
++        self.builds.set(self.builds.get() + 1);
++        div()
++            .size_full()
++            .child(self.flow.clone())
++            .child(crate::deferred(
++                crate::anchored()
++                    .position(crate::point(px(10.), px(10.)))
++                    .child(div().w(px(200.)).h(px(40.)).child(self.overlay.clone())),
++            ))
++    }
++}
++
++/// A view, its overlay drawn deferred, and a counter of each one's builds,
++/// with the overlay reading `model` if given.
++fn deferred_beside_flow(
++    cx: &mut TestAppContext,
++    model: Option<Entity<Model>>,
++) -> (WindowHandle<Shell>, Entity<Tinted>, [Rc<Cell<usize>>; 3]) {
++    let builds = [(); 3].map(|_| Rc::new(Cell::new(0)));
++    let flow = cx.new(|_| Tinted {
++        tint: 0,
++        model: None,
++        builds: builds[1].clone(),
++    });
++    let overlay = cx.new(|_| Tinted {
++        tint: 0,
++        model,
++        builds: builds[2].clone(),
++    });
++    let (window, _) = shell(cx, {
++        let (flow, parent) = (flow.clone(), builds[0].clone());
++        move |cx| {
++            cx.new(|_| DeferredBesideFlow {
++                flow,
++                overlay,
++                builds: parent,
++            })
++            .into()
++        }
++    });
++    draw_shell(cx, window);
++    draw_shell(cx, window);
++    (window, flow, builds)
++}
++
++/// Whether what retained views drew matches a full render of the window.
++fn matches_full_render(cx: &mut TestAppContext, window: WindowHandle<Shell>) -> bool {
++    let retained = describe_shell(cx, window);
++    cx.update_window(window.into(), |_, window, _| {
++        window.set_view_retention(false)
++    })
++    .unwrap();
++    let full = draw_shell(cx, window);
++    cx.update_window(window.into(), |_, window, _| {
++        window.set_view_retention(true)
++    })
++    .unwrap();
++    draw_shell(cx, window);
++    retained == full
++}
++
++/// A deferred draw that is as it was is copied by a splice around a
++/// changed child, rather than the view asking for it being built again to
++/// reach it: an app whose shell defers a menu or a raised panel would
++/// otherwise be built whole for any change inside it.
++#[test]
++fn an_unchanged_deferred_draw_is_copied_by_a_splice() {
++    let mut cx = TestAppContext::single();
++    let (window, flow, [parent, flow_builds, overlay]) = deferred_beside_flow(&mut cx, None);
++    for tint in [1, 0, 1] {
++        let before = (parent.get(), flow_builds.get(), overlay.get());
++        cx.update(|cx| {
++            flow.update(cx, |view, cx| {
++                view.tint = tint;
++                cx.notify();
++            })
++        });
++        assert_eq!(flow_builds.get(), before.1 + 1, "the child rebuilt");
++        assert_eq!(parent.get(), before.0, "the view around it was spliced");
++        assert_eq!(overlay.get(), before.2, "the deferred draw was copied");
++        assert!(matches_full_render(&mut cx, window));
++    }
++}
++
++/// A deferred draw that read a model changed since is not copied: the view
++/// asking for it is built again, and the draw with it.
++#[test]
++fn a_deferred_draw_that_read_a_changed_model_is_not_copied() {
++    let mut cx = TestAppContext::single();
++    let model = cx.new(|_| Model(0));
++    let (window, flow, [_, _, overlay]) = deferred_beside_flow(&mut cx, Some(model.clone()));
++    for tint in [1, 0, 1] {
++        let before = overlay.get();
++        cx.update(|cx| {
++            model.update(cx, |model, _| model.0 += 1);
++            flow.update(cx, |view, cx| {
++                view.tint = tint;
++                cx.notify();
++            })
++        });
++        assert_eq!(overlay.get(), before + 1, "the overlay read the model");
++        assert!(matches_full_render(&mut cx, window));
++    }
++}
++
+ struct OffsetDependentParent {
+     scroll: crate::ScrollHandle,
+     child: Entity<Tinted>,

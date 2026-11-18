@@ -2197,6 +2197,119 @@ fn simultaneously_changed_flow_and_reused_deferred_views_match_full_render() {
     changed_flow_and_deferred_views_match_full_render(true);
 }
 
+struct DeferredBesideFlow {
+    flow: Entity<Tinted>,
+    overlay: Entity<Tinted>,
+    builds: Rc<Cell<usize>>,
+}
+
+impl Render for DeferredBesideFlow {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        self.builds.set(self.builds.get() + 1);
+        div()
+            .size_full()
+            .child(self.flow.clone())
+            .child(crate::deferred(
+                crate::anchored()
+                    .position(crate::point(px(10.), px(10.)))
+                    .child(div().w(px(200.)).h(px(40.)).child(self.overlay.clone())),
+            ))
+    }
+}
+
+/// A view, its overlay drawn deferred, and a counter of each one's builds,
+/// with the overlay reading `model` if given.
+fn deferred_beside_flow(
+    cx: &mut TestAppContext,
+    model: Option<Entity<Model>>,
+) -> (WindowHandle<Shell>, Entity<Tinted>, [Rc<Cell<usize>>; 3]) {
+    let builds = [(); 3].map(|_| Rc::new(Cell::new(0)));
+    let flow = cx.new(|_| Tinted {
+        tint: 0,
+        model: None,
+        builds: builds[1].clone(),
+    });
+    let overlay = cx.new(|_| Tinted {
+        tint: 0,
+        model,
+        builds: builds[2].clone(),
+    });
+    let (window, _) = shell(cx, {
+        let (flow, parent) = (flow.clone(), builds[0].clone());
+        move |cx| {
+            cx.new(|_| DeferredBesideFlow {
+                flow,
+                overlay,
+                builds: parent,
+            })
+            .into()
+        }
+    });
+    draw_shell(cx, window);
+    draw_shell(cx, window);
+    (window, flow, builds)
+}
+
+/// Whether what retained views drew matches a full render of the window.
+fn matches_full_render(cx: &mut TestAppContext, window: WindowHandle<Shell>) -> bool {
+    let retained = describe_shell(cx, window);
+    cx.update_window(window.into(), |_, window, _| {
+        window.set_view_retention(false)
+    })
+    .unwrap();
+    let full = draw_shell(cx, window);
+    cx.update_window(window.into(), |_, window, _| {
+        window.set_view_retention(true)
+    })
+    .unwrap();
+    draw_shell(cx, window);
+    retained == full
+}
+
+/// A deferred draw that is as it was is copied by a splice around a
+/// changed child, rather than the view asking for it being built again to
+/// reach it: an app whose shell defers a menu or a raised panel would
+/// otherwise be built whole for any change inside it.
+#[test]
+fn an_unchanged_deferred_draw_is_copied_by_a_splice() {
+    let mut cx = TestAppContext::single();
+    let (window, flow, [parent, flow_builds, overlay]) = deferred_beside_flow(&mut cx, None);
+    for tint in [1, 0, 1] {
+        let before = (parent.get(), flow_builds.get(), overlay.get());
+        cx.update(|cx| {
+            flow.update(cx, |view, cx| {
+                view.tint = tint;
+                cx.notify();
+            })
+        });
+        assert_eq!(flow_builds.get(), before.1 + 1, "the child rebuilt");
+        assert_eq!(parent.get(), before.0, "the view around it was spliced");
+        assert_eq!(overlay.get(), before.2, "the deferred draw was copied");
+        assert!(matches_full_render(&mut cx, window));
+    }
+}
+
+/// A deferred draw that read a model changed since is not copied: the view
+/// asking for it is built again, and the draw with it.
+#[test]
+fn a_deferred_draw_that_read_a_changed_model_is_not_copied() {
+    let mut cx = TestAppContext::single();
+    let model = cx.new(|_| Model(0));
+    let (window, flow, [_, _, overlay]) = deferred_beside_flow(&mut cx, Some(model.clone()));
+    for tint in [1, 0, 1] {
+        let before = overlay.get();
+        cx.update(|cx| {
+            model.update(cx, |model, _| model.0 += 1);
+            flow.update(cx, |view, cx| {
+                view.tint = tint;
+                cx.notify();
+            })
+        });
+        assert_eq!(overlay.get(), before + 1, "the overlay read the model");
+        assert!(matches_full_render(&mut cx, window));
+    }
+}
+
 struct OffsetDependentParent {
     scroll: crate::ScrollHandle,
     child: Entity<Tinted>,
