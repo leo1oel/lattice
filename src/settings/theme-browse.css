@@ -1,0 +1,69 @@
+/* Settings › Appearance › Theme › Browse themes (theme-browse.tsx): a sheet
+   over Settings like the other Settings sheets, a list of 64px rows. */
+
+.modal.sheet-dialog.theme-browse { width: var(--dialog-sheet-width); gap: 0; }
+
+.theme-browse-body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+.theme-browse-status,
+.theme-browse-empty {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.theme-browse-status-danger { color: var(--status-danger); }
+
+.theme-browse-list { margin: 0; padding: 0; list-style: none; display: grid; }
+
+.theme-browse-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 64px;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.theme-browse-row:last-child { border-bottom: 0; }
+.theme-browse-skeleton { border-radius: var(--radius-control); border-bottom: 0; margin-bottom: var(--space-2); background: var(--surface-panel-raised); }
+
+.theme-browse-text { min-width: 0; display: grid; gap: 1px; }
+.theme-browse-title { margin: 0; display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.theme-browse-name {
+  color: var(--text-primary);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--type-body-compact-weight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.theme-browse-version,
+.theme-browse-line {
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.theme-browse-line { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-browse-description { color: var(--text-secondary); }
+.theme-browse-blocked { color: var(--status-danger); }
+.theme-browse-warned { color: color-mix(in srgb, var(--status-warning) 72%, var(--text-primary)); }
+
+.theme-block-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

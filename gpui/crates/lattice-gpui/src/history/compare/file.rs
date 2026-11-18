@@ -41,6 +41,7 @@ impl CompareView {
                     false,
                     None,
                     None,
+                    crate::settings::get(cx).history_diff_wrap,
                     window,
                     cx,
                 ),
@@ -59,6 +60,7 @@ impl CompareView {
                         true,
                         None,
                         None,
+                        false,
                         window,
                         cx,
                     )

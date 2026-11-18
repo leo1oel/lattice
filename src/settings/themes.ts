@@ -18,6 +18,7 @@ import { hostErrorMessage } from "../app-utils";
 import { subscribeTauriEvent } from "../app/effect-helpers";
 
 import type { Theme } from "./app-settings";
+import type { BlockedEntry } from "./theme-registry";
 import type { ThemeAccent } from "./theme-customization";
 
 export type ResolvedTheme = {
@@ -30,7 +31,7 @@ export type ResolvedTheme = {
 
 export const THEMES_CHANGED_EVENT = "themes-changed";
 
-export type ThemeVariantInfo = {
+type ThemeVariantInfo = {
   id: string;
   name: string;
   appearance: Theme;
@@ -50,6 +51,8 @@ export type ThemeInfo = {
   description: string;
   source: "bundled" | "installed";
   variants: ThemeVariantInfo[];
+  /** The registry's kill-switch entry this installed version falls under. */
+  blocked: BlockedEntry | null;
 };
 
 export const installThemeFile = (path: string) => invoke<ThemeInfo>("themes_install_file", { path });

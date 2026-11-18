@@ -53,6 +53,10 @@ msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "“{destinationName}” already exists there. Choose another location"
 
 #: src/platform/host-errors-themes.ts
+msgid "\"{id}\" is not in the theme list."
+msgstr "\"{id}\" is not in the theme list."
+
+#: src/platform/host-errors-themes.ts
 msgid "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
 msgstr "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
 
@@ -808,6 +812,10 @@ msgstr "{name} {edition} (preprint)"
 msgid "{name} {edition} Rebuttal"
 msgstr "{name} {edition} Rebuttal"
 
+#: src/platform/host-errors-themes.ts
+msgid "{name} {version} is blocked: {reason}"
+msgstr "{name} {version} is blocked: {reason}"
+
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
 msgstr "{name} can't be read. {reason}"
@@ -823,6 +831,10 @@ msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
 #: src/app/use-editor-comments.ts
 msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
 msgstr "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
+
+#: src/settings/theme-browse.tsx
+msgid "{name} has a warning: {reason}"
+msgstr "{name} has a warning: {reason}"
 
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
@@ -864,6 +876,10 @@ msgstr "{name} properties"
 #: src/editor/document-spelling.ts
 msgid "{name} spelling is now checked"
 msgstr "{name} spelling is now checked"
+
+#: src/settings/theme-browse.tsx
+msgid "{name} was turned off: {reason}"
+msgstr "{name} was turned off: {reason}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -1157,6 +1173,14 @@ msgstr "{totalPages} total, end of the body not located in the PDF"
 #: src/project/manuscript-checklist.tsx
 msgid "{totalPages} total, included files not read"
 msgstr "{totalPages} total, included files not read"
+
+#: src/platform/host-errors-themes.ts
+msgid "{url} is larger than expected."
+msgstr "{url} is larger than expected."
+
+#: src/platform/host-errors-themes.ts
+msgid "{url} is not an https address."
+msgstr "{url} is not an https address."
 
 #: src/project/submission-review.tsx
 msgid "{venue} camera-ready copy: anonymity is not checked."
@@ -2913,6 +2937,10 @@ msgstr "Block quotation"
 msgid "Block type"
 msgstr "Block type"
 
+#: src/settings/theme-browse.tsx
+msgid "Blocked"
+msgstr "Blocked"
+
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -3005,6 +3033,14 @@ msgstr "Breve accent example"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "British English"
+
+#: src/settings/theme-browse.tsx
+msgid "Browse themes"
+msgstr "Browse themes"
+
+#: src/settings/theme-file-actions.tsx
+msgid "Browse themes…"
+msgstr "Browse themes…"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Browser dialogs are only available to a browser workspace."
@@ -5088,6 +5124,10 @@ msgid "Could not save the report on this device. Keep this window open to retain
 msgstr "Could not save the report on this device. Keep this window open to retain the results."
 
 #: src/platform/host-errors-themes.ts
+msgid "Could not save the theme list: {error}"
+msgstr "Could not save the theme list: {error}"
+
+#: src/platform/host-errors-themes.ts
 msgid "Could not save the theme: {error}"
 msgstr "Could not save the theme: {error}"
 
@@ -5286,6 +5326,10 @@ msgstr "Couldn’t start the paper tools"
 #: src/plugins/plugin-text.ts
 msgid "Couldn’t start the plugin: {detail}"
 msgstr "Couldn’t start the plugin: {detail}"
+
+#: src/settings/theme-browse.tsx
+msgid "Couldn't verify the theme list. Nothing new can be installed."
+msgstr "Couldn't verify the theme list. Nothing new can be installed."
 
 #: src/editor/latex/citation-roles.ts
 msgctxt "why a passage cites a paper"
@@ -8169,6 +8213,7 @@ msgstr "Inspect and replace"
 
 #: src/build/compile-diagnostics-panel.tsx
 #: src/plugins/plugin-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Install"
 msgstr "Install"
 
@@ -8263,6 +8308,10 @@ msgstr "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
+
+#: src/settings/theme-browse.tsx
+msgid "Installed"
+msgstr "Installed"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9031,6 +9080,10 @@ msgstr "Layout reset"
 msgid "Layout updating"
 msgstr "Layout updating"
 
+#: src/settings/theme-browse.tsx
+msgid "Learn more"
+msgstr "Learn more"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
 msgstr "Leave a code block"
@@ -9398,6 +9451,10 @@ msgstr "Load more"
 msgid "Load older versions"
 msgstr "Load older versions"
 
+#: src/platform/host-errors-themes.ts
+msgid "Load the theme list before installing a theme from it."
+msgstr "Load the theme list before installing a theme from it."
+
 #: src/app/app-editor-panels.tsx
 msgid "Loading annotations…"
 msgstr "Loading annotations…"
@@ -9466,6 +9523,10 @@ msgstr "Loading the agent turn…"
 msgid "Loading the conversation…"
 msgstr "Loading the conversation…"
 
+#: src/settings/theme-browse.tsx
+msgid "Loading the theme list"
+msgstr "Loading the theme list"
+
 #: src/history/versions-timeline.tsx
 msgid "Loading versions…"
 msgstr "Loading versions…"
@@ -9481,6 +9542,7 @@ msgstr "Loading your preamble into LuaLaTeX."
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/literature-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -10716,6 +10778,10 @@ msgstr "No TeX Live package provides {file}. It may be a custom project or confe
 msgid "No textual changes"
 msgstr "No textual changes"
 
+#: src/settings/theme-browse.tsx
+msgid "No themes match"
+msgstr "No themes match"
+
 #: src/project/todo-scavenger-panel.tsx
 msgid "No TODO markers found"
 msgstr "No TODO markers found"
@@ -11050,6 +11116,14 @@ msgstr "Off while Reduce transparency is on in System Settings"
 #: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "Official verification incomplete"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline: showing the list from {date}"
+msgstr "Offline: showing the list from {date}"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline. The theme list can't be reached."
+msgstr "Offline. The theme list can't be reached."
 
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
@@ -13117,6 +13191,7 @@ msgstr "References"
 
 #: src/overleaf/overleaf-review.tsx
 #: src/project/figure-inventory-dialog.tsx
+#: src/settings/theme-browse.tsx
 msgid "Refresh"
 msgstr "Refresh"
 
@@ -14491,6 +14566,10 @@ msgstr "Search"
 msgid "Search by name or license"
 msgstr "Search by name or license"
 
+#: src/settings/theme-browse.tsx
+msgid "Search by name, description or author"
+msgstr "Search by name, description or author"
+
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search by project or owner, or paste a link…"
 msgstr "Search by project or owner, or paste a link…"
@@ -14574,6 +14653,10 @@ msgstr "Search the literature for"
 #: src/app/command-palette.tsx
 msgid "Search the project for “{query}”"
 msgstr "Search the project for “{query}”"
+
+#: src/settings/theme-browse.tsx
+msgid "Search themes"
+msgstr "Search themes"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
@@ -16475,6 +16558,18 @@ msgstr "The downloaded {what} failed its security check."
 msgid "The downloaded {what} is larger than expected, so it was refused."
 msgstr "The downloaded {what} is larger than expected, so it was refused."
 
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme does not match the theme list's checksum."
+msgstr "The downloaded theme does not match the theme list's checksum."
+
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme is not \"{id}\" {version}."
+msgstr "The downloaded theme is not \"{id}\" {version}."
+
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme is not the size the theme list gives."
+msgstr "The downloaded theme is not the size the theme list gives."
+
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
@@ -16989,6 +17084,34 @@ msgstr "The realtime connection closed."
 msgid "The reference is verified"
 msgstr "The reference is verified"
 
+#: src/platform/host-errors-themes.ts
+msgid "The registry could not be reached: {error}"
+msgstr "The registry could not be reached: {error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry is updating its list. Try again in a few minutes."
+msgstr "The registry is updating its list. Try again in a few minutes."
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry sent an older list (serial {sent} after {kept}), so Lattice kept the one it has."
+msgstr "The registry sent an older list (serial {sent} after {kept}), so Lattice kept the one it has."
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} could not be read: {error}"
+msgstr "The registry's {file} could not be read: {error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} has no valid signature."
+msgstr "The registry's {file} has no valid signature."
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} is signed for another file or serial."
+msgstr "The registry's {file} is signed for another file or serial."
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's list is in a newer format. Update Lattice to use it."
+msgstr "The registry's list is in a newer format. Update Lattice to use it."
+
 #: src/platform/host-errors-project.ts
 msgid "The rename did not change any files."
 msgstr "The rename did not change any files."
@@ -17175,6 +17298,10 @@ msgstr "The TeX Live repository could not be searched.\n"
 #: src/platform/host-errors-workspace.ts
 msgid "The text is too large to save as a copy."
 msgstr "The text is too large to save as a copy."
+
+#: src/platform/host-errors-themes.ts
+msgid "The theme download failed: {error}"
+msgstr "The theme download failed: {error}"
 
 #: src/platform/host-errors-themes.ts
 msgid "The theme file is larger than 256 KiB."
@@ -18414,6 +18541,10 @@ msgstr "Update table"
 msgid "Update TeX packages"
 msgstr "Update TeX packages"
 
+#: src/settings/theme-browse.tsx
+msgid "Update to {next}"
+msgstr "Update to {next}"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "Updated"
@@ -18426,6 +18557,10 @@ msgstr "updated {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "Updated {target} from {library}. Undo it from History."
+
+#: src/settings/theme-browse.tsx
+msgid "Updated {when}"
+msgstr "Updated {when}"
 
 #: src/app/use-reference-import.ts
 msgid "Updated the entry for {citationCommand} from its sources."

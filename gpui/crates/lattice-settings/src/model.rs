@@ -489,6 +489,10 @@ pub struct Settings {
     /// own release channel (`crate::updater`) only while this is on; off
     /// until the writer turns it on.
     pub app_updates: bool,
+    /// A source diff in History › Compare versions wraps its long lines
+    /// instead of scrolling sideways (`lattice.history.diff-wrap.v1`); off
+    /// until the writer turns it on.
+    pub history_diff_wrap: bool,
 }
 
 impl Settings {
@@ -547,6 +551,7 @@ impl Settings {
             build_output_docked: field("buildOutputDocked").and_then(Value::as_bool),
             save_full_text: field("saveFullText") == Some(&Value::Bool(true)),
             app_updates: field("appUpdates") == Some(&Value::Bool(true)),
+            history_diff_wrap: field("historyDiffWrap") == Some(&Value::Bool(true)),
         }
     }
 
@@ -652,8 +657,10 @@ mod tests {
         settings.settings_tab = SettingsTab::Editor;
         settings.live_preview.insert("/papers/thesis".into(), false);
         settings.live_preview_removed = true;
+        settings.history_diff_wrap = true;
         let value = settings.to_value();
         assert_eq!(value["livePreview"]["/papers/thesis"], json!(false));
+        assert_eq!(value["historyDiffWrap"], json!(true));
         assert_eq!(value["version"], json!(1));
         assert_eq!(value["appearance"]["accent"], json!("teal"));
         assert_eq!(value["hiddenBuildFiles"], json!(true));

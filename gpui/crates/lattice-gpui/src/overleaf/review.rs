@@ -653,6 +653,7 @@ impl Render for OverleafReview {
                             false,
                             label,
                             None,
+                            false,
                             window,
                             cx,
                         ))

@@ -15,11 +15,12 @@
 //! coloured as GitHub's theme colours it, the theme Pierre is given in both
 //! appearances.
 
-use std::{ops::Range, sync::LazyLock};
+use std::{cell::Cell, ops::Range, rc::Rc, sync::LazyLock};
 
 use gpui::{
-    AnyElement, App, AppContext as _, Entity, HighlightStyle, Hsla, InteractiveElement as _,
-    IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px,
+    AnyElement, App, AppContext as _, Entity, HighlightStyle, Hsla, IndentAdjustment,
+    InteractiveElement as _, IntoElement, LineFragment, ParentElement as _, Pixels, SharedString,
+    Styled as _, Window, canvas, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::diff::{
     Diff, DiffChangeIndicator, DiffFile, DiffHoverHighlight, DiffHunkSeparator, DiffState,
@@ -81,31 +82,60 @@ fn unified_patch(change: &FileChange) -> String {
     patch
 }
 
-/// How many rows the folded diff draws, for its height: each change's lines
-/// with their context, and a separator for each folded run.
-fn shown_rows(change: &FileChange) -> usize {
+/// The rows the folded diff draws, for its height: each change's lines with
+/// their context, and a separator (an empty row here) for each folded run.
+fn shown_rows(change: &FileChange) -> Vec<String> {
     let before = change.before.as_deref().unwrap_or("");
     let after = change.after.as_deref().unwrap_or("");
     let diff = TextDiff::from_lines(before, after);
     let groups = diff.grouped_ops(CONTEXT);
     let total_old = diff.old_slices().len();
-    let mut rows = 0;
+    let mut rows = Vec::new();
     let mut covered_to = 0;
     for group in &groups {
         let Some(first) = group.first() else { continue };
         if first.old_range().start > covered_to {
-            rows += 1;
+            rows.push(String::new());
         }
-        rows += group
-            .iter()
-            .map(|op| diff.iter_changes(op).count())
-            .sum::<usize>();
+        rows.extend(group.iter().flat_map(|op| {
+            diff.iter_changes(op)
+                .map(|change| change.value().trim_end_matches(['\n', '\r']).to_owned())
+        }));
         covered_to = group.last().map_or(covered_to, |last| last.old_range().end);
     }
     if covered_to < total_old && !groups.is_empty() {
-        rows += 1;
+        rows.push(String::new());
     }
     rows
+}
+
+/// How many rows a wrapped diff draws in the code column its body last
+/// measured: each shown line broken where the column breaks it. Before the
+/// first measure, one row a line.
+fn wrapped_rows(diff: &LoadedDiff, rem: Pixels, cx: &App) -> usize {
+    let font_size = TEXT_CAPTION.to_pixels(rem);
+    // Kit's unified row: 0.5rem of padding each side, the old and new line
+    // numbers (`gutter_width`), and the 1rem lane of the change bar.
+    let gutter = font_size * 0.7 * diff.digits as f32 + rem;
+    let column = diff.width.get() - rem - gutter * 2. - rem;
+    if column <= px(0.) {
+        return diff.shown.len();
+    }
+    let mut wrapper = cx
+        .text_system()
+        .line_wrapper(gpui::font(cx.lattice().fonts.editor.clone()), font_size);
+    diff.shown
+        .iter()
+        .map(|line| {
+            1 + wrapper
+                .wrap_line(
+                    &[LineFragment::text(line)],
+                    column,
+                    IndentAdjustment::NoIndent,
+                )
+                .count()
+        })
+        .sum()
 }
 
 /// A diff ready to draw: Kit's state for it, and the rows it shows.
@@ -115,7 +145,12 @@ pub struct LoadedDiff {
     /// Why a change with text to show cannot be drawn: its patch did not
     /// parse (`Could not render these changes`).
     pub error: Option<String>,
-    rows: usize,
+    /// The text of each row it shows.
+    shown: Vec<String>,
+    /// Digits in its longest line number, as Kit sizes the gutter.
+    digits: usize,
+    /// Its body's width as last drawn, where wrapped lines break.
+    width: Rc<Cell<Pixels>>,
 }
 
 /// The change as Kit's diff files: `None` when there is nothing to show,
@@ -153,12 +188,19 @@ impl LoadedDiff {
                     })
             })
         });
-        let rows = shown_rows(&change);
+        let shown = shown_rows(&change);
+        let lines = [&change.before, &change.after]
+            .iter()
+            .map(|side| side.as_deref().map_or(0, |text| text.lines().count()))
+            .max()
+            .unwrap_or(0);
         Self {
             change,
             state,
             error,
-            rows,
+            shown,
+            digits: lines.max(1).to_string().len(),
+            width: Rc::default(),
         }
     }
 }
@@ -272,13 +314,17 @@ fn highlight_tex(text: &str, appearance: Appearance) -> Vec<(Range<usize>, Highl
 }
 
 /// The file's diff under its path, in the `.history-diff` frame; a binary
-/// change says so in the same frame. `on_line` opens the file at a line.
+/// change says so in the same frame. `on_line` opens the file at a line;
+/// `wrap` wraps long lines instead of scrolling sideways (`FileDiffView`'s
+/// `wrap`, Pierre's `overflow: "wrap"`).
+#[allow(clippy::too_many_arguments)]
 pub fn history_diff(
     id: impl Into<SharedString>,
     diff: &LoadedDiff,
     binary: bool,
     header_action: Option<AnyElement>,
     on_line: Option<super::OnLine>,
+    wrap: bool,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
@@ -340,9 +386,15 @@ pub fn history_diff(
             Some(state) => {
                 let rem = window.rem_size();
                 let row = TEXT_CAPTION.to_pixels(rem) * 1.6;
-                let height = (row * diff.rows.max(1) as f32).min(px(MAX_BODY) * (rem / px(16.)));
+                let rows = if wrap {
+                    wrapped_rows(diff, rem, cx)
+                } else {
+                    diff.shown.len()
+                };
+                let height = (row * rows.max(1) as f32).min(px(MAX_BODY) * (rem / px(16.)));
                 let mut view = Diff::new(state)
                     .header_visible(false)
+                    .soft_wrap(wrap)
                     .hunk_separator(DiffHunkSeparator::LineInfo)
                     .change_indicator(DiffChangeIndicator::Bars)
                     .hover_highlight(DiffHoverHighlight::Line)
@@ -354,10 +406,25 @@ pub fn history_diff(
                         on_line(position.line(), window, cx)
                     });
                 }
+                // Wrapped, the height follows the width the lines break at.
+                let width = diff.width.clone();
+                let probe = canvas(
+                    move |bounds, window, _| {
+                        if width.get() != bounds.size.width {
+                            width.set(bounds.size.width);
+                            window.refresh();
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .inset_0();
                 div()
                     .id(SharedString::from(format!("{id}-body")))
+                    .relative()
                     .w_full()
                     .bg(palette.window)
+                    .when(wrap, |body| body.child(probe))
                     .child(view)
                     .into_any_element()
             }
@@ -454,7 +521,10 @@ mod tests {
         let before: String = (1..=20).map(|line| format!("line {line}\n")).collect();
         let after = before.replace("line 10\n", "line ten\n");
         // Folded above, 3 + 2 + 3 lines, folded below.
-        assert_eq!(shown_rows(&change(Some(&before), Some(&after))), 1 + 8 + 1);
+        assert_eq!(
+            shown_rows(&change(Some(&before), Some(&after))).len(),
+            1 + 8 + 1
+        );
     }
 
     #[test]

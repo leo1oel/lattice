@@ -100,6 +100,7 @@ pub fn activity_body(
                     false,
                     None,
                     Some(open_line(path.clone(), cx)),
+                    false,
                     window,
                     cx,
                 ))
@@ -158,6 +159,7 @@ pub fn activity_body(
                             false,
                             Some(restore),
                             Some(open_line(diff.change.path.clone(), cx)),
+                            false,
                             window,
                             cx,
                         ))
@@ -356,6 +358,7 @@ fn version_file(
                 false,
                 None,
                 None,
+                false,
                 window,
                 cx,
             ),
@@ -372,6 +375,7 @@ fn version_file(
                     diff.binary,
                     None,
                     None,
+                    false,
                     window,
                     cx,
                 )

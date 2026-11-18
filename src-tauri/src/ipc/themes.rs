@@ -10,6 +10,7 @@
 
 use std::path::PathBuf;
 
+use lattice_core::registry::{Listing, Registry, Status};
 use lattice_core::themes::format::{AccentChoice, Appearance, Color};
 use lattice_core::themes::{ThemeInfo, ThemeStore};
 use serde::{Deserialize, Serialize};
@@ -23,18 +24,23 @@ const REFUSED: &str = "Themes can only be installed from a Lattice window.";
 
 pub(crate) struct Themes {
     store: std::sync::Arc<ThemeStore>,
+    registry: std::sync::Arc<Registry>,
 }
 
 impl Themes {
     pub(crate) fn new(resources: &lattice_core::host::Resources) -> Self {
-        Self { store: std::sync::Arc::new(ThemeStore::new(&resources.app_data_dir)) }
+        Self {
+            store: std::sync::Arc::new(ThemeStore::new(&resources.app_data_dir)),
+            registry: std::sync::Arc::new(Registry::new(&resources.app_data_dir)),
+        }
     }
 }
 
 #[tauri::command]
 pub async fn themes_list(themes: State<'_, Themes>) -> Result<Vec<ThemeInfo>, String> {
     let store = themes.store.clone();
-    run_blocking("Theme list", move || Ok(store.list())).await
+    let registry = themes.registry.clone();
+    run_blocking("Theme list", move || Ok(registry.list_themes(&store))).await
 }
 
 #[tauri::command]
@@ -59,6 +65,37 @@ pub async fn themes_remove<R: Runtime>(
     run_blocking("Theme remove", move || store.remove(&id)).await?;
     let _ = app.emit(CHANGED_EVENT, ());
     Ok(())
+}
+
+/// The theme marketplace's signed list (`lattice_core::registry`): the cached
+/// one, or fetched and verified first when `refresh`, with the update and
+/// block state of the themes installed from it.
+#[tauri::command]
+pub async fn registry_index<R: Runtime>(
+    themes: State<'_, Themes>, app: AppHandle<R>, refresh: bool,
+) -> Result<Listing, String> {
+    let (store, registry) = (themes.store.clone(), themes.registry.clone());
+    let listing =
+        run_blocking("Theme registry", move || Ok(registry.listing(&store, refresh))).await?;
+    // A new block list can turn the chosen theme off (or back on): every
+    // window lists and resolves again.
+    if listing.status == Status::Fresh {
+        let _ = app.emit(CHANGED_EVENT, ());
+    }
+    Ok(listing)
+}
+
+/// Installs or updates a theme from the cached list, by id.
+#[tauri::command]
+pub async fn registry_install_theme<R: Runtime>(
+    themes: State<'_, Themes>, app: AppHandle<R>, webview: Webview<R>, request: Request<'_>,
+    id: String,
+) -> Result<ThemeInfo, String> {
+    caller_window(&webview, &request).map_err(|_| REFUSED.to_string())?;
+    let (store, registry) = (themes.store.clone(), themes.registry.clone());
+    let info = run_blocking("Theme install", move || registry.install_theme(&store, &id)).await?;
+    let _ = app.emit(CHANGED_EVENT, ());
+    Ok(info)
 }
 
 /// Shows the installed themes' folder in Finder, creating it first.
@@ -120,11 +157,11 @@ fn choice(request: &ResolveRequest) -> AccentChoice {
 pub async fn themes_resolve(
     themes: State<'_, Themes>, request: ResolveRequest,
 ) -> Result<ResolvedTheme, String> {
-    let store = themes.store.clone();
+    let (store, registry) = (themes.store.clone(), themes.registry.clone());
     run_blocking("Theme resolve", move || {
         let accent = choice(&request);
         let id = request.theme.as_deref().filter(|id| !id.is_empty());
-        let resolved = store.resolve(id, request.appearance, accent);
+        let resolved = registry.resolve(&store, id, request.appearance, accent);
         Ok(ResolvedTheme {
             accent: resolved.accent.map(|color| color.hex()),
             variables: resolved.css_variables(),

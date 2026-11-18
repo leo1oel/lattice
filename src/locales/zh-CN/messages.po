@@ -53,6 +53,10 @@ msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
 
 #: src/platform/host-errors-themes.ts
+msgid "\"{id}\" is not in the theme list."
+msgstr "“{id}” 不在主题列表中。"
+
+#: src/platform/host-errors-themes.ts
 msgid "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
 msgstr "“{id}”是 Lattice 自带主题的 ID，请为你的主题另取一个 ID。"
 
@@ -808,6 +812,10 @@ msgstr "{name} {edition}（预印本）"
 msgid "{name} {edition} Rebuttal"
 msgstr "{name} {edition} 作者回复（Rebuttal）"
 
+#: src/platform/host-errors-themes.ts
+msgid "{name} {version} is blocked: {reason}"
+msgstr "{name} {version} 已被屏蔽：{reason}"
+
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
 msgstr "无法读取 {name}。{reason}"
@@ -823,6 +831,10 @@ msgstr "{name} 没保存成功，仍要关闭并丢弃修改？"
 #: src/app/use-editor-comments.ts
 msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
 msgstr "{name} 没能完成与 Overleaf 的同步，评论还没加上。请重新同步后再添加评论。"
+
+#: src/settings/theme-browse.tsx
+msgid "{name} has a warning: {reason}"
+msgstr "{name} 有一条警告：{reason}"
 
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
@@ -864,6 +876,10 @@ msgstr "{name}设置"
 #: src/editor/document-spelling.ts
 msgid "{name} spelling is now checked"
 msgstr "现已检查{name}拼写"
+
+#: src/settings/theme-browse.tsx
+msgid "{name} was turned off: {reason}"
+msgstr "{name} 已被停用：{reason}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -1157,6 +1173,14 @@ msgstr "共 {totalPages} 页，没在 PDF 里找到正文结尾"
 #: src/project/manuscript-checklist.tsx
 msgid "{totalPages} total, included files not read"
 msgstr "共 {totalPages} 页，未计入引用的文件"
+
+#: src/platform/host-errors-themes.ts
+msgid "{url} is larger than expected."
+msgstr "{url} 比预期的大。"
+
+#: src/platform/host-errors-themes.ts
+msgid "{url} is not an https address."
+msgstr "{url} 不是 https 地址。"
 
 #: src/project/submission-review.tsx
 msgid "{venue} camera-ready copy: anonymity is not checked."
@@ -2913,6 +2937,10 @@ msgstr "独立成段的引文"
 msgid "Block type"
 msgstr "段落样式"
 
+#: src/settings/theme-browse.tsx
+msgid "Blocked"
+msgstr "已屏蔽"
+
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -3005,6 +3033,14 @@ msgstr "短音符示例"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "英式英语"
+
+#: src/settings/theme-browse.tsx
+msgid "Browse themes"
+msgstr "浏览主题"
+
+#: src/settings/theme-file-actions.tsx
+msgid "Browse themes…"
+msgstr "浏览主题…"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Browser dialogs are only available to a browser workspace."
@@ -5088,6 +5124,10 @@ msgid "Could not save the report on this device. Keep this window open to retain
 msgstr "报告没能保存，请别关窗口以保留结果"
 
 #: src/platform/host-errors-themes.ts
+msgid "Could not save the theme list: {error}"
+msgstr "无法保存主题列表：{error}"
+
+#: src/platform/host-errors-themes.ts
 msgid "Could not save the theme: {error}"
 msgstr "无法保存主题：{error}"
 
@@ -5286,6 +5326,10 @@ msgstr "无法启动论文工具"
 #: src/plugins/plugin-text.ts
 msgid "Couldn’t start the plugin: {detail}"
 msgstr "无法启动插件：{detail}"
+
+#: src/settings/theme-browse.tsx
+msgid "Couldn't verify the theme list. Nothing new can be installed."
+msgstr "无法验证主题列表，暂时不能安装新主题。"
 
 #: src/editor/latex/citation-roles.ts
 msgctxt "why a passage cites a paper"
@@ -8169,6 +8213,7 @@ msgstr "检查与替换"
 
 #: src/build/compile-diagnostics-panel.tsx
 #: src/plugins/plugin-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Install"
 msgstr "安装"
 
@@ -8263,6 +8308,10 @@ msgstr "安装 TeX Live（{TEX_INSTALL_SIZE_HINT}）"
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
+
+#: src/settings/theme-browse.tsx
+msgid "Installed"
+msgstr "已安装"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9031,6 +9080,10 @@ msgstr "布局已重置"
 msgid "Layout updating"
 msgstr "版面更新中"
 
+#: src/settings/theme-browse.tsx
+msgid "Learn more"
+msgstr "了解更多"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
 msgstr "跳出代码"
@@ -9398,6 +9451,10 @@ msgstr "加载更多"
 msgid "Load older versions"
 msgstr "加载更早的版本"
 
+#: src/platform/host-errors-themes.ts
+msgid "Load the theme list before installing a theme from it."
+msgstr "请先加载主题列表，再从中安装主题。"
+
 #: src/app/app-editor-panels.tsx
 msgid "Loading annotations…"
 msgstr "正在加载批注…"
@@ -9466,6 +9523,10 @@ msgstr "正在加载 AI 改动…"
 msgid "Loading the conversation…"
 msgstr "正在加载…"
 
+#: src/settings/theme-browse.tsx
+msgid "Loading the theme list"
+msgstr "正在加载主题列表"
+
 #: src/history/versions-timeline.tsx
 msgid "Loading versions…"
 msgstr "正在加载版本…"
@@ -9481,6 +9542,7 @@ msgstr "正在把导言区载入 LuaLaTeX。"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/literature-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Loading…"
 msgstr "正在加载…"
 
@@ -10716,6 +10778,10 @@ msgstr "TeX Live 中没有提供 {file} 的组件。它可能是项目或会议�
 msgid "No textual changes"
 msgstr "文字没有改动"
 
+#: src/settings/theme-browse.tsx
+msgid "No themes match"
+msgstr "没有匹配的主题"
+
 #: src/project/todo-scavenger-panel.tsx
 msgid "No TODO markers found"
 msgstr "没有待办"
@@ -11050,6 +11116,14 @@ msgstr "系统已开“降低透明度”，此项暂停"
 #: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "官方核实没完成"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline: showing the list from {date}"
+msgstr "离线：显示 {date} 的列表"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline. The theme list can't be reached."
+msgstr "离线，无法获取主题列表。"
 
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
@@ -13117,6 +13191,7 @@ msgstr "文献"
 
 #: src/overleaf/overleaf-review.tsx
 #: src/project/figure-inventory-dialog.tsx
+#: src/settings/theme-browse.tsx
 msgid "Refresh"
 msgstr "刷新"
 
@@ -14491,6 +14566,10 @@ msgstr "搜索"
 msgid "Search by name or license"
 msgstr "按名称或许可证搜索"
 
+#: src/settings/theme-browse.tsx
+msgid "Search by name, description or author"
+msgstr "按名称、描述或作者搜索"
+
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search by project or owner, or paste a link…"
 msgstr "搜项目名或作者，或粘贴链接…"
@@ -14574,6 +14653,10 @@ msgstr "在文献中搜索"
 #: src/app/command-palette.tsx
 msgid "Search the project for “{query}”"
 msgstr "在项目中搜索“{query}”"
+
+#: src/settings/theme-browse.tsx
+msgid "Search themes"
+msgstr "搜索主题"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
@@ -16475,6 +16558,18 @@ msgstr "下载的 {what} 未通过安全校验"
 msgid "The downloaded {what} is larger than expected, so it was refused."
 msgstr "下载的 {what} 比预期大，已被拒绝。"
 
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme does not match the theme list's checksum."
+msgstr "下载的主题与主题列表中的校验和不符。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme is not \"{id}\" {version}."
+msgstr "下载的主题不是 “{id}” {version}。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme is not the size the theme list gives."
+msgstr "下载的主题大小与主题列表中的不符。"
+
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "下载的更新未通过签名校验，因此未安装。请从发布页面下载 Lattice {version}。"
@@ -16989,6 +17084,34 @@ msgstr "实时连接已断开"
 msgid "The reference is verified"
 msgstr "这条文献已核实"
 
+#: src/platform/host-errors-themes.ts
+msgid "The registry could not be reached: {error}"
+msgstr "无法连接插件市场：{error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry is updating its list. Try again in a few minutes."
+msgstr "插件市场正在更新列表，请几分钟后再试。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry sent an older list (serial {sent} after {kept}), so Lattice kept the one it has."
+msgstr "插件市场发来的列表较旧（序号 {sent}，已有 {kept}），Lattice 保留了现有列表。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} could not be read: {error}"
+msgstr "无法读取插件市场的 {file}：{error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} has no valid signature."
+msgstr "插件市场的 {file} 没有有效签名。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} is signed for another file or serial."
+msgstr "插件市场的 {file} 的签名属于另一个文件或序号。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's list is in a newer format. Update Lattice to use it."
+msgstr "插件市场的列表格式较新，请更新 Lattice 后再使用。"
+
 #: src/platform/host-errors-project.ts
 msgid "The rename did not change any files."
 msgstr "重命名没有改动任何文件"
@@ -17175,6 +17298,10 @@ msgstr "无法搜索 TeX Live 组件仓库。\n"
 #: src/platform/host-errors-workspace.ts
 msgid "The text is too large to save as a copy."
 msgstr "文本太大，无法另存为副本"
+
+#: src/platform/host-errors-themes.ts
+msgid "The theme download failed: {error}"
+msgstr "主题下载失败：{error}"
 
 #: src/platform/host-errors-themes.ts
 msgid "The theme file is larger than 256 KiB."
@@ -18414,6 +18541,10 @@ msgstr "更新表格"
 msgid "Update TeX packages"
 msgstr "更新 TeX 组件"
 
+#: src/settings/theme-browse.tsx
+msgid "Update to {next}"
+msgstr "更新到 {next}"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "已更新"
@@ -18426,6 +18557,10 @@ msgstr "更新于 {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "已用 {library} 更新 {target}。可在历史中撤销。"
+
+#: src/settings/theme-browse.tsx
+msgid "Updated {when}"
+msgstr "更新于 {when}"
 
 #: src/app/use-reference-import.ts
 msgid "Updated the entry for {citationCommand} from its sources."
