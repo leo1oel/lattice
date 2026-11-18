@@ -53,6 +53,9 @@ impl Run {
                 view.read(cx).offer_shown()
             })
             .await;
+        // Annotate takes a press only once a frame has drawn it: before that
+        // the press lands on the pages under it, which take the offer away.
+        let drew = self.next_frame(cx).await;
         self.snapshot(cx, "pdf-annotate-offer").await;
         let at = cx.update(|cx| view.read(cx).annotate_offer_center());
         if let Some(at) = at {
@@ -123,7 +126,7 @@ impl Run {
                     mapped.as_ref().is_some_and(|(path, _)| path == "chapters/intro.tex")
                 }),
             json!({
-                "offered": offered, "mapped": mapped, "state": format!("{state:?}"),
+                "offered": offered, "drew": drew, "mapped": mapped, "state": format!("{state:?}"),
                 "saved": saved, "closed": closed, "drawn": drawn,
                 "note": note.as_ref().map(|note| json!({
                     "path": note.path, "quote": note.quote, "body": note.body,
@@ -153,6 +156,7 @@ impl Run {
                 view.read(cx).offer_shown()
             })
             .await;
+        let drew = self.next_frame(cx).await;
         if let Some(at) = cx.update(|cx| view.read(cx).annotate_offer_center()) {
             self.click_at(cx, at)?;
         }
@@ -185,7 +189,7 @@ impl Run {
         steps.check(
             "PDF: a note closed with Escape leaves, and a press on the pages takes Annotate away",
             offered && opened && closed && again && withdrawn,
-            json!({ "offered": offered, "opened": opened, "closed": closed, "again": again, "withdrawn": withdrawn }),
+            json!({ "offered": offered, "drew": drew, "opened": opened, "closed": closed, "again": again, "withdrawn": withdrawn }),
         );
         Ok(())
     }
