@@ -53,6 +53,10 @@ msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
 
 #: src/platform/host-errors-themes.ts
+msgid "\"{id}\" is not in the theme list."
+msgstr "“{id}” 不在主题列表中。"
+
+#: src/platform/host-errors-themes.ts
 msgid "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
 msgstr "“{id}”是 Lattice 自带主题的 ID，请为你的主题另取一个 ID。"
 
@@ -808,6 +812,10 @@ msgstr "{name} {edition}（预印本）"
 msgid "{name} {edition} Rebuttal"
 msgstr "{name} {edition} 作者回复（Rebuttal）"
 
+#: src/platform/host-errors-themes.ts
+msgid "{name} {version} is blocked: {reason}"
+msgstr "{name} {version} 已被屏蔽：{reason}"
+
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
 msgstr "无法读取 {name}。{reason}"
@@ -1157,6 +1165,14 @@ msgstr "共 {totalPages} 页，没在 PDF 里找到正文结尾"
 #: src/project/manuscript-checklist.tsx
 msgid "{totalPages} total, included files not read"
 msgstr "共 {totalPages} 页，未计入引用的文件"
+
+#: src/platform/host-errors-themes.ts
+msgid "{url} is larger than expected."
+msgstr "{url} 比预期的大。"
+
+#: src/platform/host-errors-themes.ts
+msgid "{url} is not an https address."
+msgstr "{url} 不是 https 地址。"
 
 #: src/project/submission-review.tsx
 msgid "{venue} camera-ready copy: anonymity is not checked."
@@ -5086,6 +5102,10 @@ msgstr "项目没保存成功"
 #: src/papers/bibliography-audit.tsx
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "报告没能保存，请别关窗口以保留结果"
+
+#: src/platform/host-errors-themes.ts
+msgid "Could not save the theme list: {error}"
+msgstr "无法保存主题列表：{error}"
 
 #: src/platform/host-errors-themes.ts
 msgid "Could not save the theme: {error}"
@@ -9397,6 +9417,10 @@ msgstr "加载更多"
 #: src/history/compare-versions.tsx
 msgid "Load older versions"
 msgstr "加载更早的版本"
+
+#: src/platform/host-errors-themes.ts
+msgid "Load the theme list before installing a theme from it."
+msgstr "请先加载主题列表，再从中安装主题。"
 
 #: src/app/app-editor-panels.tsx
 msgid "Loading annotations…"
@@ -16475,6 +16499,18 @@ msgstr "下载的 {what} 未通过安全校验"
 msgid "The downloaded {what} is larger than expected, so it was refused."
 msgstr "下载的 {what} 比预期大，已被拒绝。"
 
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme does not match the theme list's checksum."
+msgstr "下载的主题与主题列表中的校验和不符。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme is not \"{id}\" {version}."
+msgstr "下载的主题不是 “{id}” {version}。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme is not the size the theme list gives."
+msgstr "下载的主题大小与主题列表中的不符。"
+
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "下载的更新未通过签名校验，因此未安装。请从发布页面下载 Lattice {version}。"
@@ -16989,6 +17025,34 @@ msgstr "实时连接已断开"
 msgid "The reference is verified"
 msgstr "这条文献已核实"
 
+#: src/platform/host-errors-themes.ts
+msgid "The registry could not be reached: {error}"
+msgstr "无法连接插件市场：{error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry is updating its list. Try again in a few minutes."
+msgstr "插件市场正在更新列表，请几分钟后再试。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry sent an older list (serial {sent} after {kept}), so Lattice kept the one it has."
+msgstr "插件市场发来的列表较旧（序号 {sent}，已有 {kept}），Lattice 保留了现有列表。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} could not be read: {error}"
+msgstr "无法读取插件市场的 {file}：{error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} has no valid signature."
+msgstr "插件市场的 {file} 没有有效签名。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} is signed for another file or serial."
+msgstr "插件市场的 {file} 的签名属于另一个文件或序号。"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's list is in a newer format. Update Lattice to use it."
+msgstr "插件市场的列表格式较新，请更新 Lattice 后再使用。"
+
 #: src/platform/host-errors-project.ts
 msgid "The rename did not change any files."
 msgstr "重命名没有改动任何文件"
@@ -17175,6 +17239,10 @@ msgstr "无法搜索 TeX Live 组件仓库。\n"
 #: src/platform/host-errors-workspace.ts
 msgid "The text is too large to save as a copy."
 msgstr "文本太大，无法另存为副本"
+
+#: src/platform/host-errors-themes.ts
+msgid "The theme download failed: {error}"
+msgstr "主题下载失败：{error}"
 
 #: src/platform/host-errors-themes.ts
 msgid "The theme file is larger than 256 KiB."

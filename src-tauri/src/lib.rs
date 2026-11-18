@@ -643,6 +643,8 @@ pub fn run() {
             ipc::themes::themes_reveal_folder,
             ipc::themes::themes_resolve,
             ipc::themes::themes_fit_accent,
+            ipc::themes::registry_index,
+            ipc::themes::registry_install_theme,
             save_before_close::enable_save_before_close,
             save_before_close::disable_save_before_close,
             save_before_close::finish_save_before_close,

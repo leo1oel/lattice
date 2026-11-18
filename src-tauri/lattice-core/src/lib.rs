@@ -67,6 +67,7 @@ mod project_fs;
 #[cfg(windows)]
 #[path = "project_fs_windows.rs"]
 mod project_fs;
+pub mod registry;
 pub mod research_env;
 pub mod review_pdf;
 pub mod runtime;

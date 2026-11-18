@@ -81,6 +81,11 @@ tokio = { version = "1", features = ["sync", "net", "time", "rt", "rt-multi-thre
 # The theme format and resolver (themes.rs), shared with the GPUI app's
 # lattice-ui, which does not depend on the rest of the core.
 lattice-theme = { path = "../lattice-theme" }
+# The theme registry's signatures (registry/verify.rs); the verifier
+# tauri-plugin-updater already compiles in for the app's own updates.
+minisign-verify = "0.2"
+# Block list ranges and update checks for registry themes; already in the tree.
+semver = "1"
 axum = { version = "0.8", features = ["ws"] }
 # The URL type tauri re-exports, for TexLab's file URIs.
 url = "2"
@@ -135,3 +140,7 @@ portable-pty = "0.9"
 
 [dev-dependencies]
 tiny_http = "0.12.0"
+# Sign registry fixtures the way minisign does (registry/tests.rs): Ed25519
+# over a BLAKE2b-512 prehash.
+blake2 = "0.10"
+ring = "0.17"
