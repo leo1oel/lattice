@@ -149,7 +149,7 @@ def main(argv):
             return 0
         record = holder()
         print(f"inapp-lock: held by {describe(record)}")
-        if record and not alive(record.get("pid", 0)):
+        if not record or not alive(record.get("pid", 0)):
             print(f"inapp-lock: the lock file is open in pids {lockers()}; one of them holds it")
         return 1
 
