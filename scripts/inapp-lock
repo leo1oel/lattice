@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""One in-app session at a time on this Mac: the GPUI e2e, perf, memcmp and
+lab runs, in-app screenshots and recordings (docs/driving-the-app.md).
+
+The lock is flock(2) on /tmp/lattice-inapp-test.lock, the file every crew tool
+already locks (lockf -k, the e2e scripts, ci:local's probe). The file is never
+deleted: plain lockf(1) without -k unlinks it on exit, after which the next
+taker locks a new file while a waiter still holds the old one, and two
+sessions run at once. A taker here also checks that the file it locked is
+still the one at the path (its inode), and takes it again when not.
+
+The holder writes who it is into the file (pid, thread, command, since), so a
+waiter can say what it waits on, and \`status\` can tell a live holder from a
+gone one. flock is released by the kernel when its holder dies, so a dead
+holder never keeps the lock; when the recorded pid is gone and the lock is
+still held, some other process holds it (one that took it another way, or a
+child that inherited it), and \`status\` names it from lsof.
+
+Usage:
+  inapp-lock [--thread CODE] [--wait SECONDS] -- COMMAND [ARGS...]
+      Run COMMAND holding the lock, and release it when COMMAND exits (its
+      exit status is this one's). --wait gives up after SECONDS with status 75
+      (default: wait as long as it takes; 0 means try once).
+  inapp-lock [--thread CODE] [--wait SECONDS] hold [SECONDS]
+      Hold the lock for SECONDS (default 7200) or until killed, for a session
+      of several commands; run it in the background and kill it to release.
+  inapp-lock status
+      Print whether the lock is held, and by whom. Status 0 free, 1 held.
+
+The thread code defaults to $CAPY_THREAD, else "unknown".
+"""
+
+import fcntl
+import json
+import os
+import signal
+import socket
+import subprocess
+import sys
+import time
+
+LOCK = "/tmp/lattice-inapp-test.lock"
+TIMED_OUT = 75
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def holder():
+    try:
+        with open(LOCK) as file:
+            return json.loads(file.read() or "null")
+    except (OSError, ValueError):
+        return None
+
+
+def describe(record):
+    if not record:
+        return "a holder that did not say who it is (lockf or an older script)"
+    state = "" if alive(record.get("pid", 0)) else ", whose pid is gone"
+    return "{thread} (pid {pid}{state}, since {since}): {command}".format(state=state, **record)
+
+
+def lockers():
+    """The processes that have the lock file open, from lsof."""
+    out = subprocess.run(["lsof", "-t", LOCK], capture_output=True, text=True).stdout
+    return [int(pid) for pid in out.split()]
+
+
+def held():
+    fd = os.open(LOCK, os.O_RDONLY | os.O_CREAT, 0o666)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return True
+    finally:
+        os.close(fd)
+    return False
+
+
+def acquire(thread, command, wait):
+    """Take the lock, or return None after \`wait\` seconds (None: no limit)."""
+    started = time.monotonic()
+    last_note = None
+    while True:
+        fd = os.open(LOCK, os.O_RDWR | os.O_CREAT, 0o666)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(fd)
+            waited = time.monotonic() - started
+            if wait is not None and waited >= wait:
+                return None
+            if last_note is None or waited - last_note >= 60:
+                last_note = waited
+                print(f"inapp-lock: waiting ({int(waited // 60)} min so far) for {describe(holder())}", file=sys.stderr, flush=True)
+            time.sleep(1)
+            continue
+        try:
+            same = os.stat(LOCK).st_ino == os.fstat(fd).st_ino
+        except FileNotFoundError:
+            same = False
+        if not same:
+            os.close(fd)
+            continue
+        record = {
+            "pid": os.getpid(),
+            "thread": thread,
+            "host": socket.gethostname(),
+            "since": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
+            "command": " ".join(command),
+        }
+        os.ftruncate(fd, 0)
+        os.pwrite(fd, json.dumps(record).encode(), 0)
+        return fd
+
+
+def release(fd):
+    os.ftruncate(fd, 0)
+    os.close(fd)
+
+
+def main(argv):
+    thread = os.environ.get("CAPY_THREAD") or "unknown"
+    wait = None
+    while argv and argv[0].startswith("--") and argv[0] != "--":
+        flag = argv.pop(0)
+        if flag == "--thread" and argv:
+            thread = argv.pop(0)
+        elif flag == "--wait" and argv:
+            wait = float(argv.pop(0))
+        else:
+            sys.exit(f"inapp-lock: unknown option {flag}\n{__doc__}")
+    if argv and argv[0] == "--":
+        argv.pop(0)
+    if not argv:
+        sys.exit(__doc__)
+
+    if argv == ["status"]:
+        if not held():
+            print("inapp-lock: free")
+            return 0
+        record = holder()
+        print(f"inapp-lock: held by {describe(record)}")
+        if record and not alive(record.get("pid", 0)):
+            print(f"inapp-lock: the lock file is open in pids {lockers()}; one of them holds it")
+        return 1
+
+    hold_for = None
+    if argv[0] == "hold":
+        hold_for = float(argv[1]) if len(argv) > 1 else 7200.0
+        command = [f"hold {int(hold_for)} s"]
+    else:
+        command = argv
+
+    fd = acquire(thread, command, wait)
+    if fd is None:
+        print(f"inapp-lock: gave up after {wait:g} s; held by {describe(holder())}", file=sys.stderr)
+        return TIMED_OUT
+    print(f"inapp-lock: taken by {thread} (pid {os.getpid()})", file=sys.stderr, flush=True)
+    try:
+        if hold_for is not None:
+            signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+            time.sleep(hold_for)
+            return 0
+        # Its own process group, so a signal that ends this one ends the
+        # whole run with it rather than leaving it on the screen unlocked.
+        child = subprocess.Popen(command, start_new_session=True)
+
+        def forward(signum, _frame):
+            try:
+                os.killpg(child.pid, signum)
+            except ProcessLookupError:
+                pass
+
+        for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            signal.signal(signum, forward)
+        status = child.wait()
+        try:
+            os.killpg(child.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        return status if status >= 0 else 128 - status
+    finally:
+        release(fd)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
