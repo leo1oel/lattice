@@ -30,6 +30,31 @@ impl BoardView {
         v
     }
 
+    /// The Agent's canvas tool `action` on this board
+    /// (`agent_canvas::execute`): a write is one undoable step, saved like
+    /// an edit; a board that opened unreadable only lists.
+    pub fn agent_canvas(
+        &mut self,
+        action: &str,
+        args: &serde_json::Map<String, Value>,
+        cx: &mut Context<Self>,
+    ) -> Result<Value, super::agent_canvas::ToolError> {
+        let writable = self.unreadable.is_none();
+        let (result, next) =
+            super::agent_canvas::execute(self.elements(), action, args, writable, &*self.m)?;
+        if let Some(next) = next {
+            self.apply(
+                super::actions::ActionResult::new(
+                    Some(next),
+                    None,
+                    CaptureUpdateAction::Immediately,
+                ),
+                cx,
+            );
+        }
+        Ok(result)
+    }
+
     /// Where Export image saves first: the board's folder, under its name.
     pub fn set_export_target(&mut self, file: &std::path::Path) {
         let dir = file.parent().map(Into::into).unwrap_or_default();
