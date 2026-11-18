@@ -1,0 +1,74 @@
+{
+  "version": "0.16.19",
+  "date": "2026-11-17",
+  "highlights": [
+    {
+      "title": {
+        "en": "Drag project tabs",
+        "zh": "拖动项目标签页"
+      },
+      "body": {
+        "en": "Project tabs can be dragged to reorder them, torn off into a new window, or moved between windows. Thanks to @knightnemo for the first version (#1013).",
+        "zh": "现在可以拖动项目标签页来调整顺序、拖出为新窗口，或在窗口之间移动。感谢 @knightnemo 提供最初的版本（#1013）。"
+      }
+    },
+    {
+      "title": {
+        "en": "Tell same-named tabs apart",
+        "zh": "区分同名标签页"
+      },
+      "body": {
+        "en": "Two open files with the same name now show enough of their folder to tell them apart, hovering a tab shows its path, and the tab menu can copy it.",
+        "zh": "两个同名的已打开文件现在会显示足够的文件夹信息以便区分；鼠标悬停在标签页上会显示其路径，标签页菜单也可以复制该路径。"
+      }
+    },
+    {
+      "title": {
+        "en": "The Agent cites into the right bibliography",
+        "zh": "Agent 将引用写入正确的参考文献"
+      },
+      "body": {
+        "en": "The Agent now adds citations to the .bib file your document actually uses, cites a GitHub repository by its own citation, finds a reference written out with its authors and year, and finishes upgrading a long bibliography's preprints instead of timing out.",
+        "zh": "Agent 现在会把引用添加到文档实际使用的 `.bib` 文件中，按 GitHub 仓库自身提供的引用格式引用仓库，能找到写明作者和年份的参考文献，并且升级长参考文献中的预印本时能顺利完成而不再超时。"
+      }
+    },
+    {
+      "title": {
+        "en": "Cleaner Overleaf sync",
+        "zh": "更干净的 Overleaf 同步"
+      },
+      "body": {
+        "en": "Package cache folders such as _minted and achemso's acs-main.bib stay out of the file tree and sync, your own PDF build is no longer kept as a conflict copy, and a held file move says which role is holding it back.",
+        "zh": "`_minted` 等宏包缓存文件夹以及 achemso 生成的 `acs-main.bib` 不再出现在文件树和同步中；本机自己编译出的 PDF 不再被保留为冲突副本；被暂缓的文件移动会说明是哪个角色导致的。"
+      }
+    },
+    {
+      "title": {
+        "en": "Faster saves in long documents",
+        "zh": "长文档保存更快"
+      },
+      "body": {
+        "en": "Saving a long .tex file no longer rescans its labels from the start for every label, and the word count runs at most every 15 seconds while you keep saving. Thanks to @rawinan-soma for the report (#1025).",
+        "zh": "保存较长的 `.tex` 文件时，不再为每个标签都从头重新扫描标签；在连续保存期间，字数统计最多每 15 秒运行一次。感谢 @rawinan-soma 的报告（#1025）。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "In Vim mode, $ moves to the end of the line in normal mode again instead of typing $$. Thanks to @Thomasbush9 for the report (#1020).",
+      "zh": "在 Vim 模式下，普通模式中的 `$` 重新会移动到行尾，而不再输入 `$$`。感谢 @Thomasbush9 的报告（#1020）。"
+    },
+    {
+      "en": "The window follows the cursor as soon as you drag its title bar, without a short delay. Thanks to @peterwjacko for the report (#1063).",
+      "zh": "拖动标题栏时，窗口会立即跟随光标移动，不再有短暂延迟。感谢 @peterwjacko 的报告（#1063）。"
+    },
+    {
+      "en": "Clean rebuild cleans the document it is about to build, so a paper and its supplement in one folder no longer lose each other's labels.",
+      "zh": "“清理并重新编译”现在会清理即将编译的文档，因此同一文件夹中的论文和补充材料不再丢失彼此的标签。"
+    },
+    {
+      "en": "Windows: a project window saved on a screen that is no longer attached opens on the main screen. Thanks to @ivanvykopal for the fix (#1024).",
+      "zh": "Windows：保存在已断开的屏幕上的项目窗口现在会在主屏幕上打开。感谢 @ivanvykopal 提供修复（#1024）。"
+    }
+  ]
+}
