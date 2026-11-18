@@ -1,8 +1,9 @@
 //! Boards, spreadsheets and Open Slide decks: the Tauri app's structured
-//! documents (`structuredDocumentKind` in `src/canvas/document-canvas.tsx`),
-//! each a webview island in its document's panel, built from the Tauri app's
-//! own editor (`gpui/islands/`: Excalidraw's board, Univer's sheet, the Open
-//! Slide workspace).
+//! documents (`structuredDocumentKind` in `src/canvas/document-canvas.tsx`).
+//! A sheet and a deck are webview islands in their document's panel, built
+//! from the Tauri app's own editor (`gpui/islands/`: Univer's sheet, the Open
+//! Slide workspace); a board is the native whiteboard (`lattice-board`, a
+//! port of Excalidraw from quiet.md), held the same way (`structured/board.rs`).
 //!
 //! The document is the panel's like any other: its buffer holds the file's
 //! text, saved by the panel's own autosave through lattice-core's editor
@@ -57,6 +58,7 @@ pub use markdown_host::VisualCaret;
 pub use slides::{DeckSession, handles as deck_handles};
 
 mod agent_tools;
+mod board;
 mod deck_context;
 mod latex_services;
 mod latex_visual;
@@ -119,7 +121,7 @@ impl StructuredKind {
 
     fn entry(self) -> &'static str {
         match self {
-            Self::Board => "board/index.html",
+            Self::Board => unreachable!("a board is drawn natively, without an island"),
             Self::Sheet => "sheet/index.html",
             Self::Deck => "slides/index.html",
             Self::Markdown => "markdown/index.html",
@@ -156,6 +158,9 @@ pub enum StructuredEvent {
 pub struct StructuredDocument {
     kind: StructuredKind,
     island: Option<Entity<Island>>,
+    /// A `.excalidraw` board: the native whiteboard, in the island's place
+    /// (`board.rs`).
+    board: Option<board::NativeBoard>,
     /// Why there is no island: its pages are not built, or the project
     /// folder cannot be read.
     unavailable: Option<String>,
@@ -218,7 +223,9 @@ impl StructuredDocument {
             .flatten();
         let palette = cx.palette().clone();
         let mut subscriptions = Vec::new();
+        let native = kind == StructuredKind::Board;
         let (island, unavailable) = match bundle {
+            _ if native => (None, None),
             Ok(scope) => {
                 let config = IslandConfig {
                     name: kind.island().into(),
@@ -243,9 +250,12 @@ impl StructuredDocument {
             }
         };
         let deck = (kind == StructuredKind::Deck).then(|| slides::DeckSession::new(root, cx));
+        let board =
+            native.then(|| board::NativeBoard::new(&source, &root.join(&relative), window, cx));
         Self {
             kind,
             island,
+            board,
             unavailable,
             root: root.to_path_buf(),
             relative,
@@ -274,14 +284,22 @@ impl StructuredDocument {
         self.island.as_ref()
     }
 
-    /// The page has drawn the document.
+    /// The page has drawn the document (a native board draws at once).
     pub fn is_drawn(&self) -> bool {
-        self.drawn
+        self.drawn || self.board.is_some()
+    }
+
+    /// The native whiteboard, for a `.excalidraw` board.
+    pub fn board(&self) -> Option<&Entity<lattice_board::board::BoardView>> {
+        self.board.as_ref().map(|board| &board.view)
     }
 
     /// The focus the panel hands out: the page's, or the panel's own ground
     /// when there is no page.
     pub fn focus_handle(&self, cx: &App) -> Option<gpui::FocusHandle> {
+        if let Some(board) = &self.board {
+            return Some(board.view.read(cx).focus_handle(cx));
+        }
         self.island
             .as_ref()
             .map(|island| island.read(cx).focus_handle(cx))
@@ -308,6 +326,7 @@ impl StructuredDocument {
         self.shown = shown;
         if !shown {
             self.post("doc:flush", Value::Null, cx);
+            self.flush_board(cx);
         }
         self.post("doc:active", json!({ "active": shown }), cx);
         if let Some(island) = &self.island {
@@ -319,6 +338,7 @@ impl StructuredDocument {
     /// Have the page write its pending edits now (the panel saves next).
     pub fn flush(&mut self, cx: &mut Context<Self>) {
         self.post("doc:flush", Value::Null, cx);
+        self.flush_board(cx);
     }
 
     /// The buffer's text changed: the page gets it unless it is the page's own.
@@ -329,6 +349,7 @@ impl StructuredDocument {
         self.source = source;
         let source = self.source.clone();
         self.post("doc:source", json!({ "source": source }), cx);
+        self.merge_board(cx);
     }
 
     /// The file moved within the project.
@@ -761,6 +782,7 @@ impl Render for StructuredDocument {
                 ))
             })
             .when_some(self.island.clone(), |this, island| this.child(island))
+            .when_some(self.board(), |this, board| this.child(board.clone()))
     }
 }
 
@@ -793,6 +815,10 @@ mod tests {
         for board in ["map.excalidraw", "a/B.EXCALIDRAW"] {
             assert_eq!(StructuredKind::of(board), Some(StructuredKind::Board));
         }
+        assert_eq!(
+            StructuredKind::of("figures/map.excalidraw"),
+            Some(StructuredKind::Board)
+        );
         assert_eq!(
             StructuredKind::of("data/results.lattice-sheet"),
             Some(StructuredKind::Sheet)

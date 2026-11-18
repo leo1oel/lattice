@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activateAppLocale } from "../i18n";
-import { useDailyTexPackageCheck, useTexPackageUpdates, BACKGROUND_CHECK_DELAY_MS } from "../app/use-tex-package-updates";
+import { useWeeklyTexPackageCheck, useTexPackageUpdates, BACKGROUND_CHECK_DELAY_MS, PACKAGE_CHECK_INTERVAL_MS } from "../app/use-tex-package-updates";
 import { CompileDiagnosticsPanel } from "./compile-diagnostics-panel";
 import type { TexPackageUpdatesReport } from "./tex-package-updates";
 
@@ -40,7 +40,7 @@ describe("the outdated lineno notice", () => {
     let finish!: () => void;
     tauri.invoke.mockImplementation((command: string) => command === "start_tex_package_update"
       ? new Promise<void>((resolve) => { finish = resolve; })
-      : Promise.resolve({ managed: true, packages: [] }));
+      : Promise.resolve({ managed: true, passwordless: false, packages: [] }));
     render(<Panel />);
     expect(screen.getByText(LINENO_NOTICE.message)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Update TeX packages" }));
@@ -51,10 +51,10 @@ describe("the outdated lineno notice", () => {
   });
 
   it("says why an update failed and offers it again", async () => {
-    tauri.invoke.mockRejectedValue("Lattice only updates the BasicTeX it installs. In Terminal: sudo tlmgr update --self --all");
+    tauri.invoke.mockRejectedValue("Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: sudo tlmgr update --self --all");
     render(<Panel />);
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Update TeX packages" })); });
-    expect(screen.getByRole("alert")).toHaveTextContent("Lattice only updates the BasicTeX it installs. In Terminal: sudo tlmgr update --self --all");
+    expect(screen.getByRole("alert")).toHaveTextContent("Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: sudo tlmgr update --self --all");
     expect(screen.getByRole("button", { name: "Update TeX packages" })).toBeEnabled();
   });
 
@@ -78,40 +78,46 @@ describe("the daily background package check", () => {
   const check = (report: TexPackageUpdatesReport | null) => vi.fn(() => Promise.resolve(report));
   const ignoreReport = () => {};
 
-  it("checks once after launch, and not again the same day", async () => {
-    const first = check({ managed: true, packages: [{ name: "lineno", installed: "5.7", available: "5.9" }] });
-    const launch = renderHook(() => useDailyTexPackageCheck(first, ignoreReport));
+  it("checks once after launch, and not again within the week", async () => {
+    const first = check({ managed: true, passwordless: false, packages: [{ name: "lineno", installed: "5.7", available: "5.9" }] });
+    const launch = renderHook(() => useWeeklyTexPackageCheck(first, ignoreReport));
     expect(first).not.toHaveBeenCalled();
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(first).toHaveBeenCalledTimes(1);
     launch.unmount();
 
-    const again = check({ managed: true, packages: [] });
-    renderHook(() => useDailyTexPackageCheck(again, ignoreReport));
+    const again = check({ managed: true, passwordless: false, packages: [] });
+    renderHook(() => useWeeklyTexPackageCheck(again, ignoreReport));
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(again).not.toHaveBeenCalled();
 
     vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
-    const nextDay = check({ managed: true, packages: [] });
-    renderHook(() => useDailyTexPackageCheck(nextDay, ignoreReport));
+    const nextDay = check({ managed: true, passwordless: false, packages: [] });
+    renderHook(() => useWeeklyTexPackageCheck(nextDay, ignoreReport)).unmount();
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
-    expect(nextDay).toHaveBeenCalledTimes(1);
+    expect(nextDay).not.toHaveBeenCalled();
+
+    vi.setSystemTime(Date.now() + PACKAGE_CHECK_INTERVAL_MS);
+    const nextWeek = check({ managed: true, passwordless: false, packages: [] });
+    renderHook(() => useWeeklyTexPackageCheck(nextWeek, ignoreReport));
+    await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
+    expect(nextWeek).toHaveBeenCalledTimes(1);
   });
 
   it("tries again on the next launch when the repository did not answer", async () => {
-    const offline = check({ managed: true, packages: [], error: "offline" });
-    const launch = renderHook(() => useDailyTexPackageCheck(offline, ignoreReport));
+    const offline = check({ managed: true, passwordless: false, packages: [], error: "offline" });
+    const launch = renderHook(() => useWeeklyTexPackageCheck(offline, ignoreReport));
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     launch.unmount();
-    const next = check({ managed: true, packages: [] });
-    renderHook(() => useDailyTexPackageCheck(next, ignoreReport));
+    const next = check({ managed: true, passwordless: false, packages: [] });
+    renderHook(() => useWeeklyTexPackageCheck(next, ignoreReport));
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(next).toHaveBeenCalledTimes(1);
   });
 
   it("closed before the delay, checks nothing", async () => {
-    const early = check({ managed: true, packages: [] });
-    renderHook(() => useDailyTexPackageCheck(early, ignoreReport)).unmount();
+    const early = check({ managed: true, passwordless: false, packages: [] });
+    renderHook(() => useWeeklyTexPackageCheck(early, ignoreReport)).unmount();
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(early).not.toHaveBeenCalled();
   });

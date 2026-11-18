@@ -152,7 +152,10 @@ fn every_translated_message_has_chinese() {
         let source = fs::read_to_string(file).unwrap().replace("\r\n", "\n");
         for (context, message) in translated_messages(&source) {
             used.insert(message.clone());
-            if !has_words(&message)
+            // The whiteboard's `settings::tr(zh, en)` carries its Chinese
+            // inline, as its first argument ("复制为 PNG 到剪贴板").
+            if has_han(&message)
+                || !has_words(&message)
                 || tauri_allowed.contains(&message)
                 || gpui_allowed.contains(&message)
             {

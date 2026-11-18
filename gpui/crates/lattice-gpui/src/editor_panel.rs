@@ -161,6 +161,8 @@ pub struct EditorPanel {
     /// What a drag over the editor last saw (`drops.rs`).
     drop_hover: drops::SharedDropHover,
     build: Entity<BuildPanel>,
+    /// The strip's build chip (`editor_status::BuildChip`).
+    build_chip: Entity<editor_status::BuildChip>,
     /// The caret's line and column, 1-based, for the status bar.
     cursor: (u32, u32),
     /// The caret as Overleaf counts it (`overleaf_carets`).
@@ -429,6 +431,7 @@ impl EditorPanel {
             builds_seen,
             find_bar,
             drop_hover: Default::default(),
+            build_chip: cx.new(|cx| editor_status::BuildChip::new(build.clone(), cx)),
             build,
             cursor: (1, 1),
             overleaf_caret: (0, 0),

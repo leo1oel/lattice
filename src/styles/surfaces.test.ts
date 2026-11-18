@@ -211,6 +211,19 @@ describe("shared surface contracts", () => {
     expect(z("popup-shield")).toBeLessThan(z("radix-popper"))
   })
 
+  // A question asked over another dialog (a plugin's permissions over
+  // Settings) takes this layer; on the dialog layer its backdrop fell under
+  // the Settings card, which stayed clickable beneath it.
+  it("stacks confirmations above every dialog, backdrop included", () => {
+    const z = (name: string) => Number(foundations.match(new RegExp(`--z-${name}: (\\d+);`))?.[1])
+    expectRules(appCss, [
+      /\.confirm-action-backdrop \{ z-index: var\(--z-nested-modal-backdrop\); \}/,
+      /\.confirm-action-backdrop \+ \.modal-dialog-content \{ z-index: var\(--z-nested-modal\); \}/,
+    ])
+    expect(z("nested-modal-backdrop")).toBeGreaterThan(z("modal"))
+    expect(z("nested-modal")).toBeGreaterThan(z("nested-modal-backdrop"))
+  })
+
   // One feature rule per decision, each pinned where a regression once landed.
   it.each<[string, Pattern[], Pattern[]?]>([
     ["keeps PDF.js annotation layers below application drawers", [

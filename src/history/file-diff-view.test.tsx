@@ -23,7 +23,7 @@ vi.mock("@pierre/diffs", () => ({
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: (props: {
     fileDiff: { name: string; lang: string; type: string; deletionLines: string[]; additionLines: string[] };
-    options: { disableFileHeader?: boolean; onLineClick?: (line: { lineNumber: number }) => void; unsafeCSS?: string };
+    options: { disableFileHeader?: boolean; onLineClick?: (line: { lineNumber: number }) => void; unsafeCSS?: string; overflow?: string };
   }) => (
     <button
       type="button"
@@ -35,6 +35,7 @@ vi.mock("@pierre/diffs/react", () => ({
       data-new={props.fileDiff.additionLines.join("\n")}
       data-header-disabled={String(props.options.disableFileHeader)}
       data-unsafe-css={props.options.unsafeCSS}
+      data-overflow={props.options.overflow}
       onClick={() => props.options.onLineClick?.({ lineNumber: 7 })}
     >
       Pierre diff
@@ -97,6 +98,14 @@ describe("FileDiffView", () => {
 
     fireEvent.click(viewer);
     expect(onOpenLine).toHaveBeenCalledWith("second.tex", 7);
+  });
+
+  it("wraps long lines only when asked, scrolling sideways otherwise", () => {
+    const change = { path: "main.tex", before: "old", after: "new" };
+    const { rerender } = render(<FileDiffView change={change} />);
+    expect(diff()).toHaveAttribute("data-overflow", "scroll");
+    rerender(<FileDiffView change={change} wrap />);
+    expect(diff()).toHaveAttribute("data-overflow", "wrap");
   });
 
   it("renders as soon as the current preload completes without requiring a remount", async () => {

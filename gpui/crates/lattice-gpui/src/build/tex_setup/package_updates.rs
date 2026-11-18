@@ -36,8 +36,8 @@ pub struct PackageUpdates {
 }
 
 impl PackageUpdates {
-    /// The update can be offered: Lattice's own BasicTeX has packages to
-    /// update, and nothing is checking or updating.
+    /// The update can be offered: a TeX Live tree Lattice manages has
+    /// packages to update, and nothing is checking or updating.
     pub fn offer(&self) -> bool {
         !self.checking
             && !self.run.as_ref().is_some_and(|run| run.running)
@@ -141,6 +141,7 @@ mod tests {
     fn report(names: &[&str]) -> TexPackageUpdates {
         TexPackageUpdates {
             managed: true,
+            passwordless: false,
             packages: names
                 .iter()
                 .map(|name| TexPackageUpdate {

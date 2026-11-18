@@ -13,11 +13,18 @@
 //! A call the page cannot finish, because it was torn down (hibernated,
 //! reloaded) or its tab closed, is answered with an error rather than run
 //! again elsewhere: it may already have changed the document.
+//!
+//! A board has no page: the native whiteboard answers its canvas calls at
+//! once (`lattice_board::board::agent_canvas`), in the envelope the Tauri
+//! executor (`src/agent/agent-canvas-tools.ts`) answers with.
 
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use futures::channel::oneshot;
 use gpui::Context;
+use lattice_board::board::BoardView;
+use lattice_board::board::agent_canvas::ToolError;
 use serde_json::{Value, json};
 
 use super::{StructuredDocument, StructuredKind};
@@ -91,6 +98,14 @@ impl StructuredDocument {
         request: Value,
         cx: &mut Context<Self>,
     ) -> oneshot::Receiver<AgentCallResult> {
+        if let Some(board) = &self.board {
+            let (sender, answer) = oneshot::channel();
+            let view = board.view.clone();
+            sender
+                .send(view.update(cx, |view, cx| canvas_tool(view, &request, cx)))
+                .ok();
+            return answer;
+        }
         let (id, answer) = self.agent_calls.start();
         let path = self.relative.clone();
         self.post(
@@ -108,6 +123,11 @@ impl StructuredDocument {
         timeout_ms: u64,
         cx: &mut Context<Self>,
     ) -> oneshot::Receiver<AgentCallResult> {
+        if self.board.is_some() {
+            let (sender, answer) = oneshot::channel();
+            sender.send(Ok(json!({ "ready": true }))).ok();
+            return answer;
+        }
         let (id, answer) = self.agent_calls.start();
         let path = self.relative.clone();
         self.post(
@@ -125,6 +145,59 @@ impl StructuredDocument {
     pub(super) fn agent_page_gone(&mut self) {
         self.agent_calls.abandon();
     }
+}
+
+/// Synara's canvas request run on the native board: the Tauri executor's
+/// result envelope, or why the request is no canvas request.
+fn canvas_tool(
+    view: &mut BoardView,
+    request: &Value,
+    cx: &mut Context<BoardView>,
+) -> AgentCallResult {
+    let parsed = request.as_object().and_then(|r| {
+        let is = |key: &str, value: Value| r.get(key) == Some(&value);
+        if !is("type", json!("synara:canvas-tool-request"))
+            || r.get("version")?.as_f64() != Some(1.)
+        {
+            return None;
+        }
+        let id = r
+            .get("id")?
+            .as_str()
+            .filter(|id| (1..=128).contains(&id.encode_utf16().count()))?;
+        let expires_at = r.get("expiresAt")?.as_f64()?;
+        let action = r
+            .get("action")?
+            .as_str()
+            .filter(|a| matches!(*a, "list" | "create" | "update" | "delete"))?;
+        Some((id, expires_at, action, r.get("args")?.as_object()?))
+    });
+    let Some((id, expires_at, action, args)) = parsed else {
+        return Err("not a canvas tool request".into());
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0., |elapsed| elapsed.as_millis() as f64);
+    let outcome = if expires_at <= now {
+        Err(ToolError {
+            code: "canvas_tool_expired",
+            message: "The canvas request expired before execution.".into(),
+        })
+    } else {
+        view.agent_canvas(action, args, cx)
+    };
+    let mut envelope = json!({ "type": "lattice:canvas-tool-result", "version": 1, "id": id });
+    match outcome {
+        Ok(result) => {
+            envelope["ok"] = json!(true);
+            envelope["result"] = result;
+        }
+        Err(error) => {
+            envelope["ok"] = json!(false);
+            envelope["error"] = json!({ "code": error.code, "message": error.message });
+        }
+    }
+    Ok(envelope)
 }
 
 #[cfg(test)]

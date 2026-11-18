@@ -52,7 +52,7 @@
 //!   island frames the Open Slide runtime, a loopback server whose port is
 //!   known only after it starts.
 //!
-//! The sheet and board islands write nothing through the bridge: their owner
+//! The sheet island writes nothing through the bridge: its owner
 //! holds the file's text and saves it as every document is saved
 //! (lattice-core's editor transaction), and the slides island's saves are
 //! mutations its owner applies through lattice-core too. An island that never

@@ -13,6 +13,9 @@ impl AssetSource for Assets {
         if let Ok(Some(data)) = lattice_ui::UiAssets.load(path) {
             return Ok(Some(data));
         }
+        if let Ok(Some(data)) = lattice_board::assets::BoardAssets.load(path) {
+            return Ok(Some(data));
+        }
         if let Ok(Some(data)) = assets::Assets.load(path) {
             return Ok(Some(data));
         }
@@ -21,6 +24,7 @@ impl AssetSource for Assets {
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
         let mut entries = lattice_ui::UiAssets.list(path)?;
+        entries.extend(lattice_board::assets::BoardAssets.list(path)?);
         entries.extend(assets::Assets.list(path)?);
         entries.extend(gpui_kit::assets::AllAssets::new("").list(path)?);
         entries.sort();

@@ -57,6 +57,19 @@ it("asks before turning a plugin on, listing its permissions, and grants only on
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("plugins_set_enabled", { id: zotero.id, enabled: true }));
 });
 
+// Turning a plugin on happens inside Settings, itself a dialog: the question
+// must stack above it, its backdrop covering the Settings card, or a press
+// meant for it lands on Settings (Leo, plugin hand test, 2026-11-18).
+it("stacks the permission question above Settings, on the confirmations' layer", async () => {
+  render(<PluginSettings />);
+  fireEvent.click(await screen.findByRole("switch", { name: "Turn on Zotero search" }));
+  const dialog = await screen.findByRole("dialog", { name: "Turn on Zotero search?" });
+  const backdrop = dialog.previousElementSibling;
+  expect(backdrop).toHaveClass("modal-backdrop", "confirm-action-backdrop");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
 it("turns a plugin off without asking", async () => {
   list = { available: true, plugins: [{ ...zotero, enabled: true, granted: zotero.permissions }] };
   render(<PluginSettings />);

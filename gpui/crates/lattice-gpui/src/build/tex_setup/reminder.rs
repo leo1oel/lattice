@@ -1,17 +1,22 @@
 //! The reminder that TeX packages are out of date, as the Tauri app's
 //! `use-tex-update-reminder.ts` and `useDailyTexPackageCheck` give it.
 //!
-//! Once a day, a minute after launch (so tlmgr never competes with opening a
-//! project), the TeX doctor's package check asks the repository what it has
-//! newer; only an answer counts, so offline it tries again next launch. When
-//! it finds updates, a notice says so: Lattice's own BasicTeX gets the
-//! doctor's one-click update (behind the administrator prompt), a TeX the
-//! writer installed gets the command and a Copy button, since Lattice does
-//! not change it. It never nags: once a launch at most, no sooner than a day
-//! after the last one, and Later keeps it away three days. A build running
-//! when the answer comes keeps it back until the build ends, so it never
-//! lands over the build's own result, and an update (from anywhere) or a
-//! check that finds nothing left takes it down.
+//! Once a week, a minute after launch (so tlmgr never competes with opening
+//! a project), the TeX doctor's package check asks the repository what it
+//! has newer; only an answer counts, so offline it tries again next launch.
+//! TeX Live's repository changes daily, so a week batches those changes into
+//! one update. When it finds updates in a tree the writer owns (handed over
+//! by an earlier administrator prompt), it installs them silently, since no
+//! password is needed; only a failed silent update falls back to the notice.
+//! Otherwise a notice says so: a TeX Live tree under /usr/local/texlive gets
+//! the doctor's one-click update, whose one administrator prompt hands the
+//! tree over; any other TeX gets the command and a Copy button, since
+//! Lattice does not change it. It never nags: once a launch at most, no
+//! sooner than a day after the last one, and Later keeps it away three days.
+//! A build running when the answer comes holds back the notice and the
+//! silent update until the build ends, so neither lands over the build, and
+//! an update (from anywhere) or a check that finds nothing left takes the
+//! notice down.
 //!
 //! An update started from the reminder reports where it stands in a notice
 //! of its own, its bar moving with tlmgr's progress, since the reminder is
@@ -36,6 +41,8 @@ use super::{
 use crate::notices::{self, Notice, NoticeAction};
 
 const DAY: Duration = Duration::from_secs(24 * 60 * 60);
+/// How often the background check asks (`PACKAGE_CHECK_INTERVAL_MS`).
+const CHECK_INTERVAL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 /// How long Later keeps the reminder away (`REMINDER_SNOOZE_MS`).
 pub const SNOOZE: Duration = Duration::from_secs(3 * 24 * 60 * 60);
 /// After launch, so the check never competes with opening a project
@@ -64,9 +71,9 @@ impl Record {
         now >= self.snoozed_until && now.saturating_sub(self.shown_at) >= DAY.as_millis() as u64
     }
 
-    /// The daily check has not run today.
+    /// The weekly check has not run this week.
     pub fn check_due(&self, now: u64) -> bool {
-        now.saturating_sub(self.checked_at) >= DAY.as_millis() as u64
+        now.saturating_sub(self.checked_at) >= CHECK_INTERVAL.as_millis() as u64
     }
 }
 
@@ -83,10 +90,20 @@ fn now_ms() -> u64 {
         .map_or(0, |since| since.as_millis() as u64)
 }
 
+/// What a check that found updates waits to do once no build runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Pending {
+    Remind,
+    /// Update silently: the writer owns the tree, so no password is needed.
+    Install,
+}
+
 pub struct Reminder {
     file: Option<PathBuf>,
-    /// A daily check found updates; the reminder waits for its moment.
-    pending: bool,
+    /// A weekly check found updates and waits for its moment.
+    pending: Option<Pending>,
+    /// A silent update is running; a failure brings the reminder instead.
+    installing: bool,
     /// The reminder is on screen, or was this launch.
     shown: bool,
     /// The daily check is waiting for the center's answer.
@@ -119,7 +136,8 @@ pub fn install(center: &Entity<TexSetupCenter>, cx: &mut App) {
         });
         let mut reminder = Reminder {
             file,
-            pending: false,
+            pending: None,
+            installing: false,
             shown: false,
             checking: false,
             following: false,
@@ -132,7 +150,7 @@ pub fn install(center: &Entity<TexSetupCenter>, cx: &mut App) {
         if reminder.file.is_some() && reminder.record().check_due(now_ms()) {
             reminder._check = Some(cx.spawn(async move |this, cx| {
                 cx.background_executor().timer(CHECK_DELAY).await;
-                this.update(cx, |this, cx| this.daily_check(cx)).ok();
+                this.update(cx, |this, cx| this.weekly_check(cx)).ok();
             }));
         }
         reminder
@@ -183,7 +201,7 @@ impl Reminder {
         }
     }
 
-    fn daily_check(&mut self, cx: &mut Context<Self>) {
+    fn weekly_check(&mut self, cx: &mut Context<Self>) {
         let Some(center) = super::center::center(cx) else {
             return;
         };
@@ -200,12 +218,21 @@ impl Reminder {
             if let Some(report) = packages.report.as_ref().filter(|r| r.error.is_none()) {
                 let found = outdated(Some(report)) > 0;
                 self.write(|record| record.checked_at = now_ms());
-                if found && self.record().due(now_ms()) && !self.shown {
-                    self.pending = true;
+                if found && report.managed && report.passwordless {
+                    self.pending = Some(Pending::Install);
+                } else if found && self.record().due(now_ms()) && !self.shown {
+                    self.pending = Some(Pending::Remind);
                 }
             }
         }
         let running = packages.run.as_ref().is_some_and(|run| run.running);
+        if self.installing && !running {
+            self.installing = false;
+            let failed = packages.run.as_ref().is_some_and(|run| run.error.is_some());
+            if failed && !self.shown {
+                self.pending = Some(Pending::Remind);
+            }
+        }
         let count = outdated(packages.report.as_ref());
         // Updating, or nothing left to update: the reminder has said its piece.
         if self.shown
@@ -218,9 +245,13 @@ impl Reminder {
         self.show_when_due(cx);
     }
 
-    /// Show the pending reminder, unless a build or an update is running.
+    /// Show the pending reminder, or start the silent update, unless a build
+    /// or an update is running.
     fn show_when_due(&mut self, cx: &mut Context<Self>) {
-        if !self.pending || !self.building.is_empty() {
+        let Some(pending) = self.pending else {
+            return;
+        };
+        if !self.building.is_empty() {
             return;
         }
         let Some(center) = super::center::center(cx) else {
@@ -233,10 +264,15 @@ impl Reminder {
         let count = outdated(packages.report.as_ref());
         // An update elsewhere (the doctor) may have left nothing to do.
         let Some(report) = packages.report.clone().filter(|_| count > 0) else {
-            self.pending = false;
+            self.pending = None;
             return;
         };
-        self.pending = false;
+        self.pending = None;
+        if pending == Pending::Install {
+            self.installing = true;
+            center.update(cx, |center, cx| center.update_packages(cx));
+            return;
+        }
         self.shown = true;
         self.write(|record| record.shown_at = now_ms());
         notices::show(reminder_notice(&report, cx.entity()), cx);
@@ -312,7 +348,7 @@ impl Reminder {
     /// would once nothing holds it back, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn remind(&mut self, cx: &mut Context<Self>) {
-        self.pending = true;
+        self.pending = Some(Pending::Remind);
         self.show_when_due(cx);
     }
 }
@@ -331,14 +367,25 @@ fn reminder_notice(report: &TexPackageUpdates, reminder: Entity<Reminder>) -> No
         .key(REMINDER_KEY)
         .persistent();
     if report.managed {
-        notice
-            .detail(t!(
-                "Updates available ({count}). Updating asks for administrator approval and can take a few minutes.",
+        let detail = if report.passwordless {
+            t!(
+                "Updates available ({count}). Updating can take a few minutes.",
                 count = count
+            )
+        } else {
+            t!(
+                "Updates available ({count}). Updating asks for your password once; after that, Lattice keeps TeX up to date without asking.",
+                count = count
+            )
+        };
+        notice
+            .detail(detail)
+            .action(NoticeAction::new(
+                t!("Update TeX packages"),
+                move |_, cx| {
+                    reminder.update(cx, |this, cx| this.update(cx));
+                },
             ))
-            .action(NoticeAction::new(t!("Update TeX packages"), move |_, cx| {
-                reminder.update(cx, |this, cx| this.update(cx));
-            }))
             .action(later)
     } else {
         notice
@@ -384,14 +431,15 @@ mod tests {
     }
 
     #[test]
-    fn the_check_runs_once_a_day() {
+    fn the_check_runs_once_a_week() {
         let now = 10 * DAY_MS;
         assert!(Record::default().check_due(now));
         let checked = Record {
-            checked_at: now - DAY_MS + 1,
+            checked_at: now - 7 * DAY_MS + 1,
             ..Record::default()
         };
         assert!(!checked.check_due(now));
+        assert!(checked.check_due(now + 1));
     }
 
     #[test]
@@ -407,6 +455,7 @@ mod tests {
     fn a_check_that_could_not_ask_finds_nothing() {
         let report = TexPackageUpdates {
             managed: true,
+            passwordless: false,
             packages: Vec::new(),
             error: Some("offline".into()),
         };
