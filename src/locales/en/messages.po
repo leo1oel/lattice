@@ -6755,6 +6755,12 @@ msgstr "Files in this version"
 msgid "Files the last build used are missing"
 msgstr "Files the last build used are missing"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgctxt "tab style"
+msgid "Filled"
+msgstr "Filled"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
 msgstr "Filled square"
@@ -11554,6 +11560,12 @@ msgstr "Other languages"
 msgid "Outline"
 msgstr "Outline"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgctxt "tab style"
+msgid "Outlined"
+msgstr "Outlined"
+
 #: src/project/arxiv-export.ts
 msgid "Over arXiv’s size limit"
 msgstr "Over arXiv’s size limit"
@@ -15700,6 +15712,11 @@ msgstr "syntax highlighting color scheme editor"
 msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgid "Tab style"
+msgstr "Tab style"
+
 #: src/editor/latex/latex-text.ts
 msgid "table"
 msgstr "table"
@@ -15727,6 +15744,11 @@ msgstr "Table generator"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Table of contents"
 msgstr "Table of contents"
+
+#. Search words for the Tab style setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "tabs outline chip Linear"
+msgstr "tabs outline chip Linear"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Taking longer than usual"

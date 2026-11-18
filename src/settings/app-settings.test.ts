@@ -83,6 +83,17 @@ describe("prose spellcheck default", () => {
   );
 });
 
+describe("tab style", () => {
+  // Filled, the strip as it always was, unless the writer chose Outlined.
+  it.each([[null, "filled"], [{ tabStyle: "outlined" }, "outlined"], [{ tabStyle: "pill" }, "filled"]])(
+    "loads %j as %s",
+    (stored, style) => {
+      if (stored) localStorage.setItem(APPEARANCE_KEY, JSON.stringify(stored));
+      expect(loadAppearance().tabStyle).toBe(style);
+    },
+  );
+});
+
 describe("workspace layout persistence", () => {
   it("round-trips tab order, active tab, and split layout per project", () => {
     persistWorkspaceLayout("/papers/alpha", layout);

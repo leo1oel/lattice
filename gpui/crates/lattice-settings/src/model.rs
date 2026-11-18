@@ -85,6 +85,11 @@ choice!(
     } default Comments
 );
 choice!(
+    /// How panel tabs draw: `Filled` marks only the selected tab;
+    /// `Outlined` rings every tab so the strip shows how many are open.
+    TabStyle { Filled = "filled", Outlined = "outlined" } default Filled
+);
+choice!(
     Tint { Graphite = "graphite", Paper = "paper", Sage = "sage", Mist = "mist", Dusk = "dusk" } default Graphite
 );
 choice!(
@@ -227,6 +232,7 @@ pub struct Appearance {
     pub interface_sounds: bool,
     pub toast_position: ToastPosition,
     pub hidden_titlebar_tools: Vec<TitlebarTool>,
+    pub tab_style: TabStyle,
     pub tint: Tint,
     pub accent: Accent,
     pub translucency: Translucency,
@@ -251,6 +257,7 @@ impl Default for Appearance {
             // which share the top right.
             toast_position: ToastPosition::BottomRight,
             hidden_titlebar_tools: Vec::new(),
+            tab_style: TabStyle::Filled,
             tint: Tint::Graphite,
             accent: Accent::default(),
             translucency: Translucency::Subtle,
@@ -402,6 +409,7 @@ impl Appearance {
             interface_sounds: field("interfaceSounds") != Some(&Value::Bool(false)),
             toast_position: choice(field("toastPosition"), defaults.toast_position),
             hidden_titlebar_tools: hidden,
+            tab_style: choice(field("tabStyle"), defaults.tab_style),
             tint: choice(field("tint"), defaults.tint),
             accent: field("accent")
                 .and_then(Value::as_str)
@@ -529,6 +537,7 @@ mod tests {
         assert_eq!(appearance, Appearance::default());
         assert_eq!(appearance.toast_position, ToastPosition::BottomRight);
         assert_eq!(appearance.translucency, Translucency::Subtle);
+        assert_eq!(appearance.tab_style, TabStyle::Filled);
     }
 
     #[test]
@@ -546,6 +555,7 @@ mod tests {
                 "interfaceSounds": "no",
                 "toastPosition": "top-left",
                 "hiddenTitlebarTools": ["git", "nope", "comments"],
+                "tabStyle": "outlined",
                 "tint": "sage",
                 "accent": "#3D7AF2",
                 "translucency": "strong",
@@ -569,6 +579,7 @@ mod tests {
             appearance.hidden_titlebar_tools,
             vec![TitlebarTool::Comments, TitlebarTool::Git]
         );
+        assert_eq!(appearance.tab_style, TabStyle::Outlined);
         assert_eq!(appearance.tint, Tint::Sage);
         assert_eq!(appearance.accent, Accent::Custom("#3d7af2".into()));
         assert_eq!(appearance.accent.custom_rgb(), Some([0x3d, 0x7a, 0xf2]));
