@@ -8,7 +8,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 
 - [Agent](docs/agent.md): runs the Agent as the Tauri app embeds it, with its Git workspace and its document tools.
 - [Annotations](docs/annotations.md): keeps the writer's notes on passages of the sources, marked and pinned in the editor and listed in the Annotations panel.
-- [App updater](docs/updater.md): updates the app as the Tauri app does, from the GPUI app's own release channel, once Settings › Editor & builds › Preview updates is on (off by default).
+- [App updater](docs/updater.md): updates the app as the Tauri app does, from the GPUI app's own release channel, once Settings › Editor & builds › Beta updates is on (off by default).
 - [App's log and Help](docs/app-log-and-help.md): the app's log, Settings › Logs, Report a problem and What's new.
 - [Boards, spreadsheets and decks](docs/structured-documents.md): opens boards, spreadsheets and Open Slide decks in the Tauri app's own editors.
 - [Builds](docs/builds.md): builds with lattice-core's latexmk build, explains its errors and offers their fixes.
@@ -124,9 +124,11 @@ On every platform, Vim's normal and visual modes keep ⌃M as their next-line st
 
 ## Packaging
 
-`node ../scripts/gpui-bundle.mjs` builds `Lattice GPUI.app` (identifier `app.leo1oel.lattice-gpui`, so it installs beside Lattice.app) into `target/bundle/`: the release binary without `offscreen-shots`, PDFium in `Contents/Frameworks`, and in `Contents/Resources` the island pages, the Synara and Open Slide runtimes staged as the Tauri build stages them (`SYNARA_SOURCE_DIR` names the pinned Synara checkout), the bundled skills and the icon.
+`node ../scripts/gpui-bundle.mjs` builds `Lattice Beta.app` (identifier `app.leo1oel.lattice-beta`, so it installs beside Lattice.app) into `target/bundle/`: the release binary without `offscreen-shots`, PDFium in `Contents/Frameworks`, and in `Contents/Resources` the island pages, the Synara and Open Slide runtimes staged as the Tauri build stages them (`SYNARA_SOURCE_DIR` names the pinned Synara checkout), the bundled skills and the icon.
 It signs with the Developer ID in `APPLE_SIGNING_IDENTITY` (ad hoc without one), notarizes with the App Store Connect key release.yml uses when `APPLE_API_KEY`, `APPLE_API_ISSUER` and `APPLE_API_KEY_PATH` are set, and writes a `.dmg`, a `.zip` and the updater's archive, signed for the GPUI channel with `TAURI_SIGNING_PRIVATE_KEY` ([App updater](docs/updater.md)).
 `../.github/workflows/gpui-package.yml` (Actions › GPUI package › Run workflow) does the same with the release secrets and keeps the files as the run's artifact; it publishes nothing.
+It keeps its data in the GPUI app's own folders (`~/Library/Application Support/lattice-gpui`, `~/Library/Caches/lattice-gpui`), apart from Lattice.app's.
+The Tauri app's local Beta flavor (`../docs/release-process.md`, "Build Lattice Beta") is another app with the same file name, `Lattice Beta.app`; only one of the two fits in /Applications.
 Only Apple silicon macOS is packaged so far.
 
 ## CI

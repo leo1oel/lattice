@@ -5,7 +5,7 @@ name: GPUI package
 # .app.tar.gz with its .sig and the GPUI channel's latest.json
 # (scripts/gpui-bundle.mjs, gpui/docs/updater.md). It runs only on demand
 # (Actions > GPUI package > Run workflow) and publishes nothing: no release,
-# no tag, no upload to the gpui-channel prerelease. The Tauri release path
+# no tag, no upload to the lattice-beta prerelease. The Tauri release path
 # (release.yml) is untouched; this reads the same secrets the same way.
 on:
   workflow_dispatch:
@@ -132,7 +132,7 @@ jobs:
           node scripts/gpui-bundle.mjs \
             --binary gpui/target/release/lattice-gpui \
             --out "$RUNNER_TEMP/gpui-bundle"
-          rm -rf "$RUNNER_TEMP/gpui-bundle/Lattice GPUI.app"
+          rm -rf "$RUNNER_TEMP/gpui-bundle/Lattice Beta.app"
 
       - name: Check the installed app size
         run: |
@@ -140,7 +140,7 @@ jobs:
           mount_path="$(mktemp -d "$RUNNER_TEMP/gpui-size.XXXXXX")"
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_path"
           trap 'hdiutil detach "$mount_path"' EXIT
-          du -sh "$mount_path/Lattice GPUI.app"/Contents/* "$mount_path/Lattice GPUI.app"/Contents/Resources/* | tee -a "$GITHUB_STEP_SUMMARY"
+          du -sh "$mount_path/Lattice Beta.app"/Contents/* "$mount_path/Lattice Beta.app"/Contents/Resources/* | tee -a "$GITHUB_STEP_SUMMARY"
 
       # release.yml's checks of the signed and notarized disk image.
       - name: Verify signed and notarized artifacts
@@ -154,7 +154,7 @@ jobs:
           mount_path="$(mktemp -d "$RUNNER_TEMP/gpui-dmg.XXXXXX")"
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_path"
           trap 'hdiutil detach "$mount_path"' EXIT
-          app_path="$mount_path/Lattice GPUI.app"
+          app_path="$mount_path/Lattice Beta.app"
           codesign --verify --deep --strict --verbose=2 "$app_path"
           spctl --assess --type execute --verbose=4 "$app_path"
           xcrun stapler validate "$app_path"

@@ -368,7 +368,7 @@ fn updates(
     width: PageWidth,
     cx: &mut Context<SettingsDialog>,
 ) -> AnyElement {
-    // The GPUI app updates itself only from its own channel, and only once
+    // Lattice Beta updates itself only from its own channel, and only once
     // the writer turns that on (`crate::updater`); until then each release
     // is on GitHub, as the Tauri app says where it cannot update itself.
     let on = super::get(cx).app_updates;
@@ -392,11 +392,11 @@ fn updates(
     let rows = vec![
         row(
             dialog,
-            Row::new("app-updates", t!("Preview updates"))
+            Row::new("app-updates", t!("Beta updates"))
                 .control(controls::switch("app-updates", on, false, |on, _, cx| {
                     super::update(cx, |settings| settings.app_updates = on)
                 }))
-                .description(t!("Check the GPUI preview’s own release channel at launch and every six hours, and offer each new version. Off until you turn it on."), cx),
+                .description(t!("Check Lattice Beta’s own release channel at launch and every six hours, and offer each new version. Off until you turn it on."), cx),
             width,
             cx,
         ),

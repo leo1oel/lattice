@@ -38,11 +38,11 @@ pub struct Channel {
 }
 
 /// The GPUI app's release manifest: the `latest.json` asset of the
-/// `gpui-channel` prerelease, which only GPUI builds are published to. A
+/// `lattice-beta` prerelease, which only Lattice Beta (GPUI) builds are published to. A
 /// prerelease is never GitHub's latest release, so the Tauri app's
 /// `releases/latest/download/latest.json` never sees it.
 pub const GPUI_ENDPOINT: &str =
-    "https://github.com/leo1oel/lattice/releases/download/gpui-channel/latest.json";
+    "https://github.com/leo1oel/lattice/releases/download/lattice-beta/latest.json";
 
 /// The channel this run updates from: [`GPUI_ENDPOINT`], checked with the
 /// Tauri updater's public key (`plugins.updater.pubkey` in tauri.conf.json).
@@ -86,7 +86,7 @@ struct UpdaterGlobal(Entity<Updater>);
 impl Global for UpdaterGlobal {}
 
 /// Make the updater; with a channel, check at launch and every six hours
-/// while Preview updates is on.
+/// while Beta updates is on.
 pub fn install(scripted: bool, cx: &mut App) -> Entity<Updater> {
     let updater = cx.new(|cx| {
         let mut updater = Updater {
@@ -118,7 +118,7 @@ pub fn global(cx: &App) -> Option<Entity<Updater>> {
         .map(|global| global.0.clone())
 }
 
-/// Preview updates was turned on or off: check at once when it comes on,
+/// Beta updates was turned on or off: check at once when it comes on,
 /// and add or take away Check for Updates….
 pub fn setting_changed(cx: &mut App) {
     if let Some(updater) = global(cx) {
@@ -166,7 +166,7 @@ fn source() -> String {
 }
 
 impl Updater {
-    /// The channel, while Preview updates is on.
+    /// The channel, while Beta updates is on.
     fn active_channel(&self, cx: &App) -> Option<Channel> {
         self.channel
             .clone()
@@ -416,7 +416,7 @@ pub fn register_actions(cx: &mut App) {
     });
 }
 
-/// Point the updater at `channel` and turn Preview updates on, for a
+/// Point the updater at `channel` and turn Beta updates on, for a
 /// scenario (a run's env is set before it starts).
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) fn use_channel(channel: Channel, cx: &mut App) {

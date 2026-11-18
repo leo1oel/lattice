@@ -41,7 +41,7 @@
  *     --skip-runtimes  reuse the staged src-tauri/synara-runtime and
  *                      presentation-runtime as they are
  *     --feed URL       where latest.json and the archive are published
- *                      (default: the gpui-channel prerelease)
+ *                      (default: the lattice-beta prerelease)
  */
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -51,10 +51,10 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { codesign, signMachOTree } from "./lib/codesign.mjs";
 
-export const PRODUCT = "Lattice GPUI";
-export const IDENTIFIER = "app.leo1oel.lattice-gpui";
+export const PRODUCT = "Lattice Beta";
+export const IDENTIFIER = "app.leo1oel.lattice-beta";
 export const EXECUTABLE = "lattice-gpui";
-export const DEFAULT_FEED = "https://github.com/leo1oel/lattice/releases/download/gpui-channel";
+export const DEFAULT_FEED = "https://github.com/leo1oel/lattice/releases/download/lattice-beta";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tauri = path.join(repo, "src-tauri");
@@ -190,7 +190,7 @@ async function main() {
   console.log(`gpui-bundle: signed ${signed + 2} Mach-O files and the bundle ${identity === "-" ? "ad hoc" : `as ${identity}`}`);
 
   // 5. Notarize the app before it is packed, so every package holds the stapled app.
-  const base = `Lattice-GPUI_${version}_aarch64`;
+  const base = `Lattice-Beta_${version}_aarch64`;
   if (key) {
     const upload = path.join(out, `${base}.notarize.zip`);
     run("ditto", ["-c", "-k", "--keepParent", app, upload]);

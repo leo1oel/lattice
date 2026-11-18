@@ -485,7 +485,7 @@ pub struct Settings {
     /// only its citation (`lattice.papers.save-full-text.v1`); off until the
     /// writer turns it on.
     pub save_full_text: bool,
-    /// Settings › Editor & builds › Preview updates: the GPUI app checks its
+    /// Settings › Editor & builds › Beta updates: the GPUI app checks its
     /// own release channel (`crate::updater`) only while this is on; off
     /// until the writer turns it on.
     pub app_updates: bool,

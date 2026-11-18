@@ -222,7 +222,7 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         Editor,
         editor,
         "app-updates",
-        t!("Preview updates"),
+        t!("Beta updates"),
     ));
     out.push(Entry::row(Editor, editor, "version", t!("Version")));
     let agent = t!("Agent");
