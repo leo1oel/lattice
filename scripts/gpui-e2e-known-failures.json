@@ -1254,6 +1254,38 @@
       ],
       "reason": "Windows: failed in 1 of 5 main runs (44276458780), so intermittent; observed {\"selected\":[\"cite-check.tex\"]}",
       "followup": "LEO-15"
+    },
+    {
+      "step": "Export figures for a journal saves the editor first, then writes the drawing's figure as a PDF in a folder of its own and says so, and a second run meanwhile starts nothing",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"saved\":false,\"notices\":[\"Could not save main.tex\"],\"folders\":[],\"figures\":[],\"second_run_wrote\":0}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "pen strokes drawn in quick succession with native input are an element each",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"strokes\":24,\"elements_added\":0}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "a rectangle drawn with native input on the board is in the .excalidraw after its tab closes at once",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"saved\":false,\"shapes_before\":22,\"on_board_before_close\":22,\"shapes_after\":22}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "the project_tab_drag module runs to its end",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"error\":\"window not found\"}",
+      "followup": "LEO-14"
     }
   ]
 }
