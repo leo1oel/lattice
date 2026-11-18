@@ -19,7 +19,7 @@ import {
 import { LATTICE_HOST_THEME_REQUEST, readAgentHostTheme, type AgentHostThemeSnapshot } from "../agent/agent-host-theme";
 import { LATTICE_PAPER_LIBRARY_REQUEST, type AgentPaperLibrarySnapshot } from "../agent/agent-paper-library";
 import {
-  executeAgentProjectDocumentToolRequest, parseAgentProjectDocumentToolRequest, type AgentProjectDocumentToolRequest,
+  executeAgentProjectDocumentToolRequest, parseAgentProjectDocumentToolRequest, rejectAgentProjectDocumentToolRequest, type AgentProjectDocumentToolRequest,
 } from "../agent/agent-project-document-tools";
 import { executeAgentFigureToolRequest, parseAgentFigureToolRequest } from "../agent/agent-figure-tools";
 import { executeAgentPresentationToolRequest, parseAgentPresentationToolRequest } from "../agent/agent-presentation-tools";
@@ -106,7 +106,7 @@ const TOOL_ROUTES: Array<(
   },
   (data, bridge) => {
     const request = parseAgentProjectDocumentToolRequest(data);
-    return request && executeAgentProjectDocumentToolRequest(request, bridge.projectDocumentCreator());
+    return request ? executeAgentProjectDocumentToolRequest(request, bridge.projectDocumentCreator()) : rejectAgentProjectDocumentToolRequest(data);
   },
   (data) => {
     const request = parseAgentCanvasToolRequest(data);
