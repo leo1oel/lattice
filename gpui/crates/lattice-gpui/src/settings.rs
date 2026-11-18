@@ -42,6 +42,7 @@ pub(crate) mod plugins_pane;
 mod providers_pane;
 pub(crate) mod search;
 mod theme_art;
+mod theme_browse;
 mod theme_files;
 
 use std::{
@@ -332,13 +333,20 @@ pub fn theme_store() -> lattice_core::themes::ThemeStore {
     lattice_core::themes::ThemeStore::new(&crate::structured::resources::app_dirs().data)
 }
 
+/// The theme marketplace's client, caching beside the installed themes.
+pub fn registry() -> lattice_core::registry::Registry {
+    lattice_core::registry::Registry::new(&crate::structured::resources::app_dirs().data)
+}
+
 /// Read the chosen theme again and apply it: after the choice changes, and
 /// after the chosen theme is reinstalled or removed. A theme that no longer
-/// exists applies as no theme.
+/// exists, or that the registry's kill switch turned off, applies as no
+/// theme.
 pub fn reload_theme(cx: &mut App) {
     let id = get(cx).appearance.theme.clone();
-    let file = (!id.is_empty())
-        .then(|| theme_store().get(&id))
+    let store = theme_store();
+    let file = (!id.is_empty() && !registry().turned_off(&store, &id))
+        .then(|| store.get(&id))
         .flatten()
         .map(std::sync::Arc::new);
     LatticeTheme::set_theme(file, cx);

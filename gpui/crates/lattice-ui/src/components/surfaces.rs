@@ -137,6 +137,8 @@ type CloseHandler = Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut App)>;
 pub struct PanelHeader {
     id: ElementId,
     title: SharedString,
+    icon: Option<Icon>,
+    actions: Vec<AnyElement>,
     on_close: Option<CloseHandler>,
 }
 
@@ -145,8 +147,22 @@ impl PanelHeader {
         Self {
             id: id.into(),
             title: title.into(),
+            icon: None,
+            actions: Vec::new(),
             on_close: None,
         }
+    }
+
+    /// A mark before the title (`PanelHeader`'s `icon`).
+    pub fn icon(mut self, icon: Option<Icon>) -> Self {
+        self.icon = icon;
+        self
+    }
+
+    /// Controls before the X (`PanelHeader`'s `actions`).
+    pub fn actions(mut self, actions: Vec<AnyElement>) -> Self {
+        self.actions = actions;
+        self
     }
 
     pub fn on_close(
@@ -173,10 +189,27 @@ impl RenderOnce for PanelHeader {
             .child(
                 div()
                     .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.))
                     .text_role(TextRole::Subtitle, cx)
                     .text_color(palette.text)
-                    .child(self.title),
+                    .when_some(self.icon, |this, icon| {
+                        this.child(icon.element(ICON_LARGE, palette.text))
+                    })
+                    .child(div().min_w_0().truncate().child(self.title)),
             )
+            .when(!self.actions.is_empty(), |this| {
+                this.child(
+                    div()
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .gap(px(4.))
+                        .children(self.actions),
+                )
+            })
             .when_some(self.on_close, |this, on_close| {
                 this.child(
                     IconButton::new(self.id, Icon::CLOSE)
