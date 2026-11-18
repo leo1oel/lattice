@@ -188,6 +188,10 @@ pub struct PdfView {
     pub(super) host_load: HostLoad,
     pub(super) outline: Option<super::OutlineState>,
     pub(super) can_reveal: bool,
+    /// Reveal's keys as the toolbar last drew them, with the keymap's
+    /// version then: the PDF draws on every scroll frame, and finding the
+    /// binding walks the keymap.
+    pub(super) reveal_keys: Option<(gpui::KeymapVersion, Option<SharedString>)>,
     pub(super) offers_build: bool,
     pub(super) building: bool,
     pub(super) zoom_entry: bool,
@@ -324,6 +328,7 @@ impl PdfView {
             host_load: HostLoad::Ready,
             outline: None,
             can_reveal: false,
+            reveal_keys: None,
             offers_build: false,
             building: false,
             zoom_entry: false,
