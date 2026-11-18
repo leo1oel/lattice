@@ -31,6 +31,8 @@ pub fn set_window_focused(window_label: &str, is_focused: bool) {
 
 pub fn install_copy_shortcut_monitor(_app: tauri::AppHandle) {}
 
+pub fn cap_attributed_substring_requests() {}
+
 /// The page's requested window material. No native material is drawn here,
 /// so the request's fields (appearance, background, translucent) are
 /// accepted and ignored: the webview paints its own background.
