@@ -34,7 +34,7 @@
 //! Layout: `account` is the signed-in session, `projects` what it can open
 //! (the project list, pending invitations, a pasted link), `link` the persisted link
 //! between a folder and a project (and how one is made), `local_copies` which
-//! folders on this Mac hold one, `files` the local
+//! folders on this Mac hold one, `destination` where a download goes, `files` the local
 //! side of sync and its merge bases, `sync` the sync (fetching what changed,
 //! or the ZIP), preview and probe, `review` chat, comments, history and tracked changes, and `api` the
 //! HTTP plumbing all of them share.
@@ -44,6 +44,7 @@ mod api;
 #[cfg(test)]
 mod bench;
 mod case_collisions;
+mod destination;
 mod doc_comment;
 mod doc_push;
 mod files;
@@ -62,6 +63,7 @@ pub use account::{
     session_status, settle_session_error, store_session_cookie, LoginAttempts, OverleafLoginPoll,
     OverleafStatus,
 };
+pub use destination::{check_download_parent, download_parent, remember_download_parent};
 pub use doc_comment::{comment_in_document, CommentPlacement};
 pub use files::{agreed_text, checkpoint_realtime_text, is_conflict_copy, RealtimeCheckpoint};
 pub use link::{
@@ -69,7 +71,9 @@ pub use link::{
     realtime_config, record_relocation, reopen_local_copy, set_paused, set_permission,
     set_realtime_metadata, CloneTarget, OverleafLink,
 };
-pub use local_copies::{local_copies, remember_local_copy, remembered_local_copies, LocalCopy};
+pub use local_copies::{
+    display_path, local_copies, remember_local_copy, remembered_local_copies, LocalCopy,
+};
 pub use projects::{
     list_projects, resolve_link, OverleafInvite, OverleafProject, OverleafProjectList, PastedLink,
 };

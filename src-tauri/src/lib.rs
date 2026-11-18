@@ -251,6 +251,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     macos_window::clear_launch_quarantine();
     macos_window::install_magnify_monitor(app.handle().clone());
     macos_window::install_copy_shortcut_monitor(app.handle().clone());
+    macos_window::cap_attributed_substring_requests();
     // The main window is `create: false` in tauri.conf.json, so no window
     // exists yet: a desktop launch builds it through `workspace_window`.
     if background {
@@ -557,6 +558,8 @@ pub fn run() {
             ipc::overleaf::overleaf_list_projects,
             ipc::overleaf::overleaf_resolve_link,
             ipc::overleaf::overleaf_clone_target,
+            ipc::overleaf_destination::overleaf_download_parent,
+            ipc::overleaf_destination::overleaf_check_download_parent,
             ipc::overleaf::overleaf_local_copies,
             ipc::overleaf::overleaf_reopen_local_copy,
             ipc::overleaf::overleaf_clone_project,
@@ -665,14 +668,4 @@ pub fn run() {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::keeps_running_without_windows;
-
-    #[test]
-    fn closing_the_last_window_leaves_lattice_running_on_a_mac() {
-        // Before: only a browser-resident host stayed, so ⌘W on the last
-        // window quit Lattice outright.
-        assert_eq!(keeps_running_without_windows(false), cfg!(target_os = "macos"));
-        assert!(keeps_running_without_windows(true));
-    }
-}
+mod tests;

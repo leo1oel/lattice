@@ -4,8 +4,13 @@ import { hostErrorText } from "../platform/host-error-text";
 
 /** `TexPackageUpdates` in src-tauri/lattice-core/src/tex_setup/package_updates.rs. */
 export type TexPackageUpdatesReport = {
-  /** The TeX is a BasicTeX, which Lattice installed and may update itself. */
+  /** The TeX is a TeX Live tree under /usr/local/texlive (BasicTeX or MacTeX), which Lattice may update itself. */
   managed: boolean;
+  /**
+   * The signed-in user owns that tree, so updates and package installs run
+   * without the administrator prompt; the first prompted run hands it over.
+   */
+  passwordless: boolean;
   packages: { name: string; installed: string; available: string }[];
   /** Why the repository could not be asked; then `packages` says nothing. */
   error?: string;

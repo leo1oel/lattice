@@ -125,6 +125,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     settings::init(cx);
     theme_settings::init(theme::LoadThemes::All(Box::new(assets::Assets)), cx);
     crate::assets::load_fonts(cx);
+    lattice_board::load_fonts(cx);
     gpui_kit::init(cx);
     LatticeTheme::init(appearance_override(), cx);
     load_code_themes(cx);

@@ -5,7 +5,7 @@ import { TEX_PACKAGE_UPDATE_COMMAND, texPackageUpdateMessage } from "../build/te
 import { notifyError, notifyInfo, notifySuccess, notifyWarning, updateAppToastProgress } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { useDailyTexPackageCheck, type TexPackageUpdates } from "./use-tex-package-updates";
+import { useWeeklyTexPackageCheck, type TexPackageUpdates } from "./use-tex-package-updates";
 
 const REMINDER_KEY = "lattice.tex-update-reminder.v1";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -48,48 +48,59 @@ function outdatedCount(report: TexPackageUpdatesReport | null): number {
 }
 
 type State = {
-  /** A daily check found updates and the reminder waits for a moment to show. */
-  pending: boolean;
+  /**
+   * A weekly check found updates and waits for a moment without a build:
+   * to show the reminder, or to install them unasked when the writer owns
+   * the TeX tree and so no password is needed.
+   */
+  pending: "remind" | "install" | null;
   /** The reminder is on screen (or was dismissed this launch). */
   shown: boolean;
 };
 
-type Action = { type: "found" } | { type: "shown" } | { type: "dropped" };
+type Action = { type: "found"; install: boolean } | { type: "shown" } | { type: "dropped" };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "found":
-      return state.shown ? state : { ...state, pending: true };
+      if (action.install) return { ...state, pending: "install" };
+      return state.shown ? state : { ...state, pending: "remind" };
     case "shown":
-      return { pending: false, shown: true };
+      return { pending: null, shown: true };
     case "dropped":
-      return { ...state, pending: false };
+      return { ...state, pending: null };
   }
 }
 
 /**
- * Tells the writer, in a toast, when the daily package check finds updates:
- * the Settings badge and the lineno build notice only reach someone already
- * looking there. The BasicTeX Lattice installed gets the doctor's one-click
- * update (behind the administrator prompt); a TeX the writer installed gets
- * the command, since Lattice does not change it.
+ * Keeps TeX Live current from the weekly package check. A tree the writer
+ * owns (handed over by an earlier administrator prompt) updates silently, as
+ * no password is needed; only a failed silent update falls back to the
+ * reminder. Otherwise a toast tells the writer: the Settings badge and the
+ * lineno build notice only reach someone already looking there. A TeX Live
+ * tree under /usr/local/texlive gets the doctor's one-click update, whose
+ * one administrator prompt hands the tree over; any other TeX gets the
+ * command, since Lattice does not change it.
  *
- * It never nags: once a launch at most (the check itself runs at most daily),
- * no sooner than a day after the last one, and "Later" keeps it away for
- * `REMINDER_SNOOZE_MS`. A build running when the check answers keeps it back
- * until the build ends, so it never lands over the build's own result, and
- * an update or a check that finds nothing left takes it down.
+ * It never nags: once a launch at most (the check itself runs at most
+ * weekly), no sooner than a day after the last one, and "Later" keeps it
+ * away for `REMINDER_SNOOZE_MS`. A build running when the check answers
+ * holds back the reminder and the silent update until it ends, so neither
+ * lands over the build, and an update or a check that finds nothing left
+ * takes the reminder down.
  */
 export function useTexUpdateReminder(updates: TexPackageUpdates, building: boolean) {
   const { t } = useLingui();
-  const [state, dispatch] = useReducer(reducer, { pending: false, shown: false });
+  const [state, dispatch] = useReducer(reducer, { pending: null, shown: false });
   const followingUpdateRef = useRef(false);
   const updateRef = useLatestRef(updates.update);
 
   const onChecked = useCallback((report: TexPackageUpdatesReport | null) => {
-    if (outdatedCount(report) > 0 && reminderDue(readReminderRecord(), Date.now())) dispatch({ type: "found" });
+    if (!report || outdatedCount(report) === 0) return;
+    if (report.managed && report.passwordless) dispatch({ type: "found", install: true });
+    else if (reminderDue(readReminderRecord(), Date.now())) dispatch({ type: "found", install: false });
   }, []);
-  useDailyTexPackageCheck(updates.check, onChecked);
+  useWeeklyTexPackageCheck(updates.check, onChecked);
 
   const { report, run } = updates;
   const running = run?.running === true;
@@ -102,13 +113,22 @@ export function useTexUpdateReminder(updates: TexPackageUpdates, building: boole
       dispatch({ type: "dropped" });
       return;
     }
+    if (state.pending === "install") {
+      dispatch({ type: "dropped" });
+      void updateRef.current().then((failure) => {
+        if (failure !== null) dispatch({ type: "found", install: false });
+      });
+      return;
+    }
     writeReminderRecord({ shownAt: Date.now() });
     dispatch({ type: "shown" });
     const later = { label: t`Later`, onClick: () => writeReminderRecord({ snoozedUntil: Date.now() + REMINDER_SNOOZE_MS }) };
     const title = t`Your TeX packages are out of date`;
     if (report.managed) {
       notifyWarning(t`LaTeX setup`, title, {
-        detail: t`Updates available (${count}). Updating asks for administrator approval and can take a few minutes.`,
+        detail: report.passwordless
+          ? t`Updates available (${count}). Updating can take a few minutes.`
+          : t`Updates available (${count}). Updating asks for your password once; after that, Lattice keeps TeX up to date without asking.`,
         timeoutMs: 0,
         dedupeKey: REMINDER_TOAST_KEY,
         primaryAction: {

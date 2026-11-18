@@ -1,6 +1,6 @@
 //! Taking a project across: opening it (the folder already linked here, or
-//! a download into Overleaf Projects), uploading this one as a new Overleaf
-//! project, and what the picker shows of either in flight.
+//! a download into the folder the download line names), uploading this one
+//! as a new Overleaf project, and what the picker shows of either in flight.
 
 use super::*;
 
@@ -69,7 +69,13 @@ impl OverleafPicker {
     ) {
         let target = {
             let (id, name) = (project.id.clone(), project.name.clone());
-            cx.background_spawn(async move { sync::clone_target(&id, &name).ok() })
+            let parent = self.destination.clone();
+            cx.background_spawn(async move {
+                let parent = parent.map_or_else(sync::download_parent, Ok);
+                parent
+                    .and_then(|parent| sync::clone_target(&id, &name, &parent))
+                    .ok()
+            })
         };
         self.opening = Some(project.clone());
         cx.notify();
@@ -133,10 +139,16 @@ impl OverleafPicker {
         }));
         cx.notify();
         let (sender, mut steps) = futures::channel::mpsc::unbounded();
+        let parent = self.destination.clone();
         let run = cx.background_spawn(async move {
+            let parent = match parent.map_or_else(sync::download_parent, Ok) {
+                Ok(parent) => parent,
+                Err(error) => return (Err(error), false),
+            };
             sync::clone(
                 &project.id,
                 &project.name,
+                &parent,
                 project.access_level.as_deref(),
                 adopt,
                 move |step| {
@@ -239,6 +251,86 @@ impl OverleafPicker {
     }
 
     /// The upload offer (`.overleaf-publish-card`).
+    /// Where a download goes (`.overleaf-destination`), with Choose… to pick
+    /// another folder, and why a chosen one could not be used.
+    pub(super) fn destination_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let palette = cx.palette().clone();
+        let shown = (self.destination.as_deref())
+            .map_or_else(|| "…".to_string(), lattice_core::overleaf::display_path);
+        let row = div()
+            .relative()
+            .children(parity::probe("overleaf/picker/destination"))
+            .mt(px(12.))
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(px(8.))
+            .text_role(TextRole::Micro, cx)
+            .text_color(palette.text_secondary)
+            .child(Icon::FOLDER.element(px(14.), palette.text_secondary))
+            .child(div().flex_none().child(t!("Download to")))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .text_color(palette.text)
+                    .child(shown),
+            )
+            .child(
+                Button::new("overleaf-destination-choose", t!("Choose…"))
+                    .size(ButtonSize::Compact)
+                    .variant(ButtonVariant::Ghost)
+                    .disabled(self.working())
+                    .on_click(cx.listener(|this, _, _, cx| this.choose_destination(cx))),
+            );
+        div()
+            .flex_none()
+            .child(row)
+            .children(
+                self.destination_error
+                    .clone()
+                    .map(|error| div().mt(px(8.)).child(inline_message(error, true, cx))),
+            )
+            .into_any_element()
+    }
+
+    /// Choose another folder to download into, checked before it is offered.
+    fn choose_destination(&mut self, cx: &mut Context<Self>) {
+        let chosen = cx.prompt_for_paths(gpui::PathPromptOptions {
+            files: false,
+            directories: true,
+            multiple: false,
+            prompt: Some(t!("Choose where to download Overleaf projects").into()),
+        });
+        self.task = Some(cx.spawn(async move |this, cx| {
+            let Ok(Ok(Some(paths))) = chosen.await else {
+                return;
+            };
+            let Some(parent) = paths.into_iter().next() else {
+                return;
+            };
+            let check = {
+                let parent = parent.clone();
+                cx.background_spawn(async move { sync::check_download_parent(&parent) })
+            };
+            let checked = check.await;
+            this.update(cx, |this, cx| {
+                match checked {
+                    Ok(()) => {
+                        this.destination = Some(parent);
+                        this.destination_error = None;
+                    }
+                    Err(error) => {
+                        this.destination_error = Some(crate::host_errors::text(&error).into())
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        }));
+    }
+
     pub(super) fn publish_card(&self, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let working = self.working();

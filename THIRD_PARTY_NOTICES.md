@@ -65,6 +65,57 @@ The board editor is [Excalidraw](https://github.com/excalidraw/excalidraw), pinn
 
 Excalidraw's defaults load its fonts from `esm.sh`. Lattice instead serves the package's own `dist/prod/fonts` (Excalifont, Virgil, Nunito, Lilita One, Comic Shanns, Cascadia Code, Liberation Sans, Assistant and the Xiaolai CJK subsets) from the application through `scripts/excalidraw-assets.ts` and `src/editor/board/board-asset-urls.ts`. They are distributed under their own licenses: the SIL Open Font License 1.1 for all but Comic Shanns, which is MIT.
 
+## Excalidraw and quiet.md (the GPUI app's native whiteboard, `gpui/crates/lattice-board-core/`, `gpui/crates/lattice-board/`)
+
+The GPUI app draws `.excalidraw` boards natively, with code copied from [quiet.md](https://github.com/s1dashu/quiet-md) (MIT License, Copyright (c) 2026 s1dashu), a Rust and GPUI port of [Excalidraw](https://github.com/excalidraw/excalidraw) at `3a317b5` (0.18.0; MIT License, Copyright (c) 2020 Excalidraw).
+Every copied file starts with a header naming both projects; quiet.md's license text is copied verbatim into each crate as `LICENSE-quiet-md`, and Excalidraw's is the same MIT text with its own copyright line above.
+The two gpui-fast patches the board needs (`gpui/patches/gpui-fast-glyph-outline.diff`, `gpui/patches/gpui-fast-element-opacity.diff`) port quiet.md's patches to its vendored gpui and credit it the same way.
+
+- **Icons** (`gpui/crates/lattice-board/assets/icons/excalidraw/`, 97 files): rendered by quiet.md from Excalidraw's `packages/excalidraw/components/icons.tsx` @ `3a317b5` (MIT, Copyright (c) 2020 Excalidraw), most of them adapted there from [Tabler Icons](https://github.com/tabler/tabler-icons) (MIT, Copyright (c) 2020-2024 Paweł Kuna). None of quiet.md's Nucleo icons are copied.
+- **Fonts** (`gpui/crates/lattice-board/assets/fonts/excalidraw/`), from Excalidraw's `packages/excalidraw/fonts/` @ `3a317b5`: Excalifont (Copyright 2024 Excalidraw, Ján Filípek / DizajnDesign), Virgil (Copyright 2011 Your Own Font Foundry), Nunito Medium (Copyright The Nunito Project Authors), Lilita One (Copyright 2011 Juan Montoreano) and Cascadia Code (Copyright 2020 Microsoft), all under the SIL Open Font License 1.1, whose text and copyright lines ship beside them as `OFL.txt`; and Comic Shanns Mono 1.3.0 (MIT, Shannon Miwa and contributors), whose license ships as `LICENSE-ComicShanns.txt`. Excalidraw's CJK font (Xiaolai SC) and its Assistant UI font are not shipped: CJK text falls back to the system's PingFang SC, and the UI uses Lattice's own faces.
+
+## tldraw
+
+The board editor is built with the [tldraw SDK](https://github.com/tldraw/tldraw), pinned at `tldraw@5.2.5` in `package.json`.
+
+**The verbatim license text is vendored at [`public/licenses/tldraw-LICENSE.md`](public/licenses/tldraw-LICENSE.md).** It has to be: the published npm packages do not contain it. `node_modules/tldraw/LICENSE.md` is 104 bytes and reads, in full, "This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)" — a link, not a license — while the license itself lists among its conditions:
+
+> To include a verbatim copy of this License in any distribution of the Software.
+
+Vite copies `public/` into `dist/`, and `src-tauri/tauri.conf.json` sets `frontendDist: "../dist"`, so the vendored copy is embedded in the shipped application binary as well as tracked in the source tree. `scripts/generate-notices.mjs` fails if the file goes missing, and reproduces it in the generated section below.
+
+### Which tldraw packages are actually covered
+
+The scope is narrower than the package names suggest, and the `license` fields are not a reliable guide:
+
+- `tldraw`, `@tldraw/editor` and `@tldraw/driver` declare `"SEE LICENSE IN LICENSE.md"` and ship the link stub. These are the packages the tldraw license governs.
+- `@tldraw/utils` and `@tldraw/validate` also declare `"SEE LICENSE IN LICENSE.md"`, but the file they point at is an ordinary **MIT** license, Copyright (c) 2024 tldraw Inc. The declaration is misleading; the shipped text governs.
+- `@tldraw/state`, `@tldraw/state-react`, `@tldraw/store` and `@tldraw/tlschema` declare `"MIT"` and ship the MIT text.
+- `@tldraw/assets` declares `"SEE LICENSE IN LICENSE.md"` and ships the link stub, so its icons, translations and embed icons are covered by the tldraw license too. Its fonts are not tldraw's: see the next section.
+
+### Board fonts (`@tldraw/assets`)
+
+tldraw's defaults load the board's fonts, icons, translations and embed icons from `cdn.tldraw.com`. Lattice instead bundles them from `@tldraw/assets@5.2.5` (pinned to the `tldraw` version) through `src/editor/board/board-asset-urls.ts`; Vite emits them into `dist/assets/`, so they ship inside the application.
+The sixteen `.woff2` files are IBM Plex Sans, Serif and Mono (Copyright © 2017 IBM Corp. with Reserved Font Name "Plex") and Shantell Sans (Copyright 2022 The Shantell Sans Project Authors), all under the SIL Open Font License 1.1 and bundled unmodified.
+Their metadata carries the copyright lines and a pointer to the OFL but not its text, so the license ships separately at [`public/licenses/tldraw-fonts-OFL.txt`](public/licenses/tldraw-fonts-OFL.txt) (both copyright notices plus the OFL), which Vite copies into the shipped application.
+
+### Terms that bear on redistribution
+
+tldraw 5.x is **not** Apache-2.0 and not an OSI-approved license. Quoting the text (see the vendored copy for the whole document):
+
+- Permissions are limited to using the Software in "Development Environments", modifying it, and bundling it "with your own projects".
+- Among the conditions: "Not to use the Software in Production Environments"; "Not to disable, change, or interfere with the Software's License Key enforcement"; "Not to remove any copyright or other notices from the Software"; and **"Not to make the Software available under a license that supersedes or negates the effect of this License."**
+- Production use is reached only through the separate "Trial license" and "Commercial license" sections, each of which turns on a License Key issued by tldraw.
+- Both the warranty disclaimer and the liability limitation say "You must pass this \[…\] on whenever you distribute the Software or derivative works."
+
+**Carve-out.** Lattice is Apache-2.0, but the `tldraw`, `@tldraw/editor` and `@tldraw/driver` packages (and the parts of `@tldraw/assets` listed above) are licensed under the tldraw license, not Apache-2.0; `NOTICE` says so explicitly. Lattice does not relicense them, so the condition against making the Software "available under a license that supersedes or negates the effect of this License" is respected. The license key stays out of this repository: forks build tldraw in its unlicensed, watermarked mode, which does not interfere with key enforcement. (While Lattice was GPL-3.0, these restrictions conflicted with GPL-3.0 §7; that conflict ended with the relicense.)
+
+### What this repository can and cannot verify about its own grant
+
+The board editor reads a license key from the `VITE_TLDRAW_LICENSE_KEY` environment variable at build time; the release workflow passes it from the `VITE_TLDRAW_LICENSE_KEY` repository secret. Builds without that key, including release builds when the secret is unset, run tldraw in its unlicensed, watermarked mode. **The specific grant the maintainer holds is not recorded anywhere in this repository** and needs confirming against whatever tldraw issued with the key.
+
+An earlier revision of this file asserted that Lattice "ships under a tldraw Hobby license key". That claim is withdrawn: the license text defines only Development, Trial and Commercial categories and never uses the word "Hobby". A "Hobby" tier exists on tldraw's pricing page as a free, application-gated offering, but its watermark and commercial-use conditions are not published in the legal text, so nothing here can state what they are.
+
 ## Lucide file glyphs (`src/components/ui/file-glyphs.ts`, `src/project/project-tree-css.ts`)
 
 The file and folder glyphs in the project tree, the workspace tabs and the pickers are adapted from [Lucide](https://lucide.dev) icons (ISC). Lucide's license and copyright notice are reproduced with the `lucide-react` package in the generated notices below.

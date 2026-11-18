@@ -37,7 +37,10 @@ function PermissionDialog({ plugin, busy, onCancel, onConfirm }: {
   const describedBy = useId();
   const name = plugin.name;
   return (
-    <ModalDialog label={t`Turn on ${name}?`} describedBy={describedBy} onClose={onCancel}>
+    // Opens over Settings, so it takes the confirmations' layer: on the
+    // dialog layer its backdrop fell under the Settings card, which stayed
+    // clickable and could change page beneath the question.
+    <ModalDialog label={t`Turn on ${name}?`} describedBy={describedBy} onClose={onCancel} backdropClassName="confirm-action-backdrop">
       <div className="modal confirm-action-modal plugin-permission-modal">
         <h2>{t`Turn on ${name}?`}</h2>
         <p id={describedBy}>{t`It will be able to:`}</p>
