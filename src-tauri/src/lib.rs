@@ -255,6 +255,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     macos_window::clear_launch_quarantine();
     macos_window::install_magnify_monitor(app.handle().clone());
     macos_window::install_copy_shortcut_monitor(app.handle().clone());
+    macos_window::cap_attributed_substring_requests();
     // The main window is `create: false` in tauri.conf.json, so no window
     // exists yet: a desktop launch builds it through `workspace_window`.
     if background {
