@@ -47,7 +47,7 @@ pub(super) fn input_loop(folder: &Path, document: &str) -> Option<Vec<String>> {
 
 /// Every file the flattening pastes in, from `document` itself, each once
 /// and in the order it is reached, relative to `folder`.
-pub(super) fn flattened(folder: &Path, document: &str) -> Vec<String> {
+pub(in crate::latex) fn flattened(folder: &Path, document: &str) -> Vec<String> {
     let file = folder.join(document);
     let base = file.parent().unwrap_or(folder).to_path_buf();
     let (mut seen, mut files, mut pending) =

@@ -1,6 +1,7 @@
 //! Which document a build compiles: the manifest default, or a one-off root
 //! the open file names for this build alone.
 
+use super::changes::input_loop::flattened;
 use super::default_root_document;
 use crate::models::ProjectManifest;
 use crate::project;
@@ -66,9 +67,31 @@ pub(super) fn choose_compile_root(root: &Path, open_document: Option<&str>) -> R
 /// The root the open file makes a build compile, when it wins over the
 /// manifest default ([`choose_compile_root`]'s rule).
 fn open_target(root: &Path, open_document: Option<&str>) -> Option<project::CompileRoot> {
-    open_document
-        .and_then(|open| project::resolve_compile_root(root, open))
+    let open = open_document?;
+    project::resolve_compile_root(root, open)
+        .or_else(|| including_root(root, open))
         .filter(|target| target.one_off || !project::main_document_chosen(root))
+}
+
+/// The root document that pastes in `open`, a chapter with no vote of its
+/// own, when the manifest default does not. The default follows the last root
+/// built, so with a paper and its rebuttal side by side, a section of the
+/// paper saved after the rebuttal was built compiled the rebuttal: its PDF
+/// came to the front and the section's edit was nowhere in it. A chapter the
+/// default reads, or that no root reads, leaves the default standing.
+fn including_root(root: &Path, open: &str) -> Option<project::CompileRoot> {
+    let open = open.trim().replace('\\', "/");
+    let manifest = project::read_manifest(root).ok()?;
+    let default = &default_root_document(&manifest).ok()?.path;
+    let reads = |document: &str| flattened(root, document).contains(&open);
+    if reads(default) {
+        return None;
+    }
+    let document = manifest
+        .root_documents
+        .iter()
+        .find(|document| &document.path != default && reads(&document.path))?;
+    Some(project::CompileRoot { path: document.path.clone(), one_off: false })
 }
 
 /// The document a build started with `open_document` in the editor would
@@ -156,6 +179,49 @@ mod tests {
         // A chapter, or no .tex open, builds the default.
         assert_eq!(target(Some("cvpr/sec/intro.tex")), "cvpr/supp_v3.tex");
         assert_eq!(target(None), "cvpr/supp_v3.tex");
+    }
+
+    /// A CVPR paper and its rebuttal: the rebuttal, built last, is the
+    /// default, and a section only the paper reads builds the paper again.
+    #[test]
+    fn a_section_builds_the_root_that_reads_it_after_another_root_was_built() {
+        let root = TempDir::new("section-root");
+        project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
+        root.write(
+            "main.tex",
+            "\\documentclass{article}\n\\begin{document}\n\\input{sec/experiments}\n\\end{document}\n",
+        );
+        root.write("rebuttal.tex", "\\documentclass{article}\n\\begin{document}x\\end{document}\n");
+        root.write("sec/experiments.tex", "\\section{Experiments}\n");
+        root.write("sec/notes.tex", "\\section{Notes}\n");
+        let compiled =
+            || compiled_document(&root, &project::read_manifest(&root).unwrap()).unwrap();
+
+        choose_compile_root(&root, Some("main.tex")).unwrap();
+        choose_compile_root(&root, Some("rebuttal.tex")).unwrap();
+        assert_eq!(compiled(), "rebuttal.tex");
+
+        choose_compile_root(&root, Some("sec/experiments.tex")).unwrap();
+        assert_eq!(compiled(), "main.tex");
+        assert_eq!(
+            build_target(
+                &root,
+                &project::read_manifest(&root).unwrap(),
+                Some("sec/experiments.tex")
+            )
+            .unwrap(),
+            "main.tex"
+        );
+
+        // A file no root reads leaves the default where the last build put it.
+        choose_compile_root(&root, Some("rebuttal.tex")).unwrap();
+        choose_compile_root(&root, Some("sec/notes.tex")).unwrap();
+        assert_eq!(compiled(), "rebuttal.tex");
+
+        // Set as main document still holds every build.
+        project::choose_root_document(&root, "rebuttal.tex").unwrap();
+        choose_compile_root(&root, Some("sec/experiments.tex")).unwrap();
+        assert_eq!(compiled(), "rebuttal.tex");
     }
 
     /// The captain's project: main.tex and main_v2.tex both declare a class.
