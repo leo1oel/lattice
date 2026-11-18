@@ -177,7 +177,12 @@ async function main() {
     console.log("ci:local: nothing CI checks changed; CI skips every job");
     return;
   }
-  const stages = localStages(tier, files, mergeBase).map((stage) =>
+  // A worktree that moved to a newer main keeps the packages it installed
+  // before, and tsc and vitest then fail on modules main added since. CI
+  // installs from the lockfile first; so does this, which is quick when
+  // nothing changed.
+  const install = { name: "install", why: "pnpm install --frozen-lockfile, as CI's setup does", command: "pnpm", args: ["install", "--frozen-lockfile", "--prefer-offline"], timeout: 600_000 };
+  const stages = [install, ...localStages(tier, files, mergeBase)].map((stage) =>
     options.headless && WINDOWED.has(stage.name) && !stage.skip ? { name: stage.name, skip: "opens windows; --headless" } : stage,
   );
   if (options.plan) {
