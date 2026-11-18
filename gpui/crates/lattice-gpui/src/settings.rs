@@ -421,7 +421,12 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
                 crate::shell::windows::for_shells(
                     cx,
                     |_| true,
-                    |shell, window, cx| shell.set_window_title(window, cx),
+                    |shell, window, cx| {
+                        shell.set_window_title(window, cx);
+                        // The tab strip names views by the titles the shell
+                        // last handed its engine.
+                        shell.titles_changed(cx);
+                    },
                 );
             });
             cx.refresh_windows();

@@ -19,10 +19,13 @@ impl BoardView {
             Err(e) => (Board::default(), Some(e)),
         };
         let mut v = BoardView::new(Arc::new(board.clone()), window, cx);
-        // Lattice's defaults (the Tauri board's too): clean strokes and a
+        // Lattice's defaults (the Tauri board's too): clean strokes, the pen
+        // with simulated pressure as Excalidraw 0.18 draws it, and a
         // non-handwritten face for new elements; the canvas is the editor
         // sheet, so the file always says white.
         v.app.current_item_roughness = lattice_board_core::board::consts::ROUGHNESS_ARCHITECT;
+        v.app.current_item_stroke_variability =
+            lattice_board_core::board::types::StrokeVariability::Variable;
         v.app.current_item_font_family = lattice_board_core::board::consts::font_family::NUNITO;
         v.app.view_background_color = "#ffffff".into();
         v.base = board;

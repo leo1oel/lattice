@@ -469,6 +469,14 @@ impl PapersPanel {
 
 impl Render for PapersPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // The interface language changed (settings redraw every window): the
+        // search box keeps the placeholder it was made with.
+        if lattice_i18n::locale() != self.locale {
+            self.locale = lattice_i18n::locale();
+            self.input.update(cx, |input, cx| {
+                input.set_placeholder(lattice_i18n::t!("Search or add papers"), window, cx)
+            });
+        }
         let palette = cx.palette().clone();
         let view = cx.entity().downgrade();
         let width = self.width;

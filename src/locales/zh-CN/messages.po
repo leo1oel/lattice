@@ -5914,6 +5914,10 @@ msgstr "下箭头"
 msgid "Down double arrow"
 msgstr "下双线箭头"
 
+#: src/telemetry/saved-downloads.ts
+msgid "Download"
+msgstr "下载"
+
 #: src/project/paper-row.tsx
 msgid "Download {url}"
 msgstr "下载 {url}"
@@ -14516,6 +14520,7 @@ msgstr "保存在这台 Mac 上，供你的其他论文使用：只存事项名�
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/telemetry/saved-downloads.ts
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
 

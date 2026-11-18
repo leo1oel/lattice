@@ -2379,7 +2379,7 @@ mod board {
         );
         assert_eq!(a.current_item_end_arrowhead, Some(Arrowhead::Arrow));
         assert_eq!(a.current_item_stroke_width(false), 2.);
-        assert_eq!(a.current_item_stroke_width(true), 1.);
+        assert_eq!(a.current_item_stroke_width(true), 2.);
         let exported: Vec<&str> = APP_STATE_STORAGE_CONF
             .iter()
             .filter(|(_, c)| c.export)
