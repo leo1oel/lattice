@@ -59,7 +59,7 @@ export type PluginResult =
   | { kind: "diagnostics"; summary?: string; items: PluginDiagnostic[] };
 
 /** Why a command returned no result; `code` is what the page localizes. */
-export type PluginError = { code: string; message?: string; stderr?: string; level?: number };
+export type PluginError = { code: string; message?: string; stderr?: string; level?: number; reason?: string };
 
 export type PluginRunEvent =
   | { type: "progress"; message: string; fraction?: number | null }
@@ -72,7 +72,13 @@ export type PluginPermissions = {
   secrets: string[];
 };
 
-type PluginSource = { kind: "folder"; path: string } | { kind: "url"; url: string; sha256: string };
+type PluginSource =
+  | { kind: "folder"; path: string }
+  | { kind: "url"; url: string; sha256: string }
+  | { kind: "registry"; url: string; sha256: string };
+
+/** A registry block list entry: `action` is "disable" (kept off) or "warn". */
+export type PluginBlock = { id: string; versions: string; action: string; reason: string; url?: string | null };
 
 export type PluginInfo = {
   id: string;
@@ -90,6 +96,7 @@ export type PluginInfo = {
   commands: { id: string; title: string; description?: string; input: PluginInput }[];
   secrets: { name: string; saved: boolean }[];
   error?: string | null;
+  blocked?: PluginBlock | null;
 };
 
 export type PluginList = { available: boolean; plugins: PluginInfo[] };

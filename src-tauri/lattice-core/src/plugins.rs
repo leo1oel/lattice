@@ -18,7 +18,7 @@
 //!
 //! See docs/plugins.md for the author-facing contract.
 
-mod broker;
+pub(crate) mod broker;
 pub mod manifest;
 pub mod protocol;
 pub mod results;
@@ -36,6 +36,10 @@ pub use protocol::{
 pub use run::CancelToken;
 pub use sandbox::AVAILABLE;
 pub use store::Source;
+pub(crate) use store::{Record, Store, MAX_ARCHIVE};
+
+use crate::registry::{BlockedEntry, Registry};
+use std::sync::Arc;
 
 use protocol::{
     CommandContext, Cursor, InitializeParams, PluginIdentity, ProjectContext, RunParams, Selection,
@@ -67,6 +71,10 @@ pub enum PluginError {
     Disabled,
     /// The plugin now asks for permissions the writer has not granted.
     NeedsReview,
+    /// The registry's kill switch turned this version off.
+    Blocked {
+        reason: String,
+    },
     UnknownCommand,
     /// The manifest or entry point is missing or invalid.
     Broken {
@@ -102,6 +110,7 @@ impl std::fmt::Display for PluginError {
             Self::NeedsReview => f.write_str(
                 "This plugin asks for new permissions. Review them in Settings › Plugins.",
             ),
+            Self::Blocked { reason } => write!(f, "Lattice turned this plugin off: {reason}"),
             Self::UnknownCommand => f.write_str("This plugin has no such command."),
             Self::Broken { message } | Self::Launch { message } | Self::Protocol { message } => {
                 f.write_str(message)
@@ -149,6 +158,9 @@ pub struct PluginInfo {
     pub secrets: Vec<SecretState>,
     /// Why the plugin cannot run (its folder is gone, its manifest broke).
     pub error: Option<String>,
+    /// The registry's block list entry this version falls under; one whose
+    /// action is not `warn` keeps the plugin off.
+    pub blocked: Option<BlockedEntry>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -202,6 +214,8 @@ pub struct PluginHost {
     node_reads: Vec<PathBuf>,
     secrets: Box<dyn SecretStore>,
     timeout: Duration,
+    /// The signed list whose block list applies to registry and URL installs.
+    registry: Option<Arc<Registry>>,
 }
 
 impl PluginHost {
@@ -211,22 +225,63 @@ impl PluginHost {
         let node = crate::sidecar::NodeRuntime::resolve(
             &resources.bundle_dir.join("synara-runtime").join("bin"),
         );
-        Self::with(
+        let mut host = Self::with(
             resources.app_data_dir.join("plugins"),
             node.executable,
             Vec::new(),
             Box::new(KeyringSecrets),
-        )
+        );
+        host.set_registry(Arc::new(Registry::new(&resources.app_data_dir)));
+        host
     }
 
     pub fn with(
         root: PathBuf, node: PathBuf, node_reads: Vec<PathBuf>, secrets: Box<dyn SecretStore>,
     ) -> Self {
-        Self { store: store::Store { root }, node, node_reads, secrets, timeout: RUN_TIMEOUT }
+        Self {
+            store: store::Store { root },
+            node,
+            node_reads,
+            secrets,
+            timeout: RUN_TIMEOUT,
+            registry: None,
+        }
     }
 
     pub fn set_timeout(&mut self, timeout: Duration) {
         self.timeout = timeout;
+    }
+
+    pub fn set_registry(&mut self, registry: Arc<Registry>) {
+        self.registry = Some(registry);
+    }
+
+    pub(crate) fn store(&self) -> &Store {
+        &self.store
+    }
+
+    /// The block list entry that keeps `record` off (any action but `warn`).
+    fn turned_off(&self, record: &Record) -> Option<BlockedEntry> {
+        self.blocked(record).filter(|entry| entry.action != "warn")
+    }
+
+    fn blocked(&self, record: &Record) -> Option<BlockedEntry> {
+        let registry = self.registry.as_ref()?;
+        registry.plugin_blocked(&record.id, &record.manifest.version, &record.source)
+    }
+
+    /// The registry's plugin list for Browse, refreshed first when
+    /// `refresh`; `None` when this host has no registry (tests).
+    pub fn registry_listing(&self, refresh: bool) -> Option<crate::registry::PluginListing> {
+        Some(self.registry.as_ref()?.plugin_listing(self, refresh))
+    }
+
+    /// Install (or update to) the plugin the registry's cached list names
+    /// `id`, disabled until the writer turns it on (an update stays on when
+    /// it asks for nothing new).
+    pub fn install_registry(&self, id: &str) -> Result<PluginInfo, String> {
+        let registry = self.registry.as_ref().ok_or("The plugin list is not available.")?;
+        registry.install_plugin(&self.store, id).map(|r| self.info(r))
     }
 
     pub fn list(&self) -> Result<Vec<PluginInfo>, String> {
@@ -243,7 +298,9 @@ impl PluginHost {
         records
             .into_iter()
             .filter(|r| {
-                r.enabled && r.granted.as_ref().is_some_and(|g| r.manifest.permissions().within(g))
+                r.enabled
+                    && r.granted.as_ref().is_some_and(|g| r.manifest.permissions().within(g))
+                    && self.turned_off(r).is_none()
             })
             .flat_map(|r| {
                 let name = r.manifest.name.clone();
@@ -270,6 +327,11 @@ impl PluginHost {
     /// Turn a plugin on, granting what its manifest asks for now (show those
     /// permissions to the writer first), or off.
     pub fn set_enabled(&self, id: &str, enabled: bool) -> Result<PluginInfo, String> {
+        if enabled {
+            if let Some(entry) = self.turned_off(&self.store.record(id)?) {
+                return Err(format!("Lattice turned this plugin off: {}", entry.reason));
+            }
+        }
         self.store.set_enabled(id, enabled).map(|r| self.info(r))
     }
 
@@ -296,6 +358,7 @@ impl PluginHost {
 
     fn info(&self, record: store::Record) -> PluginInfo {
         let error = manifest::read(&record.dir).err();
+        let blocked = self.blocked(&record);
         let m = &record.manifest;
         let permissions = m.permissions();
         PluginInfo {
@@ -322,6 +385,7 @@ impl PluginHost {
             granted: record.granted,
             commands: m.commands.clone(),
             error,
+            blocked,
         }
     }
 
@@ -347,6 +411,9 @@ impl PluginHost {
             }
             Err(message) => return Err(PluginError::Broken { message }),
         };
+        if let Some(entry) = self.turned_off(&record) {
+            return Err(PluginError::Blocked { reason: entry.reason });
+        }
         let granted = match (&record.granted, record.enabled) {
             (Some(granted), true) => granted.clone(),
             _ => return Err(PluginError::Disabled),

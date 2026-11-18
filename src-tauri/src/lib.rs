@@ -632,6 +632,8 @@ pub fn run() {
             ipc::plugins::plugins_commands,
             ipc::plugins::plugins_install_folder,
             ipc::plugins::plugins_install_url,
+            ipc::plugins::plugins_registry,
+            ipc::plugins::plugins_install_registry,
             ipc::plugins::plugins_set_enabled,
             ipc::plugins::plugins_remove,
             ipc::plugins::plugins_set_secret,
