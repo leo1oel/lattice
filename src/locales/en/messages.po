@@ -5569,7 +5569,6 @@ msgstr "Definition"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/papers/bib-entry-detail.tsx
 #: src/project/project-file-tree.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
 msgstr "Delete"
 
@@ -5651,6 +5650,11 @@ msgstr "Delete this message? This cannot be undone."
 msgid "Delete worksheet?"
 msgstr "Delete worksheet?"
 
+#: src/app/use-command-table.ts
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Delete workspace"
+msgstr "Delete workspace"
+
 #: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
 msgid "deleted"
@@ -5665,7 +5669,7 @@ msgstr "deleted"
 msgid "Deleted “{key}”"
 msgstr "Deleted “{key}”"
 
-#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/delete-workspace.ts
 msgid "Deleted “{name}”"
 msgstr "Deleted “{name}”"
 
@@ -9066,8 +9070,8 @@ msgid "Lattice's required `uv` tool is not available yet. Open Settings → TeX 
 msgstr "Lattice's required `uv` tool is not available yet. Open Settings → TeX doctor → Install required tools, then try again."
 
 #: src/app/palette-sections.ts
+#: src/trellis/delete-workspace.ts
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Layout"
 msgstr "Layout"
@@ -18267,7 +18271,7 @@ msgstr "Underline only"
 #: src/editor/editor-keymap.ts
 #: src/papers/bib-visual-editor.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/delete-workspace.ts
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
 msgstr "Undo"

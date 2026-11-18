@@ -5569,7 +5569,6 @@ msgstr "定义"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/papers/bib-entry-detail.tsx
 #: src/project/project-file-tree.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
 msgstr "删除"
 
@@ -5651,6 +5650,11 @@ msgstr "删除这条消息？删了无法恢复"
 msgid "Delete worksheet?"
 msgstr "删除工作表？"
 
+#: src/app/use-command-table.ts
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Delete workspace"
+msgstr "删除工作区"
+
 #: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
 msgid "deleted"
@@ -5665,7 +5669,7 @@ msgstr "删除了"
 msgid "Deleted “{key}”"
 msgstr "已删除“{key}”"
 
-#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/delete-workspace.ts
 msgid "Deleted “{name}”"
 msgstr "已删除“{name}”"
 
@@ -9066,8 +9070,8 @@ msgid "Lattice's required `uv` tool is not available yet. Open Settings → TeX 
 msgstr "Lattice 需要的 `uv` 工具还不可用。请打开 设置 → TeX 检查 → 安装所需工具，然后再试"
 
 #: src/app/palette-sections.ts
+#: src/trellis/delete-workspace.ts
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Layout"
 msgstr "布局"
@@ -18267,7 +18271,7 @@ msgstr "仅下划线"
 #: src/editor/editor-keymap.ts
 #: src/papers/bib-visual-editor.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/delete-workspace.ts
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
 msgstr "撤销"
