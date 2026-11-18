@@ -716,6 +716,7 @@ mod tests {
         use objc2_foundation::{NSNotFound, NSRange};
         use objc2_web_kit::WKWebView;
         use std::cell::Cell;
+        use std::rc::Rc;
 
         super::cap_attributed_substring_requests();
         super::cap_attributed_substring_requests();
@@ -727,10 +728,11 @@ mod tests {
         let original = *super::ORIGINAL_ATTRIBUTED_SUBSTRING.get().expect("original kept");
         assert_ne!(original as usize, hook as usize);
 
-        let answer = Cell::new(None);
+        let answer = Rc::new(Cell::new(None));
+        let seen = Rc::clone(&answer);
         let handler = block2::RcBlock::new(
-            |text: *mut objc2_foundation::NSAttributedString, range: NSRange| {
-                answer.set(Some((text.is_null(), range)));
+            move |text: *mut objc2_foundation::NSAttributedString, range: NSRange| {
+                seen.set(Some((text.is_null(), range)));
             },
         );
         let receiver = NSObject::new();
