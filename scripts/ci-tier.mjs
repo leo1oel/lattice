@@ -85,11 +85,12 @@ const RESEARCH_ENV_INPUTS = /^(research-env\/|src-tauri\/templates\/)/;
  * string, each with the test: a test that reads a spec, a manifest or the
  * Rust sources (the host error catalog scans src-tauri/src) sees that file
  * change. A name is read as a prefix, so a directory covers its files.
+ * This file's own test names paths only as examples, so it is left out.
  */
 function testReadPaths() {
   let out = "";
   try {
-    out = git("grep", "-oE", "(docs|src-tauri|gpui)/[A-Za-z0-9_./-]+", "--", "*.test.ts", "*.test.tsx", "*.test.mjs", ":!gpui/");
+    out = git("grep", "-oE", "(docs|src-tauri|gpui)/[A-Za-z0-9_./-]+", "--", "*.test.ts", "*.test.tsx", "*.test.mjs", ":!gpui/", ":!scripts/ci-tier.test.mjs");
   } catch {
     // git grep exits 1 when nothing matches.
   }
