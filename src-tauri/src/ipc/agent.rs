@@ -2,7 +2,9 @@
 //! custom model endpoint it may use (`model_endpoint`).
 
 use crate::model_endpoint::{self, Endpoint, EndpointStatus, KeyUpdate, ProbeReport};
-use crate::synara::{EnvironmentReport, SynaraRuntime, SynaraRuntimeInfo};
+use crate::synara::{
+    EnvironmentReport, GuardOptions, GuardOptionsReport, SynaraRuntime, SynaraRuntimeInfo,
+};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
@@ -60,6 +62,27 @@ pub async fn synara_agent_environment(app: AppHandle) -> Result<EnvironmentRepor
     tauri::async_runtime::spawn_blocking(move || app.state::<SynaraRuntime>().agent_environment())
         .await
         .map_err(|error| format!("Agent environment worker failed: {error}"))
+}
+
+/// [`SynaraRuntime::guard_options`], off the main thread: asking whether the
+/// kernel can scope the sandbox looks bubblewrap up on disk.
+#[tauri::command]
+pub async fn synara_guard_options(app: AppHandle) -> Result<GuardOptionsReport, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<SynaraRuntime>().guard_options())
+        .await
+        .map_err(|error| format!("Agent settings worker failed: {error}"))
+}
+
+/// [`SynaraRuntime::set_guard_options`], off the main thread.
+#[tauri::command]
+pub async fn synara_set_guard_options(
+    app: AppHandle, options: GuardOptions,
+) -> Result<GuardOptionsReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<SynaraRuntime>().set_guard_options(options)
+    })
+    .await
+    .map_err(|error| format!("Agent settings worker failed: {error}"))?
 }
 
 /// [`SynaraRuntime::restart`], off the main thread.

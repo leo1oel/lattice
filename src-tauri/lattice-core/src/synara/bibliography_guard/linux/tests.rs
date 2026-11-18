@@ -5,7 +5,7 @@ use std::os::fd::AsRawFd;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{FileExt, PermissionsExt};
 
-/// What the sandbox is kept from of the writer's session.
+/// What the sandbox is kept from of the writer's session, and their opt-ins.
 mod session;
 
 /// A folder where the guard reaches. Not the system temp dir, which the
@@ -33,18 +33,24 @@ impl Drop for Guarded {
     }
 }
 
-/// The guard's requirements here, or a note on why its tests cannot run:
+/// Whether a test that cannot run here is a failure, as on the machines
+/// that gate a change, rather than a note in the output.
+fn guard_required() -> bool {
+    std::env::var_os("LATTICE_REQUIRE_BIBLIOGRAPHY_GUARD").is_some()
+}
+
+/// The sandbox's requirements here, or a note on why its tests cannot run:
 /// a build machine without bubblewrap, FUSE or user namespaces is not a
 /// failure of the guard. `LATTICE_REQUIRE_BIBLIOGRAPHY_GUARD` makes it one.
+/// The kernel's scope for abstract sockets is not among them: the filter's
+/// tests run without it, and `session` has the ones about it.
 fn guard_available() -> bool {
     // Asked once for the whole run: the answer is the machine's, and each
     // asking starts a sandbox of its own beside the other tests' mounts.
     static MISSING: std::sync::OnceLock<Option<&'static str>> = std::sync::OnceLock::new();
-    let Some(reason) = *MISSING.get_or_init(missing) else { return true };
-    assert!(
-        std::env::var_os("LATTICE_REQUIRE_BIBLIOGRAPHY_GUARD").is_none(),
-        "the bibliography guard cannot run here: {reason}"
-    );
+    let without_scope = GuardOptions { reduced_isolation: true, ..GuardOptions::default() };
+    let Some(reason) = *MISSING.get_or_init(|| missing(without_scope)) else { return true };
+    assert!(!guard_required(), "the bibliography guard cannot run here: {reason}");
     eprintln!("skipped, the bibliography guard cannot run here: {reason}");
     false
 }
@@ -58,6 +64,12 @@ struct Sandbox {
     mountpoint: Mountpoint,
     layout: Layout,
     bubblewrap: PathBuf,
+    /// Started outside the kernel's scope for abstract sockets even where
+    /// there is one: the sandbox an older kernel gives, which the guard
+    /// starts only with reduced isolation.
+    without_scope: bool,
+    /// The writer's opt-ins, as Lattice saves them beside the agent's folder.
+    options: PathBuf,
     _app_data: TempDir,
 }
 
@@ -71,6 +83,10 @@ impl Sandbox {
         let app_data = TempDir::new("bib-guard-app");
         let home = fs::canonicalize(&app_data).unwrap().join("synara");
         fs::create_dir(&home).unwrap();
+        // Made before the sandbox, as `guard` makes it.
+        let options = GuardOptions::folder(&home).unwrap();
+        fs::create_dir(&options).unwrap();
+        fs::write(options.join("options.json"), "{}").unwrap();
         let mountpoint = Mountpoint::create_in(&home.join(MOUNTS)).expect("the filter's folder");
         let filter = name_filter::mount(Path::new("/"), &mountpoint.0).expect("mount the filter");
         Self {
@@ -78,8 +94,16 @@ impl Sandbox {
             mountpoint,
             layout: Layout::new(home_folder().as_deref(), runtime, &home),
             bubblewrap: bubblewrap().expect("bubblewrap"),
+            without_scope: false,
+            options,
             _app_data: app_data,
         }
+    }
+
+    /// The sandbox with the SSH agent listening on `socket`.
+    fn with_ssh_agent(mut self, socket: &Path, forwarded: bool) -> Self {
+        self.layout = self.layout.with_ssh_agent(Some(socket.to_path_buf()), forwarded);
+        self
     }
 
     /// `program` inside the sandbox, under the abstract socket scope where
@@ -87,7 +111,7 @@ impl Sandbox {
     fn program(&self, program: &[&OsStr]) -> Command {
         let mut command = Command::new(&self.bubblewrap);
         command.args(self.layout.arguments(&self.mountpoint.0)).arg("--").args(program);
-        let scope = AbstractSocketScope::new(&self.bubblewrap).ok();
+        let scope = AbstractSocketScope::new(&self.bubblewrap).ok().filter(|_| !self.without_scope);
         // SAFETY: `enter` is async-signal-safe.
         unsafe {
             command.pre_exec(move || scope.as_ref().map_or(Ok(()), AbstractSocketScope::enter));

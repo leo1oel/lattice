@@ -2526,6 +2526,11 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "synara/bibliography_guard/linux.rs",
+        literal: "The built-in agent is off because this system cannot keep it away from the X server and the other abstract sockets of your session, through which it could leave its sandbox and edit bibliography (.bib) files directly. That needs Linux 6.12 or later with Landlock, and a bubblewrap (bwrap) that is not setuid. To run the agent anyway, turn on “Run the agent with reduced isolation” in Settings › Agent › Environment.",
+        text: Text::Message("The built-in agent is off because this system cannot keep it away from the X server and the other abstract sockets of your session, through which it could leave its sandbox and edit bibliography (.bib) files directly. That needs Linux 6.12 or later with Landlock, and a bubblewrap (bwrap) that is not setuid. To run the agent anyway, turn on “Run the agent with reduced isolation” in Settings › Agent › Environment.", &[]),
+    },
+    Entry {
+        file: "synara/bibliography_guard/linux.rs",
         literal: "The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it.",
         text: Text::Message("The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it.", &[]),
     },

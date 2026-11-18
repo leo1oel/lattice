@@ -4,14 +4,16 @@
 //! Lattice starts its own executable in [`FLAG`] mode, as it starts
 //! `sandbox-exec` on macOS. That process stays outside the sandbox: it mounts
 //! the name filter (`name_filter`) over `/`, starts the system `bwrap` with
-//! that mount as the sandbox's root and the mounts of `layout` over it, where
-//! the kernel allows it out of reach of the host's abstract sockets
-//! (`abstract_sockets`), and waits for it. The sandbox ends with that
-//! process, and that process with Lattice.
+//! that mount as the sandbox's root and the mounts of `layout` over it, out
+//! of reach of the host's abstract sockets (`abstract_sockets`), and waits
+//! for it. Where the kernel cannot do that last part the agent stays off,
+//! unless the writer opted in to run it so (`guard_options`). The sandbox
+//! ends with that process, and that process with Lattice.
 
-use super::layout::{home_folder, runtime_folders, Layout};
+use super::layout::{home_folder, runtime_folders, ssh_agent_socket, Layout};
 use super::name_filter;
 use crate::commands::host_environment;
+use crate::synara::guard_options::GuardOptions;
 use abstract_sockets::AbstractSocketScope;
 use std::ffi::{OsStr, OsString};
 use std::fs;
@@ -37,6 +39,14 @@ pub(in crate::synara) const NO_SANDBOX: &str = "The built-in agent is off becaus
      system does not let bubblewrap start a sandbox (unprivileged user namespaces are \
      restricted). Lattice runs the agent inside one to keep it from editing bibliography \
      (.bib) files directly.";
+/// Names what the kernel has to be, and the setting that runs the agent
+/// without it (`guard_options`; Settings › Agent › Environment).
+pub(in crate::synara) const NO_SOCKET_SCOPE: &str = "The built-in agent is off because this \
+     system cannot keep it away from the X server and the other abstract sockets of your \
+     session, through which it could leave its sandbox and edit bibliography (.bib) files \
+     directly. That needs Linux 6.12 or later with Landlock, and a bubblewrap (bwrap) that is \
+     not setuid. To run the agent anyway, turn on “Run the agent with reduced isolation” in \
+     Settings › Agent › Environment.";
 /// Not "the files here are safe": the folders the guard leaves out are
 /// open to the agent whichever project it works on.
 pub(in crate::synara) const UNGUARDED_FOLDER: &str = "The built-in agent is off for this \
@@ -59,13 +69,45 @@ const MOUNTS: &str = "lattice-agent-guard";
 /// Where the FUSE library looks for the mount helper before the search path.
 const FUSERMOUNT_PATH: &str = "FUSERMOUNT_PATH";
 
-/// What this system lacks to run the guard, if anything.
-pub(in crate::synara) fn missing() -> Option<&'static str> {
+/// What this system lacks to run the guard, if anything, given the writer's
+/// `options`.
+pub(in crate::synara) fn missing(options: GuardOptions) -> Option<&'static str> {
     let Some(bubblewrap) = bubblewrap() else { return Some(NO_BUBBLEWRAP) };
     if !Path::new("/dev/fuse").exists() || fusermount().is_none() {
         return Some(NO_FUSE);
     }
-    (!sandbox_starts(&bubblewrap)).then_some(NO_SANDBOX)
+    if !sandbox_starts(&bubblewrap) {
+        return Some(NO_SANDBOX);
+    }
+    socket_scope(&bubblewrap, options).err()
+}
+
+/// The scope the sandbox `bubblewrap` starts is put under, or why it must
+/// not start: a sandbox that reaches the host's abstract sockets is one the
+/// agent can leave through the X server, so it runs only when the writer
+/// asked for it. `None` is that sandbox, with reduced isolation.
+fn socket_scope(
+    bubblewrap: &Path, options: GuardOptions,
+) -> Result<Option<AbstractSocketScope>, &'static str> {
+    socket_scope_for(AbstractSocketScope::new(bubblewrap), options)
+}
+
+/// [`socket_scope`] for what the kernel answered.
+fn socket_scope_for(
+    scope: Result<AbstractSocketScope, &'static str>, options: GuardOptions,
+) -> Result<Option<AbstractSocketScope>, &'static str> {
+    match scope {
+        Ok(scope) => Ok(Some(scope)),
+        Err(_) if options.reduced_isolation => Ok(None),
+        Err(_) => Err(NO_SOCKET_SCOPE),
+    }
+}
+
+/// Whether the sandbox here would reach the host's abstract sockets, so the
+/// agent runs only with reduced isolation. False where there is no
+/// bubblewrap to ask about: that is the first thing to install.
+pub(in crate::synara) fn lacks_socket_scope() -> bool {
+    bubblewrap().is_some_and(|bubblewrap| AbstractSocketScope::new(&bubblewrap).is_err())
 }
 
 /// The sidecar's launch: `node` under the guard, in a process of Lattice's
@@ -73,7 +115,7 @@ pub(in crate::synara) fn missing() -> Option<&'static str> {
 pub(in crate::synara) fn command(
     node: &Path, home_dir: &Path, executable: &Path,
 ) -> Result<Command, String> {
-    if let Some(reason) = missing() {
+    if let Some(reason) = missing(GuardOptions::load(home_dir)) {
         return Err(reason.to_string());
     }
     let mut command = Command::new(executable);
@@ -179,6 +221,24 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
         return Err("no command was given".to_string());
     }
     let bubblewrap = bubblewrap().ok_or(NO_BUBBLEWRAP)?;
+    // Lattice asked `missing` before it started this process; the answer is
+    // this process's to stand by.
+    let options = GuardOptions::load(&agent_home);
+    let scope = socket_scope(&bubblewrap, options)?;
+    if scope.is_none() {
+        eprintln!(
+            "Lattice agent guard: running with reduced isolation, as set in Settings: the \
+             agent can reach the X server and other abstract sockets on this computer."
+        );
+    }
+    // Made before the sandbox, which then has it read-only (`layout`).
+    if let Some(folder) = GuardOptions::folder(&agent_home) {
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&folder)
+            .map_err(|error| format!("could not create {}: {error}", folder.display()))?;
+    }
     // The mount helper the filter is mounted and unmounted with: this one,
     // not whichever the search path names first.
     std::env::set_var(FUSERMOUNT_PATH, fusermount().ok_or(NO_FUSE)?);
@@ -198,14 +258,8 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
     let mountpoint = Mountpoint::create(&agent_home)?;
     let filter = name_filter::mount(Path::new("/"), &mountpoint.0)
         .map_err(|error| format!("could not mount the bibliography filter: {error}"))?;
-    let layout = Layout::new(home_folder().as_deref(), &runtime_folders(), &agent_home);
-    let scope = AbstractSocketScope::new(&bubblewrap)
-        .inspect_err(|reason| {
-            eprintln!(
-                "Lattice agent guard: the agent can reach the host's abstract sockets: {reason}"
-            )
-        })
-        .ok();
+    let layout = Layout::new(home_folder().as_deref(), &runtime_folders(), &agent_home)
+        .with_ssh_agent(ssh_agent_socket(), options.forward_ssh_agent);
     let mut command = Command::new(&bubblewrap);
     command.args(layout.arguments(&mountpoint.0)).arg("--").args(&program);
     host_environment(&mut command).env_remove(FUSERMOUNT_PATH);

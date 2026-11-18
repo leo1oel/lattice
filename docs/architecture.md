@@ -192,10 +192,14 @@ it emits **no** Tauri events, only three commands (`synara_ensure_ready`,
   (`bibliography_guard/linux.rs`), which mounts a FUSE file system that
   refuses changes to `*.bib` names (`bibliography_guard/name_filter.rs`) and
   runs the sidecar under the system's bubblewrap with that mount as its root,
-  and without the session bus or the display (`bibliography_guard/layout.rs`,
-  `bibliography_guard/linux/abstract_sockets.rs`).
-  Where there is no guard (Windows, a Linux system without bubblewrap, FUSE
-  or user namespaces, or a project in a folder the Linux guard does not
+  and without the session bus, the display or the SSH agent
+  (`bibliography_guard/layout.rs`), under a Landlock scope that keeps it from
+  the host's abstract sockets (`bibliography_guard/linux/abstract_sockets.rs`).
+  A kernel without that scope keeps the agent off like a missing bubblewrap;
+  the writer's two opt-ins for the sandbox are `synara/guard_options.rs`.
+  Where there is no guard (Windows, a Linux system without bubblewrap, FUSE,
+  user namespaces or, unless the writer opted in, a kernel that scopes
+  abstract sockets, or a project in a folder the Linux guard does not
   cover) `synara_ensure_ready` answers the `unsupported` state without
   starting anything, and the agent surfaces say why
   (`SynaraLoadingSurface`).

@@ -15,9 +15,12 @@
  *   2. that first build succeeds and the PDF preview draws page 1;
  *   3. pressing Build builds it again, and that build succeeds too;
  *   4. the Agent panel either shows the Agent, started inside its .bib guard
- *      (bubblewrap and FUSE, bibliography_guard/linux.rs), or says which of
- *      those the machine lacks: the built-in Agent stays off without the
- *      guard (PR #668), and a test machine may have neither.
+ *      (bubblewrap and FUSE, bibliography_guard/linux.rs), or says what the
+ *      machine lacks for it: one of those, or a kernel that keeps the
+ *      sandbox from the host's abstract sockets (Linux 6.12). The built-in
+ *      Agent stays off without the guard (PR #668), and a test machine may
+ *      have none of them; on a kernel older than 6.12 this run therefore
+ *      sees the notice, not the Agent.
  *
  * It speaks the W3C WebDriver protocol with fetch, so it needs no client
  * library. Element lookups use class names, never labels, as the bench's
@@ -180,7 +183,7 @@ export async function runChecks(session, log = console.log) {
     return document.querySelector(${JSON.stringify(AGENT_READY)}) ? "ready" : null;`, 90_000);
   if (agent === "ready") {
     log("ok: the Agent started inside its .bib guard");
-  } else if (/bubblewrap|FUSE|sandbox/.test(agent)) {
+  } else if (/bubblewrap|FUSE|sandbox|Linux 6\.12/.test(agent)) {
     log(`ok: the Agent panel says why the Agent is off (${agent.slice(5, 90).trim()}…)`);
   } else {
     throw new Error(`The Agent panel's notice does not say what its .bib guard is missing: ${agent}`);

@@ -9,8 +9,9 @@
 //! no other address. Landlock's scope for abstract sockets (Linux 6.12)
 //! refuses a connection to one made outside the sandbox; the guard puts the
 //! process that becomes bubblewrap under it, and everything bubblewrap starts
-//! stays under it. An older kernel has no such scope, and there the sandbox
-//! still reaches them.
+//! stays under it. An older kernel has no such scope, and neither has a
+//! sandbox a setuid bubblewrap starts: there the agent stays off, unless the
+//! writer opted in to run it with reduced isolation (`guard_options`).
 
 use std::fs;
 use std::io;

@@ -75,8 +75,10 @@ export function SynaraLoadingSurface(props: {
  * The Agent where Lattice cannot stop it from editing .bib files itself: it
  * stays off and says why. There is nothing to retry or diagnose, so no
  * Retry, logs or Details. Windows has no guard at all. Linux has one that
- * needs bubblewrap and FUSE and does not reach every folder, so there the
- * runtime's message names what is missing (synara/bibliography_guard/linux.rs).
+ * needs bubblewrap, FUSE and a kernel that scopes abstract sockets, and does
+ * not reach every folder, so there the runtime's message names what is
+ * missing, and the setting that runs the Agent without the last
+ * (synara/bibliography_guard/linux.rs).
  * scripts/linux-e2e.mjs finds it by its `synara-unsupported-notice` class.
  */
 function SynaraUnsupportedNotice({ runtime }: { runtime: SynaraRuntimeInfo }) {

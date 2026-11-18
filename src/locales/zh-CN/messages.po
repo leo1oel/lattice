@@ -3522,6 +3522,10 @@ msgctxt "git panel"
 msgid "Changes"
 msgstr "更改"
 
+#: src/settings/agent-guard-settings.tsx
+msgid "Changes here apply the next time the agent starts."
+msgstr "此处的更改会在 AI 助手下次启动时生效。"
+
 #: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Changes in {path}"
@@ -9173,6 +9177,11 @@ msgstr "还剩不到 1 分钟"
 msgid "Less than or equal"
 msgstr "小于或等于"
 
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Let the agent use your SSH agent"
+msgstr "允许 AI 助手使用你的 SSH 代理（ssh-agent）"
+
 #: src/plugins/plugin-settings.tsx
 msgid "Licence: {license}"
 msgstr "许可证：{license}"
@@ -14271,6 +14280,11 @@ msgstr "第 {run} 次"
 msgid "Run TeX doctor"
 msgstr "检查 TeX"
 
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Run the agent with reduced isolation"
+msgstr "以较弱的隔离运行 AI 助手"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Run-in paragraph heading"
 msgstr "行内段落标题"
@@ -14287,6 +14301,11 @@ msgstr "正在运行 {title}…"
 #: src/settings/theme-settings.tsx
 msgid "Sage"
 msgstr "鼠尾草"
+
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Sandbox"
+msgstr "沙盒"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Sans-serif text"
@@ -16399,6 +16418,11 @@ msgstr "内置 AI 助手已关闭，因为 FUSE（fusermount3 和 /dev/fuse）�
 
 #: src/build/compile-repair-messages.ts
 #: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off because this system cannot keep it away from the X server and the other abstract sockets of your session, through which it could leave its sandbox and edit bibliography (.bib) files directly. That needs Linux 6.12 or later with Landlock, and a bubblewrap (bwrap) that is not setuid. To run the agent anyway, turn on “Run the agent with reduced isolation” in Settings › Agent › Environment."
+msgstr "内置 AI 助手已关闭，因为此系统无法阻止它访问 X 服务器以及你的会话中的其他抽象套接字，它可能借此逃出沙盒并直接编辑参考文献（.bib）文件。这需要带有 Landlock 的 Linux 6.12 或更高版本，以及未设置 setuid 的 bubblewrap（bwrap）。如果仍要运行 AI 助手，请在“设置 › AI 助手 › 环境变量”中开启“以较弱的隔离运行 AI 助手”。"
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
 msgid "The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly."
 msgstr "内置 AI 助手已关闭，因为此系统不允许 bubblewrap 启动沙盒（非特权用户命名空间受到限制）。Lattice 需要在沙盒中运行 AI 助手，以阻止它直接编辑参考文献（.bib）文件。"
 
@@ -17856,6 +17880,16 @@ msgstr "这个句子有 {count} 个词。"
 msgid "This source line has no matching position in the PDF."
 msgstr "这一行在 PDF 里找不到对应位置"
 
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "This system cannot keep the agent away from the X server and other abstract sockets on this computer; that needs Linux 6.12 or later. With this on the agent runs anyway and can reach them, so it could escape its sandbox and edit .bib files directly."
+msgstr "此系统无法阻止 AI 助手访问这台电脑上的 X 服务器和其他抽象套接字；这需要 Linux 6.12 或更高版本。开启后，AI 助手仍会运行并且可以访问它们，因此它可能逃出沙盒并直接编辑 .bib 文件。"
+
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "This system keeps the agent away from abstract sockets by itself now, so this changes nothing here. You can turn it off."
+msgstr "此系统现在能自行阻止 AI 助手访问抽象套接字，因此这个选项在这里不起作用。你可以将它关闭。"
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "This table has source edits or unsupported structure. Continue editing it in the source editor."
 msgstr "此表格的源码已被修改，或包含不支持的结构。请继续在源码编辑器中编辑。"
@@ -19066,6 +19100,11 @@ msgstr "关闭时，添加文献只会加入它的引用条目。之后仍可在
 #: src/settings/settings-search-index.ts
 msgid "When you delete a file here"
 msgstr "在这里删除文件时"
+
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "While this is off, git over SSH and signed commits do not work inside the agent. With it on, the agent can use every key your SSH agent holds, on any server those keys open."
+msgstr "关闭时，AI 助手内无法通过 SSH 使用 git，也无法创建签名提交。开启后，AI 助手可以使用你的 SSH 代理持有的每一把密钥，登录这些密钥能打开的任何服务器。"
 
 #: src/components/ui/color-picker.tsx
 msgid "White"

@@ -622,6 +622,8 @@ pub fn run() {
             ipc::agent::synara_open_skills_folder,
             ipc::agent::synara_open_log_folder,
             ipc::agent::synara_agent_environment,
+            ipc::agent::synara_guard_options,
+            ipc::agent::synara_set_guard_options,
             ipc::agent::synara_restart,
             ipc::presentation::presentation_ensure_ready,
             ipc::presentation::presentation_release,

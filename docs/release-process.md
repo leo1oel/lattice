@@ -190,7 +190,8 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
    `scripts/linux-e2e.mjs` checks that the first launch opens the tutorial,
    its build succeeds and the PDF draws page 1, **Build** rebuilds it, and
    the Agent panel shows the Agent, started inside its `.bib` guard, or says
-   which of bubblewrap, FUSE and user namespaces the runner lacks. A failure
+   which of bubblewrap, FUSE, user namespaces and a kernel that scopes
+   abstract sockets (Linux 6.12) the runner lacks. A failure
    uploads a screenshot and the page text as `linux-e2e-evidence`.
 4. **attach**, only after all three: `gh release upload --clobber` of the one
    `Lattice_<version>_amd64.AppImage` (a re-run replaces it; the job fails if

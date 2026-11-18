@@ -20,7 +20,17 @@
 //!   there the sandbox could start a process outside itself (systemd's user
 //!   manager, the portals) or read the keyring Lattice keeps its credentials
 //!   in, which has no access control of its own; through the display it
-//!   could type into other windows. No provider needs either.
+//!   could type into other windows. Nothing is bound back, so what reads the
+//!   keyring or opens a window from inside no longer can;
+//! - the folder the writer's opt-ins for this sandbox are kept in
+//!   (`guard_options`), read-only: the agent writes the rest of Lattice's
+//!   data folder, and must not turn them on for itself.
+//!
+//! The SSH agent's socket is a file of its own, wherever `SSH_AUTH_SOCK`
+//! names it. The sandbox has it only when the writer asked
+//! ([`Layout::with_ssh_agent`]): bound alone, not with the folder it is in.
+//! Otherwise the variable is unset, and a socket none of the mounts above
+//! hides (one in `/tmp`, or in `~/.ssh`) is covered.
 //!
 //! A hard link or a rename cannot cross from one of those mounts into the
 //! filter, and the sidecar cannot change the mounts: bubblewrap drops its
@@ -28,8 +38,10 @@
 //! gets them locked. Hiding a socket's file does not hide an abstract one,
 //! which is the guard's to refuse (`linux.rs`).
 
+use crate::synara::guard_options::GuardOptions;
 use std::ffi::{OsStr, OsString};
 use std::fs;
+use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
 
 /// Folders the sandbox takes from the host as they are, read-only: programs,
@@ -43,10 +55,19 @@ const READ_ONLY: [&str; 12] = [
 /// Where the X server's sockets are, in the host's `/tmp`.
 const X11_SOCKETS: &str = "/tmp/.X11-unix";
 
-/// What tells a program where the session bus and the display are. With the
-/// sockets gone the values would only point at nothing.
-const SESSION_VARIABLES: [&str; 5] =
-    ["DBUS_SESSION_BUS_ADDRESS", "DISPLAY", "WAYLAND_DISPLAY", "WAYLAND_SOCKET", "XAUTHORITY"];
+/// What tells a program where the session bus, the display and GnuPG's agent
+/// are. With the sockets gone the values would only point at nothing.
+const SESSION_VARIABLES: [&str; 6] = [
+    "DBUS_SESSION_BUS_ADDRESS",
+    "DISPLAY",
+    "WAYLAND_DISPLAY",
+    "WAYLAND_SOCKET",
+    "XAUTHORITY",
+    "GPG_AGENT_INFO",
+];
+
+/// What tells a program where the SSH agent's socket is.
+const SSH_AGENT_VARIABLE: &str = "SSH_AUTH_SOCK";
 
 /// How the sandbox sees one folder and everything under it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +89,8 @@ enum View {
 /// What the sandbox mounts over the filtered root, outermost first.
 pub(super) struct Layout {
     mounts: Vec<(PathBuf, View)>,
+    /// The SSH agent's socket on the host, and whether the sandbox gets it.
+    ssh_agent: Option<(PathBuf, bool)>,
 }
 
 impl Layout {
@@ -110,6 +133,11 @@ impl Layout {
         if let Some(app_data) = agent_home.parent() {
             mounts.push((app_data.to_path_buf(), View::Filtered));
         }
+        // The writer's opt-ins for this sandbox are not the agent's to change.
+        // The guard makes the folder before it starts the sandbox, so there
+        // is always one to mount, and none the agent could make later.
+        let options = GuardOptions::folder(agent_home).filter(|folder| real_folder(folder));
+        mounts.extend(options.map(|folder| (folder, View::ReadOnly)));
         mounts.push((agent_home.to_path_buf(), View::Direct));
         // Last, over whichever mount above shows them: `/run`, or `/tmp`
         // where a system keeps them there.
@@ -119,7 +147,15 @@ impl Layout {
                 .filter(|path| real_folder(path))
                 .map(|path| (path.clone(), View::Private)),
         );
-        Self { mounts }
+        Self { mounts, ssh_agent: None }
+    }
+
+    /// The layout with the SSH agent listening on `socket`, a path as the
+    /// host resolves it: the sandbox's to use when `forwarded`, and otherwise
+    /// kept from it.
+    pub(super) fn with_ssh_agent(mut self, socket: Option<PathBuf>, forwarded: bool) -> Self {
+        self.ssh_agent = socket.map(|socket| (socket, forwarded));
+        self
     }
 
     /// How the sandbox sees `path`: by the innermost mount it is under.
@@ -158,6 +194,14 @@ impl Layout {
         for variable in SESSION_VARIABLES {
             add(&["--unsetenv", variable].map(OsStr::new));
         }
+        match &self.ssh_agent {
+            // By the path the socket is bound at below, whatever link the
+            // variable named it through outside.
+            Some((socket, true)) => {
+                add(&["--setenv".as_ref(), SSH_AGENT_VARIABLE.as_ref(), socket.as_os_str()]);
+            }
+            _ => add(&["--unsetenv", SSH_AGENT_VARIABLE].map(OsStr::new)),
+        }
         add(&["--bind".as_ref(), filter.as_os_str(), "/".as_ref()]);
         for (path, view) in &self.mounts {
             let path = path.as_os_str();
@@ -173,6 +217,19 @@ impl Layout {
                 View::Private => add(&["--tmpfs".as_ref(), path]),
                 View::Processes => add(&["--proc".as_ref(), path]),
             }
+        }
+        match &self.ssh_agent {
+            // Over the empty runtime folder, if it is in there: the socket
+            // alone, with nothing else of the folder beside it.
+            Some((socket, true)) => {
+                add(&["--bind".as_ref(), socket.as_os_str(), socket.as_os_str()])
+            }
+            // Unsetting the variable hides no socket the sandbox can find by
+            // looking: one in a folder it has from the host is covered.
+            Some((socket, false)) if self.view(socket) != View::Private => {
+                add(&["--ro-bind".as_ref(), "/dev/null".as_ref(), socket.as_os_str()]);
+            }
+            _ => {}
         }
         // The folder the filter is mounted in, covered last, over whichever
         // mount above shows it: through the filter's mount the sandbox would
@@ -212,6 +269,14 @@ pub(super) fn runtime_folders() -> Vec<PathBuf> {
     folders
 }
 
+/// The SSH agent's socket, as the host resolves it: what `SSH_AUTH_SOCK`
+/// names, when that is a socket.
+pub(super) fn ssh_agent_socket() -> Option<PathBuf> {
+    let named = PathBuf::from(std::env::var_os(SSH_AGENT_VARIABLE)?);
+    let socket = fs::canonicalize(named).ok()?;
+    fs::metadata(&socket).is_ok_and(|metadata| metadata.file_type().is_socket()).then_some(socket)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,10 +294,12 @@ mod tests {
             ("/home/ada/.cache", View::Direct),
             ("/home/ada/.local", View::Direct),
             ("/home/ada/.local/share/lattice", View::Filtered),
+            ("/home/ada/.local/share/lattice/agent-guard", View::ReadOnly),
             ("/home/ada/.local/share/lattice/synara", View::Direct),
             ("/run/user/1000", View::Private),
         ];
-        Layout { mounts: mounts.map(|(path, view)| (PathBuf::from(path), view)).to_vec() }
+        let mounts = mounts.map(|(path, view)| (PathBuf::from(path), view)).to_vec();
+        Layout { mounts, ssh_agent: None }
     }
 
     #[test]
@@ -255,6 +322,7 @@ mod tests {
             "/home/ada/.cache/paper",
             "/home/ada/.local/share/other",
             "/home/ada/.local/share/lattice/synara/workspace",
+            "/home/ada/.local/share/lattice/agent-guard/paper",
             "/run/user/1000/paper",
             "/run/user/1001/paper",
             "/tmp/.X11-unix/paper",
@@ -280,7 +348,8 @@ mod tests {
             &["--unshare-pid", "--die-with-parent", "--new-session"][..],
             &["--unsetenv", "DBUS_SESSION_BUS_ADDRESS", "--unsetenv", "DISPLAY"],
             &["--unsetenv", "WAYLAND_DISPLAY", "--unsetenv", "WAYLAND_SOCKET"],
-            &["--unsetenv", "XAUTHORITY"],
+            &["--unsetenv", "XAUTHORITY", "--unsetenv", "GPG_AGENT_INFO"],
+            &["--unsetenv", "SSH_AUTH_SOCK"],
             &["--bind", filter, "/"],
             &["--dev-bind", "/dev", "/dev"],
             &["--proc", "/proc"],
@@ -294,6 +363,11 @@ mod tests {
             &["--bind", "/home/ada/.local", "/home/ada/.local"],
             &["--bind", &through, app_data],
             &[
+                "--ro-bind",
+                "/home/ada/.local/share/lattice/agent-guard",
+                "/home/ada/.local/share/lattice/agent-guard",
+            ],
+            &[
                 "--bind",
                 "/home/ada/.local/share/lattice/synara",
                 "/home/ada/.local/share/lattice/synara",
@@ -303,6 +377,52 @@ mod tests {
         ]
         .concat();
         assert_eq!(arguments, expected);
+    }
+
+    /// What `arguments` says about the SSH agent, for one listening on
+    /// `socket`: the variable's, then the socket's own mount.
+    fn ssh_agent_arguments(socket: &str, forwarded: bool) -> (Vec<String>, Vec<String>) {
+        let layout = layout().with_ssh_agent(Some(PathBuf::from(socket)), forwarded);
+        let arguments = layout.arguments(Path::new("/run/user/1000/lattice-agent-guard/7"));
+        let arguments: Vec<String> =
+            arguments.iter().map(|value| value.to_string_lossy().into_owned()).collect();
+        let about = |found: &dyn Fn(&[String]) -> bool| {
+            let at = (0..arguments.len()).find(|&at| found(&arguments[at..]));
+            at.map_or(Vec::new(), |at| arguments[at..at + 3.min(arguments.len() - at)].to_vec())
+        };
+        let variable = about(&|rest| rest.len() > 1 && rest[1] == "SSH_AUTH_SOCK");
+        let mount = about(&|rest| rest.len() > 2 && rest[0].ends_with("bind") && rest[2] == socket);
+        // The socket's mount comes after the folder it may be in is emptied.
+        let emptied = arguments.windows(2).position(|pair| pair == ["--tmpfs", "/run/user/1000"]);
+        let mounted = arguments
+            .windows(3)
+            .position(|triple| triple[0].ends_with("bind") && triple[2] == socket);
+        assert!(mounted.is_none_or(|mounted| emptied.is_some_and(|emptied| emptied < mounted)));
+        (variable, mount)
+    }
+
+    #[test]
+    fn the_ssh_agent_reaches_the_sandbox_only_when_the_writer_forwards_it() {
+        let strings = |values: &[&str]| values.iter().map(|value| value.to_string()).collect();
+        let (in_runtime, in_tmp) = ("/run/user/1000/gcr/ssh", "/tmp/ssh-Xa1/agent.7");
+        for socket in [in_runtime, in_tmp, "/home/ada/.ssh/agent/s.1"] {
+            let (variable, mount) = ssh_agent_arguments(socket, true);
+            let expected: Vec<String> = strings(&["--setenv", "SSH_AUTH_SOCK", socket]);
+            assert_eq!(variable, expected, "{socket}");
+            let expected: Vec<String> = strings(&["--bind", socket, socket]);
+            assert_eq!(mount, expected, "{socket}");
+        }
+        // Not forwarded: gone with the runtime folder, with nothing bound.
+        let (variable, mount) = ssh_agent_arguments(in_runtime, false);
+        assert_eq!(variable[..2], ["--unsetenv", "SSH_AUTH_SOCK"]);
+        assert!(mount.is_empty(), "{mount:?}");
+        // In a folder the sandbox has from the host: covered.
+        for socket in [in_tmp, "/home/ada/.cache/agent.sock", "/home/ada/agent.sock"] {
+            let (variable, mount) = ssh_agent_arguments(socket, false);
+            assert_eq!(variable[..2], ["--unsetenv", "SSH_AUTH_SOCK"], "{socket}");
+            let expected: Vec<String> = strings(&["--ro-bind", "/dev/null", socket]);
+            assert_eq!(mount, expected, "{socket}");
+        }
     }
 
     /// The runtime folder here is under the system temp dir, which the

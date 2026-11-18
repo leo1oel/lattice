@@ -36,14 +36,28 @@ pub(super) const MISSING: &str = "The built-in agent is off on this platform unt
 
 /// Why this system cannot keep the sidecar from writing `.bib` files itself,
 /// if it cannot. Without the guard the agent could write unverified
-/// references straight into a bibliography, so it stays off.
-pub(super) fn missing() -> Option<&'static str> {
+/// references straight into a bibliography, so it stays off. `home_dir` is
+/// the sidecar's own, which the writer's opt-ins are kept beside
+/// (`guard_options`).
+pub(super) fn missing(home_dir: &Path) -> Option<&'static str> {
+    #[cfg(target_os = "linux")]
+    return linux::missing(super::guard_options::GuardOptions::load(home_dir));
+    #[cfg(not(target_os = "linux"))]
+    let _ = home_dir;
     #[cfg(target_os = "macos")]
     return None;
-    #[cfg(target_os = "linux")]
-    return linux::missing();
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     return Some(MISSING);
+}
+
+/// Whether this system cannot keep the sandbox from the host's abstract
+/// sockets, so the agent runs only with reduced isolation. Only the Linux
+/// guard has the question.
+pub(super) fn lacks_socket_scope() -> bool {
+    #[cfg(target_os = "linux")]
+    return linux::lacks_socket_scope();
+    #[cfg(not(target_os = "linux"))]
+    return false;
 }
 
 /// Why the guard does not cover the project at `workspace`, if it does not:

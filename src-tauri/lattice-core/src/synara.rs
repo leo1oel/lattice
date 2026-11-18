@@ -4,7 +4,8 @@
 //! [`SynaraRuntime::ensure_ready`]. It runs inside the bibliography guard
 //! (`bibliography_guard`): the macOS sandbox, with Lattice's own `ps`
 //! replacement (`process_inspector`), or bubblewrap and a FUSE name filter on
-//! Linux. Where no guard exists it does not start at all; the
+//! Linux, with the writer's two opt-ins for that sandbox (`guard_options`).
+//! Where no guard exists it does not start at all; the
 //! provider CLIs it spawns inherit the writer's proxy and provider settings
 //! (`environment`, from the login shell and the system proxy), which a
 //! restart picks up again (`restart`), and a default-off research-writing
@@ -12,6 +13,7 @@
 
 mod bibliography_guard;
 mod environment;
+mod guard_options;
 mod preferences;
 #[cfg(target_os = "macos")]
 mod proxy;
@@ -30,6 +32,7 @@ pub use bibliography_guard::linux::run_if_requested as run_guard_if_requested;
 #[cfg(target_os = "macos")]
 pub(crate) use bibliography_guard::BIBLIOGRAPHY_SANDBOX_PROFILE;
 pub use environment::EnvironmentReport;
+pub use guard_options::{GuardOptions, GuardOptionsReport};
 use reqwest::blocking::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
@@ -177,7 +180,7 @@ impl SynaraRuntime {
         if self.external_origin.is_none() {
             if let Some(reason) = bibliography_guard::unguarded(workspace, &self.home_dir) {
                 // What the whole system lacks comes first.
-                let reason = bibliography_guard::missing().unwrap_or(reason);
+                let reason = bibliography_guard::missing(&self.home_dir).unwrap_or(reason);
                 return Ok(self.unsupported_info(reason));
             }
         }
@@ -201,8 +204,9 @@ impl SynaraRuntime {
             reason = "restart_after_exit";
         }
         // Asked before each start, not once: on Linux what was missing can
-        // have been installed since.
-        if let Some(missing) = bibliography_guard::missing() {
+        // have been installed since, or the writer can have opted in to run
+        // without it (`guard_options`).
+        if let Some(missing) = bibliography_guard::missing(&self.home_dir) {
             return Ok(self.unsupported_info(missing));
         }
 
