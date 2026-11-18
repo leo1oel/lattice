@@ -111,10 +111,6 @@ pub const CORE_SOFTWARE: &[Credit] = &[
         ),
         "MIT",
     ),
-    licensed(
-        of(credit("tldraw", "https://tldraw.dev"), Npm, "tldraw"),
-        "tldraw license",
-    ),
     Credit {
         attribution: Some("Uses Trellis by DanFessler - github.com/DanFessler/trellis"),
         ..licensed(

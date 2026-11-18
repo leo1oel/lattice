@@ -379,9 +379,6 @@ The Synara sidecar has its own findings block further down; it is kept separate 
 | --- | --- | --- | --- |
 | `@danfessler/trellis-react@0.2.0` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
 | `@danfessler/trellis@0.2.0` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
-| `@tldraw/driver@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
-| `@tldraw/editor@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
-| `tldraw@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
 | `colored@3.1.1` | crates | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `cssparser-macros@0.6.1` | crates | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `cssparser-macros@0.7.1` | crates | `MPL-2.0` | weak-copyleft — file-level copyleft |
@@ -403,17 +400,6 @@ The Synara sidecar has its own findings block further down; it is kept separate 
 | `r-efi@6.0.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative; Lattice elects Apache-2.0 |
 | `dompurify@3.4.17` | npm | `(MPL-2.0 OR Apache-2.0)` | dual — file-level copyleft offered as one alternative; Lattice elects Apache-2.0 |
 | `jszip@3.10.1` | npm | `(MIT OR GPL-3.0-or-later)` | dual — GPL offered as one alternative; Lattice elects MIT |
-| `@tldraw/utils@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | non-spdx — non-SPDX `license` field; the file it points at is a permissive license |
-| `@tldraw/validate@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | non-spdx — non-SPDX `license` field; the file it points at is a permissive license |
-
-### Vendored license texts
-
-Some packages point at a license they do not actually ship. The text is
-vendored into this repository so that it is distributed with both the source
-and the binary (`public/` is copied into `dist/`, which `tauri.conf.json`
-embeds via `frontendDist`). It is reproduced below like any other notice.
-
-- [`public/licenses/tldraw-LICENSE.md`](public/licenses/tldraw-LICENSE.md) — for `@tldraw/driver@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`, because the published package ships a 104-byte LICENSE.md containing only a link, while the license it links to requires "a verbatim copy of this License in any distribution of the Software".
 
 ## Unresolved attribution — npm and crates
 
@@ -623,20 +609,20 @@ license named here is the one their upstream states:
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**807 packages.**
+**790 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 647 |
-| `ISC` | 62 |
+| `MIT` | 637 |
+| `ISC` | 60 |
 | `Apache-2.0` | 41 |
 | `BSD-3-Clause` | 24 |
-| `SEE LICENSE IN LICENSE.md` | 7 |
 | `MIT OR Apache-2.0` | 6 |
 | `apache-2.0` | 5 |
 | `OFL-1.1` | 4 |
 | `(MIT AND Zlib)` | 2 |
 | `MPL-2.0` | 2 |
+| `SEE LICENSE IN LICENSE.md` | 2 |
 | `(MIT OR GPL-3.0-or-later)` | 1 |
 | `(MPL-2.0 OR Apache-2.0)` | 1 |
 | `(no license field)` | 1 |
@@ -717,17 +703,17 @@ parent package listed beside it.
 
 </details>
 
-### License texts (83 distinct texts across 807 packages)
+### License texts (80 distinct texts across 790 packages)
 
-#### 1. MIT (+1 other declarations) — 310 package(s), from `license`
+#### 1. MIT (+1 other declarations) — 308 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
-`@antfu/install-pkg@2.1.0`, `@babel/runtime@7.29.7`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@braintree/sanitize-url@6.0.2`, `@braintree/sanitize-url@7.1.2`, `@codemirror/autocomplete@6.20.3`, `@codemirror/commands@6.10.4`, `@codemirror/lang-angular@0.1.4`, `@codemirror/lang-cpp@6.0.3`, `@codemirror/lang-css@6.3.1`, `@codemirror/lang-go@6.0.1`, `@codemirror/lang-html@6.4.12`, `@codemirror/lang-java@6.0.2`, `@codemirror/lang-javascript@6.2.5`, `@codemirror/lang-jinja@6.0.1`, `@codemirror/lang-json@6.0.2`, `@codemirror/lang-less@6.0.2`, `@codemirror/lang-liquid@6.3.2`, `@codemirror/lang-markdown@6.5.2`, `@codemirror/lang-php@6.0.2`, `@codemirror/lang-python@6.2.1`, `@codemirror/lang-rust@6.0.2`, `@codemirror/lang-sass@6.0.2`, `@codemirror/lang-sql@6.10.0`, `@codemirror/lang-vue@0.1.3`, `@codemirror/lang-wast@6.0.2`, `@codemirror/lang-xml@6.1.0`, `@codemirror/lang-yaml@6.1.3`, `@codemirror/language-data@6.5.2`, `@codemirror/language@6.12.4`, `@codemirror/legacy-modes@6.5.3`, `@codemirror/lint@6.9.7`, `@codemirror/search@6.7.1`, `@codemirror/state@6.7.1`, `@codemirror/view@6.43.8`, `@excalidraw/excalidraw@0.18.1`, `@excalidraw/laser-pointer@1.3.1`, `@excalidraw/mermaid-to-excalidraw@2.2.2`, `@excalidraw/random-username@1.1.0`, `@flatten-js/interval-tree@1.1.3`, `@iconify/types@2.0.0`, `@iconify/utils@3.1.7`, `@jest/schemas@29.6.3`, `@jest/types@29.6.3`, `@js-sdsl/ordered-map@4.4.2`, `@lezer/common@1.5.2`, `@lezer/cpp@1.1.6`, `@lezer/css@1.3.5`, `@lezer/generator@1.8.0`, `@lezer/go@1.0.1`, `@lezer/highlight@1.2.3`, `@lezer/html@1.3.13`, `@lezer/java@1.1.3`, `@lezer/javascript@1.5.4`, `@lezer/json@1.0.3`, `@lezer/lr@1.4.10`, `@lezer/markdown@1.7.2`, `@lezer/php@1.0.5`, `@lezer/python@1.1.19`, `@lezer/rust@1.0.2`, `@lezer/sass@1.1.0`, `@lezer/xml@1.0.6`, `@lezer/yaml@1.0.4`, `@marijn/find-cluster-break@1.0.3`, `@oxc-project/types@0.144.0`, `@pdfslick/core@4.0.2`, `@radix-ui/number@1.1.3`, `@radix-ui/primitive@1.0.0`, `@radix-ui/primitive@1.1.1`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-accessible-icon@1.1.13`, `@radix-ui/react-accordion@1.2.18`, `@radix-ui/react-alert-dialog@1.1.21`, `@radix-ui/react-arrow@1.1.13`, `@radix-ui/react-arrow@1.1.2`, `@radix-ui/react-aspect-ratio@1.1.13`, `@radix-ui/react-avatar@1.2.4`, `@radix-ui/react-checkbox@1.3.9`, `@radix-ui/react-collapsible@1.1.18`, `@radix-ui/react-collection@1.0.1`, `@radix-ui/react-collection@1.1.13`, `@radix-ui/react-compose-refs@1.0.0`, `@radix-ui/react-compose-refs@1.1.1`, `@radix-ui/react-compose-refs@1.1.4`, `@radix-ui/react-context-menu@2.3.5`, `@radix-ui/react-context@1.0.0`, `@radix-ui/react-context@1.1.1`, `@radix-ui/react-context@1.2.1`, `@radix-ui/react-dialog@1.1.21`, `@radix-ui/react-direction@1.0.0`, `@radix-ui/react-direction@1.1.3`, `@radix-ui/react-dismissable-layer@1.1.17`, `@radix-ui/react-dismissable-layer@1.1.5`, `@radix-ui/react-dropdown-menu@2.1.22`, `@radix-ui/react-focus-guards@1.1.1`, `@radix-ui/react-focus-guards@1.1.5`, `@radix-ui/react-focus-scope@1.1.14`, `@radix-ui/react-focus-scope@1.1.2`, `@radix-ui/react-form@0.1.14`, `@radix-ui/react-hover-card@1.1.21`, `@radix-ui/react-id@1.0.0`, `@radix-ui/react-id@1.1.0`, `@radix-ui/react-id@1.1.3`, `@radix-ui/react-label@2.1.13`, `@radix-ui/react-menu@2.1.22`, `@radix-ui/react-menubar@1.1.22`, `@radix-ui/react-navigation-menu@1.2.20`, `@radix-ui/react-one-time-password-field@0.1.14`, `@radix-ui/react-password-toggle-field@0.1.9`, `@radix-ui/react-popover@1.1.21`, `@radix-ui/react-popper@1.2.2`, `@radix-ui/react-popper@1.3.5`, `@radix-ui/react-portal@1.1.15`, `@radix-ui/react-portal@1.1.4`, `@radix-ui/react-presence@1.0.0`, `@radix-ui/react-presence@1.1.2`, `@radix-ui/react-presence@1.1.9`, `@radix-ui/react-primitive@1.0.1`, `@radix-ui/react-primitive@2.0.2`, `@radix-ui/react-primitive@2.1.8`, `@radix-ui/react-progress@1.1.14`, `@radix-ui/react-radio-group@1.4.5`, `@radix-ui/react-roving-focus@1.0.2`, `@radix-ui/react-roving-focus@1.1.17`, `@radix-ui/react-scroll-area@1.2.16`, `@radix-ui/react-select@2.3.5`, `@radix-ui/react-separator@1.1.13`, `@radix-ui/react-slider@1.4.5`, `@radix-ui/react-slot@1.0.1`, `@radix-ui/react-slot@1.1.2`, `@radix-ui/react-slot@1.3.1`, `@radix-ui/react-switch@1.3.5`, `@radix-ui/react-tabs@1.0.2`, `@radix-ui/react-tabs@1.1.19`, `@radix-ui/react-toast@1.2.21`, `@radix-ui/react-toggle-group@1.1.17`, `@radix-ui/react-toggle@1.1.16`, `@radix-ui/react-toolbar@1.1.17`, `@radix-ui/react-tooltip@1.2.14`, `@radix-ui/react-use-callback-ref@1.0.0`, `@radix-ui/react-use-callback-ref@1.1.0`, `@radix-ui/react-use-callback-ref@1.1.3`, `@radix-ui/react-use-controllable-state@1.0.0`, `@radix-ui/react-use-controllable-state@1.1.0`, `@radix-ui/react-use-controllable-state@1.2.5`, `@radix-ui/react-use-effect-event@0.0.4`, `@radix-ui/react-use-escape-keydown@1.1.0`, `@radix-ui/react-use-escape-keydown@1.1.4`, `@radix-ui/react-use-is-hydrated@0.1.2`, `@radix-ui/react-use-layout-effect@1.0.0`, `@radix-ui/react-use-layout-effect@1.1.0`, `@radix-ui/react-use-layout-effect@1.1.3`, `@radix-ui/react-use-previous@1.1.3`, `@radix-ui/react-use-rect@1.1.0`, `@radix-ui/react-use-rect@1.1.3`, `@radix-ui/react-use-size@1.1.0`, `@radix-ui/react-use-size@1.1.3`, `@radix-ui/react-visually-hidden@1.2.9`, `@radix-ui/rect@1.1.0`, `@radix-ui/rect@1.1.3`, `@replit/codemirror-emacs@6.1.0`, `@replit/codemirror-vim-core@0.1.0`, `@replit/codemirror-vim@6.4.0`, `@rolldown/pluginutils@1.0.1`, `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.3.1`, `@shikijs/types@4.3.1`, `@shikijs/types@4.4.3`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@tauri-apps/api@2.11.1` (`Apache-2.0 OR MIT`), `@tiptap/core@3.33.1`, `@tiptap/extension-blockquote@3.33.1`, `@tiptap/extension-bold@3.33.1`, `@tiptap/extension-bubble-menu@3.33.1`, `@tiptap/extension-bullet-list@3.33.1`, `@tiptap/extension-code-block@3.33.1`, `@tiptap/extension-code@3.33.1`, `@tiptap/extension-document@3.33.1`, `@tiptap/extension-dropcursor@3.33.1`, `@tiptap/extension-floating-menu@3.33.1`, `@tiptap/extension-gapcursor@3.33.1`, `@tiptap/extension-hard-break@3.33.1`, `@tiptap/extension-heading@3.33.1`, `@tiptap/extension-highlight@3.33.1`, `@tiptap/extension-horizontal-rule@3.33.1`, `@tiptap/extension-image@3.33.1`, `@tiptap/extension-italic@3.33.1`, `@tiptap/extension-link@3.33.1`, `@tiptap/extension-list-item@3.33.1`, `@tiptap/extension-list-keymap@3.33.1`, `@tiptap/extension-list@3.33.1`, `@tiptap/extension-ordered-list@3.33.1`, `@tiptap/extension-paragraph@3.33.1`, `@tiptap/extension-strike@3.33.1`, `@tiptap/extension-table@3.33.1`, `@tiptap/extension-text@3.33.1`, `@tiptap/extension-underline@3.33.1`, `@tiptap/extensions@3.33.1`, `@tiptap/pm@3.33.1`, `@tiptap/react@3.33.1`, `@tiptap/starter-kit@3.33.1`, `@tiptap/suggestion@3.33.1`, `@univerjs/icons@1.4.0`, `@upsetjs/venn.js@2.0.0`, `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `ansi-styles@5.2.0`, `aria-hidden@1.2.6`, `binary-extensions@2.3.0`, `brace-expansion@1.1.21`, `brace-expansion@2.1.7`, `camelcase@6.3.0`, `canvas-roundrect-polyfill@0.0.1`, `chalk@4.1.2`, `cjk-regex@3.4.0`, `clsx@1.1.1`, `clsx@2.1.1`, `cose-base@1.0.3`, `cose-base@2.2.0`, `cuelume@0.2.2`, `dayjs@1.11.21`, `detect-node-es@1.1.0`, `es-toolkit@1.53.2`, `escalade@3.2.0`, `escape-string-regexp@5.0.0`, `fast-equals@5.4.1`, `frimousse@0.3.0`, `get-nonce@1.0.1`, `hachure-fill@0.5.2`, `has-flag@4.0.0`, `immutable@4.3.9`, `is-binary-path@2.1.0`, `is-fullwidth-code-point@3.0.0`, `is-plain-obj@4.1.0`, `isarray@1.0.0`, `jest-get-type@29.6.3`, `jest-validate@29.7.0`, `jiti@2.7.0`, `jotai@2.11.0`, `js-sha256@0.10.1`, `layout-base@1.0.2`, `layout-base@2.0.1`, `leven@3.1.0`, `lilconfig@3.1.3`, `lz-string@1.5.0`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `open-color@1.9.1`, `package-manager-detector@1.9.0`, `path-data-parser@0.1.0`, `path-key@3.1.1`, `perfect-freehand@1.2.0`, `points-on-curve@0.2.0`, `points-on-curve@1.0.1`, `points-on-path@0.2.1`, `pretty-format@29.7.0`, `prop-types@15.8.1`, `radix-ui@1.6.5`, `rbush@3.0.1`, `rbush@4.0.1`, `react-dom@19.2.7`, `react-is@16.13.1`, `react-is@18.3.1`, `react-remove-scroll-bar@2.3.8`, `react-remove-scroll@2.7.2`, `react-style-singleton@2.2.3`, `react@19.2.7`, `readdirp@3.6.0`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `regexp-util@2.0.3`, `roughjs@4.6.4`, `roughjs@4.6.6`, `safer-buffer@2.1.2`, `scheduler@0.27.0`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `shiki@4.3.1`, `sonner@2.0.8`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `stylis@4.4.0`, `supports-color@7.2.0`, `tailwind-merge@2.6.0`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tinyexec@1.3.1`, `tinyglobby@0.2.17`, `ts-dedent@2.3.0`, `tunnel-rat@0.1.2`, `undici-types@8.3.0`, `unicode-regex@4.2.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wrap-ansi@7.0.0`, `yargs@17.7.3`, `zustand@4.5.7`, `zustand@5.0.15`
+`@antfu/install-pkg@2.1.0`, `@babel/runtime@7.29.7`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@braintree/sanitize-url@6.0.2`, `@braintree/sanitize-url@7.1.2`, `@codemirror/autocomplete@6.20.3`, `@codemirror/commands@6.10.4`, `@codemirror/lang-angular@0.1.4`, `@codemirror/lang-cpp@6.0.3`, `@codemirror/lang-css@6.3.1`, `@codemirror/lang-go@6.0.1`, `@codemirror/lang-html@6.4.12`, `@codemirror/lang-java@6.0.2`, `@codemirror/lang-javascript@6.2.5`, `@codemirror/lang-jinja@6.0.1`, `@codemirror/lang-json@6.0.2`, `@codemirror/lang-less@6.0.2`, `@codemirror/lang-liquid@6.3.2`, `@codemirror/lang-markdown@6.5.2`, `@codemirror/lang-php@6.0.2`, `@codemirror/lang-python@6.2.1`, `@codemirror/lang-rust@6.0.2`, `@codemirror/lang-sass@6.0.2`, `@codemirror/lang-sql@6.10.0`, `@codemirror/lang-vue@0.1.3`, `@codemirror/lang-wast@6.0.2`, `@codemirror/lang-xml@6.1.0`, `@codemirror/lang-yaml@6.1.3`, `@codemirror/language-data@6.5.2`, `@codemirror/language@6.12.4`, `@codemirror/legacy-modes@6.5.3`, `@codemirror/lint@6.9.7`, `@codemirror/search@6.7.1`, `@codemirror/state@6.7.1`, `@codemirror/view@6.43.8`, `@excalidraw/excalidraw@0.18.1`, `@excalidraw/laser-pointer@1.3.1`, `@excalidraw/mermaid-to-excalidraw@2.2.2`, `@excalidraw/random-username@1.1.0`, `@flatten-js/interval-tree@1.1.3`, `@iconify/types@2.0.0`, `@iconify/utils@3.1.7`, `@jest/schemas@29.6.3`, `@jest/types@29.6.3`, `@js-sdsl/ordered-map@4.4.2`, `@lezer/common@1.5.2`, `@lezer/cpp@1.1.6`, `@lezer/css@1.3.5`, `@lezer/generator@1.8.0`, `@lezer/go@1.0.1`, `@lezer/highlight@1.2.3`, `@lezer/html@1.3.13`, `@lezer/java@1.1.3`, `@lezer/javascript@1.5.4`, `@lezer/json@1.0.3`, `@lezer/lr@1.4.10`, `@lezer/markdown@1.7.2`, `@lezer/php@1.0.5`, `@lezer/python@1.1.19`, `@lezer/rust@1.0.2`, `@lezer/sass@1.1.0`, `@lezer/xml@1.0.6`, `@lezer/yaml@1.0.4`, `@marijn/find-cluster-break@1.0.3`, `@oxc-project/types@0.144.0`, `@pdfslick/core@4.0.2`, `@radix-ui/number@1.1.3`, `@radix-ui/primitive@1.0.0`, `@radix-ui/primitive@1.1.1`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-accessible-icon@1.1.13`, `@radix-ui/react-accordion@1.2.18`, `@radix-ui/react-alert-dialog@1.1.21`, `@radix-ui/react-arrow@1.1.13`, `@radix-ui/react-arrow@1.1.2`, `@radix-ui/react-aspect-ratio@1.1.13`, `@radix-ui/react-avatar@1.2.4`, `@radix-ui/react-checkbox@1.3.9`, `@radix-ui/react-collapsible@1.1.18`, `@radix-ui/react-collection@1.0.1`, `@radix-ui/react-collection@1.1.13`, `@radix-ui/react-compose-refs@1.0.0`, `@radix-ui/react-compose-refs@1.1.1`, `@radix-ui/react-compose-refs@1.1.4`, `@radix-ui/react-context-menu@2.3.5`, `@radix-ui/react-context@1.0.0`, `@radix-ui/react-context@1.1.1`, `@radix-ui/react-context@1.2.1`, `@radix-ui/react-dialog@1.1.21`, `@radix-ui/react-direction@1.0.0`, `@radix-ui/react-direction@1.1.3`, `@radix-ui/react-dismissable-layer@1.1.17`, `@radix-ui/react-dismissable-layer@1.1.5`, `@radix-ui/react-dropdown-menu@2.1.22`, `@radix-ui/react-focus-guards@1.1.1`, `@radix-ui/react-focus-guards@1.1.5`, `@radix-ui/react-focus-scope@1.1.14`, `@radix-ui/react-focus-scope@1.1.2`, `@radix-ui/react-form@0.1.14`, `@radix-ui/react-hover-card@1.1.21`, `@radix-ui/react-id@1.0.0`, `@radix-ui/react-id@1.1.0`, `@radix-ui/react-id@1.1.3`, `@radix-ui/react-label@2.1.13`, `@radix-ui/react-menu@2.1.22`, `@radix-ui/react-menubar@1.1.22`, `@radix-ui/react-navigation-menu@1.2.20`, `@radix-ui/react-one-time-password-field@0.1.14`, `@radix-ui/react-password-toggle-field@0.1.9`, `@radix-ui/react-popover@1.1.21`, `@radix-ui/react-popper@1.2.2`, `@radix-ui/react-popper@1.3.5`, `@radix-ui/react-portal@1.1.15`, `@radix-ui/react-portal@1.1.4`, `@radix-ui/react-presence@1.0.0`, `@radix-ui/react-presence@1.1.2`, `@radix-ui/react-presence@1.1.9`, `@radix-ui/react-primitive@1.0.1`, `@radix-ui/react-primitive@2.0.2`, `@radix-ui/react-primitive@2.1.8`, `@radix-ui/react-progress@1.1.14`, `@radix-ui/react-radio-group@1.4.5`, `@radix-ui/react-roving-focus@1.0.2`, `@radix-ui/react-roving-focus@1.1.17`, `@radix-ui/react-scroll-area@1.2.16`, `@radix-ui/react-select@2.3.5`, `@radix-ui/react-separator@1.1.13`, `@radix-ui/react-slider@1.4.5`, `@radix-ui/react-slot@1.0.1`, `@radix-ui/react-slot@1.1.2`, `@radix-ui/react-slot@1.3.1`, `@radix-ui/react-switch@1.3.5`, `@radix-ui/react-tabs@1.0.2`, `@radix-ui/react-tabs@1.1.19`, `@radix-ui/react-toast@1.2.21`, `@radix-ui/react-toggle-group@1.1.17`, `@radix-ui/react-toggle@1.1.16`, `@radix-ui/react-toolbar@1.1.17`, `@radix-ui/react-tooltip@1.2.14`, `@radix-ui/react-use-callback-ref@1.0.0`, `@radix-ui/react-use-callback-ref@1.1.0`, `@radix-ui/react-use-callback-ref@1.1.3`, `@radix-ui/react-use-controllable-state@1.0.0`, `@radix-ui/react-use-controllable-state@1.1.0`, `@radix-ui/react-use-controllable-state@1.2.5`, `@radix-ui/react-use-effect-event@0.0.4`, `@radix-ui/react-use-escape-keydown@1.1.0`, `@radix-ui/react-use-escape-keydown@1.1.4`, `@radix-ui/react-use-is-hydrated@0.1.2`, `@radix-ui/react-use-layout-effect@1.0.0`, `@radix-ui/react-use-layout-effect@1.1.0`, `@radix-ui/react-use-layout-effect@1.1.3`, `@radix-ui/react-use-previous@1.1.3`, `@radix-ui/react-use-rect@1.1.0`, `@radix-ui/react-use-rect@1.1.3`, `@radix-ui/react-use-size@1.1.0`, `@radix-ui/react-use-size@1.1.3`, `@radix-ui/react-visually-hidden@1.2.9`, `@radix-ui/rect@1.1.0`, `@radix-ui/rect@1.1.3`, `@replit/codemirror-emacs@6.1.0`, `@replit/codemirror-vim-core@0.1.0`, `@replit/codemirror-vim@6.4.0`, `@rolldown/pluginutils@1.0.1`, `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.3.1`, `@shikijs/types@4.3.1`, `@shikijs/types@4.4.3`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@tauri-apps/api@2.11.1` (`Apache-2.0 OR MIT`), `@tiptap/core@3.33.1`, `@tiptap/extension-blockquote@3.33.1`, `@tiptap/extension-bold@3.33.1`, `@tiptap/extension-bubble-menu@3.33.1`, `@tiptap/extension-bullet-list@3.33.1`, `@tiptap/extension-code-block@3.33.1`, `@tiptap/extension-code@3.33.1`, `@tiptap/extension-document@3.33.1`, `@tiptap/extension-dropcursor@3.33.1`, `@tiptap/extension-floating-menu@3.33.1`, `@tiptap/extension-gapcursor@3.33.1`, `@tiptap/extension-hard-break@3.33.1`, `@tiptap/extension-heading@3.33.1`, `@tiptap/extension-highlight@3.33.1`, `@tiptap/extension-horizontal-rule@3.33.1`, `@tiptap/extension-image@3.33.1`, `@tiptap/extension-italic@3.33.1`, `@tiptap/extension-link@3.33.1`, `@tiptap/extension-list-item@3.33.1`, `@tiptap/extension-list-keymap@3.33.1`, `@tiptap/extension-list@3.33.1`, `@tiptap/extension-ordered-list@3.33.1`, `@tiptap/extension-paragraph@3.33.1`, `@tiptap/extension-strike@3.33.1`, `@tiptap/extension-table@3.33.1`, `@tiptap/extension-text@3.33.1`, `@tiptap/extension-underline@3.33.1`, `@tiptap/extensions@3.33.1`, `@tiptap/pm@3.33.1`, `@tiptap/react@3.33.1`, `@tiptap/starter-kit@3.33.1`, `@tiptap/suggestion@3.33.1`, `@univerjs/icons@1.4.0`, `@upsetjs/venn.js@2.0.0`, `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `ansi-styles@5.2.0`, `aria-hidden@1.2.6`, `binary-extensions@2.3.0`, `brace-expansion@1.1.21`, `brace-expansion@2.1.7`, `camelcase@6.3.0`, `canvas-roundrect-polyfill@0.0.1`, `chalk@4.1.2`, `cjk-regex@3.4.0`, `clsx@1.1.1`, `clsx@2.1.1`, `cose-base@1.0.3`, `cose-base@2.2.0`, `cuelume@0.2.2`, `dayjs@1.11.21`, `detect-node-es@1.1.0`, `es-toolkit@1.53.2`, `escalade@3.2.0`, `escape-string-regexp@5.0.0`, `fast-equals@5.4.1`, `frimousse@0.3.0`, `get-nonce@1.0.1`, `hachure-fill@0.5.2`, `has-flag@4.0.0`, `immutable@4.3.9`, `is-binary-path@2.1.0`, `is-fullwidth-code-point@3.0.0`, `is-plain-obj@4.1.0`, `isarray@1.0.0`, `jest-get-type@29.6.3`, `jest-validate@29.7.0`, `jiti@2.7.0`, `jotai@2.11.0`, `js-sha256@0.10.1`, `layout-base@1.0.2`, `layout-base@2.0.1`, `leven@3.1.0`, `lilconfig@3.1.3`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `open-color@1.9.1`, `package-manager-detector@1.9.0`, `path-data-parser@0.1.0`, `path-key@3.1.1`, `perfect-freehand@1.2.0`, `points-on-curve@0.2.0`, `points-on-curve@1.0.1`, `points-on-path@0.2.1`, `pretty-format@29.7.0`, `prop-types@15.8.1`, `radix-ui@1.6.5`, `rbush@4.0.1`, `react-dom@19.2.7`, `react-is@16.13.1`, `react-is@18.3.1`, `react-remove-scroll-bar@2.3.8`, `react-remove-scroll@2.7.2`, `react-style-singleton@2.2.3`, `react@19.2.7`, `readdirp@3.6.0`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `regexp-util@2.0.3`, `roughjs@4.6.4`, `roughjs@4.6.6`, `safer-buffer@2.1.2`, `scheduler@0.27.0`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `shiki@4.3.1`, `sonner@2.0.8`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `stylis@4.4.0`, `supports-color@7.2.0`, `tailwind-merge@2.6.0`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tinyexec@1.3.1`, `tinyglobby@0.2.17`, `ts-dedent@2.3.0`, `tunnel-rat@0.1.2`, `undici-types@8.3.0`, `unicode-regex@4.2.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wrap-ansi@7.0.0`, `yargs@17.7.3`, `zustand@4.5.7`, `zustand@5.0.15`
 
 </details>
 
-Copyright notices (88):
+Copyright notices (86):
 
 ```text
 Copyright (C) 2018 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
@@ -743,12 +729,10 @@ Copyright (C) 2025 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
 Copyright (c) 2012-2019 Thorsten Lorenz, Paul Miller (https://paulmillr.com)
 Copyright (c) 2013 Ben Frederickson
 Copyright (c) 2013 Julian Gruber <julian@juliangruber.com>
-Copyright (c) 2013 pieroxy
 Copyright (c) 2013-present, Facebook, Inc.
 Copyright (c) 2014-2023 Chen, Yi-Cyuan
 Copyright (c) 2014-present Sebastian McKenzie and other contributors
 Copyright (c) 2014-present, Lee Byron and other contributors.
-Copyright (c) 2016 Vladimir Agafonkin
 Copyright (c) 2016 heeyeun
 Copyright (c) 2016-present Sultan Tarimo
 Copyright (c) 2017 - Present Tauri Apps Contributors
@@ -894,15 +878,15 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 3. MIT (+1 other declarations) — 65 package(s), from `license`
+#### 3. MIT (+1 other declarations) — 62 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
-`@excalidraw/markdown-to-text@0.1.2`, `@lingui/babel-plugin-lingui-macro@6.6.0`, `@lingui/conf@6.6.0`, `@lingui/core@6.6.0`, `@lingui/message-utils@6.6.0`, `@lingui/react@6.6.0`, `@mermaid-js/parser@0.6.3`, `@mermaid-js/parser@1.2.1`, `@shikijs/vscode-textmate@10.0.2`, `async-lock@1.4.1`, `base64-js@1.5.1`, `bluebird@3.7.2`, `braces@3.0.3`, `buffer@5.7.1`, `classnames@2.5.1`, `color-name@1.1.4`, `cross-env@7.0.3`, `cross-spawn@7.0.6`, `dequal@2.0.3`, `dom-helpers@5.2.1`, `end-of-stream@1.4.5`, `eventemitter3@4.0.7`, `exceljs@4.4.0`, `extend@3.0.2`, `fill-range@7.1.1`, `framer-motion@12.43.0`, `fs-constants@1.0.0`, `glur@1.1.2`, `is-extglob@2.1.1`, `is-glob@4.0.3`, `is-number@7.0.0`, `is-plain-object@5.0.0`, `isomorphic.js@0.2.5`, `jotai-scope@0.7.2`, `js-tokens@4.0.0`, `katex@0.16.47`, `katex@0.19.0`, `khroma@2.1.0` (`(no license field)`), `lib0@0.2.117`, `loose-envify@1.4.0`, `mermaid@11.17.2`, `motion-dom@12.43.0`, `motion-utils@12.39.0`, `motion@12.42.2`, `ms@2.1.3`, `normalize-path@3.0.0`, `object-assign@4.1.1`, `path-is-absolute@1.0.1`, `picomatch@2.3.2`, `picomatch@4.0.5`, `png-chunk-text@1.0.0`, `png-chunks-encode@1.0.0`, `png-chunks-extract@1.0.0`, `preact-render-to-string@6.6.5`, `preact@11.0.0-beta.0`, `require-directory@2.1.1`, `reselect@5.2.0`, `safe-buffer@5.1.2`, `safe-buffer@5.2.1`, `tar-stream@2.2.0`, `tmp@0.2.7`, `to-regex-range@5.0.1`, `uuid@14.0.3`, `uuid@8.3.2`, `vscode-uri@3.0.8`
+`@excalidraw/markdown-to-text@0.1.2`, `@lingui/babel-plugin-lingui-macro@6.6.0`, `@lingui/conf@6.6.0`, `@lingui/core@6.6.0`, `@lingui/message-utils@6.6.0`, `@lingui/react@6.6.0`, `@mermaid-js/parser@0.6.3`, `@mermaid-js/parser@1.2.1`, `@shikijs/vscode-textmate@10.0.2`, `async-lock@1.4.1`, `base64-js@1.5.1`, `bluebird@3.7.2`, `braces@3.0.3`, `buffer@5.7.1`, `color-name@1.1.4`, `cross-env@7.0.3`, `cross-spawn@7.0.6`, `dequal@2.0.3`, `dom-helpers@5.2.1`, `end-of-stream@1.4.5`, `exceljs@4.4.0`, `extend@3.0.2`, `fill-range@7.1.1`, `framer-motion@12.43.0`, `fs-constants@1.0.0`, `glur@1.1.2`, `is-extglob@2.1.1`, `is-glob@4.0.3`, `is-number@7.0.0`, `isomorphic.js@0.2.5`, `jotai-scope@0.7.2`, `js-tokens@4.0.0`, `katex@0.16.47`, `katex@0.19.0`, `khroma@2.1.0` (`(no license field)`), `lib0@0.2.117`, `loose-envify@1.4.0`, `mermaid@11.17.2`, `motion-dom@12.43.0`, `motion-utils@12.39.0`, `motion@12.42.2`, `ms@2.1.3`, `normalize-path@3.0.0`, `object-assign@4.1.1`, `path-is-absolute@1.0.1`, `picomatch@2.3.2`, `picomatch@4.0.5`, `png-chunk-text@1.0.0`, `png-chunks-encode@1.0.0`, `png-chunks-extract@1.0.0`, `preact-render-to-string@6.6.5`, `preact@11.0.0-beta.0`, `require-directory@2.1.1`, `reselect@5.2.0`, `safe-buffer@5.1.2`, `safe-buffer@5.2.1`, `tar-stream@2.2.0`, `tmp@0.2.7`, `to-regex-range@5.0.1`, `uuid@14.0.3`, `uuid@8.3.2`, `vscode-uri@3.0.8`
 
 </details>
 
-Copyright notices (47):
+Copyright notices (45):
 
 ```text
 Copyright (c) 2010-2020 Robert Kieffer and other contributors
@@ -911,7 +895,6 @@ Copyright (c) 2013-2018 Petka Antonov
 Copyright (c) 2013-2020 Khan Academy and other contributors
 Copyright (c) 2014 - 2022 Knut Sveidqvist
 Copyright (c) 2014 Andrei Tupitcyn
-Copyright (c) 2014 Arnout Kazemier
 Copyright (c) 2014 Jameson Little
 Copyright (c) 2014 KARASZI István
 Copyright (c) 2014 Mathias Buus
@@ -935,7 +918,6 @@ Copyright (c) 2017 Kent C. Dodds
 Copyright (c) 2017-2022 Tomáš Ehrlich, (c) 2022-2023 Crowdin.
 Copyright (c) 2017-present, Jon Schlinkert.
 Copyright (c) 2018 Framer B.V.
-Copyright (c) 2018 Jed Watson
 Copyright (c) 2018 Made With MOXY Lda <hello@moxy.studio>
 Copyright (c) 2018 Mathias Buus
 Copyright (c) 2019 Kevin Jahns <kevin.jahns@protonmail.com>.
@@ -1328,11 +1310,11 @@ Apache License
    END OF TERMS AND CONDITIONS
 ```
 
-#### 8. MIT — 16 package(s), from `LICENSE`
+#### 8. MIT — 15 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`lodash-es@4.17.21`, `lodash-es@4.18.1`, `lodash.camelcase@4.3.0`, `lodash.debounce@4.0.8`, `lodash.defaults@4.2.0`, `lodash.difference@4.5.0`, `lodash.escaperegexp@4.1.2`, `lodash.flatten@4.4.0`, `lodash.groupby@4.6.0`, `lodash.isequal@4.5.0`, `lodash.isequalwith@4.4.0`, `lodash.isfunction@3.0.9`, `lodash.isplainobject@4.0.6`, `lodash.throttle@4.1.1`, `lodash.union@4.6.0`, `lodash.uniq@4.5.0`
+`lodash-es@4.17.21`, `lodash-es@4.18.1`, `lodash.camelcase@4.3.0`, `lodash.debounce@4.0.8`, `lodash.defaults@4.2.0`, `lodash.difference@4.5.0`, `lodash.escaperegexp@4.1.2`, `lodash.flatten@4.4.0`, `lodash.groupby@4.6.0`, `lodash.isequal@4.5.0`, `lodash.isfunction@3.0.9`, `lodash.isplainobject@4.0.6`, `lodash.throttle@4.1.1`, `lodash.union@4.6.0`, `lodash.uniq@4.5.0`
 
 </details>
 
@@ -2082,33 +2064,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-#### 17. MIT (+1 other declarations) — 6 package(s), from `LICENSE.md`
-
-<details><summary>Packages sharing this text</summary>
-
-`@tldraw/state-react@5.2.5`, `@tldraw/state@5.2.5`, `@tldraw/store@5.2.5`, `@tldraw/tlschema@5.2.5`, `@tldraw/utils@5.2.5` (`SEE LICENSE IN LICENSE.md`), `@tldraw/validate@5.2.5` (`SEE LICENSE IN LICENSE.md`)
-
-</details>
-
-Copyright notices (1):
-
-```text
-Copyright (c) 2024 tldraw Inc.
-```
-
-```text
-MIT License
-
-Copyright (c) 2024 tldraw Inc.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-#### 18. apache-2.0 — 5 package(s), from `LICENSE.md`
+#### 17. apache-2.0 — 5 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2316,7 +2272,7 @@ CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 ```
 
-#### 19. MIT — 5 package(s), from `License.txt`
+#### 18. MIT — 5 package(s), from `License.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2344,7 +2300,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 20. BSD-3-Clause — 5 package(s), from `LICENSE`
+#### 19. BSD-3-Clause — 5 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2394,42 +2350,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 21. ISC — 4 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`delaunator@5.1.0`, `kdbush@4.1.0`, `quickselect@2.0.0`, `quickselect@3.0.0`
-
-</details>
-
-Copyright notices (4):
-
-```text
-Copyright (c) 2018, Vladimir Agafonkin
-Copyright (c) 2024, Vladimir Agafonkin
-Copyright (c) 2026, Mapbox
-Copyright (c) 2026, Vladimir Agafonkin
-```
-
-```text
-ISC License
-
-Copyright (c) 2018, Vladimir Agafonkin
-
-Permission to use, copy, modify, and/or distribute this software for any purpose
-with or without fee is hereby granted, provided that the above copyright notice
-and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
-OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
-TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
-THIS SOFTWARE.
-```
-
-#### 22. MIT — 4 package(s), from `LICENSE`
+#### 20. MIT — 4 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2494,7 +2415,7 @@ IN THE SOFTWARE.
 """
 ```
 
-#### 23. MIT — 4 package(s), from `LICENSE`
+#### 21. MIT — 4 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2532,7 +2453,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 24. OFL-1.1 — 3 package(s), from `LICENSE`
+#### 22. OFL-1.1 — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2647,7 +2568,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-#### 25. MIT — 3 package(s), from `LICENSE`
+#### 23. MIT — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2685,88 +2606,41 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 26. SEE LICENSE IN LICENSE.md — 3 package(s), from `public/licenses/tldraw-LICENSE.md`
+#### 24. ISC — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`@tldraw/driver@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`
+`delaunator@5.1.0`, `kdbush@4.1.0`, `quickselect@3.0.0`
 
 </details>
 
+Copyright notices (3):
+
 ```text
-# tldraw license
-
-This License from tldraw, Inc. (“tldraw”) governs your use of the accompanying Software. By using the Software, you accept the terms of this License. The tldraw software is copyrighted by tldraw Inc.
-
-Alternative licenses are available from tldraw for commercial and non-commercial use. To get an alternative license or to learn more, visit https://tldraw.dev or contact sales@tldraw.com.
-
-## Definitions
-
-"Production Environment" means any production deployment of the Software that operates on servers, cloud platforms, web applications, or where the software is used to provide functionality to end users, customers, or the public. Production Environment excludes internal development.
-
-"Development Environment" means any internal hosting or deployment of the Software for development, testing, or staging purposes, operated by your organization and not accessible to end users, customers, or the public.
-
-"License Key" means the programmatically generated key that controls Software functionality and usage restrictions.
-
-## Permissions
-
-Subject to the following conditions, you are permitted to:
-
-- Use the Software in Development Environments.
-- Modify the Software to suit your needs.
-- Bundle the Software with your own projects.
-- Submit modifications of the Software to tldraw.
-
-## Conditions
-
-In exchange for these permissions, you agree:
-
-- Not to use the Software in Production Environments.
-- Not to disable, change, or interfere with the Software's License Key enforcement.
-- Not to remove any copyright or other notices from the Software.
-- Not to make the Software available under a license that supersedes or negates the effect of this License.
-- Not to distribute the Software or modifications of the Software as a standalone product, but only as part of another application.
-- To include a verbatim copy of this License in any distribution of the Software.
-- To comply with tldraw's trademark policy.
-
-## Trial license
-
-In the case that tldraw makes the Software available to you on a trial basis, you are permitted to use the Software in Production Environments for the specified period beginning from the date of the trial’s License Key issuance. Business units are limited to one trial period unless otherwise approved by tldraw in writing.
-
-## Commercial license
-
-In the case that tldraw makes the Software available to you under the terms of a separate commercial agreement, you are permitted to use the Software in Production Environments for the specified period beginning from the date of the agreement’s License Key issuance.
-
-## Termination
-
-Your license to use the Software will terminate automatically if you breach any terms of this License or initiate a copyright, trade secret, or patent claim against tldraw, any of its affiliates, or any user of the Software (including as modified by you).
-
-## Technical enforcement
-
-The Software includes technical measures to verify License Key validity, detect deployment environments, enforce usage restrictions based on license type, and ensure proper watermark display. The Software may collect and transmit usage data to tldraw for license compliance purposes.
-
-## Ownership of intellectual property
-
-tldraw retains all right, title, and interest in the Software, including all intellectual property rights therein. This Agreement grants you only the specific, limited rights expressly set forth herein, and tldraw reserves all rights not expressly granted.
-
-## Disclaimer of warranties
-
-The Software is provided "AS IS," without any warranties. This includes any implied warranties of merchantability, fitness for a particular purpose, or non-infringement. You must pass this disclaimer on whenever you distribute the Software or derivative works.
-
-## Limitation of liability
-
-tldraw is not liable for any damages related to the Software or this License, including direct, indirect, special, or incidental damages, to the fullest extent permitted by law. You must pass this limitation of liability on whenever you distribute the Software or derivative works.
-
-## Governing law
-
-This License is governed by the laws of Delaware, and the parties consent to exclusive jurisdiction in Delaware courts. The parties waive all defenses of lack of personal jurisdiction and forum non-conveniens.
-
-## Entire agreement / assignment
-
-This License is the entire agreement between the parties, and supersedes any and all prior agreements, understandings or communications, written or oral, between the parties relating to the subject matter hereof. This License may be assigned by tldraw without your prior consent.
+Copyright (c) 2024, Vladimir Agafonkin
+Copyright (c) 2026, Mapbox
+Copyright (c) 2026, Vladimir Agafonkin
 ```
 
-#### 27. MIT — 3 package(s), from `license.md`
+```text
+ISC License
+
+Copyright (c) 2024, Vladimir Agafonkin
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+```
+
+#### 25. MIT — 3 package(s), from `license.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2792,7 +2666,7 @@ The above copyright notice and this permission notice shall be included in all c
 **THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.**
 ```
 
-#### 28. MPL-2.0 — 2 package(s), from `LICENSE`
+#### 26. MPL-2.0 — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3182,7 +3056,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as
 defined by the Mozilla Public License, v. 2.0.
 ```
 
-#### 29. BSD-3-Clause — 2 package(s), from `LICENSE`
+#### 27. BSD-3-Clause — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3229,19 +3103,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 30. SEE LICENSE IN LICENSE.md — 2 package(s), from `LICENSE.md`
-
-<details><summary>Packages sharing this text</summary>
-
-`@tldraw/editor@5.2.5`, `tldraw@5.2.5`
-
-</details>
-
-```text
-This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)
-```
-
-#### 31. MIT — 2 package(s), from `LICENSE`
+#### 28. MIT — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3276,7 +3138,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 32. SEE LICENSE IN LICENSE.md — 2 package(s), from `LICENSE-NONCOMMERCIAL.md`
+#### 29. SEE LICENSE IN LICENSE.md — 2 package(s), from `LICENSE-NONCOMMERCIAL.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3355,7 +3217,7 @@ You may fork this project and create derivative works for non-commercial purpose
 - Offer paid support, paid add-ons, or integration services for your fork without a commercial license
 ```
 
-#### 33. SEE LICENSE IN LICENSE.md — 2 package(s), from `LICENSE-COMMERCIAL.md`
+#### 30. SEE LICENSE IN LICENSE.md — 2 package(s), from `LICENSE-COMMERCIAL.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3445,7 +3307,7 @@ You assume full responsibility for its use in production environments.
 By sponsoring and using this software, you agree to these terms.
 ```
 
-#### 34. SEE LICENSE IN LICENSE.md — 2 package(s), from `LICENSE.md`
+#### 31. SEE LICENSE IN LICENSE.md — 2 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3487,7 +3349,7 @@ You must obtain an **Enterprise License** by contacting:
 `dan@danfessler.com`
 ```
 
-#### 35. ISC — 2 package(s), from `LICENSE`
+#### 32. ISC — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3521,31 +3383,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 36. ISC — 2 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`get-caller-file@2.0.5`, `idb@7.1.1`
-
-</details>
-
-Copyright notices (2):
-
-```text
-Copyright (c) 2016, Jake Archibald <jaffathecake@gmail.com>
-Copyright 2018 Stefan Penner
-```
-
-```text
-ISC License (ISC)
-Copyright (c) 2016, Jake Archibald <jaffathecake@gmail.com>
-
-Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-```
-
-#### 37. MIT — 2 package(s), from `LICENSE`
+#### 33. MIT — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3584,7 +3422,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 38. 0BSD — 1 package(s), from `LICENSE.txt`
+#### 34. 0BSD — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3613,7 +3451,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 39. MIT — 1 package(s), from `LICENSE`
+#### 35. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3653,7 +3491,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 40. MIT — 1 package(s), from `LICENSE`
+#### 36. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3727,7 +3565,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 41. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 37. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3773,7 +3611,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 42. MIT — 1 package(s), from `LICENSE`
+#### 38. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3811,7 +3649,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 43. MIT — 1 package(s), from `LICENSE.md`
+#### 39. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6242,7 +6080,7 @@ Repository: https://github.com/sveltejs/zimmerframe
 > SOFTWARE.
 ```
 
-#### 44. MIT — 1 package(s), from `LICENSE.md`
+#### 40. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6282,7 +6120,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 45. BSD-3-Clause — 1 package(s), from `LICENSE.md`
+#### 41. BSD-3-Clause — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6325,7 +6163,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 46. MIT — 1 package(s), from `NOTICE`
+#### 42. MIT — 1 package(s), from `NOTICE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6381,7 +6219,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 47. Apache-2.0 — 1 package(s), from `LICENSE`
+#### 43. Apache-2.0 — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6411,7 +6249,7 @@ Copyright (C) 2014  SheetJS
    limitations under the License.
 ```
 
-#### 48. MIT — 1 package(s), from `LICENSE`
+#### 44. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6447,7 +6285,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 49. Apache-2.0 — 1 package(s), from `LICENSE`
+#### 45. Apache-2.0 — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6657,7 +6495,7 @@ Apache License
    limitations under the License.
 ```
 
-#### 50. MIT — 1 package(s), from `license`
+#### 46. MIT — 1 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6750,7 +6588,7 @@ IN THE SOFTWARE.
 """
 ```
 
-#### 51. (MPL-2.0 OR Apache-2.0) — 1 package(s), from `LICENSE-MPL`
+#### 47. (MPL-2.0 OR Apache-2.0) — 1 package(s), from `LICENSE-MPL`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7140,7 +6978,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-#### 52. (MIT OR GPL-3.0-or-later) — 1 package(s), from `LICENSE.markdown`
+#### 48. (MIT OR GPL-3.0-or-later) — 1 package(s), from `LICENSE.markdown`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7810,7 +7648,7 @@ copy of the Program in return for a fee.
                      END OF TERMS AND CONDITIONS
 ```
 
-#### 53. MIT — 1 package(s), from `LICENSE`
+#### 49. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7848,7 +7686,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 54. CC0-1.0 — 1 package(s), from `LICENSE`
+#### 50. CC0-1.0 — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7980,7 +7818,7 @@ express Statement of Purpose.
     this CC0 or use of the Work.
 ```
 
-#### 55. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 51. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8028,7 +7866,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 56. MIT — 1 package(s), from `license-update.mjs`
+#### 52. MIT — 1 package(s), from `license-update.mjs`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8071,7 +7909,7 @@ SOFTWARE.`;
 fs.writeFileSync(path.join(__dirname, 'LICENSE'), license);
 ```
 
-#### 57. apache-2.0 — 1 package(s), from `NOTICE.md`
+#### 53. apache-2.0 — 1 package(s), from `NOTICE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8124,7 +7962,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 ````
 
-#### 58. MIT — 1 package(s), from `LICENSE`
+#### 54. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8166,7 +8004,7 @@ end of terms and conditions
 The licenses of externally maintained libraries from which parts of the Software is derived are listed [here](https://github.com/rolldown/rolldown/blob/main/THIRD-PARTY-LICENSE).
 ```
 
-#### 59. ISC — 1 package(s), from `LICENSE`
+#### 55. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8212,7 +8050,7 @@ CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 ```
 
-#### 60. MIT — 1 package(s), from `LICENSE`
+#### 56. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8249,7 +8087,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 61. MIT — 1 package(s), from `LICENSE`
+#### 57. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -9799,7 +9637,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 62. MIT — 1 package(s), from `LICENSE.md`
+#### 58. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -9862,7 +9700,7 @@ Redistribution and use in source and binary forms, with or without modification,
 This software is provided by the copyright holders and contributors “as is” and any express or implied warranties, including, but not limited to, the implied warranties of merchantability and fitness for a particular purpose are disclaimed. In no event shall the copyright owner or contributors be liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to, procurement of substitute goods or services; loss of use, data, or profits; or business interruption) however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage.
 ```
 
-#### 63. OFL-1.1 — 1 package(s), from `LICENSE`
+#### 59. OFL-1.1 — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -9977,7 +9815,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-#### 64. MIT — 1 package(s), from `LICENSE.md`
+#### 60. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10015,7 +9853,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 65. ISC — 1 package(s), from `LICENSE`
+#### 61. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10077,7 +9915,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 66. MIT — 1 package(s), from `LICENSE`
+#### 62. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10115,7 +9953,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 67. MIT — 1 package(s), from `LICENSE.md`
+#### 63. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10145,7 +9983,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 68. MIT — 1 package(s), from `LICENSE`
+#### 64. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10204,7 +10042,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 69. Unlicense — 1 package(s), from `LICENSE`
+#### 65. Unlicense — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10239,7 +10077,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org>
 ```
 
-#### 70. ISC — 1 package(s), from `LICENSE`
+#### 66. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10278,7 +10116,7 @@ under a Creative Commons Attribution-ShareAlike 4.0 International License
 https://creativecommons.org/licenses/by-sa/4.0/
 ```
 
-#### 71. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 67. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10322,7 +10160,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 72. MIT — 1 package(s), from `LICENSE`
+#### 68. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10364,7 +10202,7 @@ Commits in this fork are (c) Ziggy Jonsson (ziggy.jonsson.nyc@gmail.com)
 and fall under same licence structure as the original repo (MIT)
 ```
 
-#### 73. ISC — 1 package(s), from `LICENSE`
+#### 69. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10417,7 +10255,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 74. MIT — 1 package(s), from `license`
+#### 70. MIT — 1 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10457,7 +10295,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 75. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 71. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10513,7 +10351,7 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
-#### 76. apache-2.0 — 1 package(s), from `NOTICE.md`
+#### 72. apache-2.0 — 1 package(s), from `NOTICE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10563,7 +10401,30 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 ````
 
-#### 77. ISC — 1 package(s), from `licenses/upstream/npm/saxes@5.0.1/LICENSE`
+#### 73. ISC — 1 package(s), from `LICENSE.md`
+
+<details><summary>Packages sharing this text</summary>
+
+`get-caller-file@2.0.5`
+
+</details>
+
+Copyright notices (1):
+
+```text
+Copyright 2018 Stefan Penner
+```
+
+```text
+ISC License (ISC)
+Copyright 2018 Stefan Penner
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+#### 74. ISC — 1 package(s), from `licenses/upstream/npm/saxes@5.0.1/LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10647,7 +10508,7 @@ MIT License, as follows:
     WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 78. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 75. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10690,7 +10551,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 79. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 76. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10737,7 +10598,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 80. MIT — 1 package(s), from `LICENCE.md`
+#### 77. MIT — 1 package(s), from `LICENCE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10776,7 +10637,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 81. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 78. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10804,7 +10665,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 82. MIT — 1 package(s), from `LICENSE.txt`
+#### 79. MIT — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -10843,7 +10704,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 83. ISC — 1 package(s), from `LICENSE`
+#### 80. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
