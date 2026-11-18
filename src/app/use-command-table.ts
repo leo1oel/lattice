@@ -55,6 +55,7 @@ import type { useSyncTexNavigation } from "./use-synctex-navigation";
 import type { ToolDrawers } from "./use-tool-drawers";
 import type { useWhatsNew } from "./use-whats-new";
 import { detachPdf, dockPdf, pdfWindowOpen, pdfWindowsAvailable } from "./pdf-window-state";
+import { pluginPaletteHost } from "./plugin-palette-host";
 
 const loadFormatDocument = () => import("./format-document");
 const loadReportProblem = () => import("./report-problem");
@@ -80,10 +81,10 @@ export type CommandTableDeps = {
   buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "building" | "cleanAndRebuild" | "cleanProject" | "abortBuild" | "cycleDiagnostic">;
   compileAndShowPdf: Compile;
   syncTex: Pick<ReturnType<typeof useSyncTexNavigation>, "canForwardSync" | "revealSourceInPdf">;
-  agentContext: Pick<ReturnType<typeof useAgentContext>, "selectionSource" | "selection">;
+  agentContext: Pick<ReturnType<typeof useAgentContext>, "selectionSource" | "selection" | "selectionLines" | "editorPositionRef">;
   tools: Pick<ToolDrawers, "open">;
   tree: Pick<ReturnType<typeof useProjectTree>, "pasteClipboardImage">;
-  referenceImport: Pick<ReferenceImport, "openAddSheet">;
+  referenceImport: Pick<ReferenceImport, "openAddSheet" | "rewriteBibliography">;
   projectSearch: Pick<ProjectSearch, "openFind" | "openFindFor" | "openReplace">;
   editorComments: Pick<EditorComments, "comments">;
   lifecycle: Pick<
@@ -414,6 +415,11 @@ export function useCommandTable({
         hasProject: inProject,
         knownAuthorName,
         onFileIntent: prewarmLikelyProjectFile,
+        plugins: pluginPaletteHost({
+          project, activeFile, textDocument: textEditor, agentContext,
+          updateCanvasRequest, openFile, rewriteBibliography: referenceImport.rewriteBibliography,
+          openSettings: () => openSettings("plugins"),
+        }),
       },
       close: () => setCommandOverlay(null),
       choose: (choice: PaletteChoice) => {

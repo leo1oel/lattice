@@ -6,14 +6,30 @@
  * suspended, which costs nothing, and come back through the ordinary switch
  * (`switchProject`) with their tabs, places and parked editors.
  *
- * Kept per window label in the page's session storage: a reload keeps the
- * list, a closed window or a relaunch starts without one.
+ * Each page keeps its list through a reload. Desktop windows also save their
+ * group and active root to the native app's session file for relaunch.
  */
 import { useSyncExternalStore } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createStore } from "zustand/vanilla";
+import { nativeProjectTabWindow } from "./project-tab-window";
 
 export type WindowProject = { root: string; name: string };
+type WindowProjectGroup = { activeRoot: string | null; projects: readonly WindowProject[] };
+
+export function loadWindowProjectGroup(): Promise<WindowProjectGroup | null> {
+  return nativeProjectTabWindow()
+    ? invoke<WindowProjectGroup | null>("load_project_tab_group").catch(() => null)
+    : Promise.resolve(null);
+}
+
+let pendingSave: Promise<unknown> = Promise.resolve();
+
+/** Wait for queued tab changes before letting this desktop window quit. */
+export function flushWindowProjectGroup() {
+  return pendingSave;
+}
 
 const STORAGE_PREFIX = "lattice.window-projects.v1:";
 
@@ -40,19 +56,29 @@ function load(): readonly WindowProject[] {
  * workspace's parked editors (trellis-workspace.tsx) all read it, and the
  * project lifecycle writes it as a project is entered.
  */
-const store = createStore<{ projects: readonly WindowProject[] }>()(() => ({ projects: load() }));
-store.subscribe(({ projects }) => {
+const store = createStore<{ projects: readonly WindowProject[]; activeRoot: string | null }>()(() => ({
+  projects: load(), activeRoot: null,
+}));
+store.subscribe(({ projects, activeRoot }) => {
   try {
     sessionStorage.setItem(storageKey(), JSON.stringify(projects));
   } catch {
-    // Kept for this page only.
+    // The native session can still save even if this page's storage is unavailable.
   }
+  if (!activeRoot || !nativeProjectTabWindow() || !projects.some(({ root }) => root === activeRoot)) return;
+  // While a dragged active tab is leaving, the source briefly has no current
+  // project. Save the group once its next active root has entered.
+  const group: WindowProjectGroup = { projects, activeRoot };
+  pendingSave = pendingSave.then(() => invoke("save_project_tab_group", { group })).catch(() => undefined);
 });
 const projectsNow = () => store.getState().projects;
 
 export const windowProjects = {
   get: projectsNow,
   subscribe: (listener: () => void) => store.subscribe(listener),
+  restore(projects: readonly WindowProject[]) {
+    store.setState({ projects, activeRoot: null });
+  },
   /**
    * `entered` is now the window's project: added after `left` (the project
    * it replaced), or renamed in place. `left` keeps its place under the name
@@ -67,7 +93,7 @@ export const windowProjects = {
       const after = next.findIndex((entry) => entry.root === left?.root);
       next.splice(after < 0 ? next.length : after + 1, 0, entered);
     }
-    store.setState({ projects: next });
+    store.setState({ projects: next, activeRoot: entered.root });
   },
   remove(root: string) {
     const projects = projectsNow();

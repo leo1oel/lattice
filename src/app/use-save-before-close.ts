@@ -6,6 +6,7 @@ import { registerCrashEdits } from "../telemetry/crash-save";
 import { showWarning } from "./notify";
 import { disposeWhenSettled } from "./effect-helpers";
 import { listenInThisWindow } from "./window-events";
+import { flushWindowProjectGroup } from "./window-projects";
 
 /** The backend asks this window to save before it closes or Lattice quits (src-tauri/src/save_before_close.rs). */
 export const SAVE_BEFORE_CLOSE_EVENT = "save-before-close";
@@ -49,6 +50,7 @@ export function useSaveBeforeClose({ browserHosted, ...edits }: Edits & { browse
       const closing = saved || closeAnywayRef.current;
       closeAnywayRef.current = !closing;
       if (!closing) showWarning(warningRef.current);
+      if (closing) await flushWindowProjectGroup();
       await invoke("finish_save_before_close", { id, saved: closing });
     };
     const listening = listenInThisWindow<number>(SAVE_BEFORE_CLOSE_EVENT, (event) => {

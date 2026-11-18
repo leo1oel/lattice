@@ -1,0 +1,1099 @@
+{
+  "$defs": {
+    "Action": {
+      "description": "A verb the host performs for the writer, with the plugin's arguments.\nWrites go through Lattice's own confirmation and history; the plugin never\nwrites a file itself.",
+      "oneOf": [
+        {
+          "description": "Insert `\\cite{key}` (or add the key to the citation at the cursor).",
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "type": {
+              "const": "insertCitation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "key"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Add an entry to a bibliography after the writer confirms it.",
+          "properties": {
+            "bibtex": {
+              "type": "string"
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "addBibEntry",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "bibtex"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Replace the entry `key` after the writer confirms the change.",
+          "properties": {
+            "bibtex": {
+              "type": "string"
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "key": {
+              "type": "string"
+            },
+            "type": {
+              "const": "replaceBibEntry",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "key",
+            "bibtex"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Open a project file, at a line when given.",
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "reveal",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "file"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Open an http(s) URL in the browser.",
+          "properties": {
+            "type": {
+              "const": "openUrl",
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "url"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Copy text to the clipboard.",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "type": {
+              "const": "copy",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "title": {
+          "description": "The button's label; the host's own label for the verb when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "BibliographyEntriesParams": {
+      "description": "Plugin → host: parsed entries of the project's bibliographies.",
+      "properties": {
+        "file": {
+          "description": "One project-relative `.bib` path from `context.project.bibliographies`;\nevery bibliography when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "BibliographyEntriesResult": {
+      "properties": {
+        "files": {
+          "items": {
+            "$ref": "#/$defs/BibliographyFile"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "type": "object"
+    },
+    "BibliographyEntry": {
+      "properties": {
+        "fields": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Field values with `@string` macros expanded, as written otherwise.\nNames are lower-cased.",
+          "type": "object"
+        },
+        "key": {
+          "type": "string"
+        },
+        "line": {
+          "description": "1-based line of the entry's `@`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": {
+          "description": "Lower-cased entry type (`article`).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "type",
+        "fields",
+        "line"
+      ],
+      "type": "object"
+    },
+    "BibliographyFile": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/BibliographyEntry"
+          },
+          "type": "array"
+        },
+        "error": {
+          "description": "Why the file could not be parsed; `entries` is then empty.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "entries"
+      ],
+      "type": "object"
+    },
+    "CancelParams": {
+      "description": "Host → plugin notification (`$/cancelRequest`): stop the request `id`.\nThe host ends the process shortly after either way.",
+      "properties": {
+        "id": true
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "CommandContext": {
+      "description": "Sent with each command. Without the `context` permission only\n`project.name` is filled in.",
+      "properties": {
+        "cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "project": {
+          "$ref": "#/$defs/ProjectContext"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Selection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "type": "object"
+    },
+    "CommandInput": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/InputKind",
+          "default": "none"
+        },
+        "placeholder": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "CommandResult": {
+      "description": "What a command returns. The host renders it natively; a plugin ships no\nUI. `summary` is plain text that stands for the whole result in a log,\na notification, or (later) an agent's tool output.",
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "message",
+              "type": "string"
+            },
+            "markdown": {
+              "description": "CommonMark without raw HTML; links must be http(s).",
+              "type": "string"
+            },
+            "summary": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "markdown"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/$defs/Item"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "items",
+              "type": "string"
+            },
+            "summary": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "items"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/$defs/Diagnostic"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "diagnostics",
+              "type": "string"
+            },
+            "summary": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "items"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "CommandSpec": {
+      "properties": {
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "input": {
+          "$ref": "#/$defs/CommandInput",
+          "default": {
+            "kind": "none"
+          }
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "type": "object"
+    },
+    "Cursor": {
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        }
+      },
+      "required": [
+        "file",
+        "position"
+      ],
+      "type": "object"
+    },
+    "Diagnostic": {
+      "properties": {
+        "code": {
+          "description": "A stable, machine-readable rule name (`duplicate-key`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "file": {
+          "description": "Project-relative path.",
+          "type": "string"
+        },
+        "fixes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "line": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        }
+      },
+      "required": [
+        "id",
+        "file",
+        "severity",
+        "message"
+      ],
+      "type": "object"
+    },
+    "HttpFetchParams": {
+      "description": "Plugin → host: an HTTP request to an origin the manifest declares.",
+      "properties": {
+        "body": {
+          "description": "A UTF-8 body.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "method": {
+          "description": "`GET` when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    },
+    "HttpFetchResult": {
+      "properties": {
+        "body": {
+          "description": "The body as UTF-8 (invalid sequences replaced), at most 4 MiB.",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Header names lower-cased; repeated headers joined with `, `.",
+          "type": "object"
+        },
+        "status": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "headers",
+        "body"
+      ],
+      "type": "object"
+    },
+    "InitializeParams": {
+      "description": "Host → plugin, first message of every run.",
+      "properties": {
+        "granted": {
+          "$ref": "#/$defs/Permissions"
+        },
+        "hostApiCompat": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hostApiLevel": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hostVersion": {
+          "description": "Lattice's own version, for logs; never branch on it, use the level.",
+          "type": "string"
+        },
+        "locale": {
+          "description": "BCP 47 interface language, `en` or `zh-CN`.",
+          "type": "string"
+        },
+        "platform": {
+          "description": "`macos`, `linux` or `windows`.",
+          "type": "string"
+        },
+        "plugin": {
+          "$ref": "#/$defs/PluginIdentity"
+        }
+      },
+      "required": [
+        "hostApiLevel",
+        "hostApiCompat",
+        "hostVersion",
+        "plugin",
+        "granted",
+        "locale",
+        "platform"
+      ],
+      "type": "object"
+    },
+    "InitializeResult": {
+      "properties": {
+        "apiLevel": {
+          "description": "The level the plugin speaks for this run, within\n`[hostApiCompat, hostApiLevel]`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "apiLevel"
+      ],
+      "type": "object"
+    },
+    "InputKind": {
+      "oneOf": [
+        {
+          "const": "none",
+          "description": "The command runs as soon as it is chosen.",
+          "type": "string"
+        },
+        {
+          "const": "text",
+          "description": "The palette asks for one line of text first.",
+          "type": "string"
+        }
+      ]
+    },
+    "Item": {
+      "properties": {
+        "actions": {
+          "default": [],
+          "description": "The first is the default, run by Return.",
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "type": "array"
+        },
+        "badges": {
+          "default": [],
+          "description": "Short labels shown beside the title (`In bibliography`).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Stable within the result, so an agent or a test can name the item.",
+          "type": "string"
+        },
+        "subtitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "type": "object"
+    },
+    "LogLevel": {
+      "enum": [
+        "error",
+        "warn",
+        "info",
+        "debug"
+      ],
+      "type": "string"
+    },
+    "LogParams": {
+      "description": "Plugin → host notification: a line for Lattice's log.",
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/LogLevel"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "Manifest": {
+      "properties": {
+        "api": {
+          "description": "The lowest host API level the plugin needs.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "type": "array"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Reverse-domain and unique: `dev.knightnemo.zotero-search`.",
+          "type": "string"
+        },
+        "license": {
+          "description": "An SPDX identifier.",
+          "type": "string"
+        },
+        "main": {
+          "description": "`node`: the JavaScript entry point, relative to the plugin folder.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "permissions": {
+          "$ref": "#/$defs/ManifestPermissions",
+          "default": {
+            "network": [],
+            "network-local": [],
+            "project-read": [],
+            "secrets": []
+          }
+        },
+        "repository": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtime": {
+          "$ref": "#/$defs/Runtime"
+        },
+        "schema": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "targets": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "`exec`: the executable per Rust target triple\n(`aarch64-apple-darwin`), relative to the plugin folder.",
+          "type": "object"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "id",
+        "name",
+        "version",
+        "api",
+        "license",
+        "runtime",
+        "commands"
+      ],
+      "type": "object"
+    },
+    "ManifestPermissions": {
+      "additionalProperties": false,
+      "description": "`[permissions]` as written: kebab-case, every key known.",
+      "properties": {
+        "network": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "network-local": {
+          "default": [],
+          "items": {
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "project-read": {
+          "default": [],
+          "description": "`\"context\"` and/or `\"bibliography\"`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "secrets": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Permissions": {
+      "description": "What a plugin was granted. The host enforces each one: the sandbox for\n`networkLocal`, the broker for the rest.",
+      "properties": {
+        "network": {
+          "default": [],
+          "description": "Origins (`https://api.crossref.org`) the plugin may reach through\n`http/fetch`. The plugin process itself has no network.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "networkLocal": {
+          "default": [],
+          "description": "Loopback ports the plugin may connect to directly (Zotero's 23119).",
+          "items": {
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "projectRead": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectRead"
+          },
+          "type": "array"
+        },
+        "secrets": {
+          "default": [],
+          "description": "Names of secrets the writer stores for this plugin in Settings.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PluginIdentity": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "type": "object"
+    },
+    "Position": {
+      "description": "A position in a project file: 1-based line, 1-based column in characters.",
+      "properties": {
+        "column": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "line": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "line",
+        "column"
+      ],
+      "type": "object"
+    },
+    "ProgressParams": {
+      "description": "Plugin → host notification: what the command is doing, shown while it runs.",
+      "properties": {
+        "fraction": {
+          "description": "0 to 1, when the plugin can tell.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "type": "object"
+    },
+    "ProjectContext": {
+      "properties": {
+        "activeFile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bibliographies": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mainDocument": {
+          "description": "Project-relative paths, `/`-separated. Never absolute.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "ProjectRead": {
+      "description": "What the project may hand a plugin, beyond the project's name.",
+      "oneOf": [
+        {
+          "const": "context",
+          "description": "The main document, the active file, the bibliography paths, the\nselection and the cursor, sent with each command.",
+          "type": "string"
+        },
+        {
+          "const": "bibliography",
+          "description": "Parsed entries of the project's .bib files, through\n`bibliography/entries`.",
+          "type": "string"
+        }
+      ]
+    },
+    "RunParams": {
+      "description": "Host → plugin: run one of the commands the manifest declares.",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "context": {
+          "$ref": "#/$defs/CommandContext"
+        },
+        "input": {
+          "description": "What the writer typed, for a command whose input kind is `text`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "command",
+        "context"
+      ],
+      "type": "object"
+    },
+    "Runtime": {
+      "oneOf": [
+        {
+          "const": "node",
+          "description": "A JavaScript file run by the Node that ships with Lattice.",
+          "type": "string"
+        },
+        {
+          "const": "exec",
+          "description": "A native executable per target triple.",
+          "type": "string"
+        }
+      ]
+    },
+    "SecretsGetParams": {
+      "description": "Plugin → host: a secret the writer saved for this plugin.",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "SecretsGetResult": {
+      "properties": {
+        "value": {
+          "description": "Absent when the writer has not saved it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Selection": {
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/Position"
+        },
+        "text": {
+          "description": "At most `MAX_SELECTION_CHARS` characters.",
+          "type": "string"
+        },
+        "to": {
+          "$ref": "#/$defs/Position"
+        }
+      },
+      "required": [
+        "text",
+        "file",
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning",
+        "info"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "apiCompat": 1,
+  "apiLevel": 1,
+  "errorCodes": {
+    "hostError": -32003,
+    "permissionDenied": -32001,
+    "requestCancelled": -32800,
+    "unsupportedApiLevel": -32002
+  },
+  "manifest": {
+    "$ref": "#/$defs/Manifest"
+  },
+  "manifestSchema": 1,
+  "methods": {
+    "$/cancelRequest": {
+      "direction": "hostToPlugin",
+      "notification": true,
+      "params": {
+        "$ref": "#/$defs/CancelParams"
+      },
+      "since": 1
+    },
+    "bibliography/entries": {
+      "direction": "pluginToHost",
+      "params": {
+        "$ref": "#/$defs/BibliographyEntriesParams"
+      },
+      "result": {
+        "$ref": "#/$defs/BibliographyEntriesResult"
+      },
+      "since": 1
+    },
+    "command/run": {
+      "direction": "hostToPlugin",
+      "params": {
+        "$ref": "#/$defs/RunParams"
+      },
+      "result": {
+        "$ref": "#/$defs/CommandResult"
+      },
+      "since": 1
+    },
+    "http/fetch": {
+      "direction": "pluginToHost",
+      "params": {
+        "$ref": "#/$defs/HttpFetchParams"
+      },
+      "result": {
+        "$ref": "#/$defs/HttpFetchResult"
+      },
+      "since": 1
+    },
+    "initialize": {
+      "direction": "hostToPlugin",
+      "params": {
+        "$ref": "#/$defs/InitializeParams"
+      },
+      "result": {
+        "$ref": "#/$defs/InitializeResult"
+      },
+      "since": 1
+    },
+    "log": {
+      "direction": "pluginToHost",
+      "notification": true,
+      "params": {
+        "$ref": "#/$defs/LogParams"
+      },
+      "since": 1
+    },
+    "progress": {
+      "direction": "pluginToHost",
+      "notification": true,
+      "params": {
+        "$ref": "#/$defs/ProgressParams"
+      },
+      "since": 1
+    },
+    "secrets/get": {
+      "direction": "pluginToHost",
+      "params": {
+        "$ref": "#/$defs/SecretsGetParams"
+      },
+      "result": {
+        "$ref": "#/$defs/SecretsGetResult"
+      },
+      "since": 1
+    }
+  },
+  "title": "Lattice plugin API"
+}

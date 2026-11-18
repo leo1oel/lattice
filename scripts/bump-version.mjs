@@ -11,14 +11,17 @@
 //   node scripts/bump-version.mjs minor      # 0.1.37 -> 0.2.0
 //   node scripts/bump-version.mjs major      # 0.1.37 -> 1.0.0
 //   node scripts/bump-version.mjs 0.3.0      # set an explicit version
+//   node scripts/bump-version.mjs patch --no-notes   # release without a lead
 //
 // It only edits files; it does not commit or tag. It prints the exact git
-// commands to run next. With a release lead (.github/release-notes/vX.Y.Z.md)
-// already written, it also writes the in-app What's new notes from it
+// commands to run next. It needs the release lead (.github/release-notes/vX.Y.Z.md)
+// written first and writes the in-app What's new notes from it
 // (src/release-notes/X.Y.Z.json, scripts/release-notes.mjs), whose Chinese
-// the maintainer fills in before the release commit.
+// the maintainer fills in before the release commit. Without a lead it stops
+// before editing anything, since the release would ship with no What's new
+// and only its raw commit list (v0.16.19 did); --no-notes allows that.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { projectRoot } from "./lib/util.mjs";
 import { writeReleaseNotes } from "./release-notes.mjs";
@@ -39,7 +42,9 @@ if (!match) {
 }
 const [major, minor, patch] = match.slice(1).map(Number);
 
-const arg = (process.argv[2] ?? "patch").trim();
+const args = process.argv.slice(2);
+const noNotes = args.includes("--no-notes");
+const arg = (args.find((value) => value !== "--no-notes") ?? "patch").trim();
 let next;
 if (arg === "patch") next = `${major}.${minor}.${patch + 1}`;
 else if (arg === "minor") next = `${major}.${minor + 1}.0`;
@@ -53,6 +58,12 @@ else {
 
 if (next === current) {
   throw new Error(`New version equals current version (${current}).`);
+}
+
+const leadPath = `.github/release-notes/v${next}.md`;
+if (!noNotes && !existsSync(join(projectRoot, leadPath))) {
+  console.error(`No ${leadPath}: write the release's lead first (see the previous release's), or pass --no-notes to release without What's new notes.`);
+  process.exit(1);
 }
 
 // package.json — rewrite the version field, keep the file's formatting.
@@ -114,7 +125,7 @@ if (notes) {
   console.log(`Wrote the What's new notes to ${notes.path}.`);
   if (notes.untranslated) console.log(`  Translate its ${notes.untranslated} empty "zh" text(s) before committing.`);
 } else {
-  console.log(`No .github/release-notes/v${next}.md: What's new keeps showing the last release that had one.`);
+  console.log(`No ${leadPath} (--no-notes): What's new keeps showing the last release that had one.`);
 }
 console.log("");
 console.log("Next steps:");

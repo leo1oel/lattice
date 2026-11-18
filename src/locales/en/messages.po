@@ -52,6 +52,14 @@ msgstr "“{command}” in the terminal"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "“{destinationName}” already exists there. Choose another location"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "“{name}” is already in {targetDirectory}"
+msgstr "“{name}” is already in {targetDirectory}"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "“{name}” is already in the project root"
+msgstr "“{name}” is already in the project root"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
@@ -1502,6 +1510,10 @@ msgstr "A model name is empty or has spaces in it."
 msgid "A newer Overleaf connection replaced this one."
 msgstr "A newer Overleaf connection replaced this one."
 
+#: src/platform/host-errors-plugins.ts
+msgid "A node plugin needs `main`."
+msgstr "A node plugin needs `main`."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "a over b"
@@ -1521,6 +1533,18 @@ msgstr "A PDF can only be attached to a cited paper."
 #: src/platform/host-errors-overleaf.ts
 msgid "A pending Overleaf move also changes its name."
 msgstr "A pending Overleaf move also changes its name."
+
+#: src/platform/host-errors-plugins.ts
+msgid "A plugin declares between 1 and 32 commands."
+msgstr "A plugin declares between 1 and 32 commands."
+
+#: src/platform/host-errors-plugins.ts
+msgid "A plugin with the id {id} is already installed. Remove it first."
+msgstr "A plugin with the id {id} is already installed. Remove it first."
+
+#: src/plugins/plugin-settings.tsx
+msgid "A plugin’s .zip release over https, checked against the SHA-256 its author publishes."
+msgstr "A plugin’s .zip release over https, checked against the SHA-256 its author publishes."
 
 #: src/papers/bibliography-audit.tsx
 msgid "A possible record conflicts with this reference"
@@ -1680,6 +1704,10 @@ msgstr "Accepted"
 msgid "Accepts images"
 msgstr "Accepts images"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Access"
+msgstr "Access"
+
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
 msgstr "Access denied. Check the key"
@@ -1804,6 +1832,10 @@ msgstr "Add block below"
 msgid "Add comment"
 msgstr "Add comment"
 
+#: src/plugins/plugin-run.tsx
+msgid "Add entry"
+msgstr "Add entry"
+
 #: src/papers/bib-entry.ts
 msgid "Add exactly one bibliography entry at a time."
 msgstr "Add exactly one bibliography entry at a time."
@@ -1863,6 +1895,14 @@ msgstr "Add reference"
 #: src/project/deadline-card.tsx
 msgid "Add the submission deadline"
 msgstr "Add the submission deadline"
+
+#: src/plugins/plugin-run.tsx
+msgid "Add this entry to {file}?"
+msgstr "Add this entry to {file}?"
+
+#: src/plugins/plugin-text.ts
+msgid "Add to bibliography"
+msgstr "Add to bibliography"
 
 #: src/canvas/paper-selection-actions.tsx
 msgid "Add to note"
@@ -1968,6 +2008,10 @@ msgstr "Administrator approval was cancelled, so nothing was installed."
 #: src/build/tex-package-updates.ts
 msgid "Administrator approval was cancelled, so nothing was updated."
 msgstr "Administrator approval was cancelled, so nothing was updated."
+
+#: src/plugins/plugin-run.tsx
+msgid "After"
+msgstr "After"
 
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
@@ -2194,6 +2238,10 @@ msgstr "An edit is still on its way to Overleaf. Try rejecting again in a moment
 msgid "An encrypted PDF cannot be annotated."
 msgstr "An encrypted PDF cannot be annotated."
 
+#: src/platform/host-errors-plugins.ts
+msgid "An exec plugin needs `[targets]`."
+msgstr "An exec plugin needs `[targets]`."
+
 #: src/papers/bib-format.ts
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "An existing bibliography entry has an invalid citation key."
@@ -2217,14 +2265,6 @@ msgstr "An imported source"
 #: src/papers/bibliography-audit.tsx
 msgid "An index matched, but the official proceedings could not be reached"
 msgstr "An index matched, but the official proceedings could not be reached"
-
-#: src/project/import-conflict-dialog.tsx
-msgid "An item with this name is already in {targetDirectory}"
-msgstr "An item with this name is already in {targetDirectory}"
-
-#: src/project/import-conflict-dialog.tsx
-msgid "An item with this name is already in the project root"
-msgstr "An item with this name is already in the project root"
 
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
@@ -2290,7 +2330,7 @@ msgstr "Annotation deleted"
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Annotations"
 msgstr "Annotations"
@@ -2386,6 +2426,7 @@ msgid "App updates"
 msgstr "App updates"
 
 #: src/app/palette-sections.ts
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Appearance"
@@ -2517,6 +2558,10 @@ msgstr "Asking the agent again…"
 #: src/settings/model-endpoint-settings.tsx
 msgid "Asking the first model to call a tool. This can take up to 45 seconds."
 msgstr "Asking the first model to call a tool. This can take up to 45 seconds."
+
+#: src/plugins/plugin-settings.tsx
+msgid "Asks for new permissions"
+msgstr "Asks for new permissions"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Asterisk operator"
@@ -2922,12 +2967,12 @@ msgstr "Booktitle"
 msgid "Bottom / false"
 msgstr "Bottom / false"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Bottom center"
 msgstr "Bottom center"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Bottom right"
 msgstr "Bottom right"
@@ -3204,6 +3249,8 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/linked-library-sheet.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/plugins/plugin-run.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/clone-repository-dialog.tsx
 #: src/project/deadline-card.tsx
@@ -3252,6 +3299,10 @@ msgstr "Cancellation requested; waiting for the provider to stop."
 msgid "Cancelled"
 msgstr "Cancelled"
 
+#: src/plugins/plugin-text.ts
+msgid "Cancelled."
+msgstr "Cancelled."
+
 #: src/papers/audit-messages.ts
 msgid "Candidate does not match reference"
 msgstr "Candidate does not match reference"
@@ -3276,9 +3327,21 @@ msgstr "Cannot apply the live update because {path} changed outside live editing
 msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 msgstr "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot read the plugin registry: {error}"
+msgstr "Cannot read the plugin registry: {error}"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot read the plugin's secret: {error}"
+msgstr "Cannot read the plugin's secret: {error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot remove the reference because {path} changed. Try again."
 msgstr "Cannot remove the reference because {path} changed. Try again."
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot remove the secret: {error}"
+msgstr "Cannot remove the secret: {error}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot restore {path} because it changed after this history entry. Review the newer changes first."
@@ -3704,6 +3767,10 @@ msgstr "Choose files and folders to import into {targetDirectory}"
 msgid "Choose files and folders to import into the project root"
 msgstr "Choose files and folders to import into the project root"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Choose folder…"
+msgstr "Choose folder…"
+
 #: src/settings/grammar-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Choose Ignore on a grammar suggestion to add one"
@@ -3971,6 +4038,7 @@ msgid "Cleaning…"
 msgstr "Cleaning…"
 
 #: src/papers/bibliography-audit.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/telemetry/app-log.tsx
 msgid "Clear"
 msgstr "Clear"
@@ -4237,6 +4305,7 @@ msgstr "command"
 
 #: src/app/command-palette.tsx
 #: src/app/use-command-table.ts
+#: src/plugins/plugin-run.tsx
 msgid "Command palette"
 msgstr "Command palette"
 
@@ -4465,6 +4534,10 @@ msgstr "Congruent"
 msgid "Connect a model endpoint"
 msgstr "Connect a model endpoint"
 
+#: src/plugins/plugin-text.ts
+msgid "Connect to localhost:{port}"
+msgstr "Connect to localhost:{port}"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Connect to Overleaf"
@@ -4554,12 +4627,14 @@ msgid "Convert selection to inline math"
 msgstr "Convert selection to inline math"
 
 #: src/agent/agent-visual-dialog.tsx
+#: src/app/plugin-palette-host.ts
 #: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
 msgstr "Copied"
 
 #: src/components/copy-button.tsx
+#: src/plugins/plugin-text.ts
 #: src/project/paper-library.tsx
 #: src/telemetry/toast-stack.tsx
 msgid "Copy"
@@ -5182,6 +5257,10 @@ msgstr "Couldn’t save the diagnostic log"
 msgid "Couldn’t start the paper tools"
 msgstr "Couldn’t start the paper tools"
 
+#: src/plugins/plugin-text.ts
+msgid "Couldn’t start the plugin: {detail}"
+msgstr "Couldn’t start the plugin: {detail}"
+
 #: src/editor/latex/citation-roles.ts
 msgctxt "why a passage cites a paper"
 msgid "Counterexample"
@@ -5549,6 +5628,11 @@ msgstr "Details"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "Determinant-style matrix"
+
+#. Search words for the Install from folder plugin setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "develop"
+msgstr "develop"
 
 #: src/app/report-problem.ts
 msgid "Diagnostic log saved"
@@ -6207,7 +6291,7 @@ msgstr "Endpoint"
 msgid "Endpoint removed."
 msgstr "Endpoint removed."
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
 msgstr "English"
@@ -6232,6 +6316,10 @@ msgstr "Enter a citation key to remove."
 #: src/platform/host-errors-workspace.ts
 msgid "Enter a DOI, arXiv id, or paper title."
 msgstr "Enter a DOI, arXiv id, or paper title."
+
+#: src/plugins/plugin-settings.tsx
+msgid "Enter a replacement"
+msgstr "Enter a replacement"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/model-endpoint-settings.tsx
@@ -6337,6 +6425,7 @@ msgstr "Equilibrium arrows"
 msgid "Equivalent / congruent"
 msgstr "Equivalent / congruent"
 
+#: src/plugins/plugin-run.tsx
 #: src/telemetry/app-log.tsx
 msgid "Error"
 msgstr "Error"
@@ -6893,6 +6982,10 @@ msgstr "folded code"
 msgid "Folded lines"
 msgstr "Folded lines"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Folder {source}"
+msgstr "Folder {source}"
+
 #: src/papers/zotero-browser.tsx
 msgid "Folders"
 msgstr "Folders"
@@ -6936,9 +7029,9 @@ msgstr "Footnote at the cursor"
 msgid "For all"
 msgstr "For all"
 
-#: src/project/import-conflict-dialog.tsx
-msgid "For each item already here"
-msgstr "For each item already here"
+#: src/plugins/plugin-settings.tsx
+msgid "For developing a plugin: Lattice runs the folder in place, so your edits apply on the next run."
+msgstr "For developing a plugin: Lattice runs the folder in place, so your edits apply on the next run."
 
 #: src/app/format-document.ts
 msgid "Format"
@@ -6991,6 +7084,10 @@ msgstr "From"
 #: src/history/compare-versions.tsx
 msgid "From {name}"
 msgstr "From {name}"
+
+#: src/plugins/plugin-settings.tsx
+msgid "From {source}"
+msgstr "From {source}"
 
 #: src/project/local-templates.tsx
 msgid "From folder"
@@ -7124,7 +7221,7 @@ msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try aga
 msgstr "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Git status and commit"
 msgstr "Git status and commit"
 
@@ -7653,7 +7750,6 @@ msgid "Implies"
 msgstr "Implies"
 
 #: src/app/use-project-tree.ts
-#: src/project/import-conflict-dialog.tsx
 msgid "Import"
 msgstr "Import"
 
@@ -7899,6 +7995,7 @@ msgstr "Indigo"
 msgid "Infinity"
 msgstr "Infinity"
 
+#: src/plugins/plugin-run.tsx
 #: src/telemetry/app-log.tsx
 msgid "Info"
 msgstr "Info"
@@ -7983,6 +8080,7 @@ msgstr "Insert an image path (requires graphicx)"
 
 #: src/app/app-search-dialogs.tsx
 #: src/app/use-command-table.ts
+#: src/plugins/plugin-text.ts
 msgid "Insert citation"
 msgstr "Insert citation"
 
@@ -8034,6 +8132,7 @@ msgid "Inspect and replace"
 msgstr "Inspect and replace"
 
 #: src/build/compile-diagnostics-panel.tsx
+#: src/plugins/plugin-settings.tsx
 msgid "Install"
 msgstr "Install"
 
@@ -8052,6 +8151,16 @@ msgstr "Install Basic TeX ({TEX_INSTALL_SIZE_HINT})"
 #: src/build/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
 msgstr "Install BasicTeX"
+
+#: src/plugins/plugin-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Install from folder…"
+msgstr "Install from folder…"
+
+#: src/plugins/plugin-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Install from URL…"
+msgstr "Install from URL…"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Install later"
@@ -8156,17 +8265,17 @@ msgstr "Integrations"
 msgid "Interface"
 msgstr "Interface"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface language"
 msgstr "Interface language"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface size"
 msgstr "Interface size"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "Interface sounds"
@@ -8227,6 +8336,10 @@ msgstr "Invalid literal year; expected four digits."
 #: src/platform/host-errors-setup.ts
 msgid "Invalid missing TeX dependency name."
 msgstr "Invalid missing TeX dependency name."
+
+#: src/platform/host-errors-plugins.ts
+msgid "Invalid or repeated command id `{id}`."
+msgstr "Invalid or repeated command id `{id}`."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Invalid Overleaf host: {error}"
@@ -8308,6 +8421,10 @@ msgstr "It was deleted outside Lattice and had no unsaved edits, so its tab clos
 msgid "It was moved outside Lattice, and its tab followed it."
 msgstr "It was moved outside Lattice, and its tab followed it."
 
+#: src/plugins/plugin-settings.tsx
+msgid "It will be able to:"
+msgstr "It will be able to:"
+
 #: src/web-demo/desktop-only.tsx
 msgid "It works through the AI tools you are signed in to there. Proofread, Polish and Revise from annotations answer here from a script."
 msgstr "It works through the AI tools you are signed in to there. Proofread, Polish and Revise from annotations answer here from a script."
@@ -8325,6 +8442,10 @@ msgstr "Italic text"
 #: src/project/submission-items.tsx
 msgid "Item"
 msgstr "Item"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Its commands leave the palette, and its data and saved secrets are deleted."
+msgstr "Its commands leave the palette, and its data and saved secrets are deleted."
 
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Its owner may have turned link sharing off or reset the link. Ask them for a new one."
@@ -8936,6 +9057,10 @@ msgstr "Less than a minute left"
 msgid "Less than or equal"
 msgstr "Less than or equal"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Licence: {license}"
+msgstr "Licence: {license}"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "License text"
 msgstr "License text"
@@ -9013,6 +9138,7 @@ msgstr "Line {0}"
 
 #: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
+#: src/plugins/plugin-run.tsx
 msgid "line {line}"
 msgstr "line {line}"
 
@@ -9080,6 +9206,10 @@ msgstr "Link this folder"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Link to a page or external URL."
 msgstr "Link to a page or external URL."
+
+#: src/plugins/plugin-settings.tsx
+msgid "Link to the .zip (https://…)"
+msgstr "Link to the .zip (https://…)"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
@@ -9468,7 +9598,7 @@ msgstr "Match app"
 msgid "Match case"
 msgstr "Match case"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/theme-settings.tsx
 msgid "Match system"
 msgstr "Match system"
@@ -10107,6 +10237,10 @@ msgstr "No \\label with this name in the project."
 msgid "No abstract from this source"
 msgstr "No abstract from this source"
 
+#: src/plugins/plugin-text.ts
+msgid "No access beyond the project’s name"
+msgstr "No access beyond the project’s name"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "No Agent logs yet"
 msgstr "No Agent logs yet"
@@ -10402,10 +10536,18 @@ msgstr "No papers yet"
 msgid "No PDF yet"
 msgstr "No PDF yet"
 
+#: src/plugins/plugin-settings.tsx
+msgid "No plugins installed."
+msgstr "No plugins installed."
+
 #: src/editor/latex/visual/visual-float-widget.ts
 #: src/editor/latex/visual/visual-widgets.ts
 msgid "No preview for {path}; the PDF shows it."
 msgstr "No preview for {path}; the PDF shows it."
+
+#: src/plugins/plugin-run.tsx
+msgid "No problems found"
+msgstr "No problems found"
 
 #: src/settings/synara-settings-pane.tsx
 msgid "No project open"
@@ -10664,6 +10806,10 @@ msgstr "Not on this PDF"
 msgid "Not reached"
 msgstr "Not reached"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Not saved"
+msgstr "Not saved"
+
 #: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -10711,6 +10857,10 @@ msgstr "Nothing answers at that address. Check the address and the protocol."
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "Nothing blocks submission"
+
+#: src/plugins/plugin-run.tsx
+msgid "Nothing found"
+msgstr "Nothing found"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Nothing has changed on Overleaf since this version"
@@ -10767,7 +10917,7 @@ msgstr "Nothing to rerun"
 msgid "Nothing to show"
 msgstr "Nothing to show"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Notification position"
 msgstr "Notification position"
@@ -10782,6 +10932,7 @@ msgstr "Notify me"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/plugins/plugin-run.tsx
 msgid "Now"
 msgstr "Now"
 
@@ -10946,6 +11097,7 @@ msgstr "Only the listed graphics arguments will change. Image files stay in plac
 
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
+#: src/plugins/plugin-text.ts
 #: src/project/figure-source-run.ts
 msgid "Open"
 msgstr "Open"
@@ -11095,7 +11247,8 @@ msgstr "Open guided tutorial"
 
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/plugins/plugin-text.ts
+#: src/settings/appearance-settings-pane.tsx
 msgid "Open in browser"
 msgstr "Open in browser"
 
@@ -11197,6 +11350,10 @@ msgstr "Open releases page"
 #: src/app/use-command-table.ts
 msgid "Open settings"
 msgstr "Open settings"
+
+#: src/plugins/plugin-run.tsx
+msgid "Open Settings"
+msgstr "Open Settings"
 
 #: src/app/use-apply-open-slide-mutation.ts
 msgid "Open Slide and another editor changed the same lines in {path}; Lattice kept both with conflict markers."
@@ -11400,6 +11557,7 @@ msgstr "Over arXiv’s size limit"
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
@@ -11677,10 +11835,6 @@ msgstr "Overview"
 msgid "Overview only"
 msgstr "Overview only"
 
-#: src/project/import-conflict-dialog.tsx
-msgid "Overwrite files of the same name; merge folders"
-msgstr "Overwrite files of the same name; merge folders"
-
 #. Search words for the agent Model endpoint settings page, space-separated
 #: src/settings/settings-search-index.ts
 msgid "own API base URL custom"
@@ -11911,6 +12065,10 @@ msgstr "Paste references"
 msgid "Paste the Overleaf session cookie first."
 msgstr "Paste the Overleaf session cookie first."
 
+#: src/plugins/plugin-settings.tsx
+msgid "Paste the value"
+msgstr "Paste the value"
+
 #: src/settings/literature-settings.tsx
 #: src/settings/model-endpoint-settings.tsx
 msgid "Paste your API key"
@@ -12140,6 +12298,38 @@ msgstr "Plain text"
 msgid "Please confirm that you want to continue."
 msgstr "Please confirm that you want to continue."
 
+#. Search words for the Plugins settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "plugin extension add-on sandbox permissions"
+msgstr "plugin extension add-on sandbox permissions"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugin URL"
+msgstr "Plugin URL"
+
+#: src/app/command-palette.tsx
+#: src/plugins/plugin-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Plugins"
+msgstr "Plugins"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on."
+msgstr "Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on."
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugins install only over https."
+msgstr "Plugins install only over https."
+
+#: src/plugins/plugin-text.ts
+msgid "Plugins run only on macOS for now."
+msgstr "Plugins run only on macOS for now."
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins run only on macOS for now. They are listed here, but can’t be turned on."
+msgstr "Plugins run only on macOS for now. They are listed here, but can’t be turned on."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
 msgstr "Plus-minus"
@@ -12339,6 +12529,10 @@ msgstr "Primary bibliography {file} (missing)"
 msgid "Prime"
 msgstr "Prime"
 
+#: src/plugins/plugin-run.tsx
+msgid "Problems"
+msgstr "Problems"
+
 #: src/editor/latex/latex-command-completions.ts
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Product"
@@ -12390,7 +12584,7 @@ msgstr "Project find and replace"
 #: src/app/app-history-drawers.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Project history"
 msgstr "Project history"
 
@@ -12626,6 +12820,14 @@ msgstr "Raw build log"
 #: src/settings/model-endpoint-probe.ts
 msgid "Reached the address"
 msgstr "Reached the address"
+
+#: src/plugins/plugin-text.ts
+msgid "Read the open file, selection and cursor"
+msgstr "Read the open file, selection and cursor"
+
+#: src/plugins/plugin-text.ts
+msgid "Read the project’s bibliography"
+msgstr "Read the project’s bibliography"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
@@ -12924,6 +13126,7 @@ msgstr "Reload panel"
 #: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/live-preview/live-preview-settings.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/deadline-card.tsx
 #: src/project/submission-items.tsx
 msgid "Remove"
@@ -12941,6 +13144,10 @@ msgstr "Remove {0} files from the Overleaf project?"
 #: src/agent/agent-reference-removal.ts
 msgid "Remove {key} from the bibliography?"
 msgstr "Remove {key} from the bibliography?"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Remove {name}?"
+msgstr "Remove {name}?"
 
 #: src/project/paper-row.tsx
 msgid "Remove {title}"
@@ -13186,6 +13393,10 @@ msgstr "Replace in project"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Replace listed usages"
 msgstr "Replace listed usages"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "Replace overwrites files of the same name and merges folders. Keep both imports a numbered copy."
+msgstr "Replace overwrites files of the same name and merges folders. Keep both imports a numbered copy."
 
 #: src/project/submission-items.tsx
 msgid "Replace template"
@@ -13614,6 +13825,7 @@ msgid "Restored {path}."
 msgstr "Restored {path}."
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/plugins/plugin-run.tsx
 msgid "Results"
 msgstr "Results"
 
@@ -13726,6 +13938,10 @@ msgstr "Review source changes"
 #: src/pdf/pdf-comment-popups.tsx
 msgid "Review the proposal"
 msgstr "Review the proposal"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Review…"
+msgstr "Review…"
 
 #. placeholder {0}: rounds.revisable
 #: src/editor/comments/editor-comments-panel.tsx
@@ -13907,6 +14123,10 @@ msgstr "Run-in paragraph heading"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Runner used for Lattice's pinned literature tools"
 
+#: src/plugins/plugin-run.tsx
+msgid "Running {title}…"
+msgstr "Running {title}…"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Sage"
@@ -13935,6 +14155,7 @@ msgstr "Saturation and brightness"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/settings/literature-settings.tsx
 #: src/settings/model-endpoint-settings.tsx
 msgid "Save"
@@ -14085,6 +14306,7 @@ msgstr "Save your edits before exporting."
 
 #: src/canvas/status-save-state.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "Saved"
@@ -14451,6 +14673,10 @@ msgstr "Send message"
 msgid "Send reply"
 msgstr "Send reply"
 
+#: src/plugins/plugin-text.ts
+msgid "Send requests to {origin}"
+msgstr "Send requests to {origin}"
+
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Sent to Crossref"
@@ -14510,6 +14736,14 @@ msgstr "Several packages provide this file"
 #: src/build/tex-dependency-installer.tsx
 msgid "Several TeX Live packages provide {0}. Choose the one to install."
 msgstr "Several TeX Live packages provide {0}. Choose the one to install."
+
+#: src/plugins/plugin-settings.tsx
+msgid "SHA-256 (64 hexadecimal characters)"
+msgstr "SHA-256 (64 hexadecimal characters)"
+
+#: src/plugins/plugin-settings.tsx
+msgid "SHA-256 checksum"
+msgstr "SHA-256 checksum"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
@@ -14748,7 +14982,7 @@ msgstr "Similar title match"
 msgid "Similar to"
 msgstr "Similar to"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Simplified Chinese"
 msgstr "Simplified Chinese"
@@ -15914,6 +16148,14 @@ msgstr "The annotated passage changed or moved, so its proposal cannot be placed
 msgid "The annotated text changed or moved. Select it again and annotate it to ask about it."
 msgstr "The annotated text changed or moved. Select it again and annotate it to ask about it."
 
+#: src/platform/host-errors-plugins.ts
+msgid "The archive has no {file} at its root."
+msgstr "The archive has no {file} at its root."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The archive holds a link ({name}); plugins may not."
+msgstr "The archive holds a link ({name}); plugins may not."
+
 #: src/build/compile-explain.ts
 msgid "The argument of {command} contains a blank line, which usually means a missing {BRACE_CLOSE}. Close the argument before the paragraph ends."
 msgstr "The argument of {command} contains a blank line, which usually means a missing {BRACE_CLOSE}. Close the argument before the paragraph ends."
@@ -16101,6 +16343,10 @@ msgstr "The document never loads Times: add {command} after the template, then B
 msgid "the documents area"
 msgstr "the documents area"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The download failed: HTTP {status}."
+msgstr "The download failed: HTTP {status}."
+
 #: src/platform/host-errors-setup.ts
 msgid "The download was cancelled."
 msgstr "The download was cancelled."
@@ -16108,6 +16354,10 @@ msgstr "The download was cancelled."
 #: src/telemetry/update-recovery.ts
 msgid "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
 msgstr "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The download's SHA-256 is {actual}, not the one given. Nothing was installed."
+msgstr "The download's SHA-256 is {actual}, not the one given. Nothing was installed."
 
 #: src/platform/host-errors-setup.ts
 msgid "The downloaded {what} failed its security check."
@@ -16515,6 +16765,54 @@ msgstr "The PDF with changes marked was stopped after {minutes} minutes without 
 msgid "The PDF with changes marked was stopped when its build used {gigabytes} GB of memory. Build the paper itself to check that it finishes, then export again."
 msgstr "The PDF with changes marked was stopped when its build used {gigabytes} GB of memory. Build the paper itself to check that it finishes, then export again."
 
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin archive has too many files."
+msgstr "The plugin archive has too many files."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin archive is larger than 50 MiB."
+msgstr "The plugin archive is larger than 50 MiB."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin archive unpacks to more than 200 MiB."
+msgstr "The plugin archive unpacks to more than 200 MiB."
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin didn’t finish within 2 minutes."
+msgstr "The plugin didn’t finish within 2 minutes."
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin failed."
+msgstr "The plugin failed."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin id must be reverse-domain, like dev.example.my-plugin."
+msgstr "The plugin id must be reverse-domain, like dev.example.my-plugin."
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin is broken: {detail}"
+msgstr "The plugin is broken: {detail}"
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin sent something Lattice couldn’t read: {detail}"
+msgstr "The plugin sent something Lattice couldn’t read: {detail}"
+
+#: src/plugins/plugin-text.ts
+msgid "The plugin stopped without an answer."
+msgstr "The plugin stopped without an answer."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's id changed. Remove it and install it again."
+msgstr "The plugin's id changed. Remove it and install it again."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's licence ({license}) is not one Lattice accepts for installed plugins."
+msgstr "The plugin's licence ({license}) is not one Lattice accepts for installed plugins."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's result has no kind."
+msgstr "The plugin's result has no kind."
+
 #: src/platform/host-errors-setup.ts
 msgid "The presentation project must be a directory."
 msgstr "The presentation project must be a directory."
@@ -16675,6 +16973,10 @@ msgstr "The serial comma is a house-style choice that venues and authors set dif
 #: src/platform/host-errors-papers.ts
 msgid "The server returned HTTP {status} for the PDF."
 msgstr "The server returned HTTP {status} for the PDF."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The SHA-256 must be 64 hexadecimal characters."
+msgstr "The SHA-256 must be 64 hexadecimal characters."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -16859,6 +17161,14 @@ msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "There exists"
 msgstr "There exists"
+
+#: src/plugins/plugin-run.tsx
+msgid "There is no entry “{key}” in {file}."
+msgstr "There is no entry “{key}” in {file}."
+
+#: src/plugins/plugin-bib.ts
+msgid "There is no entry “{key}” to update any more."
+msgstr "There is no entry “{key}” to update any more."
 
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "There is no text to comment on in this selection."
@@ -17159,6 +17469,42 @@ msgstr "This PDF has no SyncTeX data, so Lattice cannot match it to the source. 
 msgid "This PDF was removed from the project."
 msgstr "This PDF was removed from the project."
 
+#: src/plugins/plugin-text.ts
+msgid "This plugin asks for new permissions. Review them in Settings › Plugins."
+msgstr "This plugin asks for new permissions. Review them in Settings › Plugins."
+
+#: src/platform/host-errors-plugins.ts
+msgid "This plugin does not declare that secret."
+msgstr "This plugin does not declare that secret."
+
+#: src/plugins/plugin-text.ts
+msgid "This plugin is no longer installed."
+msgstr "This plugin is no longer installed."
+
+#: src/plugins/plugin-text.ts
+msgid "This plugin is turned off. Turn it on in Settings › Plugins."
+msgstr "This plugin is turned off. Turn it on in Settings › Plugins."
+
+#: src/plugins/plugin-text.ts
+msgid "This plugin needs plugin API level {level}, which this Lattice doesn’t support."
+msgstr "This plugin needs plugin API level {level}, which this Lattice doesn’t support."
+
+#: src/platform/host-errors-plugins.ts
+msgid "This plugin needs plugin API level {needed}; this Lattice has {level}."
+msgstr "This plugin needs plugin API level {needed}; this Lattice has {level}."
+
+#: src/plugins/plugin-text.ts
+msgid "This plugin no longer has this command."
+msgstr "This plugin no longer has this command."
+
+#: src/platform/host-errors-plugins.ts
+msgid "This plugin's manifest format ({format}) needs a newer Lattice."
+msgstr "This plugin's manifest format ({format}) needs a newer Lattice."
+
+#: src/plugins/plugin-run.tsx
+msgid "This project has no bibliography to add to."
+msgstr "This project has no bibliography to add to."
+
 #: src/platform/host-errors-overleaf.ts
 msgid "This project has no files that can be uploaded to Overleaf."
 msgstr "This project has no files that can be uploaded to Overleaf."
@@ -17335,7 +17681,7 @@ msgstr "Tip"
 msgid "Title"
 msgstr "Title"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Title bar tools"
 msgstr "Title bar tools"
@@ -17433,12 +17779,12 @@ msgstr "Tools"
 msgid "Top / true"
 msgstr "Top / true"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Top center"
 msgstr "Top center"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Top right"
 msgstr "Top right"
@@ -17543,6 +17889,22 @@ msgstr "Tsinghua University thesis ({name})"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "TSV (tab)"
 msgstr "TSV (tab)"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Turn off {name}"
+msgstr "Turn off {name}"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Turn on"
+msgstr "Turn on"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Turn on {name}"
+msgstr "Turn on {name}"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Turn on {name}?"
+msgstr "Turn on {name}?"
 
 #: src/build/compile-explain.ts
 msgid "Two places set {command}, so references to it may point at the wrong one. Rename one of them."
@@ -17708,6 +18070,10 @@ msgstr "Union of a family of sets"
 msgid "Unknown"
 msgstr "Unknown"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Unknown `project-read` value `{value}`."
+msgstr "Unknown `project-read` value `{value}`."
+
 #: src/papers/audit-messages.ts
 msgid "Unknown bibliography entry type `{type}`."
 msgstr "Unknown bibliography entry type `{type}`."
@@ -17817,6 +18183,10 @@ msgstr "Unsupported paper asset manifest version."
 msgid "Unsupported paper asset type: {type}"
 msgstr "Unsupported paper asset type: {type}"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Unsupported path {path}"
+msgstr "Unsupported path {path}"
+
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "Unsupported spreadsheet collaboration format: {version}"
@@ -17874,6 +18244,10 @@ msgstr "Up-down arrow"
 msgid "Up-down double arrow"
 msgstr "Up-down double arrow"
 
+#: src/plugins/plugin-run.tsx
+msgid "Update “{key}” in {file}?"
+msgstr "Update “{key}” in {file}?"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Update annotation…"
 msgstr "Update annotation…"
@@ -17885,6 +18259,11 @@ msgstr "Update applied"
 #: src/papers/audit-messages.ts
 msgid "Update available"
 msgstr "Update available"
+
+#: src/plugins/plugin-run.tsx
+#: src/plugins/plugin-text.ts
+msgid "Update entry"
+msgstr "Update entry"
 
 #: src/project/figure-source-refresh.ts
 msgid "Update figure"
@@ -18045,6 +18424,10 @@ msgstr "Use the light theme"
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Use the passive voice"
 msgstr "Use the passive voice"
+
+#: src/plugins/plugin-text.ts
+msgid "Use the saved secret “{name}”"
+msgstr "Use the saved secret “{name}”"
 
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -18330,6 +18713,7 @@ msgid "WARN"
 msgstr "WARN"
 
 #: src/editor/markdown/engine/views/component-views.tsx
+#: src/plugins/plugin-run.tsx
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "Warning"

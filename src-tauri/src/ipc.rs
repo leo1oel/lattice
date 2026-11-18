@@ -21,6 +21,7 @@ pub(crate) mod overleaf_comments;
 pub(crate) mod overleaf_history;
 pub(crate) mod overleaf_realtime;
 pub(crate) mod papers;
+pub(crate) mod plugins;
 pub(crate) mod presentation;
 pub(crate) mod project_tab_drag;
 pub(crate) mod project_tabs;

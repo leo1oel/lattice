@@ -110,6 +110,9 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
       { tab: "literature", place: literature, id: `literature-${id}`, label: name, terms: t`API key` } satisfies SettingsSearchEntry
     )),
     { tab: "literature", place: literature, id: "literature-email", label: t`Contact email`, terms: "Crossref", description: t`Sent to Crossref` },
+    { tab: "plugins", label: t`Plugins`, place: t`Integrations`, terms: t({ message: "plugin extension add-on sandbox permissions", comment: "Search words for the Plugins settings page, space-separated" }) },
+    { tab: "plugins", place: t`Plugins`, id: "plugins-install-url", label: t`Install from URL…`, terms: "SHA-256 zip" },
+    { tab: "plugins", place: t`Plugins`, id: "plugins-install-folder", label: t`Install from folder…`, terms: t({ message: "develop", comment: "Search words for the Install from folder plugin setting, space-separated" }) },
     { tab: "doctor", label: t`TeX doctor`, place: t`Diagnostics` },
     { tab: "logs", label: t`Logs`, place: t`Diagnostics` },
     {

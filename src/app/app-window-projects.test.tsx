@@ -7,7 +7,7 @@ import { appHarness } from "./app-test-mount";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { InvokeArgs } from "@tauri-apps/api/core";
-import { windowProjects } from "./window-projects";
+import { flushWindowProjectGroup, windowProjects } from "./window-projects";
 
 const { renderApp } = appHarness();
 
@@ -32,13 +32,38 @@ async function openNotesHere() {
   fireEvent.click(await screen.findByRole("menuitem", { name: "Open Notes in this window" }));
 }
 
-afterEach(() => {
-  act(() => {
-    for (const { root } of windowProjects.get()) windowProjects.remove(root);
-  });
+afterEach(async () => {
+  await flushWindowProjectGroup();
+  act(() => windowProjects.restore([]));
 });
 
 describe("projects in this window", () => {
+  it("restores an ordered group with the active project selected and saves a new selection", async () => {
+    setAutoBuildMode("manual");
+    const projects = [{ root: ROOT, name: "Paper" }, { root: NOTES, name: "Notes" }];
+    renderApp({
+      ...projectCommands(snapshots[NOTES]),
+      load_project_tab_group: { activeRoot: NOTES, projects },
+      open_project: openProject,
+      project_shown_elsewhere: false,
+    });
+    const group = await screen.findByRole("group", { name: "Projects in this window" });
+    expect(windowProjects.get()).toEqual(projects);
+    expect(within(group).getByRole("button", { name: "Switch project" })).toHaveTextContent("Notes");
+    await waitForBuildIdle();
+
+    fireEvent.click(within(group).getByRole("button", { name: "Paper" }));
+    await expectInvoked("save_project_tab_group", { group: { activeRoot: ROOT, projects } });
+    expect(within(group).getByRole("button", { name: "Switch project" })).toHaveTextContent("Paper");
+  });
+
+  it("starts in Welcome after an explicit last-window close", async () => {
+    rememberRecents();
+    renderApp({ ...projectCommands(null), load_project_tab_group: { activeRoot: null, projects: [] } });
+    expect(await screen.findByRole("heading", { level: 1, name: "Lattice" })).toBeInTheDocument();
+    expect(invokeCalls("open_project")).toHaveLength(0);
+  });
+
   it("opens a recent project in this window beside the first, as a tab to switch back by", async () => {
     setAutoBuildMode("manual");
     rememberRecents();

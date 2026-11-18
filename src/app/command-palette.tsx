@@ -9,10 +9,10 @@
  * same way (`scorePath`) and draws them with the same icons, so a file found
  * here and there reads as one thing.
  */
-import { useId, useMemo } from "react";
+import { lazy, Suspense, useEffect, useId, useMemo, useReducer } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
-  BookOpen, Cloud, Compass, Eye, FolderOpen, Hammer, LayoutPanelLeft, Library, PenLine, Search, Settings, SunMoon, type LucideIcon,
+  BookOpen, Cloud, Compass, Eye, FolderOpen, Hammer, LayoutPanelLeft, Library, PenLine, Puzzle, Search, Settings, SunMoon, type LucideIcon,
 } from "lucide-react";
 import { PickerDialog, type PickerNoMatch, type SearchPickerItem } from "../components/ui/search-picker-dialog";
 import { searchPickerRow } from "../components/ui/picker-row";
@@ -25,18 +25,25 @@ import type { PaperSummary } from "../app-types";
 import { commandKeys, type AppCommand } from "./use-app-commands";
 import { PALETTE_SECTIONS, type PaletteSection } from "./palette-sections";
 import { baseName } from "../lib/base-name";
+import { usePluginCommands, type PluginCommand } from "../plugins/plugin-ipc";
+import type { PluginRunHost } from "../plugins/plugin-run";
+
+/** A chosen plugin command's input, progress and result, loaded only once a palette lists one. */
+const loadPluginRun = () => import("../plugins/plugin-run");
+const PluginRun = lazy(loadPluginRun);
 
 /** Each section's icon; its name and order are `PALETTE_SECTIONS`'. */
 const SECTION_ICONS: Record<PaletteSection, LucideIcon> = {
   navigate: Compass, edit: PenLine, build: Hammer, view: Eye, layout: LayoutPanelLeft,
   research: Library, overleaf: Cloud, project: FolderOpen, appearance: SunMoon,
 };
-/** Every icon a row repeats: the sections', a Paper's, a setting's and Find in project's. */
-const ROW_ICONS: Record<PaletteSection | "paper" | "setting" | "find", LucideIcon> = {
+/** Every icon a row repeats: the sections', a Paper's, a setting's, a plugin command's and Find in project's. */
+const ROW_ICONS: Record<PaletteSection | "paper" | "setting" | "find" | "plugin", LucideIcon> = {
   ...SECTION_ICONS,
   paper: BookOpen,
   setting: Settings,
   find: Search,
+  plugin: Puzzle,
 };
 type RowIcon = keyof typeof ROW_ICONS;
 
@@ -61,6 +68,8 @@ const rowIcon = (prefix: string, name: RowIcon) => (
 
 /** Files, Papers and Settings rows rank after commands that score the same (a command's order is its section's plus a fraction). */
 const FOUND_ORDER = { file: 10, paper: 11, setting: 12 } as const;
+/** Plugin commands list after the app's own sections, before what a query finds. */
+const PLUGIN_ORDER = 9;
 
 /** How many of each kind a typed query may list, best first. */
 const LIMITS = { command: 40, file: 12, paper: 6, setting: 6 } as const;
@@ -68,12 +77,16 @@ const LIMITS = { command: 40, file: 12, paper: 6, setting: 6 } as const;
 const PROSE_FLOOR = 280;
 const RECENT_FILES_SHOWN = 4;
 
+const NO_PLUGIN_COMMANDS: readonly PluginCommand[] = [];
+type PaletteRun = { running: PluginCommand | null; opener: HTMLElement | null };
+
 type PaletteItem = SearchPickerItem & { order: number } & (
   | { kind: "command" }
   | { kind: "file"; path: string }
   | { kind: "paper"; paper: PaperSummary }
   | { kind: "setting"; entry: SettingsSearchEntry }
   | { kind: "find"; query: string }
+  | { kind: "plugin"; command: PluginCommand }
 );
 
 export type PaletteChoice =
@@ -109,8 +122,23 @@ export function CommandPalette(props: {
   onClose: () => void;
   onChoose: (choice: PaletteChoice) => void;
   onFileIntent?: (path: string) => void;
+  /** Where a plugin command runs from this palette; without it, no plugin rows. */
+  plugins?: PluginRunHost | null;
 }) {
   const { t, i18n } = useLingui();
+  // The plugin command chosen here, whose steps replace the list; and what
+  // had focus before the palette, where focus returns once either closes.
+  const [{ running, opener }, setRunning] = useReducer(
+    (state: PaletteRun, chosen: PluginCommand | null): PaletteRun => ({ ...state, running: chosen }),
+    null,
+    (): PaletteRun => ({ running: null, opener: document.activeElement instanceof HTMLElement ? document.activeElement : null }),
+  );
+  const listedPlugins = usePluginCommands();
+  const pluginCommands = props.plugins ? listedPlugins : NO_PLUGIN_COMMANDS;
+  const hasPluginCommands = pluginCommands.length > 0;
+  useEffect(() => {
+    if (hasPluginCommands) void loadPluginRun();
+  }, [hasPluginCommands]);
   // Only characters an id fragment takes as they are.
   const iconPrefix = `palette-icon${useId().replace(/[^\w-]/g, "")}`;
   const settings = useSettingsSearchIndex(props.hasProject, props.knownAuthorName);
@@ -129,6 +157,12 @@ export function CommandPalette(props: {
       keys: commandKeys(command) ?? undefined,
       keywords: command.keywords,
       order: (command.group ? PALETTE_SECTIONS[command.group].order : FOUND_ORDER.setting) + index / (commands.length + 1),
+    }));
+    const pluginsGroup = t`Plugins`;
+    const pluginItems: PaletteItem[] = pluginCommands.map((command, index) => ({
+      kind: "plugin", command, id: `plugin:${command.pluginId}:${command.commandId}`,
+      label: `${command.pluginName}: ${command.title}`, detail: command.description ?? undefined,
+      group: pluginsGroup, icon: rowIcon(iconPrefix, "plugin"), order: PLUGIN_ORDER + index / (pluginCommands.length + 1),
     }));
     const byId = new Map(commandItems.map((item) => [item.id, item]));
     const fileItem = (path: string, group: string): PaletteItem => ({
@@ -160,13 +194,13 @@ export function CommandPalette(props: {
       ...recentFiles.slice(0, RECENT_FILES_SHOWN).map((path) => ({ ...fileItem(path, recentGroup), id: `recent:${path}` })),
     ];
     const leadIds = new Set(leading.map((lead) => lead.id));
-    const everyCommand = commandItems
+    const everyCommand = [...commandItems, ...pluginItems]
       .filter((item) => !leadIds.has(item.id))
       .sort((left, right) => left.order - right.order);
     return (query: string): PaletteItem[] => {
       if (!query) return [...leadingItems, ...everyCommand];
       return [
-        ...topScoring(commandItems, (item) => scoreItem(item, query), LIMITS.command),
+        ...topScoring([...commandItems, ...pluginItems], (item) => scoreItem(item, query), LIMITS.command),
         ...topScoring(fileItems, (item) => (item.kind === "file" ? scorePath(item.path, query) : 0), LIMITS.file),
         ...topScoring(paperItems, (item) => scoreItem(item, query), LIMITS.paper, PROSE_FLOOR),
         ...topScoring(settingItems, (item) => scoreItem(item, query), LIMITS.setting, PROSE_FLOOR),
@@ -174,7 +208,7 @@ export function CommandPalette(props: {
         .sort((left, right) => right.score - left.score || left.item.order - right.item.order)
         .map((entry) => entry.item);
     };
-  }, [commands, files, i18n, iconPrefix, leading, papers, recentFiles, settings, t]);
+  }, [commands, files, i18n, iconPrefix, leading, papers, pluginCommands, recentFiles, settings, t]);
   // A query that found nothing says so, and in a project hands itself to
   // Find in project, which also reads every source file's text.
   const findCommand = commands.find((command) => command.id === "find");
@@ -188,12 +222,20 @@ export function CommandPalette(props: {
   const intent = useMemo(() => (onFileIntent
     ? (item: PaletteItem) => { if (item.kind === "file") onFileIntent(item.path); }
     : undefined), [onFileIntent]);
+  if (running && props.plugins) {
+    return (
+      <Suspense fallback={null}>
+        <PluginRun command={running} host={props.plugins} returnFocus={opener} onBack={() => setRunning(null)} onClose={props.onClose} />
+      </Suspense>
+    );
+  }
   return (
     <PickerDialog<PaletteItem>
       label={t`Command palette`}
       searchLabel={t`Command palette`}
       placeholder={props.hasProject ? t`Search commands, files, papers and settings…` : t`Search commands and settings…`}
       className="command-palette-modal"
+      returnFocus={opener}
       detailPlacement="end"
       emptyText={t`No matches`}
       noMatch={noMatch}
@@ -210,6 +252,7 @@ export function CommandPalette(props: {
         else if (item.kind === "file") props.onChoose({ kind: "file", path: item.path });
         else if (item.kind === "paper") props.onChoose({ kind: "paper", paper: item.paper });
         else if (item.kind === "find") props.onChoose({ kind: "find", query: item.query });
+        else if (item.kind === "plugin") setRunning(item.command);
         else props.onChoose({ kind: "setting", entry: item.entry });
       }}
       // No ↑↓ / ↵ / Esc legend: a list picker's keys are universal. The

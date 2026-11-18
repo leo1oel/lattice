@@ -247,6 +247,7 @@ fn perform<R: Runtime>(app: &AppHandle<R>, action: Action) {
         // Destroy, not close: closing would ask the page to save again.
         Action::Close(label) => {
             if let Some(window) = app.get_webview_window(&label) {
+                crate::project_tab_groups::note_close(app, &label);
                 let _ = window.destroy();
             }
         }
@@ -294,7 +295,10 @@ fn ask<R: Runtime>(app: &AppHandle<R>, id: u64, labels: &[String]) {
 pub fn on_close_requested<R: Runtime>(app: &AppHandle<R>, label: &str) -> bool {
     let Some(state) = app.try_state::<SaveBeforeClose>() else { return false };
     match state.request_close(label) {
-        Decision::Proceed => false,
+        Decision::Proceed => {
+            crate::project_tab_groups::note_close(app, label);
+            false
+        }
         Decision::Wait => true,
         Decision::Ask(id, labels) => {
             ask(app, id, &labels);

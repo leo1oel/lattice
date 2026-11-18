@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const host = vi.hoisted(() => ({ invoke: vi.fn<(...args: unknown[]) => Promise<unknown>>() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: host.invoke }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ label: "project-2" }) }));
 
-const { windowProjects } = await import("./window-projects");
+const { flushWindowProjectGroup, windowProjects } = await import("./window-projects");
 const roots = () => windowProjects.get().map(({ root }) => root);
 
-afterEach(() => {
-  for (const root of roots()) windowProjects.remove(root);
+afterEach(async () => {
+  await flushWindowProjectGroup();
+  windowProjects.restore([]);
+  host.invoke.mockReset();
 });
 
 describe("the projects in this window", () => {
@@ -20,6 +24,26 @@ describe("the projects in this window", () => {
     expect(windowProjects.get()).toEqual([
       { root: "/a", name: "A renamed" }, { root: "/b", name: "B" }, { root: "/c", name: "C" },
     ]);
+  });
+
+  it("serializes rapid updates, including a reorder with no active-tab change", async () => {
+    let finish!: () => void;
+    const firstSave = new Promise<void>((resolve) => { finish = resolve; });
+    host.invoke.mockReturnValueOnce(firstSave).mockResolvedValue(null);
+    const a = { root: "/a", name: "A" };
+    const b = { root: "/b", name: "B" };
+    windowProjects.enter(a, null);
+    windowProjects.enter(b, a);
+    windowProjects.reorder(b.root, a.root);
+    await Promise.resolve();
+    expect(host.invoke).toHaveBeenCalledExactlyOnceWith("save_project_tab_group", {
+      group: { activeRoot: a.root, projects: [a] },
+    });
+    finish();
+    await flushWindowProjectGroup();
+    expect(host.invoke).toHaveBeenLastCalledWith("save_project_tab_group", {
+      group: { activeRoot: b.root, projects: [b, a] },
+    });
   });
 
   it("is kept for this window's page under its label, for a reload", () => {

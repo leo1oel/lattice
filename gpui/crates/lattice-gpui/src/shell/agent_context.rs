@@ -12,8 +12,16 @@
 //! The model is `crate::agent::host_context`; this reads the window into
 //! it. The window is read on every frame (`agent_follow_front`), but only
 //! what changed is pushed, and the surface waits for the caret to rest.
+//!
+//! The PDFs are read apart (`agent_follow_pdf`), after the shell renders and
+//! whenever the PDF view read is notified, never as the shell renders: a
+//! view the shell's render reads is one the shell is built again for, and a
+//! PDF view is notified on every frame it scrolls, which would build the
+//! whole window again on each of them.
 
-use gpui::{App, Context, Entity, EntityId, Focusable as _, Task, WeakEntity, Window};
+use gpui::{
+    App, Context, Entity, EntityId, Focusable as _, Subscription, Task, WeakEntity, Window,
+};
 use serde_json::json;
 
 use super::{Shell, trellis_layout::file_key};
@@ -52,6 +60,10 @@ pub(crate) struct ContextState {
     /// reading file it showed when last pushed.
     paper: Option<WeakEntity<PaperReader>>,
     paper_path: Option<String>,
+    /// The PDF views `agent_follow_pdf` reads, each observed so that what
+    /// changes in them reaches the Agent without the shell reading them as
+    /// it renders.
+    pdf_watch: Vec<(EntityId, Subscription)>,
 }
 
 impl Shell {
@@ -66,6 +78,18 @@ impl Shell {
 
     fn context(&mut self) -> &mut ContextState {
         &mut self.agent.state.context
+    }
+
+    /// The compiled PDF's page and page count. Read as the shell renders
+    /// (a push from `agent_follow_front`), it is the place last seen, which
+    /// `agent_follow_pdf` keeps current, so that the render does not read
+    /// the PDF view.
+    fn pdf_place(&self, cx: &App) -> (usize, usize) {
+        if self.agent.state.context.pdf_watch.is_empty() {
+            let live = self.pdf().read(cx).live_view().read(cx);
+            return (live.current_page(), live.page_count());
+        }
+        self.agent.state.context.pdf_place
     }
 
     /// Read the window on a frame: when the writer moved between the editor
@@ -132,7 +156,6 @@ impl Shell {
             self.context().pdf = Some(panel.downgrade());
             self.context().pdf_mark = None;
         }
-        changed |= self.watch_pdf_selection(cx);
         let other_front = if editor_focused {
             None
         } else {
@@ -141,15 +164,9 @@ impl Shell {
         self.context().other_front = other_front;
         let front = editor.as_ref().map(Entity::entity_id);
         let (document, _) = self.agent_front_document(cx);
-        let live = self.pdf().read(cx).live_view().read(cx);
-        let pdf_place = (live.current_page(), live.page_count());
         let paper_path = self.agent_paper(cx).map(|reader| reader.read(cx).path());
         let state = self.context();
-        if front != state.front
-            || document != state.document
-            || pdf_place != state.pdf_place
-            || paper_path != state.paper_path
-        {
+        if front != state.front || document != state.document || paper_path != state.paper_path {
             changed = true;
         }
         if changed {
@@ -158,6 +175,47 @@ impl Shell {
         // A deck opened while a turn runs lights up too.
         if self.agent_turn_running() {
             self.tell_decks_of_turn(cx);
+        }
+        // The PDF worked in may have changed with the focus.
+        cx.defer_in(window, |this, window, cx| this.agent_follow_pdf(window, cx));
+    }
+
+    /// Read the PDFs: the compiled PDF's page and count, and the selection
+    /// in the PDF the writer last worked in. Called after the shell renders
+    /// and whenever one of those PDF views is notified, which it observes.
+    fn agent_follow_pdf(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let live = self.pdf().read(cx).live_view().clone();
+        let selection = self
+            .context()
+            .pdf
+            .as_ref()
+            .and_then(WeakEntity::upgrade)
+            .unwrap_or_else(|| self.pdf().clone())
+            .read(cx)
+            .live_view()
+            .clone();
+        let mut views = vec![live.clone()];
+        if selection != live {
+            views.push(selection);
+        }
+        let watched = self.context().pdf_watch.iter().map(|(id, _)| *id);
+        if !watched.eq(views.iter().map(Entity::entity_id)) {
+            self.context().pdf_watch = views
+                .iter()
+                .map(|view| {
+                    let observe = cx.observe_in(view, window, |this, _, window, cx| {
+                        this.agent_follow_pdf(window, cx)
+                    });
+                    (view.entity_id(), observe)
+                })
+                .collect();
+        }
+        let live = live.read(cx);
+        let pdf_place = (live.current_page(), live.page_count());
+        let moved = pdf_place != self.context().pdf_place;
+        self.context().pdf_place = pdf_place;
+        if self.watch_pdf_selection(cx) || moved {
+            self.push_agent_workspace(cx);
         }
     }
 
@@ -335,8 +393,7 @@ impl Shell {
         let presentation = structured
             .filter(|document| document.read(cx).kind() == StructuredKind::Deck)
             .and_then(|document| document.read(cx).deck_context().cloned());
-        let live = self.pdf().read(cx).live_view().read(cx);
-        let pdf_place = (live.current_page(), live.page_count());
+        let pdf_place = self.pdf_place(cx);
         let state = self.context();
         state.front = front;
         state.document = document;
@@ -387,8 +444,7 @@ impl Shell {
         }
         let front = self.active_editor().as_ref().map(Entity::entity_id);
         let (document, _) = self.agent_front_document(cx);
-        let live = self.pdf().read(cx).live_view().read(cx);
-        let pdf_place = (live.current_page(), live.page_count());
+        let pdf_place = self.pdf_place(cx);
         let state = self.context();
         state.front = front;
         state.document = document;

@@ -1,6 +1,7 @@
 //! The import conflict dialog (`shell/import_conflict.rs`): an import onto
-//! names the folder already has asks once, Keep both first; Replace
-//! overwrites the file, Skip leaves it out and says so under the summary.
+//! names the folder already has asks once, Keep both the default; Keep both
+//! lands a numbered copy, Replace overwrites the file, Skip leaves it out and
+//! says so under the summary.
 
 use std::time::Duration;
 
@@ -18,13 +19,18 @@ impl Run {
         let name = "conflict-check.txt";
         let source = outside.join(name);
         let landed = fixture.root.join(name);
+        let numbered = fixture.root.join("conflict-check-2.txt");
         std::fs::write(&landed, "old\n")?;
         let host = cx.update(import_conflict::install);
         let stack = cx.update(notices::install);
         cx.update(|cx| stack.update(cx, |stack, cx| stack.clear(cx)));
 
         let mut answers = Vec::new();
-        for (choice, text) in [(NameConflict::Replace, "replaced\n"), (NameConflict::Skip, "skipped\n")] {
+        for (choice, text) in [
+            (NameConflict::KeepBoth, "kept\n"),
+            (NameConflict::Replace, "replaced\n"),
+            (NameConflict::Skip, "skipped\n"),
+        ] {
             std::fs::write(&source, text)?;
             let sources = vec![source.to_string_lossy().into_owned()];
             self.with_window(cx, |shell, window, cx| {
@@ -55,22 +61,26 @@ impl Run {
                 "question": question.map(|(title, first)| (title.to_string(), format!("{first:?}"))),
                 "done": done,
                 "on_disk": std::fs::read_to_string(&landed).ok(),
+                "numbered": std::fs::read_to_string(&numbered).ok(),
                 "notices": cards.iter().map(|card| card.title.clone()).collect::<Vec<_>>(),
             }));
             cx.update(|cx| stack.update(cx, |stack, cx| stack.clear(cx)));
         }
-        let replaced = answers[0]["asked"] == true
+        let kept = answers[0]["asked"] == true
             && answers[0]["question"][1] == "KeepBoth"
-            && answers[0]["on_disk"] == "replaced\n";
-        let skipped = answers[1]["asked"] == true
-            && answers[1]["on_disk"] == "replaced\n"
-            && answers[1]["notices"][0] == "Nothing imported";
+            && answers[0]["on_disk"] == "old\n"
+            && answers[0]["numbered"] == "kept\n";
+        let replaced = answers[1]["asked"] == true && answers[1]["on_disk"] == "replaced\n";
+        let skipped = answers[2]["asked"] == true
+            && answers[2]["on_disk"] == "replaced\n"
+            && answers[2]["notices"][0] == "Nothing imported";
         steps.check(
-            "an import onto a taken name asks once with Keep both first; Replace overwrites it and Skip leaves it, saying nothing was imported",
-            replaced && skipped,
+            "an import onto a taken name asks once with Keep both the default; Keep both lands a numbered copy, Replace overwrites it and Skip leaves it, saying nothing was imported",
+            kept && replaced && skipped,
             json!({ "answers": answers }),
         );
         std::fs::remove_file(&landed).ok();
+        std::fs::remove_file(&numbered).ok();
         std::fs::remove_dir_all(&outside).ok();
         Ok(())
     }

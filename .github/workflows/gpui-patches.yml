@@ -48,7 +48,7 @@ jobs:
           # the checkout's root. The vendoring diff only reshapes manifests
           # for building out of the repository, so it is not applied here.
           cd "$work"
-          for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-backdrop-blur gpui-fast-font-smoothing gpui-fast-glyph-outline; do
+          for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-backdrop-blur gpui-fast-font-smoothing gpui-fast-deferred-draw-splice gpui-fast-glyph-outline; do
             git apply "$GITHUB_WORKSPACE/gpui/patches/$diff.diff"
           done
           echo "GPUI_FAST_DIR=$work/gpui-fast" >> "$GITHUB_ENV"
@@ -69,10 +69,11 @@ jobs:
       # drawn headlessly and read back; fast::font_smoothing: glyphs drawn
       # unsmoothed in every color, and fast::glyph_outline: a shaped glyph's
       # outline read back (both need gpui_apple's font-kit text
-      # system). runtime_shaders: GPUI
+      # system); fast::tests::retained: what a splice copies, deferred draws
+      # included, matches a full render. runtime_shaders: GPUI
       # compiles its Metal shaders at run time, so no Metal toolchain is needed.
       - name: Run the patch tests
         working-directory: ${{ env.GPUI_FAST_DIR }}
         run: |
-          cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom fast::backdrop
+          cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom fast::backdrop fast::tests::retained
           cargo test -p gpui_apple --lib --features runtime_shaders,font-kit -- fast::backdrop fast::font_smoothing fast::glyph_outline

@@ -580,7 +580,6 @@
         "src/project/figure-inventory-dialog.test.tsx",
         "src/project/figure-inventory-dialog.tsx",
         "src/project/figure-undo.ts",
-        "src/project/import-conflict-dialog.tsx",
         "src/project/local-templates.tsx",
         "src/project/manuscript-checklist.tsx",
         "src/project/paper-inspector.tsx",

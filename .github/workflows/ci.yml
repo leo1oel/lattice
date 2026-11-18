@@ -444,6 +444,12 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+      # The plugin API only grows: the committed schema (which cargo test just
+      # proved current) must keep everything main's and each lower level's had.
+      - name: Check the plugin API schema only adds
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          node scripts/check-plugin-api-schema.mjs --base FETCH_HEAD
 
   # The Tauri crate on Linux, so the macOS-only code stays behind its cfg
   # gates and the Linux stubs keep compiling between releases. Ubuntu 22.04

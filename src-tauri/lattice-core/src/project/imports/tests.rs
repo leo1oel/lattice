@@ -234,3 +234,58 @@ fn clipboard_images_are_saved_and_byte_writes_skip_paper_bundles() {
     let error = write_bytes(&fixture.root, ".research/review/base/main.tex", "QQ==").unwrap_err();
     assert!(error.contains("cannot be written directly"));
 }
+
+/// The import conflict dialog's answers (`import-conflict-dialog.tsx`,
+/// GPUI's `shell/import_conflict.rs`): asked without one, nothing lands and
+/// the taken names come back; Keep both lands a numbered copy beside the
+/// original, Replace overwrites a file and merges into a folder, and Skip
+/// leaves the taken name alone while the rest of the batch lands.
+#[test]
+fn each_name_conflict_answer_does_what_the_dialog_says() {
+    let ask = |root: &Path, sources: &[String], conflict| {
+        let request =
+            ImportRequest { sources, target_directory: "sections", copy_existing: false, conflict };
+        super::import_files(root, request, &mut |_, _| {}).unwrap()
+    };
+    let setup = |label: &str| {
+        let fixture = Fixture::project(label);
+        fixture.write("sections/notes.txt", "old\n");
+        fixture.write("sections/data/a.csv", "old\n");
+        let sources = paths([
+            fixture.outside("notes.txt", "new\n"),
+            fixture.outside("data/b.csv", "b\n").parent().unwrap().to_path_buf(),
+            fixture.outside("fresh.txt", "fresh\n"),
+        ]);
+        (fixture, sources)
+    };
+
+    let (fixture, sources) = setup("import-conflict-ask");
+    let asked = ask(&fixture.root, &sources, None);
+    assert_eq!(asked.conflicts, vec!["notes.txt", "data"]);
+    assert!(asked.entries.is_empty() && asked.files.is_empty());
+    assert!(!fixture.path("sections/fresh.txt").exists());
+
+    let (fixture, sources) = setup("import-conflict-keep-both");
+    let kept = ask(&fixture.root, &sources, Some(NameConflict::KeepBoth));
+    assert_eq!(kept.entries, vec!["sections/notes-2.txt", "sections/data-2", "sections/fresh.txt"]);
+    assert_eq!(fixture.read("sections/notes.txt"), "old\n");
+    assert_eq!(fixture.read("sections/notes-2.txt"), "new\n");
+    assert_eq!(fixture.read("sections/data-2/b.csv"), "b\n");
+    assert!(!fixture.path("sections/data/b.csv").exists());
+
+    let (fixture, sources) = setup("import-conflict-replace");
+    let replaced = ask(&fixture.root, &sources, Some(NameConflict::Replace));
+    assert_eq!(replaced.entries, vec!["sections/notes.txt", "sections/data", "sections/fresh.txt"]);
+    assert_eq!(fixture.read("sections/notes.txt"), "new\n");
+    assert_eq!(fixture.read("sections/data/a.csv"), "old\n");
+    assert_eq!(fixture.read("sections/data/b.csv"), "b\n");
+    assert!(!fixture.path("sections/notes-2.txt").exists());
+
+    let (fixture, sources) = setup("import-conflict-skip");
+    let skipped = ask(&fixture.root, &sources, Some(NameConflict::Skip));
+    assert_eq!(skipped.skipped, vec!["notes.txt", "data"]);
+    assert_eq!(skipped.entries, vec!["sections/fresh.txt"]);
+    assert_eq!(fixture.read("sections/notes.txt"), "old\n");
+    assert!(!fixture.path("sections/data/b.csv").exists());
+    assert_eq!(fixture.read("sections/fresh.txt"), "fresh\n");
+}
