@@ -83,6 +83,10 @@ pub struct Fields {
     /// The custom accent's popover is open.
     pub custom_accent_open: bool,
     pub custom_accent: Entity<InputState>,
+    /// The themes the Palette row offers (`theme_files::load`).
+    pub themes: Vec<super::theme_files::ThemeEntry>,
+    /// Why the last theme install, removal or folder reveal failed.
+    pub theme_error: Option<SharedString>,
 }
 
 pub struct SettingsDialog {
@@ -337,6 +341,8 @@ impl SettingsDialog {
                 prose_other,
                 custom_accent_open: false,
                 custom_accent,
+                themes: super::theme_files::load(),
+                theme_error: None,
             },
             shell,
             providers,

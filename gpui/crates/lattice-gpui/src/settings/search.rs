@@ -131,6 +131,18 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
             t!("Light"),
             t!("Dark")
         )),
+        Entry::row(Appearance, appearance, "theme-palette", t!("Palette")).terms(format!(
+            "{} {} Rosé Pine Nord",
+            t!("Theme"),
+            t!("Lattice")
+        )),
+        Entry::row(Appearance, appearance, "theme-files", t!("Theme files")).terms(format!(
+            "{} {} {} {}",
+            t!("Theme"),
+            t!("Install from file…"),
+            t!("Show themes folder"),
+            t!("Remove theme")
+        )),
         Entry::row(Appearance, appearance, "theme-tint", t!("Tint")).terms(format!(
             "{} {} {} {} {} {}",
             t!("Theme"),

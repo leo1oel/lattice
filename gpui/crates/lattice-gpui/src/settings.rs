@@ -42,6 +42,7 @@ pub(crate) mod plugins_pane;
 mod providers_pane;
 pub(crate) mod search;
 mod theme_art;
+mod theme_files;
 
 use std::{
     path::PathBuf,

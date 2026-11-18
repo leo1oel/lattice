@@ -61,6 +61,20 @@ pub async fn themes_remove<R: Runtime>(
     Ok(())
 }
 
+/// Shows the installed themes' folder in Finder, creating it first.
+#[tauri::command]
+pub async fn themes_reveal_folder<R: Runtime>(
+    themes: State<'_, Themes>, app: AppHandle<R>,
+) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+
+    let store = themes.store.clone();
+    let folder = run_blocking("Themes folder", move || store.folder()).await?;
+    app.opener()
+        .reveal_item_in_dir(&folder)
+        .map_err(|error| format!("Could not show the themes folder in Finder: {error}"))
+}
+
 /// The writer's accent as the page stores it: a preset's name (with its
 /// colour in this appearance, which the page reads from its own CSS), a
 /// custom `#rrggbb`, or `theme`.

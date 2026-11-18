@@ -105,6 +105,13 @@ impl ThemeStore {
         ThemeStore { root: app_data_dir.join("themes") }
     }
 
+    /// The installed themes' folder, created when it does not exist yet.
+    pub fn folder(&self) -> Result<PathBuf, String> {
+        std::fs::create_dir_all(&self.root)
+            .map_err(|err| format!("Could not create the themes folder: {err}"))?;
+        Ok(self.root.clone())
+    }
+
     fn path(&self, id: &str) -> PathBuf {
         self.root.join(format!("{id}.json"))
     }
@@ -167,8 +174,7 @@ impl ThemeStore {
                 theme.id
             ));
         }
-        std::fs::create_dir_all(&self.root)
-            .map_err(|err| format!("Could not create the themes folder: {err}"))?;
+        self.folder()?;
         // Written whole and renamed into place, so a reader never sees half a file.
         let partial = self.root.join(format!(".{}.partial", theme.id));
         std::fs::write(&partial, text).map_err(|err| format!("Could not save the theme: {err}"))?;

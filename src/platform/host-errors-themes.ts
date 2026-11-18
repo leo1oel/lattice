@@ -16,4 +16,6 @@ export const THEMES_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["themes.rs", "The theme file is larger than 256 KiB.", () => t`The theme file is larger than 256 KiB.`],
   ["themes.rs", "This theme comes with Lattice and cannot be removed.", () => t`This theme comes with Lattice and cannot be removed.`],
   ["themes.rs", "Could not remove the theme: {err}", ([error]) => t`Could not remove the theme: ${error}`],
+  ["ipc/themes.rs", "Could not show the themes folder in Finder: {error}", ([error]) => t`Could not show the themes folder in Finder: ${error}`],
+  ["ipc/themes.rs", "Themes can only be installed from a Lattice window.", () => t`Themes can only be installed from a Lattice window.`],
 ];

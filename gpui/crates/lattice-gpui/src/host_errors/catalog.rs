@@ -2604,4 +2604,49 @@ pub(super) static ENTRIES: &[Entry] = &[
         literal: "Lattice could not use the system keychain.",
         text: Text::Message("Lattice could not use the system keychain.", &[]),
     },
+    Entry {
+        file: "themes.rs",
+        literal: "\"{}\" is the id of a theme that comes with Lattice. Give your theme its own id.",
+        text: Text::Message("\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id.", &[("id", Arg::Param(0))]),
+    },
+    Entry {
+        file: "themes.rs",
+        literal: "Could not create the themes folder: {err}",
+        text: Text::Message("Could not create the themes folder: {error}", &[("error", Arg::Param(0))]),
+    },
+    Entry {
+        file: "themes.rs",
+        literal: "Could not save the theme: {err}",
+        text: Text::Message("Could not save the theme: {error}", &[("error", Arg::Param(0))]),
+    },
+    Entry {
+        file: "themes.rs",
+        literal: "Could not read {}: {err}",
+        text: Text::Message("Could not read {path}: {error}", &[("path", Arg::Param(0)), ("error", Arg::Param(1))]),
+    },
+    Entry {
+        file: "themes.rs",
+        literal: "The theme file is larger than 256 KiB.",
+        text: Text::Message("The theme file is larger than 256 KiB.", &[]),
+    },
+    Entry {
+        file: "themes.rs",
+        literal: "This theme comes with Lattice and cannot be removed.",
+        text: Text::Message("This theme comes with Lattice and cannot be removed.", &[]),
+    },
+    Entry {
+        file: "themes.rs",
+        literal: "Could not remove the theme: {err}",
+        text: Text::Message("Could not remove the theme: {error}", &[("error", Arg::Param(0))]),
+    },
+    Entry {
+        file: "ipc/themes.rs",
+        literal: "Could not show the themes folder in Finder: {error}",
+        text: Text::Message("Could not show the themes folder in Finder: {error}", &[("error", Arg::Param(0))]),
+    },
+    Entry {
+        file: "ipc/themes.rs",
+        literal: "Themes can only be installed from a Lattice window.",
+        text: Text::Message("Themes can only be installed from a Lattice window.", &[]),
+    },
 ];

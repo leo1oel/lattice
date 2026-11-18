@@ -1,5 +1,5 @@
 import { Check, Moon, Plus, Sun } from "lucide-react";
-import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { ColorPicker } from "../components/ui/color-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
@@ -15,8 +15,10 @@ import {
   THEME_TINTS,
   isCustomAccent,
 } from "./theme-customization";
-import { useFittedAccent } from "./themes";
+import { ThemeFileActions } from "./theme-file-actions";
+import { type ThemeInfo, type ThemeVariantInfo, useFittedAccent, useThemeList } from "./themes";
 import type { WindowBacking } from "./use-appearance";
+import "./theme-settings.css";
 
 type ThemeSettingsProps = {
   appearance: AppearanceSettings;
@@ -29,8 +31,9 @@ type ThemeSettingsProps = {
 };
 
 /**
- * Settings → Appearance → Theme: light or dark, then a tint, an accent and
- * the window's translucency. Every choice applies as it is made. The dialog
+ * Settings → Appearance → Theme: light or dark, then a palette (Lattice's own
+ * or a theme, docs/themes.md), a tint, an accent and the window's
+ * translucency. Every choice applies as it is made. The dialog
  * covers most of the window, so the choices draw what they change: the
  * appearances as miniature windows, each tint as both of its appearances.
  */
@@ -38,6 +41,12 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
   const { t } = useLingui();
   const { tint, accent, translucency } = props.appearance;
   const patch = (next: Partial<AppearanceSettings>) => props.setAppearance({ ...props.appearance, ...next });
+  const { themes, error: themesError } = useThemeList();
+  const chosen = themes?.find((theme) => theme.id === props.appearance.theme);
+  // A theme brings its own accent: the default Graphite gives way to it, and
+  // an accent the writer picked stays and wins (L13).
+  const chooseTheme = (id: string) => patch(id && accent === "graphite" ? { theme: id, accent: "theme" } : { theme: id });
+  const themeAccent = chosen?.variants.find((variant) => variant.appearance === props.theme)?.accent;
   const tintNames: Record<ThemeTint, string> = {
     graphite: t`Graphite`,
     paper: t({ message: "Paper", context: "theme tint" }),
@@ -60,12 +69,22 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
     reducedTransparency: t`Off while Reduce transparency is on in System Settings`,
     unsupported: t`Only in the Lattice window on macOS`,
   };
-  const accentOptions = ACCENT_PRESETS.map((id) => ({
+  const accentOptions: SwatchOption<AccentPreset | "theme">[] = ACCENT_PRESETS.map((id) => ({
     id,
     name: accentNames[id],
     preset: { "data-accent": id },
     fill: "theme-accent-fill",
   }));
+  if (chosen) {
+    accentOptions.unshift({
+      id: "theme",
+      name: t`Theme default`,
+      preset: { "data-accent": "graphite" },
+      fill: "theme-accent-fill",
+      color: themeAccent ?? undefined,
+    });
+  }
+  const pickedAccent = isCustomAccent(accent) || (accent === "theme" && !chosen) ? null : accent;
 
   return (
     <SettingsGroup title={t`Theme`}>
@@ -82,11 +101,33 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
           onChange={props.setThemePreference}
         />
       </SettingsRow>
-      <SettingsRow data-setting="theme-tint" label={t`Tint`}>
+      {themes && (
+        <SettingsRow data-setting="theme-palette" label={t`Palette`} description={chosen?.description || undefined}>
+          <TileGroup
+            label={t`Palette`}
+            value={chosen?.id ?? ""}
+            className="theme-tiles-mode"
+            options={[
+              { id: "", name: t`Lattice`, art: <ModeArt mode={props.themePreference} tint={tint} /> },
+              ...themes.map((theme) => ({ id: theme.id, name: theme.name, art: <ThemeArt theme={theme} mode={props.themePreference} /> })),
+            ]}
+            onChange={chooseTheme}
+          />
+        </SettingsRow>
+      )}
+      <SettingsRow
+        data-setting="theme-files"
+        label={t`Theme files`}
+        description={themesError ?? t`Install a .lattice-theme.json file. Lattice keeps its own copy.`}
+      >
+        <ThemeFileActions chosen={chosen} onInstalled={chooseTheme} onRemoved={() => patch({ theme: "" })} />
+      </SettingsRow>
+      <SettingsRow data-setting="theme-tint" label={t`Tint`} description={chosen ? t`Set by the theme` : undefined}>
         <TileGroup
           label={t`Tint`}
           value={tint}
           className="theme-tiles-tint"
+          disabled={chosen !== undefined}
           options={THEME_TINTS.map((id) => ({ id, name: tintNames[id], art: <TintArt tint={id} /> }))}
           onChange={(next) => patch({ tint: next })}
         />
@@ -98,7 +139,7 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
       >
         <SwatchGroup
           label={t`Accent`}
-          value={isCustomAccent(accent) || accent === "theme" ? null : accent}
+          value={pickedAccent}
           options={accentOptions}
           onChange={(next) => patch({ accent: next })}
         />
@@ -110,8 +151,8 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
           presets={(close) => (
             <SwatchGroup
               label={t`Presets`}
-              value={isCustomAccent(accent) || accent === "theme" ? null : accent}
-              options={accentOptions.filter((option) => option.id !== "graphite")}
+              value={pickedAccent}
+              options={accentOptions.filter((option) => option.id !== "graphite" && option.id !== "theme")}
               onChange={(next) => {
                 patch({ accent: next });
                 close();
@@ -143,9 +184,9 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
  * theme-preview scope (theme.css), so it takes that appearance's real palette
  * whatever the window wears.
  */
-function WindowArt(props: { kind: Theme; tint: ThemeTint; className?: string }) {
+function WindowArt(props: { kind: Theme; tint: ThemeTint; className?: string; style?: CSSProperties }) {
   return (
-    <span className={props.className ? `theme-window ${props.className}` : "theme-window"} data-theme-preview={props.kind} data-tint-preview={props.tint}>
+    <span className={props.className ? `theme-window ${props.className}` : "theme-window"} data-theme-preview={props.kind} data-tint-preview={props.tint} style={props.style}>
       <svg className="theme-window-art" viewBox="0 0 84 52" aria-hidden="true">
         <rect className="theme-art-chrome" width="84" height="52" />
         <circle className="theme-art-ink" cx="6" cy="5" r="1.4" /><circle className="theme-art-ink" cx="10.5" cy="5" r="1.4" /><circle className="theme-art-ink" cx="15" cy="5" r="1.4" />
@@ -173,6 +214,39 @@ function ModeArt(props: { mode: ThemePreference; tint: ThemeTint }) {
   );
 }
 
+/**
+ * A theme as the same miniature window, in the variant for each appearance it
+ * would be used in. Its colors are set on the art itself, over the preview
+ * scope's, so an appearance the theme leaves out shows Lattice's.
+ */
+function ThemeArt(props: { theme: ThemeInfo; mode: ThemePreference }) {
+  const art = (kind: Theme, className?: string) => (
+    <WindowArt
+      kind={kind}
+      tint="graphite"
+      className={className}
+      style={variantStyle(props.theme.variants.find((variant) => variant.appearance === kind))}
+    />
+  );
+  if (props.mode !== "system") return art(props.mode);
+  return (
+    <span className="theme-window-split">
+      {art("light")}
+      {art("dark", "theme-window-second")}
+    </span>
+  );
+}
+
+function variantStyle(variant: ThemeVariantInfo | undefined): CSSProperties | undefined {
+  if (!variant) return undefined;
+  return {
+    "--surface-chrome": variant.chrome,
+    "--surface-panel": variant.panel,
+    "--text-tertiary": variant.text,
+    ...(variant.accent ? { "--tile-accent": variant.accent } : {}),
+  } as CSSProperties;
+}
+
 /* eslint-disable lingui/no-unlocalized-strings -- a type specimen in each appearance, not copy */
 /** A tint as both of its appearances, side by side, each with "Aa" in its own ink. */
 function TintArt(props: { tint: ThemeTint }) {
@@ -197,6 +271,7 @@ function TileGroup<Id extends string>(props: {
   options: { id: Id; name: string; art: ReactNode }[];
   onChange: (id: Id) => void;
   className: string;
+  disabled?: boolean;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
   const selected = props.options.findIndex((option) => option.id === props.value);
@@ -220,6 +295,7 @@ function TileGroup<Id extends string>(props: {
           aria-checked={index === selected}
           aria-label={option.name}
           tabIndex={index === (selected === -1 ? 0 : selected) ? 0 : -1}
+          disabled={props.disabled}
           onClick={() => props.onChange(option.id)}
           onKeyDown={(event) => onKeyDown(event, index)}
         >
@@ -240,6 +316,8 @@ type SwatchOption<Id extends string> = {
   /** The preset attribute theme.css resolves on the swatch, so it shows the real color. */
   preset: Record<`data-${string}`, string>;
   fill: string;
+  /** A color the swatch shows instead of its preset's (the theme's accent). */
+  color?: string;
 };
 
 /**
@@ -282,7 +360,7 @@ function SwatchGroup<Id extends string>(props: {
           onKeyDown={(event) => onKeyDown(event, index)}
           {...option.preset}
         >
-          <span className={`theme-swatch-fill ${option.fill}`} />
+          <span className={`theme-swatch-fill ${option.fill}`} style={option.color ? { background: option.color } : undefined} />
           {index === selected && <Check className="theme-swatch-check" size={11} strokeWidth={2.4} aria-hidden="true" />}
         </button>
       ))}
