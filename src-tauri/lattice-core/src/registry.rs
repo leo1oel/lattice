@@ -18,12 +18,13 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use lattice_theme::{Appearance, ThemeFile, MAX_THEME_BYTES};
+use lattice_theme::{AccentChoice, Appearance, Resolved, ThemeFile, MAX_THEME_BYTES};
 use minisign_verify::PublicKey;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::plugins::{manifest, protocol::API_LEVEL, Permissions, PluginHost, Runtime, Source};
 use crate::themes::{ThemeInfo, ThemeStore};
 
 /// Where the registry's GitHub Pages site serves the signed files.
@@ -70,6 +71,52 @@ pub struct IndexTheme {
     pub variants: Vec<IndexVariant>,
 }
 
+/// A command a listed plugin adds, as its manifest names it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexCommand {
+    pub id: String,
+    pub title: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// One plugin version as the signed index lists it: the archive's address,
+/// size and sha256, and a snapshot of its manifest (what Browse shows before
+/// anything is downloaded, and what the download must match).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexPlugin {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    /// The plugin API level the plugin needs.
+    pub api: u32,
+    pub runtime: Runtime,
+    pub license: String,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    pub repository: String,
+    pub commit: String,
+    #[serde(default)]
+    pub categories: Vec<String>,
+    #[serde(default)]
+    pub permissions: Permissions,
+    #[serde(default)]
+    pub commands: Vec<IndexCommand>,
+    pub url: String,
+    pub sha256: String,
+    pub size: u64,
+    /// GitHub release downloads the registry counted (no app telemetry).
+    #[serde(default)]
+    pub downloads: Option<u64>,
+    /// When this version was published (ISO 8601).
+    #[serde(default)]
+    pub updated: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Index {
@@ -78,6 +125,8 @@ pub struct Index {
     /// When the registry built it (ISO 8601), for display.
     pub generated: String,
     pub themes: Vec<IndexTheme>,
+    #[serde(default)]
+    pub plugins: Vec<IndexPlugin>,
 }
 
 /// A kill-switch entry: `versions` of `id` that Lattice must not install,
@@ -135,10 +184,44 @@ pub struct InstalledTheme {
 pub struct Listing {
     pub index: Option<Index>,
     pub blocked: Vec<BlockedEntry>,
+    /// The entry each listed theme's own version falls under, by id: a row
+    /// Browse shows as blocked.
+    pub blocked_offers: BTreeMap<String, BlockedEntry>,
     /// When the shown list was fetched and verified (RFC 3339).
     pub fetched_at: Option<String>,
     pub status: Status,
     pub installed: Vec<InstalledTheme>,
+}
+
+/// A plugin installed from the registry or from a URL, as the Installed list
+/// shows it against the index.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledPlugin {
+    pub id: String,
+    pub version: String,
+    /// The index's version when it is newer and this Lattice can run it.
+    pub update: Option<String>,
+    /// What that update asks for beyond the current grant (or, before the
+    /// first grant, beyond what the installed version asks): empty when it
+    /// applies with one click.
+    pub update_asks: Permissions,
+    /// The block list entry the installed version falls under.
+    pub blocked: Option<BlockedEntry>,
+}
+
+/// The plugin list for Settings › Plugins › Browse.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginListing {
+    pub plugins: Vec<IndexPlugin>,
+    /// Whether the shown list is a verified one (Browse can install from it).
+    pub verified: bool,
+    /// The entry each listed plugin's own version falls under, by id.
+    pub blocked_offers: BTreeMap<String, BlockedEntry>,
+    pub fetched_at: Option<String>,
+    pub status: Status,
+    pub installed: Vec<InstalledPlugin>,
 }
 
 /// The signed files as fetched, kept whole so they verify again on load.
@@ -195,9 +278,19 @@ impl Registry {
             (self.cached(), Status::Cached)
         };
         let installed = verified.as_ref().map(|verified| self.installed(store, verified));
+        let blocked_offers = verified.as_ref().map(|verified| {
+            let themes = verified.index.themes.iter();
+            themes
+                .filter_map(|theme| {
+                    let entry = blocking(&verified.blocked, &theme.id, &theme.version)?;
+                    Some((theme.id.clone(), entry.clone()))
+                })
+                .collect()
+        });
         Listing {
             index: verified.as_ref().map(|verified| verified.index.clone()),
             blocked: verified.as_ref().map(|verified| verified.blocked.clone()).unwrap_or_default(),
+            blocked_offers: blocked_offers.unwrap_or_default(),
             fetched_at: verified.map(|verified| verified.fetched_at),
             status,
             installed: installed.unwrap_or_default(),
@@ -290,25 +383,71 @@ impl Registry {
 
     /// Every theme installed from the registry that is still that install
     /// (not removed, nor replaced by a file under the same id and another
-    /// version), with its update and block state.
-    fn installed(&self, store: &ThemeStore, verified: &Verified) -> Vec<InstalledTheme> {
+    /// version): its installed version, by id.
+    fn registry_installs(&self, store: &ThemeStore) -> BTreeMap<String, String> {
         self.records()
             .into_iter()
             .filter(|(id, record)| {
                 store.get(id).is_some_and(|theme| theme.version == record.version)
             })
-            .map(|(id, record)| InstalledTheme {
+            .map(|(id, record)| (id, record.version))
+            .collect()
+    }
+
+    /// The registry installs with their update and block state.
+    fn installed(&self, store: &ThemeStore, verified: &Verified) -> Vec<InstalledTheme> {
+        self.registry_installs(store)
+            .into_iter()
+            .map(|(id, version)| InstalledTheme {
                 update: verified
                     .index
                     .themes
                     .iter()
-                    .find(|theme| theme.id == id && verify::newer(&theme.version, &record.version))
+                    .find(|theme| theme.id == id && verify::newer(&theme.version, &version))
                     .map(|theme| theme.version.clone()),
-                blocked: blocking(&verified.blocked, &id, &record.version).cloned(),
+                blocked: blocking(&verified.blocked, &id, &version).cloned(),
                 id,
-                version: record.version,
+                version,
             })
             .collect()
+    }
+
+    /// The store's themes for the picker, each installed registry theme with
+    /// the kill-switch entry its version falls under. Themes installed from a
+    /// file are never matched: they are the writer's own.
+    pub fn list_themes(&self, store: &ThemeStore) -> Vec<ThemeInfo> {
+        let mut themes = store.list();
+        let installs = self.registry_installs(store);
+        let Some(verified) = (!installs.is_empty()).then(|| self.cached()).flatten() else {
+            return themes;
+        };
+        for theme in &mut themes {
+            if let Some(version) = installs.get(&theme.id) {
+                theme.blocked = blocking(&verified.blocked, &theme.id, version).cloned();
+            }
+        }
+        themes
+    }
+
+    /// `ThemeStore::resolve` with the kill switch: a registry theme whose
+    /// installed version is blocked with any action but `warn` resolves as no
+    /// theme, so Lattice's own colors show while the choice stays stored.
+    pub fn resolve(
+        &self, store: &ThemeStore, id: Option<&str>, appearance: Appearance, accent: AccentChoice,
+    ) -> Resolved {
+        let id = id.filter(|id| !self.turned_off(store, id));
+        store.resolve(id, appearance, accent)
+    }
+
+    /// Whether the kill switch turns the installed theme `id` off: a shell
+    /// that applies a `ThemeFile` itself (the GPUI palette) asks this first.
+    pub fn turned_off(&self, store: &ThemeStore, id: &str) -> bool {
+        let Some(version) = self.registry_installs(store).remove(id) else {
+            return false;
+        };
+        self.cached().is_some_and(|verified| {
+            blocking(&verified.blocked, id, &version).is_some_and(|entry| entry.action != "warn")
+        })
     }
 
     /// Installs (or updates to) the theme the cached list names `id`, after
@@ -344,6 +483,169 @@ impl Registry {
         let json = serde_json::to_vec_pretty(&records).expect("the records serialize");
         write_atomically(&self.root, "installed.json", &json)?;
         Ok(info)
+    }
+}
+
+impl Registry {
+    /// The verified plugin list, refreshed first when `refresh`, with the
+    /// state of every installed plugin the block list and updates apply to.
+    pub fn plugin_listing(&self, host: &PluginHost, refresh: bool) -> PluginListing {
+        let (verified, status) = if refresh {
+            match self.refresh() {
+                Ok(verified) => (Some(verified), Status::Fresh),
+                Err(status) => (self.cached(), status),
+            }
+        } else {
+            (self.cached(), Status::Cached)
+        };
+        let Some(verified) = verified else {
+            return PluginListing {
+                plugins: Vec::new(),
+                verified: false,
+                blocked_offers: BTreeMap::new(),
+                fetched_at: None,
+                status,
+                installed: Vec::new(),
+            };
+        };
+        let blocked_offers = verified
+            .index
+            .plugins
+            .iter()
+            .filter_map(|plugin| {
+                let entry = blocking(&verified.blocked, &plugin.id, &plugin.version)?;
+                Some((plugin.id.clone(), entry.clone()))
+            })
+            .collect();
+        let records = host.store().records().unwrap_or_default();
+        let installed = records
+            .into_iter()
+            .filter(|record| record.source.blockable())
+            .map(|record| {
+                let version = record.manifest.version.clone();
+                let offer = verified.index.plugins.iter().find(|plugin| {
+                    plugin.id == record.id
+                        && runnable(plugin).is_ok()
+                        && verify::newer(&plugin.version, &version)
+                });
+                let held = record.granted.clone().unwrap_or_else(|| record.manifest.permissions());
+                InstalledPlugin {
+                    update: offer.map(|plugin| plugin.version.clone()),
+                    update_asks: offer
+                        .map(|plugin| beyond(&plugin.permissions, &held))
+                        .unwrap_or_default(),
+                    blocked: blocking(&verified.blocked, &record.id, &version).cloned(),
+                    id: record.id,
+                    version,
+                }
+            })
+            .collect();
+        PluginListing {
+            plugins: verified.index.plugins,
+            verified: true,
+            blocked_offers,
+            fetched_at: Some(verified.fetched_at),
+            status,
+            installed,
+        }
+    }
+
+    /// The block list entry an installed plugin's version falls under, from
+    /// the cached list. A folder install is never matched.
+    pub fn plugin_blocked(&self, id: &str, version: &str, source: &Source) -> Option<BlockedEntry> {
+        if !source.blockable() {
+            return None;
+        }
+        let verified = self.cached()?;
+        blocking(&verified.blocked, id, version).cloned()
+    }
+
+    /// Installs (or updates to) the plugin the cached list names `id`: the
+    /// download must have the index's size and sha256, and its manifest must
+    /// be the one the index showed (id, version, runtime, API level and
+    /// permissions), so what the writer read in Browse is what runs.
+    pub(crate) fn install_plugin(
+        &self, store: &crate::plugins::Store, id: &str,
+    ) -> Result<crate::plugins::Record, String> {
+        let verified =
+            self.cached().ok_or("Load the plugin list before installing a plugin from it.")?;
+        let plugin = verified
+            .index
+            .plugins
+            .iter()
+            .find(|plugin| plugin.id == id)
+            .ok_or_else(|| format!("\"{id}\" is not in the plugin list."))?;
+        if let Some(entry) = blocking(&verified.blocked, id, &plugin.version) {
+            return Err(format!("{} {} is blocked: {}", plugin.name, plugin.version, entry.reason));
+        }
+        runnable(plugin)?;
+        let bytes = download(&plugin.url, plugin.size.min(crate::plugins::MAX_ARCHIVE))
+            .map_err(|err| format!("The plugin download failed: {err}"))?;
+        if bytes.len() as u64 != plugin.size {
+            return Err("The downloaded plugin is not the size the plugin list gives.".into());
+        }
+        let sha256 = format!("{:x}", Sha256::digest(&bytes));
+        if sha256 != plugin.sha256.to_ascii_lowercase() {
+            return Err("The downloaded plugin does not match the plugin list's checksum.".into());
+        }
+        let source = Source::Registry { url: plugin.url.clone(), sha256 };
+        store.install_archive(&bytes, source, |found| {
+            let matches = found.id == plugin.id
+                && found.version == plugin.version
+                && found.runtime == plugin.runtime
+                && found.api == plugin.api
+                && found.permissions() == plugin.permissions;
+            if matches {
+                Ok(())
+            } else {
+                Err(format!(
+                    "The downloaded plugin is not the \"{id}\" {} the plugin list describes.",
+                    plugin.version
+                ))
+            }
+        })
+    }
+}
+
+/// Whether this Lattice can install and run `plugin` from the registry:
+/// node plugins only (native ones stay URL installs, Captain plan L4), at an
+/// API level this build speaks, on a platform with the sandbox.
+fn runnable(plugin: &IndexPlugin) -> Result<(), String> {
+    if plugin.runtime != Runtime::Node {
+        return Err("The plugin list offers only node plugins.".into());
+    }
+    if plugin.api == 0 || plugin.api > API_LEVEL {
+        return Err(format!(
+            "{} needs plugin API level {}; this Lattice has {API_LEVEL}.",
+            plugin.name, plugin.api
+        ));
+    }
+    if !crate::plugins::AVAILABLE {
+        return Err(crate::plugins::sandbox::MISSING.into());
+    }
+    if !manifest::valid_plugin_id(&plugin.id) {
+        return Err("The plugin's id is not valid.".into());
+    }
+    Ok(())
+}
+
+/// What `asks` holds that `held` does not.
+fn beyond(asks: &Permissions, held: &Permissions) -> Permissions {
+    Permissions {
+        project_read: asks
+            .project_read
+            .iter()
+            .filter(|p| !held.project_read.contains(p))
+            .cloned()
+            .collect(),
+        network_local: asks
+            .network_local
+            .iter()
+            .filter(|p| !held.network_local.contains(p))
+            .copied()
+            .collect(),
+        network: asks.network.iter().filter(|o| !held.network.contains(o)).cloned().collect(),
+        secrets: asks.secrets.iter().filter(|s| !held.secrets.contains(s)).cloned().collect(),
     }
 }
 

@@ -28,6 +28,7 @@ import { loadAppearance, resolveAppLocale } from "./settings/app-settings";
 import { activateAppLocale, i18n } from "./i18n";
 import { installNativeLocaleSync } from "./app/native-locale";
 import { installEditHistoryMenu } from "./app/edit-history";
+import { installSavedDownloadNotice } from "./telemetry/saved-downloads";
 import { installPointerFocus } from "./components/ui/pointer-focus";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -69,6 +70,7 @@ async function startApp() {
   if (pdfWindow) return pdfWindow.renderPdfWindow(root);
   installNativeLocaleSync();
   installEditHistoryMenu();
+  installSavedDownloadNotice();
   if (lab) void lab.startLabHarness();
   root.render(
     <MotionConfig reducedMotion="user">

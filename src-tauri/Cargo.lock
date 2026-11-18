@@ -4765,7 +4765,7 @@ dependencies = [
 
 [[package]]
 name = "lattice-core"
-version = "0.16.19"
+version = "0.17.0"
 dependencies = [
  "anydoc",
  "axum",
@@ -6854,7 +6854,7 @@ dependencies = [
 
 [[package]]
 name = "research-writer"
-version = "0.16.19"
+version = "0.17.0"
 dependencies = [
  "axum",
  "base64 0.22.1",

@@ -281,6 +281,9 @@ pub(super) fn workspace_switcher(
         .flatten();
     let plate = lattice_ui::sliding::SlidingPlate::new("workspace-plate", selected_ix, window, cx);
     let plate_drawn = plate.is_drawn(cx);
+    // A tab's tooltip would draw over its open menu, which a right-click
+    // opens at the pointer still resting on the tab.
+    let menu_open = chip_menu.read(cx).is_open();
     let chip = plate.plate(
         |chip| {
             chip.rounded(segment_chip_radius())
@@ -376,7 +379,11 @@ pub(super) fn workspace_switcher(
             .text_role(TextRole::Caption, cx)
             .line_height(px(14.))
             .text_color(ink)
-            .tooltip(move |_, cx| -> AnyView { LatticeTooltip::view(tooltip.clone(), None, cx) })
+            .when(!menu_open, |tab| {
+                tab.tooltip(move |_, cx| -> AnyView {
+                    LatticeTooltip::view(tooltip.clone(), None, cx)
+                })
+            })
             .on_click(move |event, window, cx| {
                 let id = switch_id.clone();
                 // The end of a drag switches nothing.
@@ -532,7 +539,7 @@ fn workspace_actions(
     .separator()
     .item(
         item(
-            t!("Delete"),
+            t!("Delete workspace"),
             Icon::TRASH,
             Box::new(move |shell, window, cx| shell.delete_workspace(&delete, window, cx)),
         )

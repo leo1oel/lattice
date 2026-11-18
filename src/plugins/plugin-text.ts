@@ -16,6 +16,10 @@ export function pluginErrorText(error: PluginError): string {
     case "notInstalled": return i18n._(msg`This plugin is no longer installed.`);
     case "disabled": return i18n._(msg`This plugin is turned off. Turn it on in Settings › Plugins.`);
     case "needsReview": return i18n._(msg`This plugin asks for new permissions. Review them in Settings › Plugins.`);
+    case "blocked": {
+      const reason = error.reason ?? "";
+      return i18n._(msg`Lattice turned this plugin off: ${reason}`);
+    }
     case "unknownCommand": return i18n._(msg`This plugin no longer has this command.`);
     case "broken": return i18n._(msg`The plugin is broken: ${detail}`);
     case "launch": return i18n._(msg`Couldn’t start the plugin: ${detail}`);

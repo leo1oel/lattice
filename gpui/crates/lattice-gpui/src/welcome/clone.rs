@@ -19,7 +19,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::git::clone::{self as git_clone, CloneError, CloneProgress};
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, Field, rise_in},
+    components::{Button, Field, TrapFocus as _, rise_in},
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -498,7 +498,7 @@ impl Render for CloneDialog {
             .pt(viewport.height * 0.18)
             .bg(palette.scrim)
             .occlude()
-            .track_focus(&self.focus)
+            .trap_focus("clone-repository-trap", &self.focus)
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                 // While git runs the dialog stays: Cancel stops the clone.
                 if event.keystroke.key == "escape" && !this.cloning() {

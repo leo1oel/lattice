@@ -314,6 +314,11 @@ impl Shell {
             .on_action(cx.listener(|this, _: &NewWorkspace, window, cx| {
                 this.new_workspace(window, cx);
             }))
+            .on_action(cx.listener(|this, _: &DeleteWorkspace, window, cx| {
+                if let Some(id) = this.layout.workspace.clone() {
+                    this.delete_workspace(&id, window, cx);
+                }
+            }))
             .on_action(
                 cx.listener(|this, _: &SaveWorkspace, window, cx| this.save_workspace(window, cx)),
             )

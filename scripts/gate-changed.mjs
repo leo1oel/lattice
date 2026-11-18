@@ -127,6 +127,10 @@ function run({ name, command, args, timeout: timeoutMs, cwd = ".", env = {} }) {
       killGroup(child, "SIGTERM");
       setTimeout(() => killGroup(child, "SIGKILL"), 5_000).unref();
     }, timeoutMs);
+    // A command that is not installed (cargo off PATH) fails its stage.
+    child.on("error", (error) => {
+      log += `${error.message}\n`;
+    });
     child.on("close", (code) => {
       clearTimeout(timer);
       running.delete(child);

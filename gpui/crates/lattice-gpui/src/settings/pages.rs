@@ -20,11 +20,16 @@ pub struct PageStates {
     pub acknowledgements: Option<Entity<super::acknowledgements::Acknowledgements>>,
     /// Settings › Plugins' list and install form.
     pub plugins: Option<Entity<super::plugins_pane::PluginsPane>>,
+    /// Appearance › Theme files › Browse themes, while its sheet is open.
+    pub theme_browse: Option<Entity<super::theme_browse::ThemeBrowse>>,
 }
 
 /// The sheet a page holds open over Settings (Acknowledgements' notices or
 /// font license), as a layer of its own over the window.
 pub fn sheet(dialog: &SettingsDialog, cx: &mut gpui::App) -> Option<AnyElement> {
+    if let Some(browse) = dialog.pages.theme_browse.clone() {
+        return Some(super::theme_browse::sheet(browse, cx));
+    }
     let pane = dialog.pages.acknowledgements.clone()?;
     let surface = {
         let close = pane.downgrade();
@@ -137,10 +142,12 @@ impl SettingsDialog {
 
     /// Acknowledgements' sheet is open over Settings.
     pub fn sheet_open(&self, cx: &gpui::App) -> bool {
-        self.pages
-            .acknowledgements
-            .as_ref()
-            .is_some_and(|pane| pane.read(cx).sheet.is_some())
+        self.pages.theme_browse.is_some()
+            || self
+                .pages
+                .acknowledgements
+                .as_ref()
+                .is_some_and(|pane| pane.read(cx).sheet.is_some())
     }
 
     /// Open Acknowledgements' whole notices file, as its header's button does.

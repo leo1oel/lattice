@@ -5,10 +5,9 @@ interrupted session, reads evidence, and reviews. Reached from `CLAUDE.md`.
 
 ## Prove the change
 
-An ordinary fix ships as a pull request, and pull requests do not run GitHub
-Actions: `ci.yml` and `gpui.yml` run for a release tag, weekly on main, and by
-hand (`gh workflow run ci.yml --ref <branch>`). A pull request has no required
-check, local or remote. Run only what directly proves your change:
+An ordinary fix ships as a pull request. A pull request has no required
+check, local or remote, and no trigger of its own; CI runs on pushes (below).
+Run only what directly proves your change:
 
 - the test file you added or changed: `pnpm vitest run <file>`;
 - a new lint rule against a fixture that should trip it;
@@ -87,6 +86,66 @@ One `CARGO_TARGET_DIR` shared by every checkout is not the fix: Cargo judges fre
 A `cargo test` through `scripts/gpui-build.mjs` fails as soon as one test runs past a per-test limit (300 s, or `LATTICE_GPUI_TEST_TIMEOUT_SECONDS`), naming the test, instead of holding the build lock while it loops; the limit counts from libtest's "has been running for over 60 seconds" line, so it is never under a minute.
 The build lock (`scripts/lib/gpui-lock.mjs`) prints a timestamped line on acquire and release, and a waiter prints its waiting line every minute with the holder and how long it has held.
 A waiter takes it over from a holder that died, or that has held it past 30 minutes (`LATTICE_GPUI_BUILD_LOCK_MAX_MINUTES`); a holder that was taken over leaves its successor's lock alone when it exits.
+
+### CI tiers, and `pnpm ci:local`
+
+Every push to a branch of this repository runs `ci.yml` and `gpui.yml`, each with
+only the jobs its change needs against its merge base with `origin/main`.
+`scripts/ci-tier.mjs` decides, and its header lists each job group's inputs:
+
+| The branch changes | CI runs |
+| --- | --- |
+| documentation only (`docs/`, top-level Markdown, `gpui/docs/`) | nothing past the `changes` job |
+| a document a test reads (a spec, `docs/performance*`) | those tests, or the perf-evidence check |
+| `src-tauri/` only | Rust on macOS, Linux and Windows, plus the few tests that read Rust sources |
+| `gpui/` only | `gpui.yml` only |
+| `src/` and other frontend code | the Vitest shards, lint-and-build, and the benchmarks when the bundle's inputs changed |
+| `ci.yml`, `gpui.yml`, `.github/actions/` or `scripts/ci-tier.mjs` | that workflow's every job |
+
+A newer push to a branch cancels its older run. A push to main runs what that
+merge changed and is never cancelled. Everything runs for a release tag, the
+weekly schedule, a dispatch on main, `gh workflow run ci.yml --ref <branch> -f
+full=true`, a head commit with a `CI: full` trailer, or a pull request labelled
+`ci:full`. A dispatch's `-f base=<ref>` compares with another ref, such as the
+branch below yours in a stack.
+
+The GPUI e2e jobs fail only on a step that passes on main. The steps main
+fails on the hosted runners are in `scripts/gpui-e2e-known-failures.json`, each
+with its platforms, the failure seen on main and the issue that owns it; the
+job lists them apart (`scripts/gpui-e2e-verdict.mjs`) and notes a listed step
+that passed. Add a step there only with the main run that shows it failing,
+and take it off once it passes on main.
+
+Before pushing, run the same tier on your Mac:
+
+```bash
+pnpm ci:local          # --plan to see the stages, --base REF, --full
+pnpm ci:local --headless   # on a Mac someone is using: no stage opens a window
+```
+
+It prints which CI jobs your change needs and runs the local stages that
+stand for them: the gate (lint, knip, tsc, i18n, notices, the related Vitest
+tests), the bundle budgets and the WebKit benchmark, rustfmt, clippy with
+`-D warnings` and `cargo test` on the changed Tauri crates, and the GPUI release
+build, unit tests and whole e2e scenario. The e2e is judged against the known
+failures and against the merge base run on the same Mac: when the machine's
+main baseline (below) has no record for the merge base, `ci:local` records one
+first in a scratch worktree, which costs one more build and e2e per merge
+base. Rust, GPUI and benchmark stages wait while a perf measurement holds
+`/tmp/lattice-inapp-test.lock`. The literature Worker, the Open Slide runtime,
+the research environment, the Chromium benchmark, Linux and Windows run in CI
+only. When it passes on a clean tree and the change needed a macOS job, it
+prints "local macOS gate passed at <sha>" and a `CI-local: macos <tree>`
+trailer; a pushed head commit carrying it for its own tree skips CI's macOS
+jobs (Rust, GPUI, the WebKit benchmark), which are the slowest to get a
+runner for. Do not use the trailer for a change to packaging
+or the release (`release.yml`, `src-tauri/tauri*.conf.json`, the bundle and
+signing scripts).
+
+The GPUI e2e, its main baseline and the WebKit benchmark open windows. On a Mac
+someone is using, run `pnpm ci:local --headless`, which skips them and prints
+no trailer, and run `pnpm ci:local` whole on a Mac that may open windows before
+pushing.
 
 ### A review round's GPUI e2e, and the main baseline
 

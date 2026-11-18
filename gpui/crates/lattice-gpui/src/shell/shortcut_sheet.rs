@@ -14,7 +14,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
-    components::{EmptyState, Keycap, rise_in},
+    components::{EmptyState, Keycap, TrapFocus as _, rise_in},
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -177,7 +177,7 @@ impl Render for ShortcutSheet {
             .items_center()
             .bg(palette.scrim)
             .occlude()
-            .track_focus(&self.focus)
+            .trap_focus("shortcut-sheet-trap", &self.focus)
             .on_key_down(cx.listener(|_, event: &KeyDownEvent, _, cx| {
                 if event.keystroke.key == "escape" {
                     cx.emit(PaletteEvent::Dismiss);

@@ -52,6 +52,10 @@ msgstr "“{command}” in the terminal"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "“{destinationName}” already exists there. Choose another location"
 
+#: src/platform/host-errors-plugins.ts
+msgid "\"{id}\" is not in the plugin list."
+msgstr "\"{id}\" is not in the plugin list."
+
 #: src/platform/host-errors-themes.ts
 msgid "\"{id}\" is not in the theme list."
 msgstr "\"{id}\" is not in the theme list."
@@ -832,6 +836,10 @@ msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
 msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
 msgstr "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
 
+#: src/settings/theme-browse.tsx
+msgid "{name} has a warning: {reason}"
+msgstr "{name} has a warning: {reason}"
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} is loaded twice with different options"
@@ -872,6 +880,10 @@ msgstr "{name} properties"
 #: src/editor/document-spelling.ts
 msgid "{name} spelling is now checked"
 msgstr "{name} spelling is now checked"
+
+#: src/settings/theme-browse.tsx
+msgid "{name} was turned off: {reason}"
+msgstr "{name} was turned off: {reason}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -2929,6 +2941,10 @@ msgstr "Block quotation"
 msgid "Block type"
 msgstr "Block type"
 
+#: src/settings/theme-browse.tsx
+msgid "Blocked"
+msgstr "Blocked"
+
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -3021,6 +3037,14 @@ msgstr "Breve accent example"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "British English"
+
+#: src/settings/theme-browse.tsx
+msgid "Browse themes"
+msgstr "Browse themes"
+
+#: src/settings/theme-file-actions.tsx
+msgid "Browse themes…"
+msgstr "Browse themes…"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Browser dialogs are only available to a browser workspace."
@@ -5307,6 +5331,10 @@ msgstr "Couldn’t start the paper tools"
 msgid "Couldn’t start the plugin: {detail}"
 msgstr "Couldn’t start the plugin: {detail}"
 
+#: src/settings/theme-browse.tsx
+msgid "Couldn't verify the theme list. Nothing new can be installed."
+msgstr "Couldn't verify the theme list. Nothing new can be installed."
+
 #: src/editor/latex/citation-roles.ts
 msgctxt "why a passage cites a paper"
 msgid "Counterexample"
@@ -5545,7 +5573,6 @@ msgstr "Definition"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/papers/bib-entry-detail.tsx
 #: src/project/project-file-tree.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
 msgstr "Delete"
 
@@ -5627,6 +5654,11 @@ msgstr "Delete this message? This cannot be undone."
 msgid "Delete worksheet?"
 msgstr "Delete worksheet?"
 
+#: src/app/workspace-commands.ts
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Delete workspace"
+msgstr "Delete workspace"
+
 #: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
 msgid "deleted"
@@ -5641,7 +5673,7 @@ msgstr "deleted"
 msgid "Deleted “{key}”"
 msgstr "Deleted “{key}”"
 
-#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/delete-workspace.ts
 msgid "Deleted “{name}”"
 msgstr "Deleted “{name}”"
 
@@ -5881,6 +5913,10 @@ msgstr "Down arrow"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Down double arrow"
 msgstr "Down double arrow"
+
+#: src/telemetry/saved-downloads.ts
+msgid "Download"
+msgstr "Download"
 
 #: src/project/paper-row.tsx
 msgid "Download {url}"
@@ -8189,6 +8225,7 @@ msgstr "Inspect and replace"
 
 #: src/build/compile-diagnostics-panel.tsx
 #: src/plugins/plugin-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Install"
 msgstr "Install"
 
@@ -8283,6 +8320,10 @@ msgstr "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
+
+#: src/settings/theme-browse.tsx
+msgid "Installed"
+msgstr "Installed"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9014,6 +9055,11 @@ msgstr "Lattice runs the one it finds on your PATH, the way Terminal does. Insta
 msgid "Lattice theme"
 msgstr "Lattice theme"
 
+#: src/platform/host-errors-plugins.ts
+#: src/plugins/plugin-text.ts
+msgid "Lattice turned this plugin off: {reason}"
+msgstr "Lattice turned this plugin off: {reason}"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice UI crashed"
@@ -9037,8 +9083,8 @@ msgid "Lattice's required `uv` tool is not available yet. Open Settings → TeX 
 msgstr "Lattice's required `uv` tool is not available yet. Open Settings → TeX doctor → Install required tools, then try again."
 
 #: src/app/palette-sections.ts
+#: src/trellis/delete-workspace.ts
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Layout"
 msgstr "Layout"
@@ -9050,6 +9096,10 @@ msgstr "Layout reset"
 #: src/live-preview/live-preview-status.tsx
 msgid "Layout updating"
 msgstr "Layout updating"
+
+#: src/settings/theme-browse.tsx
+msgid "Learn more"
+msgstr "Learn more"
 
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
@@ -9418,6 +9468,10 @@ msgstr "Load more"
 msgid "Load older versions"
 msgstr "Load older versions"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Load the plugin list before installing a plugin from it."
+msgstr "Load the plugin list before installing a plugin from it."
+
 #: src/platform/host-errors-themes.ts
 msgid "Load the theme list before installing a theme from it."
 msgstr "Load the theme list before installing a theme from it."
@@ -9490,6 +9544,10 @@ msgstr "Loading the agent turn…"
 msgid "Loading the conversation…"
 msgstr "Loading the conversation…"
 
+#: src/settings/theme-browse.tsx
+msgid "Loading the theme list"
+msgstr "Loading the theme list"
+
 #: src/history/versions-timeline.tsx
 msgid "Loading versions…"
 msgstr "Loading versions…"
@@ -9505,6 +9563,7 @@ msgstr "Loading your preamble into LuaLaTeX."
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/literature-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -10245,7 +10304,7 @@ msgstr "New terminal"
 msgid "New version {version}"
 msgstr "New version {version}"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "New workspace"
 msgstr "New workspace"
@@ -10740,6 +10799,10 @@ msgstr "No TeX Live package provides {file}. It may be a custom project or confe
 msgid "No textual changes"
 msgstr "No textual changes"
 
+#: src/settings/theme-browse.tsx
+msgid "No themes match"
+msgstr "No themes match"
+
 #: src/project/todo-scavenger-panel.tsx
 msgid "No TODO markers found"
 msgstr "No TODO markers found"
@@ -11074,6 +11137,14 @@ msgstr "Off while Reduce transparency is on in System Settings"
 #: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "Official verification incomplete"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline: showing the list from {date}"
+msgstr "Offline: showing the list from {date}"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline. The theme list can't be reached."
+msgstr "Offline. The theme list can't be reached."
 
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
@@ -13141,6 +13212,7 @@ msgstr "References"
 
 #: src/overleaf/overleaf-review.tsx
 #: src/project/figure-inventory-dialog.tsx
+#: src/settings/theme-browse.tsx
 msgid "Refresh"
 msgstr "Refresh"
 
@@ -13988,7 +14060,7 @@ msgstr "Reveal cursor in PDF"
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "Revert to saved"
@@ -14387,7 +14459,7 @@ msgstr "Save the project before repairing."
 msgid "Save these items as a template…"
 msgstr "Save these items as a template…"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Save to workspace"
 msgstr "Save to workspace"
@@ -14448,6 +14520,7 @@ msgstr "Saved on this Mac for your other papers: item names, files and sources, 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/telemetry/saved-downloads.ts
 msgid "Saved to {path}"
 msgstr "Saved to {path}"
 
@@ -14514,6 +14587,10 @@ msgstr "Search"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search by name or license"
 msgstr "Search by name or license"
+
+#: src/settings/theme-browse.tsx
+msgid "Search by name, description or author"
+msgstr "Search by name, description or author"
 
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search by project or owner, or paste a link…"
@@ -14598,6 +14675,10 @@ msgstr "Search the literature for"
 #: src/app/command-palette.tsx
 msgid "Search the project for “{query}”"
 msgstr "Search the project for “{query}”"
+
+#: src/settings/theme-browse.tsx
+msgid "Search themes"
+msgstr "Search themes"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
@@ -15641,11 +15722,11 @@ msgstr "Switch away from “{name}”?"
 msgid "Switch project"
 msgstr "Switch project"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 msgid "Switch to {name}"
 msgstr "Switch to {name}"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 msgid "Switch to a workspace by its place"
 msgstr "Switch to a workspace by its place"
 
@@ -16499,6 +16580,18 @@ msgstr "The downloaded {what} failed its security check."
 msgid "The downloaded {what} is larger than expected, so it was refused."
 msgstr "The downloaded {what} is larger than expected, so it was refused."
 
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin does not match the plugin list's checksum."
+msgstr "The downloaded plugin does not match the plugin list's checksum."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin is not the \"{id}\" {version} the plugin list describes."
+msgstr "The downloaded plugin is not the \"{id}\" {version} the plugin list describes."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin is not the size the plugin list gives."
+msgstr "The downloaded plugin is not the size the plugin list gives."
+
 #: src/platform/host-errors-themes.ts
 msgid "The downloaded theme does not match the theme list's checksum."
 msgstr "The downloaded theme does not match the theme list's checksum."
@@ -16937,6 +17030,14 @@ msgstr "The plugin id must be reverse-domain, like dev.example.my-plugin."
 msgid "The plugin is broken: {detail}"
 msgstr "The plugin is broken: {detail}"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin list is not available."
+msgstr "The plugin list is not available."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin list offers only node plugins."
+msgstr "The plugin list offers only node plugins."
+
 #: src/plugins/plugin-text.ts
 msgid "The plugin sent something Lattice couldn’t read: {detail}"
 msgstr "The plugin sent something Lattice couldn’t read: {detail}"
@@ -16948,6 +17049,10 @@ msgstr "The plugin stopped without an answer."
 #: src/platform/host-errors-plugins.ts
 msgid "The plugin's id changed. Remove it and install it again."
 msgstr "The plugin's id changed. Remove it and install it again."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's id is not valid."
+msgstr "The plugin's id is not valid."
 
 #: src/platform/host-errors-plugins.ts
 msgid "The plugin's licence ({license}) is not one Lattice accepts for installed plugins."
@@ -18208,7 +18313,7 @@ msgstr "Underline only"
 #: src/editor/editor-keymap.ts
 #: src/papers/bib-visual-editor.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/delete-workspace.ts
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
 msgstr "Undo"
@@ -18482,6 +18587,10 @@ msgstr "Update table"
 msgid "Update TeX packages"
 msgstr "Update TeX packages"
 
+#: src/settings/theme-browse.tsx
+msgid "Update to {next}"
+msgstr "Update to {next}"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "Updated"
@@ -18494,6 +18603,10 @@ msgstr "updated {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "Updated {target} from {library}. Undo it from History."
+
+#: src/settings/theme-browse.tsx
+msgid "Updated {when}"
+msgstr "Updated {when}"
 
 #: src/app/use-reference-import.ts
 msgid "Updated the entry for {citationCommand} from its sources."
@@ -18642,6 +18755,11 @@ msgstr "Use valid CSV or TSV with at most 20 rows and 20 columns."
 #: src/settings/model-endpoint-settings.tsx
 msgid "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
 msgstr "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "User Guide"
+msgstr "User Guide"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -19074,7 +19192,7 @@ msgstr "Working offline"
 msgid "Working…"
 msgstr "Working…"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-labels.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspaces.ts

@@ -9,6 +9,7 @@
 //! Tauri app's own choices from its WebKit storage instead ([`import`]).
 
 pub mod import;
+pub mod migrate;
 mod model;
 
 use std::path::{Path, PathBuf};

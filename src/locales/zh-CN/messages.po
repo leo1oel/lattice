@@ -52,6 +52,10 @@ msgstr "终端中的“{command}”"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
 
+#: src/platform/host-errors-plugins.ts
+msgid "\"{id}\" is not in the plugin list."
+msgstr "插件列表里没有“{id}”。"
+
 #: src/platform/host-errors-themes.ts
 msgid "\"{id}\" is not in the theme list."
 msgstr "“{id}” 不在主题列表中。"
@@ -832,6 +836,10 @@ msgstr "{name} 没保存成功，仍要关闭并丢弃修改？"
 msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
 msgstr "{name} 没能完成与 Overleaf 的同步，评论还没加上。请重新同步后再添加评论。"
 
+#: src/settings/theme-browse.tsx
+msgid "{name} has a warning: {reason}"
+msgstr "{name} 有一条警告：{reason}"
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} 以不同选项加载了两次"
@@ -872,6 +880,10 @@ msgstr "{name}设置"
 #: src/editor/document-spelling.ts
 msgid "{name} spelling is now checked"
 msgstr "现已检查{name}拼写"
+
+#: src/settings/theme-browse.tsx
+msgid "{name} was turned off: {reason}"
+msgstr "{name} 已被停用：{reason}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -2929,6 +2941,10 @@ msgstr "独立成段的引文"
 msgid "Block type"
 msgstr "段落样式"
 
+#: src/settings/theme-browse.tsx
+msgid "Blocked"
+msgstr "已屏蔽"
+
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -3021,6 +3037,14 @@ msgstr "短音符示例"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "英式英语"
+
+#: src/settings/theme-browse.tsx
+msgid "Browse themes"
+msgstr "浏览主题"
+
+#: src/settings/theme-file-actions.tsx
+msgid "Browse themes…"
+msgstr "浏览主题…"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Browser dialogs are only available to a browser workspace."
@@ -5307,6 +5331,10 @@ msgstr "无法启动论文工具"
 msgid "Couldn’t start the plugin: {detail}"
 msgstr "无法启动插件：{detail}"
 
+#: src/settings/theme-browse.tsx
+msgid "Couldn't verify the theme list. Nothing new can be installed."
+msgstr "无法验证主题列表，暂时不能安装新主题。"
+
 #: src/editor/latex/citation-roles.ts
 msgctxt "why a passage cites a paper"
 msgid "Counterexample"
@@ -5545,7 +5573,6 @@ msgstr "定义"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/papers/bib-entry-detail.tsx
 #: src/project/project-file-tree.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
 msgstr "删除"
 
@@ -5627,6 +5654,11 @@ msgstr "删除这条消息？删了无法恢复"
 msgid "Delete worksheet?"
 msgstr "删除工作表？"
 
+#: src/app/workspace-commands.ts
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Delete workspace"
+msgstr "删除工作区"
+
 #: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
 msgid "deleted"
@@ -5641,7 +5673,7 @@ msgstr "删除了"
 msgid "Deleted “{key}”"
 msgstr "已删除“{key}”"
 
-#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/delete-workspace.ts
 msgid "Deleted “{name}”"
 msgstr "已删除“{name}”"
 
@@ -5881,6 +5913,10 @@ msgstr "下箭头"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Down double arrow"
 msgstr "下双线箭头"
+
+#: src/telemetry/saved-downloads.ts
+msgid "Download"
+msgstr "下载"
 
 #: src/project/paper-row.tsx
 msgid "Download {url}"
@@ -8189,6 +8225,7 @@ msgstr "检查与替换"
 
 #: src/build/compile-diagnostics-panel.tsx
 #: src/plugins/plugin-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Install"
 msgstr "安装"
 
@@ -8283,6 +8320,10 @@ msgstr "安装 TeX Live（{TEX_INSTALL_SIZE_HINT}）"
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
+
+#: src/settings/theme-browse.tsx
+msgid "Installed"
+msgstr "已安装"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9014,6 +9055,11 @@ msgstr "Lattice 会像终端一样在 PATH 里找到它并运行。装在别处�
 msgid "Lattice theme"
 msgstr "Lattice 主题"
 
+#: src/platform/host-errors-plugins.ts
+#: src/plugins/plugin-text.ts
+msgid "Lattice turned this plugin off: {reason}"
+msgstr "Lattice 已停用此插件：{reason}"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice 出错了"
@@ -9037,8 +9083,8 @@ msgid "Lattice's required `uv` tool is not available yet. Open Settings → TeX 
 msgstr "Lattice 需要的 `uv` 工具还不可用。请打开 设置 → TeX 检查 → 安装所需工具，然后再试"
 
 #: src/app/palette-sections.ts
+#: src/trellis/delete-workspace.ts
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Layout"
 msgstr "布局"
@@ -9050,6 +9096,10 @@ msgstr "布局已重置"
 #: src/live-preview/live-preview-status.tsx
 msgid "Layout updating"
 msgstr "版面更新中"
+
+#: src/settings/theme-browse.tsx
+msgid "Learn more"
+msgstr "了解更多"
 
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
@@ -9418,6 +9468,10 @@ msgstr "加载更多"
 msgid "Load older versions"
 msgstr "加载更早的版本"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Load the plugin list before installing a plugin from it."
+msgstr "请先载入插件列表，再从中安装插件。"
+
 #: src/platform/host-errors-themes.ts
 msgid "Load the theme list before installing a theme from it."
 msgstr "请先加载主题列表，再从中安装主题。"
@@ -9490,6 +9544,10 @@ msgstr "正在加载 AI 改动…"
 msgid "Loading the conversation…"
 msgstr "正在加载…"
 
+#: src/settings/theme-browse.tsx
+msgid "Loading the theme list"
+msgstr "正在加载主题列表"
+
 #: src/history/versions-timeline.tsx
 msgid "Loading versions…"
 msgstr "正在加载版本…"
@@ -9505,6 +9563,7 @@ msgstr "正在把导言区载入 LuaLaTeX。"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/literature-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Loading…"
 msgstr "正在加载…"
 
@@ -10245,7 +10304,7 @@ msgstr "新建终端"
 msgid "New version {version}"
 msgstr "新版本 {version}"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "New workspace"
 msgstr "新建工作区"
@@ -10740,6 +10799,10 @@ msgstr "TeX Live 中没有提供 {file} 的组件。它可能是项目或会议�
 msgid "No textual changes"
 msgstr "文字没有改动"
 
+#: src/settings/theme-browse.tsx
+msgid "No themes match"
+msgstr "没有匹配的主题"
+
 #: src/project/todo-scavenger-panel.tsx
 msgid "No TODO markers found"
 msgstr "没有待办"
@@ -11074,6 +11137,14 @@ msgstr "系统已开“降低透明度”，此项暂停"
 #: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "官方核实没完成"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline: showing the list from {date}"
+msgstr "离线：显示 {date} 的列表"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline. The theme list can't be reached."
+msgstr "离线，无法获取主题列表。"
 
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
@@ -13141,6 +13212,7 @@ msgstr "文献"
 
 #: src/overleaf/overleaf-review.tsx
 #: src/project/figure-inventory-dialog.tsx
+#: src/settings/theme-browse.tsx
 msgid "Refresh"
 msgstr "刷新"
 
@@ -13988,7 +14060,7 @@ msgstr "在 PDF 中定位"
 msgid "Reverse turnstile"
 msgstr "反向断言符"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "还原布局"
@@ -14387,7 +14459,7 @@ msgstr "请先保存再修复"
 msgid "Save these items as a template…"
 msgstr "将这些事项存为模板…"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Save to workspace"
 msgstr "保存到工作区"
@@ -14448,6 +14520,7 @@ msgstr "保存在这台 Mac 上，供你的其他论文使用：只存事项名�
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/telemetry/saved-downloads.ts
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
 
@@ -14514,6 +14587,10 @@ msgstr "搜索"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search by name or license"
 msgstr "按名称或许可证搜索"
+
+#: src/settings/theme-browse.tsx
+msgid "Search by name, description or author"
+msgstr "按名称、描述或作者搜索"
 
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search by project or owner, or paste a link…"
@@ -14598,6 +14675,10 @@ msgstr "在文献中搜索"
 #: src/app/command-palette.tsx
 msgid "Search the project for “{query}”"
 msgstr "在项目中搜索“{query}”"
+
+#: src/settings/theme-browse.tsx
+msgid "Search themes"
+msgstr "搜索主题"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
@@ -15641,11 +15722,11 @@ msgstr "离开“{name}”？"
 msgid "Switch project"
 msgstr "切换项目"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 msgid "Switch to {name}"
 msgstr "切换到{name}"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 msgid "Switch to a workspace by its place"
 msgstr "切换工作区"
 
@@ -16499,6 +16580,18 @@ msgstr "下载的 {what} 未通过安全校验"
 msgid "The downloaded {what} is larger than expected, so it was refused."
 msgstr "下载的 {what} 比预期大，已被拒绝。"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin does not match the plugin list's checksum."
+msgstr "下载的插件与插件列表中的校验和不符。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin is not the \"{id}\" {version} the plugin list describes."
+msgstr "下载的插件不是插件列表所描述的“{id}” {version}。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin is not the size the plugin list gives."
+msgstr "下载的插件大小与插件列表给出的不符。"
+
 #: src/platform/host-errors-themes.ts
 msgid "The downloaded theme does not match the theme list's checksum."
 msgstr "下载的主题与主题列表中的校验和不符。"
@@ -16937,6 +17030,14 @@ msgstr "插件 ID 必须是反向域名格式，例如 dev.example.my-plugin。"
 msgid "The plugin is broken: {detail}"
 msgstr "插件已损坏：{detail}"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin list is not available."
+msgstr "插件列表暂不可用。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin list offers only node plugins."
+msgstr "插件列表只提供 node 插件。"
+
 #: src/plugins/plugin-text.ts
 msgid "The plugin sent something Lattice couldn’t read: {detail}"
 msgstr "插件返回了 Lattice 无法读取的内容：{detail}"
@@ -16948,6 +17049,10 @@ msgstr "插件未作答便已停止。"
 #: src/platform/host-errors-plugins.ts
 msgid "The plugin's id changed. Remove it and install it again."
 msgstr "插件的 ID 已更改。请移除后重新安装。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's id is not valid."
+msgstr "插件的 id 无效。"
 
 #: src/platform/host-errors-plugins.ts
 msgid "The plugin's licence ({license}) is not one Lattice accepts for installed plugins."
@@ -18208,7 +18313,7 @@ msgstr "仅下划线"
 #: src/editor/editor-keymap.ts
 #: src/papers/bib-visual-editor.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/delete-workspace.ts
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
 msgstr "撤销"
@@ -18482,6 +18587,10 @@ msgstr "更新表格"
 msgid "Update TeX packages"
 msgstr "更新 TeX 组件"
 
+#: src/settings/theme-browse.tsx
+msgid "Update to {next}"
+msgstr "更新到 {next}"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "已更新"
@@ -18494,6 +18603,10 @@ msgstr "更新于 {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "已用 {library} 更新 {target}。可在历史中撤销。"
+
+#: src/settings/theme-browse.tsx
+msgid "Updated {when}"
+msgstr "更新于 {when}"
 
 #: src/app/use-reference-import.ts
 msgid "Updated the entry for {citationCommand} from its sources."
@@ -18642,6 +18755,11 @@ msgstr "请使用有效的 CSV 或 TSV，最多支持 20 行、20 列。"
 #: src/settings/model-endpoint-settings.tsx
 msgid "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
 msgstr "填写地址、密钥和模型名称，使用你自己的兼容 OpenAI 或 Anthropic 的 API。AI 助手通过 Pi 运行它，无需安装命令行工具。"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "User Guide"
+msgstr "使用指南"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -19074,7 +19192,7 @@ msgstr "离线工作中"
 msgid "Working…"
 msgstr "正在处理…"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-labels.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspaces.ts

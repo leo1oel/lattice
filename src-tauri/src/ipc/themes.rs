@@ -10,7 +10,7 @@
 
 use std::path::PathBuf;
 
-use lattice_core::registry::{Listing, Registry};
+use lattice_core::registry::{Listing, Registry, Status};
 use lattice_core::themes::format::{AccentChoice, Appearance, Color};
 use lattice_core::themes::{ThemeInfo, ThemeStore};
 use serde::{Deserialize, Serialize};
@@ -39,7 +39,8 @@ impl Themes {
 #[tauri::command]
 pub async fn themes_list(themes: State<'_, Themes>) -> Result<Vec<ThemeInfo>, String> {
     let store = themes.store.clone();
-    run_blocking("Theme list", move || Ok(store.list())).await
+    let registry = themes.registry.clone();
+    run_blocking("Theme list", move || Ok(registry.list_themes(&store))).await
 }
 
 #[tauri::command]
@@ -70,9 +71,18 @@ pub async fn themes_remove<R: Runtime>(
 /// one, or fetched and verified first when `refresh`, with the update and
 /// block state of the themes installed from it.
 #[tauri::command]
-pub async fn registry_index(themes: State<'_, Themes>, refresh: bool) -> Result<Listing, String> {
+pub async fn registry_index<R: Runtime>(
+    themes: State<'_, Themes>, app: AppHandle<R>, refresh: bool,
+) -> Result<Listing, String> {
     let (store, registry) = (themes.store.clone(), themes.registry.clone());
-    run_blocking("Theme registry", move || Ok(registry.listing(&store, refresh))).await
+    let listing =
+        run_blocking("Theme registry", move || Ok(registry.listing(&store, refresh))).await?;
+    // A new block list can turn the chosen theme off (or back on): every
+    // window lists and resolves again.
+    if listing.status == Status::Fresh {
+        let _ = app.emit(CHANGED_EVENT, ());
+    }
+    Ok(listing)
 }
 
 /// Installs or updates a theme from the cached list, by id.
@@ -147,11 +157,11 @@ fn choice(request: &ResolveRequest) -> AccentChoice {
 pub async fn themes_resolve(
     themes: State<'_, Themes>, request: ResolveRequest,
 ) -> Result<ResolvedTheme, String> {
-    let store = themes.store.clone();
+    let (store, registry) = (themes.store.clone(), themes.registry.clone());
     run_blocking("Theme resolve", move || {
         let accent = choice(&request);
         let id = request.theme.as_deref().filter(|id| !id.is_empty());
-        let resolved = store.resolve(id, request.appearance, accent);
+        let resolved = registry.resolve(&store, id, request.appearance, accent);
         Ok(ResolvedTheme {
             accent: resolved.accent.map(|color| color.hex()),
             variables: resolved.css_variables(),

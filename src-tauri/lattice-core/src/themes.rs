@@ -50,6 +50,9 @@ pub struct ThemeInfo {
     pub description: String,
     pub source: ThemeSource,
     pub variants: Vec<VariantInfo>,
+    /// The registry's kill-switch entry this installed version falls under
+    /// (`Registry::list_themes` fills it; the store alone never does).
+    pub blocked: Option<crate::registry::BlockedEntry>,
 }
 
 impl ThemeInfo {
@@ -91,6 +94,7 @@ impl ThemeInfo {
             description: theme.description.clone(),
             source,
             variants,
+            blocked: None,
         }
     }
 }

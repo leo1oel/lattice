@@ -442,7 +442,7 @@ describe("named workspaces in the titlebar", () => {
     render(<TrellisTitlebar controller={controller} />);
     fireEvent.contextMenu(screen.getByRole("tab", { name: "Workspace" }));
     // The last workspace cannot go.
-    expect(await screen.findByRole("menuitem", { name: "Delete" })).toHaveAttribute("aria-disabled", "true");
+    expect(await screen.findByRole("menuitem", { name: /Delete/ })).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
     const field = await screen.findByRole("textbox", { name: "Workspace name" });
     expect((field as HTMLInputElement).value).toBe("Workspace copy");
@@ -453,7 +453,7 @@ describe("named workspaces in the titlebar", () => {
     // Deleting the workspace the project is in moves it to the next one.
     const first = library.list()[0].id;
     fireEvent.contextMenu(screen.getByRole("tab", { name: "Workspace" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Delete/ }));
     expect(tabNames()).toEqual(["Workspace copy"]);
     expect(selectedTab()).toBe("Workspace copy");
     const [, title, options] = vi.mocked(notifyInfo).mock.lastCall!;

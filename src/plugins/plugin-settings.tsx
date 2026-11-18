@@ -94,7 +94,7 @@ function PluginCard({ plugin, available, busy, error, onToggle, onReview, onSecr
   onRemove: () => void;
 }) {
   const { t } = useLingui();
-  const source = plugin.source.kind === "url" ? plugin.source.url : plugin.source.path;
+  const source = plugin.source.kind === "folder" ? plugin.source.path : plugin.source.url;
   const license = plugin.license;
   const name = plugin.name;
   return (
@@ -105,7 +105,7 @@ function PluginCard({ plugin, available, busy, error, onToggle, onReview, onSecr
           {plugin.description && <p className="plugin-card-description">{plugin.description}</p>}
           <p className="plugin-card-meta">
             <span>{t`Licence: ${license}`}</span>
-            <span className="plugin-card-source" title={source}>{plugin.source.kind === "url" ? t`From ${source}` : t`Folder ${source}`}</span>
+            <span className="plugin-card-source" title={source}>{plugin.source.kind === "folder" ? t`Folder ${source}` : t`From ${source}`}</span>
           </p>
         </div>
         <Switch

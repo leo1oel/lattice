@@ -119,6 +119,21 @@ to GitHub Pages (`index.json`, `blocked.json` and their `.minisig` files).
   entry (`*` or an npm-style range) is not installed, and an installed
   registry theme that becomes blocked is reported with the entry's reason.
   Themes installed from a file are never matched.
+- **Kill switch.** `Registry::resolve` and `Registry::list_themes` read the
+  block list from the verified cache only. A chosen registry theme whose
+  installed version falls under an entry with any action but `warn` resolves
+  as no theme, so both apps draw Lattice's own colors while the choice stays
+  stored, and the Palette row says "<name> was turned off: <reason>". A
+  `warn` entry leaves the theme applied and shows its warning there.
+- **Browse themes** (Settings › Appearance › Theme files) is a sheet over
+  Settings: search over name, description and author, a status line (updated,
+  offline with the cached list's date, or a verification failure, during
+  which nothing installs), and one row per theme with a tile painted from the
+  index's colors, so nothing downloads before Install. Install chooses the
+  theme with the same accent rule as a file install; Update keeps the choice.
+  GPUI draws the same sheet (`gpui/crates/lattice-gpui/src/settings/theme_browse.rs`),
+  calling `Registry` off the main thread, and `settings::reload_theme` asks
+  `Registry::turned_off` before it applies a theme file.
 
 The Tauri commands are `registry_index` (`refresh: true` fetches first) and
 `registry_install_theme` in `src-tauri/src/ipc/themes.rs`.

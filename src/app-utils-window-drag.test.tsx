@@ -71,6 +71,13 @@ describe("title-bar window drag (#1063)", () => {
     expect(windowApi.startDragging).not.toHaveBeenCalled();
   });
 
+  it("never drags from a right-button press, which is a context menu's (#1136)", () => {
+    const { space } = renderBar();
+    fireEvent.mouseDown(space, { button: 2, buttons: 2, detail: 1 });
+    fireEvent.mouseMove(window, { buttons: 2 });
+    expect(windowApi.startDragging).not.toHaveBeenCalled();
+  });
+
   it("keeps a press on a title-bar control for the control", () => {
     const { button } = renderBar();
     fireEvent.mouseDown(button, { button: 0, buttons: 1, detail: 1 });
