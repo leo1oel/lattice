@@ -78,6 +78,53 @@ pub(super) fn tex_build_outputs() -> impl Iterator<Item = &'static str> {
         .chain(LATEX_ARTIFACT_EXTENSIONS.iter().copied())
 }
 
+/// Whether `path` is the `<jobname>Notes.bib` REVTeX 4.1/4.2 writes beside
+/// `<jobname>.tex` on every compile, holding its `@CONTROL` entries (the
+/// bibliography style's options) and the footnotes it moves into the
+/// bibliography. "Notes" is an ordinary word, so the name alone would also
+/// catch a writer's `lectureNotes.bib` beside `lecture.tex`; only REVTeX's
+/// own `@CONTROL` entry at the top tells them apart. An empty file counts
+/// too: TeX holds what it writes until the file closes at the end of the
+/// run, so mid-compile the file is empty and would flicker into the tree on
+/// every pass.
+fn is_revtex_notes_bibliography(path: &Path) -> bool {
+    let Some(stem) = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_suffix("Notes.bib"))
+        .filter(|stem| !stem.is_empty())
+    else {
+        return false;
+    };
+    path.with_file_name(format!("{stem}.tex")).is_file()
+        && regular_file_head(path).is_some_and(|head| head.is_empty() || opens_with_control(&head))
+}
+
+/// Whether the file at `path` holds the `@CONTROL` entry REVTeX writes into
+/// its `Notes.bib`. Stricter than the tree's check: an empty file is not
+/// enough for the caller that deletes it.
+pub(super) fn has_revtex_control_entry(path: &Path) -> bool {
+    regular_file_head(path).is_some_and(|head| opens_with_control(&head))
+}
+
+/// REVTeX writes its control entries before any footnote, so the head of the
+/// file is enough.
+fn opens_with_control(head: &[u8]) -> bool {
+    head.to_ascii_lowercase().windows(9).any(|window| window == b"@control{")
+}
+
+/// The first 4 KB of `path`, if it is a regular file. Checked without
+/// following links first: the tree lists a symlink as one and never reads
+/// through it, and opening a FIFO would block the scan.
+fn regular_file_head(path: &Path) -> Option<Vec<u8>> {
+    if !fs::symlink_metadata(path).ok()?.is_file() {
+        return None;
+    }
+    let mut head = Vec::new();
+    fs::File::open(path).and_then(|file| file.take(4096).read_to_end(&mut head)).ok()?;
+    Some(head)
+}
+
 /// Files a LaTeX run drops next to the source that nobody edits by hand.
 ///
 /// Matched against the whole file name rather than [`Path::extension`],
@@ -101,6 +148,11 @@ pub(super) fn is_build_artifact(path: &Path) -> bool {
         if stem.is_some_and(|stem| {
             !stem.is_empty() && path.with_file_name(format!("{stem}.tex")).exists()
         }) {
+            return true;
+        }
+        // REVTeX's `mainNotes.bib`, told apart by its contents. Unlike the
+        // two above, Overleaf sync still uploads it: its rules go by name.
+        if is_revtex_notes_bibliography(path) {
             return true;
         }
     }
@@ -639,6 +691,16 @@ mod tests {
         assert!(files.iter().all(|node| node.content_kind == "symlink"));
         assert!(read_file(&fixture.root, "outside-link").is_err());
         assert!(creation_path(&fixture.root, "outside-directory/new").is_err());
+
+        // Named and placed like REVTeX's `Notes.bib`, a link is still listed
+        // as one, not read through and hidden.
+        outside.write("control.bib", b"@CONTROL{REVTEX42Control}");
+        fixture.write("main.tex", b"source");
+        symlink(outside.path("control.bib"), fixture.path("mainNotes.bib")).unwrap();
+        let files = scan_tree(&fixture.root, TreeView::Inventory).unwrap();
+        assert!(files
+            .iter()
+            .any(|node| node.path == "mainNotes.bib" && node.content_kind == "symlink"));
     }
 
     #[test]
@@ -661,6 +723,17 @@ mod tests {
             ("acs-main.bib", "@Control{achemso-control,}"),
             ("main-blx.bib", "@Comment{biblatex}"),
             ("acs-refs.bib", "@article{b,}"),
+            // REVTeX's `mainNotes.bib` is told apart from a writer's
+            // `<stem>Notes.bib` by its `@CONTROL` entry, not its name alone.
+            ("mainNotes.bib", "@CONTROL{REVTEX42Control}\n@article{Note1,}"),
+            ("data.tex", "source"),
+            ("dataNotes.bib", "@article{c,}"),
+            ("projectNotes.bib", "@CONTROL{REVTEX42Control}"),
+            // Mid-compile TeX has not flushed it yet; any case of the entry.
+            ("draft.tex", "source"),
+            ("draftNotes.bib", ""),
+            ("letter.tex", "source"),
+            ("letterNotes.bib", "@Control{REVTEX41Control}"),
             // SyncTeX output, finished or still being written.
             ("main.synctex", "SyncTeX data"),
             ("main.synctex.gz", "SyncTeX data"),
@@ -676,9 +749,14 @@ mod tests {
         let files = open(&fixture.root).unwrap().files;
         let visible = [
             "acs-refs.bib",
+            "data.tex",
             "data.xml",
+            "dataNotes.bib",
+            "draft.tex",
+            "letter.tex",
             "main.tex",
             "notes(busy)",
+            "projectNotes.bib",
             "reading.pdf",
             "references.bib",
         ];
