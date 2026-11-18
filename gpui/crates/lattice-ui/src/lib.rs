@@ -41,6 +41,8 @@ pub mod shape;
 pub mod sliding;
 pub mod stroke;
 pub mod theme;
+#[cfg(test)]
+mod theme_parity;
 pub mod token_types;
 #[rustfmt::skip]
 pub mod tokens;

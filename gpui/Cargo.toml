@@ -93,6 +93,8 @@ lattice-core = { path = "../src-tauri/lattice-core", default-features = false }
 lattice-editor = { path = "crates/lattice-editor" }
 lattice-i18n = { path = "crates/lattice-i18n" }
 lattice-settings = { path = "crates/lattice-settings" }
+# The theme format and resolver, shared with the Tauri app (Apache-2.0).
+lattice-theme = { path = "../src-tauri/lattice-theme" }
 lattice-ui = { path = "crates/lattice-ui" }
 lattice-webview = { path = "crates/lattice-webview" }
 trellis = { path = "crates/trellis" }

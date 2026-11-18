@@ -1,0 +1,294 @@
+{
+  "$id": "https://leo1oel.github.io/lattice-plugins/schema/theme-1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "author": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "id": {
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9-]*(\\.[a-z0-9][a-z0-9-]*)+$",
+      "type": "string"
+    },
+    "license": {
+      "description": "SPDX identifier",
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "const": 1
+    },
+    "variants": {
+      "items": {
+        "properties": {
+          "appearance": {
+            "enum": [
+              "light",
+              "dark"
+            ]
+          },
+          "colors": {
+            "additionalProperties": false,
+            "properties": {
+              "accent": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "annotation": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "chrome": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "danger": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "editor": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "focus": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "info": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "input": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "line": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "line-strong": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "panel": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "pdf-ground": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "raised": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "selection": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "success": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "text": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "text-secondary": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "warning": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "window": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "syntax": {
+            "additionalProperties": false,
+            "properties": {
+              "attribute": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "bracket": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "citation": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "comment": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "comment-doc": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "constant": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "function": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "keyword": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "number": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "operator": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "property": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "reference": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "string": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "type": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "variable": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              "variable-special": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "terminal": {
+            "additionalProperties": false,
+            "properties": {
+              "black": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "blue": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "bright-black": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "bright-blue": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "bright-cyan": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "bright-green": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "bright-magenta": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "bright-red": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "bright-white": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "bright-yellow": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "cyan": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "green": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "magenta": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "red": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "white": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              },
+              "yellow": {
+                "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "appearance"
+        ],
+        "type": "object"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "type": "array"
+    },
+    "version": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+].*)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "version",
+    "variants"
+  ],
+  "title": "Lattice theme",
+  "type": "object"
+}

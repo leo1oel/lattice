@@ -52,6 +52,10 @@ msgstr "“{command}” in the terminal"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "“{destinationName}” already exists there. Choose another location"
 
+#: src/platform/host-errors-themes.ts
+msgid "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
+msgstr "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
+
 #: src/project/import-conflict-dialog.tsx
 msgid "“{name}” is already in {targetDirectory}"
 msgstr "“{name}” is already in {targetDirectory}"
@@ -4787,6 +4791,10 @@ msgstr "Could not create the endpoint settings folder: {error}"
 msgid "Could not create the report folder: {error}"
 msgstr "Could not create the report folder: {error}"
 
+#: src/platform/host-errors-themes.ts
+msgid "Could not create the themes folder: {error}"
+msgstr "Could not create the themes folder: {error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
 msgstr "Could not create the ZIP archive: {error}"
@@ -4957,6 +4965,7 @@ msgid "Could not reach the TeX Live package repository. Check the network connec
 msgstr "Could not reach the TeX Live package repository. Check the network connection, then try again."
 
 #: src/build/tex-doctor-messages.ts
+#: src/platform/host-errors-themes.ts
 #: src/platform/host-errors-workspace.ts
 msgid "Could not read {path}: {error}"
 msgstr "Could not read {path}: {error}"
@@ -4998,6 +5007,10 @@ msgstr "Could not remove {citationCommand}."
 #: src/platform/host-errors-workspace.ts
 msgid "Could not remove rtex: {error}"
 msgstr "Could not remove rtex: {error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "Could not remove the theme: {error}"
+msgstr "Could not remove the theme: {error}"
 
 #: src/platform/host-errors-project.ts
 msgid "Could not rename “{old}” in {path}; the file changed."
@@ -5068,6 +5081,10 @@ msgstr "Could not save the project"
 #: src/papers/bibliography-audit.tsx
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "Could not save the report on this device. Keep this window open to retain the results."
+
+#: src/platform/host-errors-themes.ts
+msgid "Could not save the theme: {error}"
+msgstr "Could not save the theme: {error}"
 
 #: src/platform/host-errors-setup.ts
 msgid "Could not search the MiKTeX packages: {error}"
@@ -17098,6 +17115,10 @@ msgstr "The TeX Live repository could not be searched.\n"
 msgid "The text is too large to save as a copy."
 msgstr "The text is too large to save as a copy."
 
+#: src/platform/host-errors-themes.ts
+msgid "The theme file is larger than 256 KiB."
+msgstr "The theme file is larger than 256 KiB."
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "The third-party notices could not be read from the app bundle."
@@ -17183,6 +17204,10 @@ msgstr "Theme"
 #: src/app/use-command-table.ts
 msgid "theme appearance"
 msgstr "theme appearance"
+
+#: src/settings/theme-settings.tsx
+msgid "Theme default"
+msgstr "Theme default"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -17626,6 +17651,10 @@ msgstr "This terminal has closed."
 #: src/settings/tex-package-check-problem.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
+
+#: src/platform/host-errors-themes.ts
+msgid "This theme comes with Lattice and cannot be removed."
+msgstr "This theme comes with Lattice and cannot be removed."
 
 #: src/platform/host-errors-papers.ts
 msgid "This title has no independently verifiable identifier. Supply its official BibTeX or URL instead."

@@ -687,6 +687,11 @@ fn appearance(cx: &App) -> Value {
         Accent::Green => "green".to_string(),
         Accent::Teal => "teal".to_string(),
         Accent::Custom(rgb) => format!("#{:06x}", rgb & 0xff_ffff),
+        // The theme's accent as the colour the page shows, or Graphite.
+        Accent::Theme => match palette.themed.as_ref().and_then(|themed| themed.accent) {
+            Some(accent) => format!("#{:06x}", accent.rgb),
+            None => "graphite".to_string(),
+        },
     };
     let translucency = match crate::settings::get(cx).appearance.translucency {
         lattice_settings::Translucency::Off => "off",

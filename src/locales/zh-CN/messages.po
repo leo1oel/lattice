@@ -52,6 +52,10 @@ msgstr "终端中的“{command}”"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
 
+#: src/platform/host-errors-themes.ts
+msgid "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
+msgstr "“{id}”是 Lattice 自带主题的 ID，请为你的主题另取一个 ID。"
+
 #: src/project/import-conflict-dialog.tsx
 msgid "“{name}” is already in {targetDirectory}"
 msgstr "{targetDirectory} 中已有“{name}”"
@@ -4787,6 +4791,10 @@ msgstr "无法创建接口设置文件夹：{error}"
 msgid "Could not create the report folder: {error}"
 msgstr "无法创建报告文件夹：{error}"
 
+#: src/platform/host-errors-themes.ts
+msgid "Could not create the themes folder: {error}"
+msgstr "无法创建主题文件夹：{error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
 msgstr "无法创建 ZIP 压缩包：{error}"
@@ -4957,6 +4965,7 @@ msgid "Could not reach the TeX Live package repository. Check the network connec
 msgstr "无法连接 TeX Live 组件仓库。请检查网络连接后重试。"
 
 #: src/build/tex-doctor-messages.ts
+#: src/platform/host-errors-themes.ts
 #: src/platform/host-errors-workspace.ts
 msgid "Could not read {path}: {error}"
 msgstr "无法读取 {path}：{error}"
@@ -4998,6 +5007,10 @@ msgstr "无法删除 {citationCommand}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not remove rtex: {error}"
 msgstr "无法删除 rtex：{error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "Could not remove the theme: {error}"
+msgstr "无法移除主题：{error}"
 
 #: src/platform/host-errors-project.ts
 msgid "Could not rename “{old}” in {path}; the file changed."
@@ -5068,6 +5081,10 @@ msgstr "项目没保存成功"
 #: src/papers/bibliography-audit.tsx
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "报告没能保存，请别关窗口以保留结果"
+
+#: src/platform/host-errors-themes.ts
+msgid "Could not save the theme: {error}"
+msgstr "无法保存主题：{error}"
 
 #: src/platform/host-errors-setup.ts
 msgid "Could not search the MiKTeX packages: {error}"
@@ -17098,6 +17115,10 @@ msgstr "无法搜索 TeX Live 组件仓库。\n"
 msgid "The text is too large to save as a copy."
 msgstr "文本太大，无法另存为副本"
 
+#: src/platform/host-errors-themes.ts
+msgid "The theme file is larger than 256 KiB."
+msgstr "主题文件大于 256 KiB。"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "无法从应用包中读取第三方声明。"
@@ -17183,6 +17204,10 @@ msgstr "主题"
 #: src/app/use-command-table.ts
 msgid "theme appearance"
 msgstr "主题 外观 theme appearance"
+
+#: src/settings/theme-settings.tsx
+msgid "Theme default"
+msgstr "跟随主题"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -17626,6 +17651,10 @@ msgstr "此终端已关闭"
 #: src/settings/tex-package-check-problem.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 TeX Live 后重试。"
+
+#: src/platform/host-errors-themes.ts
+msgid "This theme comes with Lattice and cannot be removed."
+msgstr "这个主题是 Lattice 自带的，不能移除。"
 
 #: src/platform/host-errors-papers.ts
 msgid "This title has no independently verifiable identifier. Supply its official BibTeX or URL instead."

@@ -28,6 +28,7 @@ pub(crate) mod project_tabs;
 pub(crate) mod search;
 pub(crate) mod spelling;
 pub(crate) mod terminal;
+pub(crate) mod themes;
 pub(crate) mod windows;
 pub(crate) mod workspace;
 

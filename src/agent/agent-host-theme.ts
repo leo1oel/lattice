@@ -96,5 +96,17 @@ export function readAgentHostTheme(input: {
     return [role, getComputedStyle(probe).color];
   })) as unknown as AgentHostThemeColors;
   probe.remove();
-  return { type: LATTICE_HOST_THEME, version: 1, ...input, colors };
+  // A theme (docs/themes.md) stands on Graphite and may bring its own
+  // accent; the agent knows neither, so it gets what the page shows: the
+  // tint in effect, and "Theme default" as the color it resolved to.
+  const tint = (document.documentElement.dataset.tint ?? input.tint) as ThemeTint;
+  const accent = input.accent === "theme" ? themeAccent(colors.accent) : input.accent;
+  return { type: LATTICE_HOST_THEME, version: 1, ...input, tint, accent, colors };
+}
+
+/** A computed `rgb(r, g, b)` as `#rrggbb`, or Graphite when it is not one. */
+function themeAccent(computed: string): ThemeAccent {
+  const rgb = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(computed);
+  if (!rgb) return "graphite";
+  return `#${rgb.slice(1, 4).map((channel) => Number(channel).toString(16).padStart(2, "0")).join("")}`;
 }

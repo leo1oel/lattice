@@ -9,6 +9,8 @@ license.workspace = true
 [dependencies]
 # The interface languages (English, Simplified Chinese).
 lattice-i18n.workspace = true
+# Themes: the format, the resolver and the colour fitting (accent_fit.rs).
+lattice-theme.workspace = true
 anyhow.workspace = true
 gpui.workspace = true
 gpui-kit.workspace = true

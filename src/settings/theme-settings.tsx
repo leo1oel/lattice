@@ -13,10 +13,9 @@ import {
   type Translucency,
   ACCENT_PRESETS,
   THEME_TINTS,
-  accentContrast,
-  fitAccent,
   isCustomAccent,
 } from "./theme-customization";
+import { useFittedAccent } from "./themes";
 import type { WindowBacking } from "./use-appearance";
 
 type ThemeSettingsProps = {
@@ -95,11 +94,11 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
       <SettingsRow
         data-setting="theme-accent"
         label={t`Accent`}
-        description={isCustomAccent(accent) ? <CustomAccentNote accent={accent} theme={props.theme} /> : accentNames[accent]}
+        description={isCustomAccent(accent) ? <CustomAccentNote accent={accent} theme={props.theme} /> : accent === "theme" ? t`Theme default` : accentNames[accent]}
       >
         <SwatchGroup
           label={t`Accent`}
-          value={isCustomAccent(accent) ? null : accent}
+          value={isCustomAccent(accent) || accent === "theme" ? null : accent}
           options={accentOptions}
           onChange={(next) => patch({ accent: next })}
         />
@@ -111,7 +110,7 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
           presets={(close) => (
             <SwatchGroup
               label={t`Presets`}
-              value={isCustomAccent(accent) ? null : accent}
+              value={isCustomAccent(accent) || accent === "theme" ? null : accent}
               options={accentOptions.filter((option) => option.id !== "graphite")}
               onChange={(next) => {
                 patch({ accent: next });
@@ -298,7 +297,7 @@ function SwatchGroup<Id extends string>(props: {
  */
 function CustomAccentNote(props: { accent: `#${string}`; theme: Theme }) {
   const { t } = useLingui();
-  const applied = fitAccent(props.accent, props.theme);
+  const applied = useFittedAccent(props.accent, props.theme).color;
   const adjusted = applied.toLowerCase() !== props.accent.toLowerCase();
   return (
     <span className="theme-accent-note">
@@ -315,7 +314,7 @@ function CustomAccentNote(props: { accent: `#${string}`; theme: Theme }) {
  * The swatch after the presets opens Lattice's own picker beside it, applied
  * as it moves like every other choice here. It shows the color picked and,
  * when that would not read as text, the color the theme uses instead and why
- * (fitAccent in theme-customization.ts); the stored value stays the one picked.
+ * (the app's own fitting, useFittedAccent); the stored value stays the one picked.
  */
 function CustomAccent(props: {
   label: string;
@@ -329,9 +328,10 @@ function CustomAccent(props: {
   const selected = props.value !== null;
   // The picker opens on the editor's selection blue until a color is chosen.
   const picked = (props.value ?? "#3d7af2").toUpperCase();
-  const applied = fitAccent(picked, props.theme).toUpperCase();
+  const fitted = useFittedAccent(picked, props.theme);
+  const applied = fitted.color.toUpperCase();
   const adjusted = applied !== picked;
-  const ratio = accentContrast(applied, props.theme).toFixed(1);
+  const ratio = fitted.ratio.toFixed(1);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

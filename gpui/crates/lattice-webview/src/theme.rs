@@ -62,12 +62,25 @@ fn document(palette: &Palette) -> Value {
         Accent::Green => "green",
         Accent::Teal => "teal",
         Accent::Custom(_) => "custom",
+        Accent::Theme if theme_accent(palette) => "custom",
+        Accent::Theme => "graphite",
     };
     json!({
         "appearance": theme,
         "dataset": { "theme": theme, "tint": tint, "accent": accent },
-        "accent": matches!(palette.accent_preset, Accent::Custom(_)).then(|| css(palette.accent)),
+        "accent": (matches!(palette.accent_preset, Accent::Custom(_)) || theme_accent(palette))
+            .then(|| css(palette.accent)),
     })
+}
+
+/// Whether the accent is the chosen theme's own colour, which the CSS
+/// cannot derive and so is sent like a custom one.
+fn theme_accent(palette: &Palette) -> bool {
+    palette.accent_preset == Accent::Theme
+        && palette
+            .themed
+            .as_ref()
+            .is_some_and(|themed| themed.accent.is_some())
 }
 
 /// The CSS variables an island's page gets from the host's theme: the

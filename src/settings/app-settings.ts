@@ -465,6 +465,8 @@ export type AppearanceSettings = {
   /** The surfaces' hue; styles/theme.css holds each preset. */
   tint: ThemeTint;
   accent: ThemeAccent;
+  /** The chosen theme's id (docs/themes.md), or "" for none. */
+  theme: string;
   /** How much of the desktop shows through the window chrome (macOS only). */
   translucency: Translucency;
   /** The source editors' palette (settings/code-themes.ts). */
@@ -499,6 +501,15 @@ export function resolveAppLocale(preference: InterfaceLanguage, systemLanguages?
   return normalized === "zh" || normalized.startsWith("zh-") ? "zh-CN" : "en";
 }
 
+/**
+ * A stored theme id as the theme format allows one (reverse-domain, lower
+ * case), so a hand-edited store cannot name anything else.
+ */
+function normalizeThemeId(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length > 128) return undefined;
+  return /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$/.test(value) ? value : undefined;
+}
+
 export function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
     interfaceLanguage: "system",
@@ -519,6 +530,7 @@ export function loadAppearance(): AppearanceSettings {
     tabStyle: "filled",
     tint: "graphite",
     accent: "graphite",
+    theme: "",
     translucency: "subtle",
     codeTheme: "github",
     codeThemeVariant: "auto",
@@ -554,6 +566,7 @@ export function loadAppearance(): AppearanceSettings {
       tabStyle: oneOf(value?.tabStyle, TAB_STYLES, defaults.tabStyle),
       tint: oneOf(value?.tint, THEME_TINTS, defaults.tint),
       accent: normalizeAccent(value?.accent) ?? defaults.accent,
+      theme: normalizeThemeId(value?.theme) ?? defaults.theme,
       translucency: oneOf(value?.translucency, TRANSLUCENCY_LEVELS, defaults.translucency),
       codeTheme: oneOf(value?.codeTheme, CODE_THEMES, defaults.codeTheme),
       codeThemeVariant: oneOf(value?.codeThemeVariant, CODE_THEME_VARIANTS, defaults.codeThemeVariant),

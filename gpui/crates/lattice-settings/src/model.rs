@@ -165,11 +165,13 @@ choice!(
     LatexView { Source = "source", Visual = "visual" } default Source
 );
 
-/// An accent preset, or a custom colour as lowercase `#rrggbb`.
+/// An accent preset, a custom colour as lowercase `#rrggbb`, or the chosen
+/// theme's own accent (`"theme"`, decision L13).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Accent {
     Preset(AccentPreset),
     Custom(String),
+    Theme,
 }
 
 impl Default for Accent {
@@ -183,6 +185,7 @@ impl Accent {
         match self {
             Accent::Preset(preset) => preset.tag(),
             Accent::Custom(hex) => hex,
+            Accent::Theme => "theme",
         }
     }
 
@@ -191,6 +194,9 @@ impl Accent {
     pub fn parse(value: &str) -> Option<Accent> {
         if let Some(preset) = AccentPreset::from_tag(value) {
             return Some(Accent::Preset(preset));
+        }
+        if value == "theme" {
+            return Some(Accent::Theme);
         }
         let hex = value.strip_prefix('#')?;
         (hex.len() == 6 && hex.chars().all(|c| c.is_ascii_hexdigit()))
@@ -235,6 +241,8 @@ pub struct Appearance {
     pub tab_style: TabStyle,
     pub tint: Tint,
     pub accent: Accent,
+    /// The chosen theme's id (`docs/themes.md`), or "" for none.
+    pub theme: String,
     pub translucency: Translucency,
     pub code_theme: CodeTheme,
     pub code_theme_variant: CodeThemeVariant,
@@ -260,11 +268,26 @@ impl Default for Appearance {
             tab_style: TabStyle::Filled,
             tint: Tint::Graphite,
             accent: Accent::default(),
+            theme: String::new(),
             translucency: Translucency::Subtle,
             code_theme: CodeTheme::Github,
             code_theme_variant: CodeThemeVariant::Auto,
         }
     }
+}
+
+/// A theme id as the theme format allows one (reverse-domain, lower case),
+/// so a hand-edited store cannot name a path.
+fn lattice_theme_id(id: &str) -> bool {
+    id.len() <= 128
+        && id.split('.').count() >= 2
+        && id.split('.').all(|label| {
+            !label.is_empty()
+                && !label.starts_with('-')
+                && label
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        })
 }
 
 /// JavaScript's `Number(value)`, for the values a store can hold: a number,
@@ -415,6 +438,11 @@ impl Appearance {
                 .and_then(Value::as_str)
                 .and_then(Accent::parse)
                 .unwrap_or(defaults.accent),
+            theme: field("theme")
+                .and_then(Value::as_str)
+                .filter(|id| lattice_theme_id(id))
+                .unwrap_or_default()
+                .to_string(),
             translucency: choice(field("translucency"), defaults.translucency),
             code_theme: choice(field("codeTheme"), defaults.code_theme),
             code_theme_variant: choice(field("codeThemeVariant"), defaults.code_theme_variant),

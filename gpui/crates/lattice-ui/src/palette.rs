@@ -15,7 +15,10 @@
 //!   tab stands on, which is why the running app draws `#DBDBDC` on the
 //!   chrome-coloured Project panel and `#E5E5E5` on the editor's sheet.
 
+use std::sync::Arc;
+
 use gpui::Hsla;
+use lattice_theme::{AccentChoice, Resolved, ThemeFile};
 
 use crate::{
     Appearance,
@@ -90,6 +93,9 @@ pub enum Accent {
     /// A colour the writer picked, as `0xRRGGBB`; each appearance uses it
     /// fitted to the presets' contrast floor (`accent_fit::fit_accent`).
     Custom(u32),
+    /// The theme's own accent, or Graphite's when there is no theme or it
+    /// has none (decision L13: any other choice wins over the theme's).
+    Theme,
 }
 
 impl Accent {
@@ -113,9 +119,14 @@ impl Accent {
         }
     }
 
+    /// Whether the accent keeps Graphite's neutral wash and blue focus ring.
+    fn is_graphite(self) -> bool {
+        matches!(self, Accent::Graphite | Accent::Theme)
+    }
+
     fn token(self) -> ColorToken {
         match self {
-            Accent::Custom(_) => COLOR_ACCENT,
+            Accent::Custom(_) | Accent::Theme => COLOR_ACCENT,
             Accent::Graphite => COLOR_ACCENT,
             Accent::Blue => COLOR_ACCENT_BLUE,
             Accent::Purple => COLOR_ACCENT_PURPLE,
@@ -231,6 +242,12 @@ pub struct Palette {
     pub appearance: Appearance,
     pub tint: Tint,
     pub accent_preset: Accent,
+    /// The theme the writer chose, kept so a change of appearance or accent
+    /// resolves it again ([`Palette::with_theme`]).
+    pub theme: Option<Arc<ThemeFile>>,
+    /// That theme as this appearance shows it, when it has a variant for it:
+    /// the editor's syntax and the terminal read their colours from it.
+    pub themed: Option<Arc<Resolved>>,
 
     // Surfaces.
     pub window: Hsla,
@@ -410,7 +427,7 @@ impl Palette {
 
         let text = get(COLOR_TEXT);
         let accent_srgb = accent_preset.srgb(appearance);
-        let graphite = accent_preset == Accent::Graphite;
+        let graphite = accent_preset.is_graphite();
         let accent_soft = if graphite {
             paint(COLOR_ACCENT_SOFT)
         } else {
@@ -427,6 +444,8 @@ impl Palette {
             appearance,
             tint,
             accent_preset,
+            theme: None,
+            themed: None,
 
             window: window.hsla(),
             chrome: chrome.hsla(),
@@ -520,7 +539,8 @@ impl Palette {
     pub fn with_glass(self, glass: Glass) -> Self {
         let dark = self.is_dark();
         let Some(coats) = glass.coats(dark) else {
-            return Palette::new(self.appearance, self.tint, self.accent_preset);
+            return Palette::new(self.appearance, self.tint, self.accent_preset)
+                .with_theme(self.theme.clone());
         };
         let transparent = WHITE.with_alpha(0.);
         let chrome = self.chrome_srgb;
@@ -540,6 +560,139 @@ impl Palette {
             backdrop: self.window_srgb.color_mix(coats.page, transparent).hsla(),
             titlebar: titlebar.hsla(),
             ..self
+        }
+    }
+
+    /// This palette with `theme` laid over it (`docs/themes.md`), or no
+    /// theme. A theme in effect stands on Graphite (it replaces the tint)
+    /// and sets the base roles it names; every role derived from one is
+    /// derived again here the way theme.css and foundations.css derive it
+    /// from the same variable, which `theme_parity` holds both shells to.
+    /// A theme with no variant for this appearance leaves the palette as it is.
+    pub fn with_theme(self, theme: Option<Arc<ThemeFile>>) -> Self {
+        let appearance = self.appearance;
+        let choice = match self.accent_preset {
+            Accent::Theme => AccentChoice::ThemeDefault,
+            Accent::Custom(rgb) => AccentChoice::Custom(rgb),
+            preset => AccentChoice::Preset(rgb_of(preset.srgb(appearance))),
+        };
+        let resolved = lattice_theme::resolve(
+            theme.as_deref(),
+            crate::accent_fit::theme_appearance(appearance),
+            choice,
+        );
+        if resolved.theme.is_none() {
+            return Self {
+                theme,
+                themed: None,
+                ..self
+            };
+        }
+        let mut palette = Palette::new(appearance, Tint::Graphite, self.accent_preset);
+        palette.apply(&resolved);
+        palette.theme = theme;
+        palette.themed = Some(Arc::new(resolved));
+        palette
+    }
+
+    fn apply(&mut self, resolved: &Resolved) {
+        let dark = self.is_dark();
+        let get = |key: &str| resolved.colors.get(key).map(|color| srgb_from(*color));
+        let surface = |key: &str, field: &mut Hsla, kept: &mut Srgb| {
+            if let Some(color) = get(key) {
+                *field = color.hsla();
+                *kept = color;
+            }
+        };
+        let (mut window, mut chrome, mut panel, mut raised, mut editor) = (
+            self.window_srgb,
+            self.chrome_srgb,
+            self.panel_srgb,
+            self.raised_srgb,
+            self.editor_srgb,
+        );
+        surface("window", &mut self.window, &mut window);
+        surface("chrome", &mut self.chrome, &mut chrome);
+        surface("panel", &mut self.panel, &mut panel);
+        surface("raised", &mut self.raised, &mut raised);
+        surface("editor", &mut self.editor, &mut editor);
+        (
+            self.window_srgb,
+            self.chrome_srgb,
+            self.panel_srgb,
+            self.raised_srgb,
+            self.editor_srgb,
+        ) = (window, chrome, panel, raised, editor);
+        if let Some(input) = get("input") {
+            self.input = input.hsla();
+        }
+        // theme.css: the titlebar is the chrome under its veil, and a dark
+        // PDF ground is the window mixed 16% toward mid grey; the light one
+        // is a literal there, so a theme moves it only by naming it.
+        self.titlebar = chrome.mix(WHITE, if dark { 0.035 } else { 0.45 }).hsla();
+        self.pdf_ground = match get("pdf-ground") {
+            Some(ground) => ground.hsla(),
+            None if dark => window.mix(hex(0x888888), 0.16).hsla(),
+            None => self.pdf_ground,
+        };
+        self.window_material = self.window;
+        self.shell = self.chrome;
+        self.navigator = self.chrome;
+        self.backdrop = self.window;
+
+        if let Some(text) = get("text") {
+            self.text = text.hsla();
+            self.text_srgb = text;
+        }
+        if let Some(muted) = get("text-secondary") {
+            self.text_secondary = muted.hsla();
+        }
+        if let Some(line) = get("line") {
+            self.line = line.hsla();
+            self.panel_ring = line.alpha(0.7);
+        }
+        if let Some(line) = get("line-strong") {
+            self.line_strong = line.hsla();
+        }
+
+        if let Some(accent) = resolved.accent.map(srgb_from) {
+            self.accent = accent.hsla();
+            if self.accent_preset != Accent::Graphite {
+                self.accent_soft = accent.alpha(if dark { 0.14 } else { 0.10 });
+                self.focus = accent.hsla();
+            }
+            self.tinted = accent.alpha(0.12);
+            self.tinted_hover = accent.alpha(0.18);
+            self.tinted_pressed = accent.alpha(0.24);
+            self.toolbar_active = accent.alpha(0.14);
+        }
+        if let Some(focus) = get("focus") {
+            self.focus = focus.hsla();
+        }
+        if let Some(tint) = get("selection") {
+            self.selection = tint.alpha(if dark { 0.19 } else { 0.16 });
+        }
+
+        if let Some(danger) = get("danger") {
+            self.danger = danger.hsla();
+            self.danger_soft = danger.alpha(0.12);
+            self.danger_soft_hover = danger.alpha(0.18);
+            self.danger_soft_pressed = danger.alpha(0.24);
+        }
+        if let Some(success) = get("success") {
+            self.success = success.hsla();
+            self.success_soft = success.alpha(0.12);
+        }
+        if let Some(warning) = get("warning") {
+            self.warning = warning.hsla();
+            self.warning_soft = warning.alpha(0.12);
+        }
+        if let Some(info) = get("info") {
+            self.info = info.hsla();
+        }
+        if let Some(annotation) = get("annotation") {
+            self.annotation = annotation.hsla();
+            self.annotation_highlight = annotation.alpha(0.14);
         }
     }
 
@@ -598,6 +751,14 @@ impl Palette {
         };
         (hue.hsla(), hue.alpha(tint))
     }
+}
+
+fn rgb_of(color: Srgb) -> u32 {
+    (u32::from(color.r) << 16) | (u32::from(color.g) << 8) | u32::from(color.b)
+}
+
+fn srgb_from(color: lattice_theme::Color) -> Srgb {
+    hex(color.rgb).with_alpha(f32::from(color.alpha) / 255.)
 }
 
 #[cfg(test)]

@@ -224,6 +224,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(synara::SynaraRuntime::new(&resources, events));
     app.manage(presentation::PresentationRuntime::new(&resources)?);
     app.manage(ipc::plugins::Plugins::new(&resources));
+    app.manage(ipc::themes::Themes::new(&resources));
     let background = browser_host::launched_as_host();
     // Explicit, browser-host and measurement launches should use their own workspace.
     let restore_tabs =
@@ -633,6 +634,11 @@ pub fn run() {
             ipc::plugins::plugins_set_secret,
             ipc::plugins::plugins_run,
             ipc::plugins::plugins_cancel,
+            ipc::themes::themes_list,
+            ipc::themes::themes_install_file,
+            ipc::themes::themes_remove,
+            ipc::themes::themes_resolve,
+            ipc::themes::themes_fit_accent,
             save_before_close::enable_save_before_close,
             save_before_close::disable_save_before_close,
             save_before_close::finish_save_before_close,
@@ -642,7 +648,9 @@ pub fn run() {
     app.run(|app_handle, event| match event {
         tauri::RunEvent::Exit => shutdown_child_runtimes(app_handle),
         #[cfg(target_os = "macos")]
-        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => browser_host::reopen(app_handle),
+        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => {
+            browser_host::reopen(app_handle)
+        }
         // `code` is None only when the last window closed; ⌘Q and a restart
         // exit with a code.
         tauri::RunEvent::ExitRequested { code: None, api, .. }

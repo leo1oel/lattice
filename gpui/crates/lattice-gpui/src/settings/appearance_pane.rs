@@ -484,6 +484,7 @@ fn theme(
     let accent_note: SharedString = match &appearance.accent {
         StoredAccent::Preset(preset) => accent_name(*preset).into(),
         StoredAccent::Custom(hex) => t!("Custom {0}", hex.to_uppercase()).into(),
+        StoredAccent::Theme => t!("Theme default").into(),
     };
     let mut accent_row = Row::new("theme-accent", t!("Accent"))
         .description(accent_note, cx)

@@ -14,7 +14,17 @@ import {
   systemTheme,
 } from "./app-settings";
 import { changedFields, sharedSetting, useSharedSetting } from "./shared-setting";
-import { fitAccent, isCustomAccent } from "./theme-customization";
+import { subscribeTauriEvent } from "../app/effect-helpers";
+import { isCustomAccent, type ThemeAccent } from "./theme-customization";
+import {
+  type ResolvedTheme,
+  type ThemeRequest,
+  THEMES_CHANGED_EVENT,
+  applyThemeVariables,
+  cachedTheme,
+  rememberTheme,
+  resolveTheme,
+} from "./themes";
 import { codeThemeProperties, resolveCodeThemeKind } from "./code-themes";
 import { PROSE_FONT_SIZE, PROSE_LINE_HEIGHT, SOURCE_LINE_HEIGHT, cssFontFamily, editorFontStack } from "./editor-fonts";
 import { activateAppLocale, i18n } from "../i18n";
@@ -57,8 +67,16 @@ export function useAppearance(): Appearance {
   const [windowBacking, setWindowBacking] = useState<WindowBacking>("unsupported");
   const appLocale = resolveAppLocale(appearance.interfaceLanguage);
   const theme = themePreference === "system" ? osTheme : themePreference;
-  const { tint, accent, translucency, codeTheme, codeThemeVariant, tabStyle } = appearance;
+  const { tint, accent, translucency, codeTheme, codeThemeVariant, tabStyle, theme: themeId } = appearance;
   const codeThemeKind = resolveCodeThemeKind(codeTheme, codeThemeVariant, theme);
+  // Bumped when the installed themes change (one reinstalled, the chosen one
+  // removed), and once the resolved theme is on the page, so what reads the
+  // page's colors (the native window's background) reads them again.
+  const [themesVersion, setThemesVersion] = useState(0);
+  const [appliedTheme, setAppliedTheme] = useState(0);
+  const themeVariables = useRef<Set<string>>(new Set());
+
+  useEffect(() => subscribeTauriEvent(THEMES_CHANGED_EVENT, () => setThemesVersion((version) => version + 1)), []);
 
   useEffect(() => {
     const media = window.matchMedia(SYSTEM_DARK_QUERY);
@@ -69,29 +87,53 @@ export function useAppearance(): Appearance {
   }, []);
 
   // Before paint, so a theme change never shows one frame of the old palette.
+  // The code theme's properties go first and the theme's on top: a theme
+  // that colors the syntax wins over the code theme while it is chosen.
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = theme;
-    root.dataset.tint = tint;
-    root.dataset.accent = isCustomAccent(accent) ? "custom" : accent;
-    if (isCustomAccent(accent)) root.style.setProperty("--accent", fitAccent(accent, theme));
-    else root.style.removeProperty("--accent");
-  }, [theme, tint, accent]);
-
-  useLayoutEffect(() => {
-    document.documentElement.dataset.tabStyle = tabStyle;
-  }, [tabStyle]);
-
-  useLayoutEffect(() => {
-    const root = document.documentElement;
     root.dataset.codeTheme = codeTheme;
     // Whether the source editor's ground is light or dark, which a dark-only
     // code theme makes independent of the app's appearance.
     root.dataset.codeThemeKind = codeThemeKind;
-    for (const [name, value] of Object.entries(codeThemeProperties(codeTheme, codeThemeKind, theme))) {
-      root.style.setProperty(name, value);
-    }
-  }, [codeTheme, codeThemeKind, theme]);
+    const codeProperties = codeThemeProperties(codeTheme, codeThemeKind, theme);
+    for (const [name, value] of Object.entries(codeProperties)) root.style.setProperty(name, value);
+    const keep = new Set(Object.keys(codeProperties));
+
+    const request: ThemeRequest = { theme: themeId, appearance: theme, accent, presetColor: presetColor(themeId, accent) };
+    const apply = (resolved: ResolvedTheme | undefined) => {
+      root.dataset.tint = resolved?.theme ? "graphite" : tint;
+      root.dataset.accent = accentAttribute(accent, resolved);
+      themeVariables.current = applyThemeVariables(root.style, resolved?.variables ?? [], themeVariables.current, keep);
+    };
+    // A custom accent with no answer yet shows as picked for a moment
+    // rather than in the previous accent.
+    const pending: ResolvedTheme | undefined = isCustomAccent(accent) && !themeId
+      ? { theme: null, variables: [["--accent", accent]], accent }
+      : undefined;
+    apply(cachedTheme(request) ?? pending);
+
+    let current = true;
+    resolveTheme(request)
+      .then((resolved) => {
+        if (!current) return;
+        rememberTheme(request, resolved);
+        apply(resolved);
+        setAppliedTheme((count) => count + 1);
+      })
+      .catch(() => {
+        // A browser preview has no Rust side: no theme, and a custom accent
+        // as picked.
+        if (current) apply(pending);
+      });
+    return () => {
+      current = false;
+    };
+  }, [theme, tint, accent, themeId, codeTheme, codeThemeKind, themesVersion]);
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.tabStyle = tabStyle;
+  }, [tabStyle]);
 
   // The native window follows: its appearance (so vibrancy and native menus
   // match the page), the color behind a live resize, and its material. The
@@ -118,7 +160,7 @@ export function useAppearance(): Appearance {
       current = false;
       window.removeEventListener("focus", apply);
     };
-  }, [theme, themePreference, tint, translucency]);
+  }, [theme, themePreference, tint, translucency, appliedTheme]);
 
   useLayoutEffect(() => {
     const root = document.documentElement;
@@ -174,4 +216,38 @@ export function useAppearance(): Appearance {
   }, [appearance.interfaceScale]);
 
   return { theme, themePreference, setThemePreference, appearance, setAppearance, windowBacking };
+}
+
+/**
+ * `data-accent` for the stylesheet: the preset's name, `custom` for a color
+ * set inline (one the writer picked, or the theme's own), or `graphite` when
+ * "Theme default" finds no theme accent.
+ */
+function accentAttribute(accent: ThemeAccent, resolved: ResolvedTheme | undefined): string {
+  if (accent === "theme") return resolved?.accent ? "custom" : "graphite";
+  return isCustomAccent(accent) ? "custom" : accent;
+}
+
+/**
+ * A preset accent's color in the current appearance, which a theme's
+ * surfaces may need it fitted to: read from theme.css through a probe
+ * element under the root, so the presets stay defined in one place.
+ */
+function presetColor(themeId: string, accent: ThemeAccent): string | null {
+  if (!themeId || accent === "theme" || isCustomAccent(accent)) return null;
+  const probe = document.createElement("span");
+  probe.dataset.accent = accent;
+  probe.hidden = true;
+  document.documentElement.append(probe);
+  const value = getComputedStyle(probe).getPropertyValue("--accent").trim();
+  probe.remove();
+  return normalizeHex(value);
+}
+
+/** A computed color as `#rrggbb`, or null. */
+function normalizeHex(value: string): string | null {
+  if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+  const rgb = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(value);
+  if (!rgb) return null;
+  return `#${rgb.slice(1).map((channel) => Number(channel).toString(16).padStart(2, "0")).join("")}`;
 }

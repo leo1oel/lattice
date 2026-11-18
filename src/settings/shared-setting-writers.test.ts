@@ -29,6 +29,7 @@ const PERSISTED_KEYS: Record<string, string> = {
 /** Files that call `setItem` on storage themselves, and why. */
 const DIRECT_WRITERS: Record<string, string> = {
   "settings/shared-setting.ts": "the shared setting itself",
+  "settings/themes.ts": "a cache of resolved themes for the first paint, read again just before each write; the choice itself is the shared appearance",
   "settings/app-settings.ts": "per-project maps and the live preview choice, read again just before each write",
   "app/app-synara-embed.ts": "each project's agent thread",
   "app/whats-new.ts": "the version this install last ran",

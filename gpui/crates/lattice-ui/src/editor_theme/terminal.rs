@@ -86,6 +86,16 @@ impl TerminalColors {
             ansi[1 + index] = hue.hsla();
             ansi[9 + index] = oklab_mix(hue, 0.80, ink).hsla();
         }
+        // A chosen theme's ANSI colours (`--terminal-*` in the app).
+        if let Some(themed) = &palette.themed {
+            for (index, role) in lattice_theme::roles::TERMINAL_ROLES.iter().enumerate() {
+                if let Some(color) = themed.terminal.get(role) {
+                    ansi[index] = crate::token_types::hex(color.rgb)
+                        .with_alpha(f32::from(color.alpha) / 255.)
+                        .hsla();
+                }
+            }
+        }
         Self {
             kind: code.kind,
             ground: code.ground,

@@ -8,6 +8,7 @@
   "src/platform/ipc-error-phrases.test.ts": "every backend error phrase the UI matches is still written by its Rust source",
   "src/platform/host-error-catalog.test.ts": "every host error the UI translates is still written by its Rust source",
   "src/platform/react-compiler-guard.test.ts": "React Compiler bailout pins, through scripts/react-compiler-report.mjs",
+  "src/settings/theme-parity.test.ts": "theme.css and foundations.css derive the same colors from a theme as GPUI (design-system/themes/parity.json)",
   "src/pdf/pdf-viewer.test.ts": "viewer and live-preview stylesheets applied in jsdom (Vitest empties CSS imports), and the selection tint's theme tokens",
   "src/pdf/pdf-text-layer-selection.test.ts": "text-layer selection stylesheet, likewise",
   "src/styles/tokens.test.ts": "the design-token contract (CLAUDE.md)",
