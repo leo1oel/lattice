@@ -21,7 +21,7 @@ import { requestBibliographyIndex, type useProjectLibrary } from "./use-project-
 import type { ProjectState } from "./use-project-state";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { markGetStartedStep, TUTORIAL_VENUE } from "../onboarding/get-started-progress";
-import { windowProjects } from "./window-projects";
+import { loadWindowProjectGroup, windowProjects } from "./window-projects";
 import { useProjectTabTransfer } from "./project-tab-transfer";
 
 /** Asked only when the window already shows a project, so the question waits for the first switch. */
@@ -416,8 +416,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   // last wins — since startProjectTransition became async, the recent-project
   // reopen could land after the backend's choice and silently clobber it.
   const [initialProjectProbe] = useState(() => {
-    let resolve!: (result: "project" | "empty" | "failed") => void;
-    const promise = new Promise<"project" | "empty" | "failed">((r) => { resolve = r; });
+    type Result = "project" | "empty" | "closed" | "failed";
+    let resolve!: (result: Result) => void;
+    const promise = new Promise<Result>((r) => { resolve = r; });
     return { promise, resolve };
   });
   const didRouteStartupRef = useRef(false);
@@ -472,10 +473,13 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // Boot once. Depending on `enterProject` re-ran this whenever that callback
     // identity churned (after every build/load), which cleared the PDF and
     // restarted compile → endless “Rendering PDF…”.
+    const savedTabs = loadWindowProjectGroup();
     void invoke<ProjectSnapshot | null>("initial_project")
       .then(async (snapshot) => {
-        initialProjectProbe.resolve(snapshot ? "project" : "empty");
+        const group = await savedTabs;
+        initialProjectProbe.resolve(snapshot ? "project" : group?.activeRoot === null ? "closed" : "empty");
         if (!active || !snapshot) return;
+        if (group?.activeRoot === snapshot.root) windowProjects.restore(group.projects);
         await enterProjectRef.current(snapshot);
         // The website's demo opens on the tutorial: its visitors start with the checklist.
         if (import.meta.env.LATTICE_WEB_DEMO && active) depsRef.current.showGetStarted();

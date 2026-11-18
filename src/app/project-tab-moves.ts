@@ -7,7 +7,7 @@ import type { ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import { showError } from "./notify";
 import type { MoveRequest, ProjectTabDestination, TransferDeps } from "./project-tab-transfer";
-import { windowProjects } from "./window-projects";
+import { flushWindowProjectGroup, windowProjects } from "./window-projects";
 
 type Actions = TransferDeps & { title: string };
 
@@ -35,6 +35,7 @@ export async function moveProjectTabFrom(actions: Actions, root: string, target:
         if (!await actions.startProjectTransition()) return;
         actions.setMovingWorkspace(true);
       }
+      await flushWindowProjectGroup();
       transferred = await invoke<boolean>("move_project_tab", {
         request: { id: crypto.randomUUID(), root, sourceRoot: active.root, target },
       });
@@ -68,6 +69,7 @@ export async function receiveProjectTab(actions: Actions, { id, beforeRoot }: Mo
       await (async () => {
         if (!await actions.startProjectTransition()) return;
         actions.setMovingWorkspace(true);
+        await flushWindowProjectGroup();
         const snapshot = await invoke<ProjectSnapshot | null>("receive_project_tab", { id, activeRoot: active.root });
         if (!snapshot) return;
         transferred = true;
