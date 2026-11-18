@@ -417,7 +417,7 @@ mod tests {
             ("https_proxy", SettingsTab::Environment),
             ("crossref", SettingsTab::Literature),
             ("third-party", SettingsTab::Acknowledgements),
-            ("british", SettingsTab::Editor),
+            ("emacs", SettingsTab::Editor),
         ] {
             assert_eq!(search(&all, query)[0].tab, tab, "{query}");
         }
