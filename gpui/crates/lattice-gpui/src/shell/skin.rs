@@ -251,9 +251,18 @@ fn path_copies(key: &str, root: Option<&std::path::Path>) -> Vec<(String, String
     if key.is_empty() || super::papers::is_reader_key(key) {
         return Vec::new();
     }
+    // A key spells its folders with `/`; joining them one at a time puts the
+    // platform's own separator between every part, so a Windows project
+    // copies `C:\p\chapters\intro.tex` as the Tauri app does, not a path
+    // that mixes `\` and `/`.
     let absolute = root.map_or_else(
         || key.to_string(),
-        |root| root.join(key).to_string_lossy().into_owned(),
+        |root| {
+            key.split('/')
+                .fold(root.to_path_buf(), |path, part| path.join(part))
+                .to_string_lossy()
+                .into_owned()
+        },
     );
     vec![
         (t!("Copy path").to_string(), absolute),
@@ -734,12 +743,31 @@ mod tests {
     use super::path_copies;
     use std::path::Path;
 
+    #[cfg(not(windows))]
     #[test]
     fn a_document_tab_copies_its_whole_path_and_its_path_in_the_project() {
         assert_eq!(
             path_copies("chapters/intro.tex", Some(Path::new("/p"))),
             vec![
                 ("Copy path".to_string(), "/p/chapters/intro.tex".to_string()),
+                (
+                    "Copy relative path".to_string(),
+                    "chapters/intro.tex".to_string()
+                ),
+            ]
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_windows_document_tab_copies_its_path_with_backslashes() {
+        assert_eq!(
+            path_copies("chapters/intro.tex", Some(Path::new(r"C:\p"))),
+            vec![
+                (
+                    "Copy path".to_string(),
+                    r"C:\p\chapters\intro.tex".to_string()
+                ),
                 (
                     "Copy relative path".to_string(),
                     "chapters/intro.tex".to_string()
