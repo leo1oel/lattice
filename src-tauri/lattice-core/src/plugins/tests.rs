@@ -299,6 +299,44 @@ mod sandboxed {
         assert!(started.elapsed() < Duration::from_secs(5));
     }
 
+    /// The reference plugin in examples/plugins, as a writer installs it.
+    #[test]
+    fn the_bib_check_example_runs_in_the_sandbox() {
+        let Some((node, reads)) = test_node() else { return };
+        let root = TempDir::new("plugins-example");
+        let host =
+            PluginHost::with(root.join("store"), node, reads, Box::new(MemorySecrets::default()));
+        let example =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/plugins/bib-check");
+        host.install_folder(&example).unwrap();
+        host.set_enabled("app.lattice.bib-check", true).unwrap();
+        let project = crate::project::test_support::Fixture::project("plugins-example-project");
+        project.write("refs.bib", "@misc{dup, title = {A}}\n@misc{dup, title = {B}}\n");
+        let request = RunRequest {
+            plugin_id: "app.lattice.bib-check".into(),
+            command_id: "check".into(),
+            project: Some(ProjectInput {
+                root: project.root.clone(),
+                name: "Paper".into(),
+                ..Default::default()
+            }),
+            locale: "en".into(),
+            ..Default::default()
+        };
+        let sink = |_: RunEvent| -> Result<(), crate::host::Closed> { Ok(()) };
+        let Ok(CommandResult::Diagnostics { items, .. }) =
+            host.run(request, &sink, &CancelToken::new())
+        else {
+            panic!("diagnostics");
+        };
+        let duplicate = items
+            .iter()
+            .find(|d| d.code.as_deref() == Some("duplicate-key"))
+            .expect("duplicate-key");
+        assert_eq!((duplicate.file.as_str(), duplicate.line), ("refs.bib", Some(2)));
+        assert!(matches!(duplicate.fixes[0].kind, ActionKind::Reveal { .. }));
+    }
+
     #[test]
     fn a_plugin_asking_for_more_stops_until_reviewed() {
         let Some(f) = fixture("") else { return };
