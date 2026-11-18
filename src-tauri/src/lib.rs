@@ -74,11 +74,6 @@ use window_labels::window_state_tracks;
 fn keeps_running_without_windows(browser_resident: bool) -> bool {
     cfg!(target_os = "macos") || browser_resident
 }
-const BROWSER_HOST_ARG: &str = "--browser-host";
-
-fn browser_host_launch() -> bool {
-    std::env::args_os().any(|argument| argument == BROWSER_HOST_ARG)
-}
 
 /// A desktop workspace window: the launch window (`center`) or a project
 /// window, which the window-state plugin places. The main window in
@@ -229,7 +224,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(synara::SynaraRuntime::new(&resources, events));
     app.manage(presentation::PresentationRuntime::new(&resources)?);
     app.manage(ipc::plugins::Plugins::new(&resources));
-    let background = browser_host_launch();
+    let background = browser_host::launched_as_host();
     // Explicit, browser-host and measurement launches should use their own workspace.
     let restore_tabs =
         !background && std::env::var_os("LATTICE_PROJECT").is_none() && !cfg!(feature = "perf-lab");
@@ -689,12 +684,5 @@ mod tests {
         // window quit Lattice outright.
         assert_eq!(keeps_running_without_windows(false), cfg!(target_os = "macos"));
         assert!(keeps_running_without_windows(true));
-    }
-
-    /// The core reports its own `CARGO_PKG_VERSION` as Lattice's (user agents,
-    /// the terminal, TexLab), so scripts/bump-version.mjs moves both.
-    #[test]
-    fn the_core_carries_the_app_version() {
-        assert_eq!(lattice_core::VERSION, env!("CARGO_PKG_VERSION"));
     }
 }

@@ -38,6 +38,12 @@ use tauri_plugin_opener::OpenerExt;
 /// prototype's 18462), so they run side by side without one tab attaching to
 /// another's host. src/platform/flavor.ts mirrors it.
 const PREFERRED_PORT: u16 = if cfg!(lattice_beta) { 18472 } else { 18452 };
+
+/// Whether this process was launched as a browser host (`--browser-host`),
+/// which opens no desktop window of its own.
+pub(crate) fn launched_as_host() -> bool {
+    std::env::args_os().any(|argument| argument == "--browser-host")
+}
 const SERVER_UNAVAILABLE: &str = "Browser server state is unavailable.";
 
 #[derive(Default)]
