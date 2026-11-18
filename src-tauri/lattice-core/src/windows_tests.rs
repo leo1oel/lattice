@@ -101,28 +101,38 @@ fn history_pruning_keeps_latest_json_and_unrelated_files() {
 
 #[test]
 fn closing_a_terminal_job_terminates_its_descendants() {
+    use std::io::BufRead;
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
     use windows_sys::Win32::Foundation::WAIT_OBJECT_0;
     use windows_sys::Win32::System::Threading::{
         OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE,
     };
-    let root = Fixture::new();
-    let marker = root.0.join("child-pid.txt");
-    let script = format!("Start-Sleep -Milliseconds 500; $child = Start-Process powershell.exe -ArgumentList '-NoProfile','-Command','Start-Sleep 60' -WindowStyle Hidden -PassThru; [IO.File]::WriteAllText('{}', [string]$child.Id); Start-Sleep 60", marker.display().to_string().replace('\'', "''"));
+    let script = "Start-Sleep -Milliseconds 500; $child = Start-Process powershell.exe -ArgumentList '-NoProfile','-Command','Start-Sleep 60' -WindowStyle Hidden -PassThru; [Console]::Out.WriteLine($child.Id); [Console]::Out.Flush(); Start-Sleep 60";
     let mut command = std::process::Command::new("powershell.exe");
     platform_windows::configure(&mut command);
-    let mut child = command.args(["-NoProfile", "-Command", &script]).spawn().unwrap();
+    let mut child = command
+        .args(["-NoProfile", "-Command", script])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
     let job = platform_windows::ProcessJob::for_process(child.id()).unwrap();
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
-    let pid = loop {
-        if let Ok(Some(pid)) =
-            fs::read_to_string(&marker).map(|value| value.trim().parse::<u32>().ok())
-        {
-            break pid;
-        }
-        assert!(std::time::Instant::now() < deadline, "PowerShell did not start the descendant");
-        std::thread::sleep(std::time::Duration::from_millis(50));
-    };
+    // Two cold PowerShell starts can take well over 20 s while ~1,100 tests
+    // share a hosted Windows runner, so block on the leader announcing the
+    // descendant's PID instead of polling a file against a tight deadline.
+    // The bound only stops a broken script from hanging CI.
+    let stdout = child.stdout.take().unwrap();
+    let (ready, announced) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut line = String::new();
+        let _ = std::io::BufReader::new(stdout).read_line(&mut line);
+        let _ = ready.send(line);
+    });
+    let pid: u32 = announced
+        .recv_timeout(std::time::Duration::from_secs(180))
+        .expect("PowerShell did not start the descendant")
+        .trim()
+        .parse()
+        .expect("PowerShell did not report the descendant's PID");
     // Keep the descendant handle open so PID reuse cannot make the check lie.
     let descendant = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
     assert!(!descendant.is_null());
