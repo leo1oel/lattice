@@ -5906,6 +5906,10 @@ msgstr "Down arrow"
 msgid "Down double arrow"
 msgstr "Down double arrow"
 
+#: src/telemetry/saved-downloads.ts
+msgid "Download"
+msgstr "Download"
+
 #: src/project/paper-row.tsx
 msgid "Download {url}"
 msgstr "Download {url}"
@@ -14499,6 +14503,7 @@ msgstr "Saved on this Mac for your other papers: item names, files and sources, 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/telemetry/saved-downloads.ts
 msgid "Saved to {path}"
 msgstr "Saved to {path}"
 

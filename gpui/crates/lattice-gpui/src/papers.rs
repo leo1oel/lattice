@@ -262,6 +262,8 @@ pub struct PapersPanel {
     /// match against it (the Zotero browser).
     pub(crate) list_revision: u64,
     input: Entity<InputState>,
+    /// The interface language the search box's placeholder was set in.
+    locale: lattice_i18n::Locale,
     /// The query the text hits answer, and the hits by search identity.
     text_query: String,
     pub(crate) text_hits: HashMap<String, TextMatch>,
@@ -354,6 +356,7 @@ impl PapersPanel {
             list_revision: 0,
             hover: None,
             input,
+            locale: lattice_i18n::locale(),
             text_query: String::new(),
             text_hits: HashMap::new(),
             text_search: TextSearch::Idle,

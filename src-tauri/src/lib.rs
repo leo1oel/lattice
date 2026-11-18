@@ -32,6 +32,7 @@ mod pdf_window;
 mod perf_lab;
 mod project_tab_groups;
 mod save_before_close;
+mod saved_downloads;
 #[cfg(target_os = "macos")]
 mod title_bar;
 #[cfg(not(target_os = "macos"))]
@@ -92,7 +93,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
                 tauri::webview::NewWindowResponse::Deny
             }
         });
-    let builder = if center { builder.center() } else { builder };
+    let builder = saved_downloads::report_saved(if center { builder.center() } else { builder });
     let window = title_bar::overlay(builder).build()?;
     #[cfg(windows)]
     window_placement::keep_reachable(&window);
