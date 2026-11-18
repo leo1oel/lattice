@@ -95,6 +95,34 @@ ones in `<app data>/themes/<id>.json`. Installing validates the file and keeps
 a copy; the picked file can move or change afterwards. Nothing in a project
 folder installs or selects a theme.
 
+## The theme marketplace
+
+`lattice-core::registry::Registry` reads the signed list that
+[leo1oel/lattice-plugins](https://github.com/leo1oel/lattice-plugins) publishes
+to GitHub Pages (`index.json`, `blocked.json` and their `.minisig` files).
+
+- **Signatures.** Each file must verify against one of the two minisign keys
+  compiled into `registry/verify.rs` (primary and backup, so the registry can
+  rotate without a release), and its trusted comment must read
+  `lattice-plugins file:<name> serial:<serial>` with the file's own name and
+  serial. Both files must carry the same serial.
+- **Rollback.** The last verified pair is cached in
+  `<app data>/registry/cache.json` and verified again on every read. A list
+  whose serial is lower than the cached one is refused and the cache stays;
+  so does one that fails verification. Offline, the cache is served with the
+  time it was fetched.
+- **Installing** downloads the theme's `url`, checks its size and sha256
+  against the signed index, and installs it through `ThemeStore::install_text`.
+  `<app data>/registry/installed.json` records the version, so an update is
+  offered when the index lists a higher one.
+- **Block list.** A theme whose id and version fall under a `blocked.json`
+  entry (`*` or an npm-style range) is not installed, and an installed
+  registry theme that becomes blocked is reported with the entry's reason.
+  Themes installed from a file are never matched.
+
+The Tauri commands are `registry_index` (`refresh: true` fetches first) and
+`registry_install_theme` in `src-tauri/src/ipc/themes.rs`.
+
 ## How each app applies a theme
 
 - **Tauri:** `src/settings/use-appearance.ts` asks `themes_resolve`

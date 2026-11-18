@@ -2640,6 +2640,91 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("Could not remove the theme: {error}", &[("error", Arg::Param(0))]),
     },
     Entry {
+        file: "registry/verify.rs",
+        literal: "The registry's {file} has no valid signature.",
+        text: Text::Message("The registry's {file} has no valid signature.", &[("file", Arg::Param(0))]),
+    },
+    Entry {
+        file: "registry/verify.rs",
+        literal: "The registry's {file} is signed for another file or serial.",
+        text: Text::Message("The registry's {file} is signed for another file or serial.", &[("file", Arg::Param(0))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The registry's list is in a newer format. Update Lattice to use it.",
+        text: Text::Message("The registry's list is in a newer format. Update Lattice to use it.", &[]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The registry is updating its list. Try again in a few minutes.",
+        text: Text::Message("The registry is updating its list. Try again in a few minutes.", &[]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The registry sent an older list (serial {} after {}), so Lattice kept the one it has.",
+        text: Text::Message("The registry sent an older list (serial {sent} after {kept}), so Lattice kept the one it has.", &[("sent", Arg::Param(0)), ("kept", Arg::Param(1))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The registry could not be reached: {err}",
+        text: Text::Message("The registry could not be reached: {error}", &[("error", Arg::Param(0))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The registry's {file} could not be read: {err}",
+        text: Text::Message("The registry's {file} could not be read: {error}", &[("file", Arg::Param(0)), ("error", Arg::Param(1))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "Load the theme list before installing a theme from it.",
+        text: Text::Message("Load the theme list before installing a theme from it.", &[]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "\"{id}\" is not in the theme list.",
+        text: Text::Message("\"{id}\" is not in the theme list.", &[("id", Arg::Param(0))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "{} {} is blocked: {}",
+        text: Text::Message("{name} {version} is blocked: {reason}", &[("name", Arg::Param(0)), ("version", Arg::Param(1)), ("reason", Arg::Param(2))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The theme download failed: {err}",
+        text: Text::Message("The theme download failed: {error}", &[("error", Arg::Param(0))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The downloaded theme is not the size the theme list gives.",
+        text: Text::Message("The downloaded theme is not the size the theme list gives.", &[]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The downloaded theme does not match the theme list's checksum.",
+        text: Text::Message("The downloaded theme does not match the theme list's checksum.", &[]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "The downloaded theme is not \"{id}\" {}.",
+        text: Text::Message("The downloaded theme is not \"{id}\" {version}.", &[("id", Arg::Param(0)), ("version", Arg::Param(1))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "{url} is not an https address.",
+        text: Text::Message("{url} is not an https address.", &[("url", Arg::Param(0))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "{url} is larger than expected.",
+        text: Text::Message("{url} is larger than expected.", &[("url", Arg::Param(0))]),
+    },
+    Entry {
+        file: "registry.rs",
+        literal: "Could not save the theme list: {err}",
+        text: Text::Message("Could not save the theme list: {error}", &[("error", Arg::Param(0))]),
+    },
+    Entry {
         file: "ipc/themes.rs",
         literal: "Could not show the themes folder in Finder: {error}",
         text: Text::Message("Could not show the themes folder in Finder: {error}", &[("error", Arg::Param(0))]),

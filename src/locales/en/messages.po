@@ -53,6 +53,10 @@ msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "“{destinationName}” already exists there. Choose another location"
 
 #: src/platform/host-errors-themes.ts
+msgid "\"{id}\" is not in the theme list."
+msgstr "\"{id}\" is not in the theme list."
+
+#: src/platform/host-errors-themes.ts
 msgid "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
 msgstr "\"{id}\" is the id of a theme that comes with Lattice. Give your theme its own id."
 
@@ -808,6 +812,10 @@ msgstr "{name} {edition} (preprint)"
 msgid "{name} {edition} Rebuttal"
 msgstr "{name} {edition} Rebuttal"
 
+#: src/platform/host-errors-themes.ts
+msgid "{name} {version} is blocked: {reason}"
+msgstr "{name} {version} is blocked: {reason}"
+
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
 msgstr "{name} can't be read. {reason}"
@@ -1157,6 +1165,14 @@ msgstr "{totalPages} total, end of the body not located in the PDF"
 #: src/project/manuscript-checklist.tsx
 msgid "{totalPages} total, included files not read"
 msgstr "{totalPages} total, included files not read"
+
+#: src/platform/host-errors-themes.ts
+msgid "{url} is larger than expected."
+msgstr "{url} is larger than expected."
+
+#: src/platform/host-errors-themes.ts
+msgid "{url} is not an https address."
+msgstr "{url} is not an https address."
 
 #: src/project/submission-review.tsx
 msgid "{venue} camera-ready copy: anonymity is not checked."
@@ -5086,6 +5102,10 @@ msgstr "Could not save the project"
 #: src/papers/bibliography-audit.tsx
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "Could not save the report on this device. Keep this window open to retain the results."
+
+#: src/platform/host-errors-themes.ts
+msgid "Could not save the theme list: {error}"
+msgstr "Could not save the theme list: {error}"
 
 #: src/platform/host-errors-themes.ts
 msgid "Could not save the theme: {error}"
@@ -9397,6 +9417,10 @@ msgstr "Load more"
 #: src/history/compare-versions.tsx
 msgid "Load older versions"
 msgstr "Load older versions"
+
+#: src/platform/host-errors-themes.ts
+msgid "Load the theme list before installing a theme from it."
+msgstr "Load the theme list before installing a theme from it."
 
 #: src/app/app-editor-panels.tsx
 msgid "Loading annotations…"
@@ -16475,6 +16499,18 @@ msgstr "The downloaded {what} failed its security check."
 msgid "The downloaded {what} is larger than expected, so it was refused."
 msgstr "The downloaded {what} is larger than expected, so it was refused."
 
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme does not match the theme list's checksum."
+msgstr "The downloaded theme does not match the theme list's checksum."
+
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme is not \"{id}\" {version}."
+msgstr "The downloaded theme is not \"{id}\" {version}."
+
+#: src/platform/host-errors-themes.ts
+msgid "The downloaded theme is not the size the theme list gives."
+msgstr "The downloaded theme is not the size the theme list gives."
+
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
@@ -16989,6 +17025,34 @@ msgstr "The realtime connection closed."
 msgid "The reference is verified"
 msgstr "The reference is verified"
 
+#: src/platform/host-errors-themes.ts
+msgid "The registry could not be reached: {error}"
+msgstr "The registry could not be reached: {error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry is updating its list. Try again in a few minutes."
+msgstr "The registry is updating its list. Try again in a few minutes."
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry sent an older list (serial {sent} after {kept}), so Lattice kept the one it has."
+msgstr "The registry sent an older list (serial {sent} after {kept}), so Lattice kept the one it has."
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} could not be read: {error}"
+msgstr "The registry's {file} could not be read: {error}"
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} has no valid signature."
+msgstr "The registry's {file} has no valid signature."
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's {file} is signed for another file or serial."
+msgstr "The registry's {file} is signed for another file or serial."
+
+#: src/platform/host-errors-themes.ts
+msgid "The registry's list is in a newer format. Update Lattice to use it."
+msgstr "The registry's list is in a newer format. Update Lattice to use it."
+
 #: src/platform/host-errors-project.ts
 msgid "The rename did not change any files."
 msgstr "The rename did not change any files."
@@ -17175,6 +17239,10 @@ msgstr "The TeX Live repository could not be searched.\n"
 #: src/platform/host-errors-workspace.ts
 msgid "The text is too large to save as a copy."
 msgstr "The text is too large to save as a copy."
+
+#: src/platform/host-errors-themes.ts
+msgid "The theme download failed: {error}"
+msgstr "The theme download failed: {error}"
 
 #: src/platform/host-errors-themes.ts
 msgid "The theme file is larger than 256 KiB."

@@ -10,6 +10,7 @@
 
 use std::path::PathBuf;
 
+use lattice_core::registry::{Listing, Registry};
 use lattice_core::themes::format::{AccentChoice, Appearance, Color};
 use lattice_core::themes::{ThemeInfo, ThemeStore};
 use serde::{Deserialize, Serialize};
@@ -23,11 +24,15 @@ const REFUSED: &str = "Themes can only be installed from a Lattice window.";
 
 pub(crate) struct Themes {
     store: std::sync::Arc<ThemeStore>,
+    registry: std::sync::Arc<Registry>,
 }
 
 impl Themes {
     pub(crate) fn new(resources: &lattice_core::host::Resources) -> Self {
-        Self { store: std::sync::Arc::new(ThemeStore::new(&resources.app_data_dir)) }
+        Self {
+            store: std::sync::Arc::new(ThemeStore::new(&resources.app_data_dir)),
+            registry: std::sync::Arc::new(Registry::new(&resources.app_data_dir)),
+        }
     }
 }
 
@@ -59,6 +64,28 @@ pub async fn themes_remove<R: Runtime>(
     run_blocking("Theme remove", move || store.remove(&id)).await?;
     let _ = app.emit(CHANGED_EVENT, ());
     Ok(())
+}
+
+/// The theme marketplace's signed list (`lattice_core::registry`): the cached
+/// one, or fetched and verified first when `refresh`, with the update and
+/// block state of the themes installed from it.
+#[tauri::command]
+pub async fn registry_index(themes: State<'_, Themes>, refresh: bool) -> Result<Listing, String> {
+    let (store, registry) = (themes.store.clone(), themes.registry.clone());
+    run_blocking("Theme registry", move || Ok(registry.listing(&store, refresh))).await
+}
+
+/// Installs or updates a theme from the cached list, by id.
+#[tauri::command]
+pub async fn registry_install_theme<R: Runtime>(
+    themes: State<'_, Themes>, app: AppHandle<R>, webview: Webview<R>, request: Request<'_>,
+    id: String,
+) -> Result<ThemeInfo, String> {
+    caller_window(&webview, &request).map_err(|_| REFUSED.to_string())?;
+    let (store, registry) = (themes.store.clone(), themes.registry.clone());
+    let info = run_blocking("Theme install", move || registry.install_theme(&store, &id)).await?;
+    let _ = app.emit(CHANGED_EVENT, ());
+    Ok(info)
 }
 
 /// Shows the installed themes' folder in Finder, creating it first.
