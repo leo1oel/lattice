@@ -11,7 +11,7 @@ use gpui_webview::WebView;
 use super::{DRAWN_POLL, Island, IslandState};
 use crate::{
     bridge,
-    native::{keep_drawing_when_occluded, lab_ignore_occlusion},
+    native::{keep_drawing_when_occluded, lab_ignore_occlusion, refuse_keyboard_while_hidden},
     navigation::{navigable, origin_of},
     protocol,
 };
@@ -190,6 +190,7 @@ impl Island {
             mut inbox,
             token,
         } = built;
+        refuse_keyboard_while_hidden(&webview, window);
         if lab_ignore_occlusion() {
             keep_drawing_when_occluded(&webview);
         }

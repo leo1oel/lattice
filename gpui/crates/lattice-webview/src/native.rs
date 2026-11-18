@@ -32,6 +32,135 @@ pub(crate) fn keep_drawing_when_occluded(webview: &WebView) {
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn keep_drawing_when_occluded(_: &WebView) {}
 
+/// A hidden page never keeps the keyboard. WebKit makes a page's view
+/// AppKit's first responder when the page focuses an element of its own (the
+/// sheet's Univer does as it loads), hidden or not. A hidden view holding it
+/// is later dropped onto the window, where typed letters reach nothing while
+/// GPUI's focus is elsewhere (Enter, a key equivalent, still does). Hiding a
+/// page hands the keyboard back first (gpui-webview's `set_visible`), but a
+/// page built hidden, or focusing itself just after its island is hidden,
+/// takes it after that.
+///
+/// So Wry's view class refuses `becomeFirstResponder` while hidden (AppKit's
+/// `makeFirstResponder:`, which WebKit calls, never asks
+/// `acceptsFirstResponder`). A refusal leaves the window itself first
+/// responder, since AppKit has already resigned the previous one; the view
+/// therefore queues, on the main run loop, giving the keyboard back to GPUI's
+/// view, which each page's view remembers, if nothing has taken it by then.
+/// The methods go on Wry's class once per process; it overrides neither.
+#[cfg(target_os = "macos")]
+pub(crate) fn refuse_keyboard_while_hidden(webview: &WebView, window: &gpui::Window) {
+    use objc2::{
+        ffi, msg_send,
+        runtime::{AnyClass, AnyObject, Bool, Imp, Sel},
+        sel,
+    };
+    use std::{ffi::c_void, sync::Once};
+    use wry::WebViewExtMacOS as _;
+    use wry::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    /// The key GPUI's view is kept under on each page's view.
+    static GPUI_VIEW: u8 = 0;
+    fn gpui_view_key() -> *const c_void {
+        std::ptr::from_ref(&GPUI_VIEW).cast()
+    }
+
+    extern "C-unwind" fn become_first_responder(this: &AnyObject, _: Sel) -> Bool {
+        // SAFETY: on the main thread, on an instance of Wry's class or of a
+        // subclass Key-Value Observing made of it, so WKWebView's own answer
+        // is the next one up from Wry's class, not from the instance's.
+        unsafe {
+            let hidden: Bool = msg_send![this, isHiddenOrHasHiddenAncestor];
+            if hidden.as_bool() {
+                let _: () = msg_send![
+                    this,
+                    performSelectorOnMainThread: sel!(latticeReturnKeyboard),
+                    withObject: std::ptr::null::<AnyObject>(),
+                    waitUntilDone: Bool::NO
+                ];
+                return Bool::NO;
+            }
+            let Some(superclass) = AnyClass::get(c"WryWebView").and_then(AnyClass::superclass)
+            else {
+                return Bool::YES;
+            };
+            msg_send![super(this, superclass), becomeFirstResponder]
+        }
+    }
+
+    extern "C-unwind" fn return_keyboard(this: &AnyObject, _: Sel) {
+        // SAFETY: on the main thread; every object is checked before use.
+        unsafe {
+            let window: *mut AnyObject = msg_send![this, window];
+            let gpui_view = ffi::objc_getAssociatedObject(this, gpui_view_key());
+            if window.is_null() || gpui_view.is_null() {
+                return;
+            }
+            let responder: *mut AnyObject = msg_send![window, firstResponder];
+            if responder == window {
+                let _: Bool = msg_send![window, makeFirstResponder: gpui_view];
+            }
+        }
+    }
+
+    static INSTALL: Once = Once::new();
+    INSTALL.call_once(|| {
+        let Some(class) = AnyClass::get(c"WryWebView") else {
+            log::warn!("WryWebView is not registered; hidden pages may take the keyboard");
+            return;
+        };
+        let class = std::ptr::from_ref(class).cast_mut();
+        // SAFETY: on the main thread; each function matches its method's
+        // signature (`- (BOOL)becomeFirstResponder`, `- (void)latticeReturnKeyboard`).
+        unsafe {
+            let become_imp: Imp = std::mem::transmute(
+                become_first_responder as extern "C-unwind" fn(&AnyObject, Sel) -> Bool,
+            );
+            let return_imp: Imp =
+                std::mem::transmute(return_keyboard as extern "C-unwind" fn(&AnyObject, Sel));
+            let returns = ffi::class_addMethod(
+                class,
+                sel!(latticeReturnKeyboard),
+                return_imp,
+                c"v@:".as_ptr(),
+            );
+            let refuses = returns.as_bool()
+                && ffi::class_addMethod(
+                    class,
+                    sel!(becomeFirstResponder),
+                    become_imp,
+                    c"B@:".as_ptr(),
+                )
+                .as_bool();
+            if !refuses {
+                log::warn!("WryWebView already answers becomeFirstResponder");
+            }
+        }
+    });
+
+    let Ok(RawWindowHandle::AppKit(handle)) =
+        HasWindowHandle::window_handle(window).map(|h| h.as_raw())
+    else {
+        return;
+    };
+    let view = webview.raw().webview();
+    // SAFETY: on the main thread; GPUI's view is retained by the page's view,
+    // which never retains the page's view back.
+    unsafe {
+        ffi::objc_setAssociatedObject(
+            objc2::rc::Retained::as_ptr(&view)
+                .cast::<AnyObject>()
+                .cast_mut(),
+            gpui_view_key(),
+            handle.ns_view.as_ptr().cast(),
+            ffi::OBJC_ASSOCIATION_RETAIN_NONATOMIC,
+        );
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn refuse_keyboard_while_hidden(_: &WebView, _: &gpui::Window) {}
+
 /// Whether AppKit's first responder is the page's view or inside it.
 #[cfg(target_os = "macos")]
 pub(crate) fn native_page_focused(webview: &WebView) -> Option<bool> {
