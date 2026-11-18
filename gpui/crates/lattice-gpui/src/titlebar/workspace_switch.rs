@@ -380,7 +380,9 @@ pub(super) fn workspace_switcher(
             .line_height(px(14.))
             .text_color(ink)
             .when(!menu_open, |tab| {
-                tab.tooltip(move |_, cx| -> AnyView { LatticeTooltip::view(tooltip.clone(), None, cx) })
+                tab.tooltip(move |_, cx| -> AnyView {
+                    LatticeTooltip::view(tooltip.clone(), None, cx)
+                })
             })
             .on_click(move |event, window, cx| {
                 let id = switch_id.clone();
