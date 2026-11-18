@@ -48,16 +48,20 @@ jobs:
             range="$GITHUB_REF_NAME"
           fi
 
-          # A release that needs more than its commit subjects (a minor
-          # version's highlights, a migration, a warning) carries a
-          # hand-written lead in .github/release-notes/<tag>.md, reviewed in
-          # the version-bump pull request like any other change.
+          # Every release carries a hand-written lead in
+          # .github/release-notes/<tag>.md (its highlights for writers, and a
+          # migration or warning when there is one), reviewed in the
+          # version-bump pull request like any other change; the app's
+          # What's new is written from it. bump-version.mjs refuses to bump
+          # without one, so a tag without its lead slipped past it: stop
+          # before the release ships with only its commit subjects.
           : > "$notes_path"
           highlights_path=".github/release-notes/${GITHUB_REF_NAME}.md"
-          if [[ -f "$highlights_path" ]]; then
-            cat "$highlights_path" >> "$notes_path"
-            printf '\n' >> "$notes_path"
+          if [[ ! -f "$highlights_path" ]]; then
+            echo "::error file=$highlights_path::No release lead for $GITHUB_REF_NAME. Commit $highlights_path (and its src/release-notes JSON) and tag again."
+            exit 1
           fi
+          { cat "$highlights_path"; printf '\n'; } >> "$notes_path"
 
           printf '## Changes in %s\n\n' "$GITHUB_REF_NAME" >> "$notes_path"
           change_count=0

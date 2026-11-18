@@ -80,14 +80,17 @@ The consequence for maintainers is that anything a generated line cannot convey
 rotation warning below — goes in `.github/release-notes/vX.Y.Z.md`, committed
 with the version bump. The workflow puts that file above the generated list, so
 the lead is reviewed with the bump instead of being edited into a published
-Release. It is per-release and optional, not a running changelog.
+Release. It is per-release, not a running changelog.
 
 The same lead feeds the app's What's new sheet. Write it before running
 `bump-version.mjs`, which then writes `src/release-notes/X.Y.Z.json` from its
 highlights and fixes (`scripts/release-notes.mjs`) with the Chinese left
 empty; fill in every `zh` before the release commit
-(`src/release-notes/release-notes.test.ts` fails on an empty one). A release
-without a lead keeps showing the last one that had one.
+(`src/release-notes/release-notes.test.ts` fails on an empty one).
+`bump-version.mjs` exits before editing anything when the lead is missing, and
+`release.yml` fails a tag without one. `--no-notes` bumps without a lead on
+purpose; such a release keeps showing the last What's new that had one, and its
+tag still needs the lead file before `release.yml` will publish it.
 
 ## What `release.yml` does
 
@@ -100,7 +103,8 @@ create the Release and upload assets.
    `git describe --tags --abbrev=0 <tag>^`, lists every non-merge commit in that
    range as `- <subject> (<short hash>)`, and skips the `Release v…` commit
    itself. Falls back to "Maintenance release." when the range is empty. Puts
-   `.github/release-notes/<tag>.md` above that list when the file exists. Appends
+   `.github/release-notes/<tag>.md` above that list, and fails when the tag
+   has no such file. Appends
    the Apple silicon install blurb and a `**Full Changelog**` compare link, then
    passes the whole thing to the build step through a heredoc-delimited
    `$GITHUB_OUTPUT`.
