@@ -5,7 +5,10 @@ import type { FileViewState } from "../app-types";
 import { AnnotationRounds } from "../app/annotation-rounds";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
 import type { PdfPreview as RealPdfPreview } from "../pdf/pdf-viewer";
+import { SmallStore } from "../trellis/trellis-small-store";
+import type { CompiledPdfTabs, RootPdfTab } from "../trellis/compiled-pdf-tabs";
 import { ProjectPdfPanel } from "./project-pdf-panel";
+import type { RootPdfs } from "./root-pdf-tabs";
 
 /**
  * The panel decides what the compiled PDF is handed and where it renders; the
@@ -172,6 +175,41 @@ describe("ProjectPdfPanel", () => {
     fireEvent.click(await screen.findByTestId("pdf-view-state"));
     expect(state.updates.every((update) => update.path === "main.tex")).toBe(true);
     expect(state.updates).toHaveLength(3);
+  });
+
+  it("turned to another root document and back, reopens each on its own place, not the one it left", async () => {
+    const states: Record<string, FileViewState> = { "main.tex": { pdf: pdfViewState(12) } };
+    const store = {
+      getFileViewState: (path: string) => states[path],
+      onFileViewState: (path: string, update: Partial<FileViewState>) => { states[path] = { ...states[path], ...update }; },
+    };
+    // No other document's tab is mounted: only the live viewer is under test.
+    const rootPdfs = (document: string): RootPdfs => ({
+      tabs: { mounted: new SmallStore<{ tabs: readonly RootPdfTab[] }>({ tabs: [] }), shown: vi.fn() } as unknown as CompiledPdfTabs,
+      shown: { document, requested: true },
+      switchState: { subscribe: () => () => {}, switching: () => false } as unknown as RootPdfs["switchState"],
+      shownBytes: new Map(), shownVersions: {}, syncTarget: null, canForwardSync: false, onForwardSync: vi.fn(), onSource: vi.fn(),
+    });
+    const { rerenderWith } = renderPanel({ activeFile: "sec/experiments.tex", viewState: store, rootPdfs: rootPdfs("main.tex") });
+    const paper = await within(pdfHost).findByTestId("pdf-preview");
+    // Read from a section, the paper's place is filed under the paper too, where its own tab reads it.
+    fireEvent.click(within(paper).getByTestId("pdf-view-state"));
+    expect(states["main.tex"]?.pdf?.page).toBe(7);
+    expect(states["sec/experiments.tex"]?.pdf?.page).toBe(7);
+
+    // Rebuilt, the paper stays the viewer it was.
+    rerenderWith({ activeFile: "sec/experiments.tex", rootPdfs: rootPdfs("main.tex") });
+    expect(within(pdfHost).getByTestId("pdf-preview")).toBe(paper);
+
+    // The rebuttal is built: it opens on its own place, here the top, not the paper's page 7.
+    rerenderWith({ activeFile: "rebuttal.tex", rootPdfs: rootPdfs("rebuttal.tex") });
+    const rebuttal = within(pdfHost).getByTestId("pdf-preview");
+    expect(rebuttal).not.toBe(paper);
+    expect(rebuttal.dataset.restoredPage).toBe("");
+
+    // The paper is built again from its section: back on page 7, not on the rebuttal's place.
+    rerenderWith({ activeFile: "sec/experiments.tex", rootPdfs: rootPdfs("main.tex") });
+    expect(within(pdfHost).getByTestId("pdf-preview").dataset.restoredPage).toBe("7");
   });
 
   it("offers the outline only for a TeX document", async () => {
