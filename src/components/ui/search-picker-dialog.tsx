@@ -75,6 +75,8 @@ export function PickerDialog<T>(props: {
   footer?: ReactNode;
   /** Added to the dialog's own class, for a picker that sizes itself differently. */
   className?: string;
+  /** Where focus goes when it closes, when that is not what held focus as it opened. */
+  returnFocus?: HTMLElement | null;
   onClose: () => void;
   onSelect: (item: T) => void;
   /** The highlighted item, whenever it changes (for prefetching). */
@@ -119,7 +121,7 @@ export function PickerDialog<T>(props: {
   };
 
   return (
-    <ModalDialog label={props.label} onClose={props.onClose}>
+    <ModalDialog label={props.label} onClose={props.onClose} returnFocus={props.returnFocus}>
       <div className={props.className ? `modal quick-open-modal ${props.className}` : "modal quick-open-modal"} data-detail={props.detailPlacement ?? "below"}>
         <div className="quick-open-header">
           <SearchField

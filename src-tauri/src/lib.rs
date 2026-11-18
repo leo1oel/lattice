@@ -228,6 +228,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let events = std::sync::Arc::new(ipc::WindowEvents(app.handle().clone()));
     app.manage(synara::SynaraRuntime::new(&resources, events));
     app.manage(presentation::PresentationRuntime::new(&resources)?);
+    app.manage(ipc::plugins::Plugins::new(&resources));
     let background = browser_host_launch();
     // Explicit, browser-host and measurement launches should use their own workspace.
     let restore_tabs =
@@ -645,6 +646,15 @@ pub fn run() {
             ipc::terminal::terminal_ack,
             ipc::terminal::terminal_running_command,
             ipc::terminal::terminal_close,
+            ipc::plugins::plugins_list,
+            ipc::plugins::plugins_commands,
+            ipc::plugins::plugins_install_folder,
+            ipc::plugins::plugins_install_url,
+            ipc::plugins::plugins_set_enabled,
+            ipc::plugins::plugins_remove,
+            ipc::plugins::plugins_set_secret,
+            ipc::plugins::plugins_run,
+            ipc::plugins::plugins_cancel,
             save_before_close::enable_save_before_close,
             save_before_close::disable_save_before_close,
             save_before_close::finish_save_before_close,

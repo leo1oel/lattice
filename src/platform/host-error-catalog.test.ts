@@ -125,8 +125,6 @@ const UNTRANSLATED: Record<string, string> = {
   "research_env.rs": "the research environment answers the agent, never the interface",
   "research_env/": "the research environment answers the agent, never the interface",
   // Until the shells expose the plugin host (the next layer of the plugin stack), no command returns these.
-  "plugins/": "no command returns the plugin host's errors yet; the Tauri plugin layer translates them",
-  "plugins.rs": "no command returns the plugin host's errors yet; the Tauri plugin layer translates them",
   "process_inspector.rs": "Synara's `ps` replacement prints it to the sidecar, not the interface",
   "citation_audit/proceedings.rs": "a failed proceedings lookup keeps the index's result; the reason is dropped",
   "citation_batch.rs: Pacing queue busy": "becomes a batch failure code, shown as the audit's own status",
