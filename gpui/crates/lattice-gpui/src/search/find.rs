@@ -101,10 +101,10 @@ impl ProjectFind {
         let subscription =
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Change => this.query_changed(cx),
-                InputEvent::PressEnter { secondary, .. } if !secondary => {
-                    if this.showing_results(cx) {
-                        this.open(this.active, window, cx);
-                    }
+                InputEvent::PressEnter { secondary, .. }
+                    if !secondary && this.showing_results(cx) =>
+                {
+                    this.open(this.active, window, cx);
                 }
                 _ => {}
             });
@@ -360,10 +360,10 @@ impl ProjectFind {
             .fill(palette.accent_soft)
             .radius(px(6.));
         let lit = hover.lit(cx);
-        if lit != self.adopted {
-            if let Some(lit) = lit.filter(|lit| *lit < count) {
-                self.active = lit;
-            }
+        if lit != self.adopted
+            && let Some(lit) = lit.filter(|lit| *lit < count)
+        {
+            self.active = lit;
         }
         let hover = hover.follow((count > 0).then_some(self.active), cx);
         self.adopted = hover.lit(cx);

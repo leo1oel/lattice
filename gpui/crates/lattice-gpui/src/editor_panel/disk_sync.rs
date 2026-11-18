@@ -147,7 +147,7 @@ impl EditorPanel {
                 };
                 match moved {
                     Some(moved) if moved != this.relative => {
-                        let previous = std::mem::replace(&mut this.relative, String::new());
+                        let previous = std::mem::take(&mut this.relative);
                         this.moved_to(moved.clone(), cx);
                         notices::info(
                             t!(

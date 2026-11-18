@@ -183,7 +183,9 @@ async fn rasterize_pdf_image(
         let size = image.size(0);
         let bgra = image.as_bytes(0).ok_or("an empty figure")?;
         let rgba: Vec<u8> = bgra
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .flat_map(|pixel| [pixel[2], pixel[1], pixel[0], pixel[3]])
             .collect();
         pixmap_from_rgba(size.width.0 as u32, size.height.0 as u32, &rgba)

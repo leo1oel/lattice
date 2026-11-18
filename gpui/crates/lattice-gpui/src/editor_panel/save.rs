@@ -255,7 +255,7 @@ impl EditorPanel {
                 (written_text != content && same_file && !typed_on).then_some(written_text)
             })?;
             let Some(merged) = merged else {
-                return Ok(this.update(cx, |this, _| this.status == SaveStatus::Saved)?);
+                return this.update(cx, |this, _| this.status == SaveStatus::Saved);
             };
             this.update(cx, |this, cx| this.replace_text(merged, cx))?;
             Ok(true)

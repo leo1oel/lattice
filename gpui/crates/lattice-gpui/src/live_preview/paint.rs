@@ -106,11 +106,11 @@ fn rgb(r: f32, g: f32, b: f32) -> Color {
 
 /// Why a display list cannot be drawn exactly (`None` when it can), over
 /// `lines` (all of its lines when `None`) and the items outside them.
-pub fn inexact_reason<'a>(
+pub fn inexact_reason(
     dl: &DisplayList,
     fonts: &FontStore,
     images: &ImageStore,
-    lines: Option<&mut dyn Iterator<Item = &'a Line>>,
+    lines: Option<&mut dyn Iterator<Item = &Line>>,
 ) -> Option<String> {
     let flags = dl.flag_names();
     if !flags.is_empty() {
@@ -600,7 +600,11 @@ pub fn compose(job: PageJob) -> Option<Pixmap> {
         }
         JobSource::Fallback { page, pixels } => {
             if let Some(pixels) = pixels {
-                for (pixel, bgra) in pixmap.pixels_mut().iter_mut().zip(pixels.chunks_exact(4)) {
+                for (pixel, bgra) in pixmap
+                    .pixels_mut()
+                    .iter_mut()
+                    .zip(pixels.as_chunks::<4>().0)
+                {
                     *pixel = tiny_skia::ColorU8::from_rgba(bgra[2], bgra[1], bgra[0], bgra[3])
                         .premultiply();
                 }

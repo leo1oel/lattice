@@ -93,7 +93,7 @@ impl Outcome {
 /// What the panel asks of the window.
 pub enum AnnotationsPanelEvent {
     /// Open the note's file and show its passage.
-    Open(EditorComment),
+    Open(Box<EditorComment>),
     /// Open a file to annotate (the empty panel's Open a file).
     OpenFile,
     /// Export review PDF… over the live PDF.
@@ -117,11 +117,18 @@ enum Writing {
 /// What the panel reads of its window: the project and the file the writer
 /// works in, and an open file's text (for its notes' lines and sections).
 pub struct PanelHost {
-    pub project: Box<dyn Fn(&App) -> Option<(PathBuf, Option<String>)>>,
-    pub source: Box<dyn Fn(&str, &App) -> Option<String>>,
+    pub project: ReadProject,
+    pub source: ReadSource,
     /// The live PDF's panel, whose viewer hosts a review copy.
-    pub live_pdf: Box<dyn Fn(&App) -> Option<Entity<PdfPanel>>>,
+    pub live_pdf: ReadLivePdf,
 }
+
+pub type ReadProject = Box<dyn Fn(&App) -> Option<(PathBuf, Option<String>)>>;
+pub type ReadSource = Box<dyn Fn(&str, &App) -> Option<String>>;
+pub type ReadLivePdf = Box<dyn Fn(&App) -> Option<Entity<PdfPanel>>>;
+
+/// Notes grouped under their section heading, each with its line.
+type NoteGroups = Vec<(Option<String>, Vec<(EditorComment, Option<u32>)>)>;
 
 pub struct AnnotationsPanel {
     focus_handle: FocusHandle,
@@ -532,10 +539,7 @@ impl AnnotationsPanel {
 
     /// The visible notes in reading order, under the file and section each
     /// sits in: the open file first, then the others by name.
-    fn groups(
-        &self,
-        visible: Vec<EditorComment>,
-    ) -> Vec<(Option<String>, Vec<(EditorComment, Option<u32>)>)> {
+    fn groups(&self, visible: Vec<EditorComment>) -> NoteGroups {
         let mut by_file: Vec<(String, Vec<EditorComment>)> = Vec::new();
         for comment in visible {
             match by_file.iter_mut().find(|(path, _)| *path == comment.path) {
@@ -550,7 +554,7 @@ impl AnnotationsPanel {
                 .then_with(|| a.cmp(b))
         });
         let many = by_file.len() > 1;
-        let mut out: Vec<(Option<String>, Vec<(EditorComment, Option<u32>)>)> = Vec::new();
+        let mut out: NoteGroups = Vec::new();
         for (path, notes) in by_file {
             let source = self.sources.get(&path);
             let sections = source

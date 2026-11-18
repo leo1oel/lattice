@@ -589,8 +589,8 @@ impl Session {
             Reply::Status { source_revision } => {
                 // The revision before any change of ours: the files the base
                 // PDF was built from.
-                if !self.revisions.contains_key(&-1) {
-                    self.revisions.insert(-1, source_revision);
+                if let std::collections::hash_map::Entry::Vacant(e) = self.revisions.entry(-1) {
+                    e.insert(source_revision);
                     self.model.base_revision = source_revision;
                     self.latest_revision = self.latest_revision.max(source_revision);
                     if self.pending_base == Some(0) {

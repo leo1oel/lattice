@@ -102,7 +102,7 @@ impl OverleafPicker {
             PastedLink::NeedsJoin { project_name, url } => (
                 link_off,
                 match project_name {
-                    Some(name) => t!("This account hasn’t joined “{0}” yet", name).into(),
+                    Some(name) => t!("This account hasn’t joined “{0}” yet", name),
                     None => t!("This account hasn’t joined this shared project yet").into(),
                 },
                 t!("Open the link in your browser and choose Join project on Overleaf, then paste it here again.").into(),
@@ -111,7 +111,7 @@ impl OverleafPicker {
             PastedLink::Invited { project_name, url } => (
                 Icon::MAIL_OPEN,
                 match project_name {
-                    Some(name) => t!("Your invitation to “{0}” is waiting on Overleaf", name).into(),
+                    Some(name) => t!("Your invitation to “{0}” is waiting on Overleaf", name),
                     None => t!("This invitation is waiting on Overleaf").into(),
                 },
                 t!("Accept it on Overleaf, then paste the link here again.").into(),
@@ -119,7 +119,7 @@ impl OverleafPicker {
             ),
             PastedLink::NoAccess => (
                 shield_x,
-                t!("{0} can’t open this project", &account).into(),
+                t!("{0} can’t open this project", &account),
                 t!("If someone shared it with you, accept their invitation or open their share link once on Overleaf. If they shared it with another account, sign in with that one in Settings → Overleaf.").into(),
                 None,
             ),
@@ -131,8 +131,8 @@ impl OverleafPicker {
             ),
             PastedLink::OtherHost { host: other } => (
                 shield_x,
-                t!("This link is for {0}", other).into(),
-                t!("Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf.", &host).into(),
+                t!("This link is for {0}", other),
+                t!("Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf.", &host),
                 None,
             ),
             PastedLink::Unrecognized => (
@@ -172,7 +172,7 @@ impl OverleafPicker {
                     busy,
                     t!("Retry").into(),
                     move |_, cx| {
-                        this.update(cx, |this, cx| reload(this, cx)).ok();
+                        this.update(cx, reload).ok();
                     },
                     true,
                     cx,

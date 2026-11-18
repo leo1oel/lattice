@@ -163,7 +163,9 @@ fn split_font(file: &[u8]) -> (String, Vec<u8>) {
         .filter(u8::is_ascii_hexdigit)
         .collect();
     let encrypted = hex
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .filter_map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
         .collect();
     (text[..at + 5].to_string(), encrypted)
@@ -588,7 +590,7 @@ impl<'a> Glyph<'a> {
                     if points.len() == 14 {
                         let (mut cx, mut cy) = (self.x + points[0], self.y + points[1]);
                         let mut p = Vec::with_capacity(12);
-                        for pair in points[2..].chunks_exact(2) {
+                        for pair in points[2..].as_chunks::<2>().0 {
                             cx += pair[0];
                             cy += pair[1];
                             p.extend([cx, cy]);

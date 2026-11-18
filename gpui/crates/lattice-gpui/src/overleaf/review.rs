@@ -148,7 +148,6 @@ pub fn summary(changes: &[OverleafChange]) -> String {
             changeSummary = &change_summary,
             conflictSummary = &conflict_summary
         )
-        .into()
     } else {
         change_summary
     }

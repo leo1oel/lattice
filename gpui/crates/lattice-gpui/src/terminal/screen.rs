@@ -111,7 +111,7 @@ impl ScrollbarHandle for TerminalScroll {
             return;
         }
         let max = Self::max_top(&state);
-        let top = (f32::from(-offset.y / state.line_height)).round().max(0.) as usize;
+        let top = (-offset.y / state.line_height).round().max(0.) as usize;
         state.pending = Some(max.saturating_sub(top.min(max)));
     }
 

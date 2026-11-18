@@ -7,10 +7,13 @@ use super::*;
 /// A place is reported once the view has rested this long.
 const REPORT_AFTER: Duration = Duration::from_millis(250);
 
+/// One reported place, compared with the next to report only a change.
+type ReportedPlace = ((f32, f32), f32, Option<FitMode>, usize);
+
 /// What was last reported, and the report waiting out [`REPORT_AFTER`].
 #[derive(Default)]
 pub(in crate::pdf) struct PlaceReport {
-    last: Option<((f32, f32), f32, Option<FitMode>, usize)>,
+    last: Option<ReportedPlace>,
     task: Option<Task<()>>,
 }
 

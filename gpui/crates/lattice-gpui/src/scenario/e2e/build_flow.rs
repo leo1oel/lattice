@@ -500,7 +500,7 @@ impl Run {
             })?;
             let built = self.built_after(cx, before).await;
             let succeeded = cx.update(|cx| self.shell.read(cx).build_panel().read(cx).succeeded());
-            let synced = lattice_core::latex::forward_search(&root, "main.tex", 1, 0).is_ok();
+            let synced = lattice_core::latex::forward_search(root, "main.tex", 1, 0).is_ok();
             let (inside, beside) = (hidden.join("main.aux").is_file(), aux.is_file());
             let maps = (
                 hidden.join("main.synctex.gz").is_file(),

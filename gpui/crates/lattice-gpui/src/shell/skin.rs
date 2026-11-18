@@ -150,12 +150,11 @@ fn item_icon(id: &str, label: &str) -> Option<Icon> {
     })
 }
 
+/// Runs a menu entry's action.
+type RunMenuAction = Rc<dyn Fn(&MenuAction, &mut Window, &mut App)>;
+
 /// The engine's entries as menu items, each running its action.
-fn add_entries(
-    mut menu: Menu,
-    entries: Vec<MenuEntry>,
-    run: &Rc<dyn Fn(&MenuAction, &mut Window, &mut App)>,
-) -> Menu {
+fn add_entries(mut menu: Menu, entries: Vec<MenuEntry>, run: &RunMenuAction) -> Menu {
     for entry in entries {
         let item = match entry {
             MenuEntry::Separator => {

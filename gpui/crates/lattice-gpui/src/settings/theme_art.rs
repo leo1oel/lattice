@@ -52,6 +52,10 @@ fn chosen_ring(palette: &Palette) -> Vec<gpui::BoxShadow> {
 }
 
 /// One pictured option: the art, ringed, and its name under it.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each argument is a separate piece of the tile"
+)]
 pub fn tile(
     id: ElementId,
     name: impl Into<gpui::SharedString>,
@@ -334,6 +338,10 @@ pub fn tint_art(tint: Tint, cx: &App) -> AnyElement {
 }
 
 /// A colour swatch in a radio group.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each argument is a separate piece of the swatch"
+)]
 pub fn swatch(
     id: ElementId,
     color: Hsla,

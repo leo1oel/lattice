@@ -137,7 +137,7 @@ impl Run {
 
     /// [`Self::find_in_pdf_text`] in the PDF at `pdf`.
     pub(super) async fn find_word_in(&self, cx: &mut AsyncApp, pdf: &Path, word: &str) -> Result<Option<Found>> {
-        let engine = cx.update(|cx| PdfEngine::global(cx)).map_err(|error| anyhow!("{error}"))?;
+        let engine = cx.update(PdfEngine::global).map_err(|error| anyhow!("{error}"))?;
         let doc = engine.new_document();
         let info = engine.open(doc, std::fs::read(pdf)?).await??;
         let wanted: Vec<char> = word.chars().collect();

@@ -48,6 +48,9 @@ pub struct ScreenStyle {
     pub line_height: Pixels,
 }
 
+/// The cursor's bounds, its shape, and the character it covers with its colour.
+type CursorPaint = (Bounds<Pixels>, CursorShape, Option<(char, Hsla)>);
+
 /// Everything prepaint works out for paint.
 pub struct LayoutState {
     hitbox: Hitbox,
@@ -55,7 +58,7 @@ pub struct LayoutState {
     backgrounds: Vec<Region>,
     blocks: Vec<Region>,
     highlights: Vec<(Range, Hsla)>,
-    cursor: Option<(Bounds<Pixels>, CursorShape, Option<(char, Hsla)>)>,
+    cursor: Option<CursorPaint>,
     ime_bounds: Option<Bounds<Pixels>>,
     dimensions: TerminalBounds,
     display_offset: usize,

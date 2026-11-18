@@ -24,6 +24,10 @@ use lattice_core::{
 use lattice_editor::{ProjectIndex, TexlabService};
 
 /// What the watcher or an operation here changed.
+#[allow(
+    clippy::enum_variant_names,
+    reason = "renaming the variants would churn every subscriber for no behaviour change"
+)]
 pub enum ProjectEvent {
     /// The tree was scanned again.
     TreeChanged,

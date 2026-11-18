@@ -59,7 +59,7 @@ pub fn open(cx: &mut App) -> anyhow::Result<()> {
                 .timer(Duration::from_millis(1500))
                 .await;
             let result = window.update(cx, |_, window, cx| capture(window, cx, &out));
-            if let Err(error) | Ok(Err(error)) = result.map_err(anyhow::Error::from) {
+            if let Err(error) | Ok(Err(error)) = result {
                 log::error!("gallery shot: {error:#}");
             }
             cx.update(|cx| cx.quit());

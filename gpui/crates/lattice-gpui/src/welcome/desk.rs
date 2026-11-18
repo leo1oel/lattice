@@ -98,6 +98,10 @@ fn when(project: &RecentProject, page: Option<&ShownPage>, now: u64) -> String {
 
 /// The desk: its title and up to three cards; `open` runs with the card's
 /// project.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the desk's inputs come from several unrelated owners"
+)]
 pub fn desk(
     projects: &[RecentProject],
     pages: Option<&HashMap<PathBuf, ShownPage>>,
@@ -109,7 +113,7 @@ pub fn desk(
     cx: &mut App,
 ) -> AnyElement {
     let palette = cx.palette().clone();
-    let count = projects.len().min(DESK_SIZE).max(1) as f32;
+    let count = projects.len().clamp(1, DESK_SIZE) as f32;
     // A third of the width per card, however many there are.
     let frame = (width + px(GAP)) * (count / DESK_SIZE as f32) - px(GAP);
     let card_width = (frame - px(GAP) * (count - 1.)) / count;

@@ -106,14 +106,12 @@ fn reconnecting_detail(reason: &str, delay: Duration) -> String {
             "Overleaf live editing disconnected ({reason}). Reconnecting now…",
             reason = reason
         )
-        .into()
     } else {
         t!(
             "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…",
             reason = reason,
             seconds = seconds
         )
-        .into()
     }
 }
 

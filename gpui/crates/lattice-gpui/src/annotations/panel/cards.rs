@@ -166,7 +166,7 @@ impl AnnotationsPanel {
                 this.active_note = Some(open_comment.id.clone());
                 // A proposal opens for review under its passage.
                 if !this.review_proposal(&open_comment, cx) {
-                    cx.emit(AnnotationsPanelEvent::Open(open_comment.clone()));
+                    cx.emit(AnnotationsPanelEvent::Open(Box::new(open_comment.clone())));
                 }
                 cx.notify();
             }));

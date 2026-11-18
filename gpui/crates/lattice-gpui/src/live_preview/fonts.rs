@@ -221,7 +221,7 @@ impl ImageStore {
 /// A pixmap from straight-alpha RGBA bytes.
 pub fn pixmap_from_rgba(width: u32, height: u32, rgba: &[u8]) -> Option<Pixmap> {
     let mut pixmap = Pixmap::new(width, height)?;
-    for (pixel, source) in pixmap.pixels_mut().iter_mut().zip(rgba.chunks_exact(4)) {
+    for (pixel, source) in pixmap.pixels_mut().iter_mut().zip(rgba.as_chunks::<4>().0) {
         *pixel =
             tiny_skia::ColorU8::from_rgba(source[0], source[1], source[2], source[3]).premultiply();
     }
