@@ -104,6 +104,14 @@ it("shows a blocked theme in red with its reason and no way to install it", asyn
   expect((await row("Ink")).getByText("Phishes.")).toHaveClass("theme-browse-blocked");
 });
 
+it("keeps a warned theme installable and shows the warning on its row", async () => {
+  const warned = { id: ink.id, versions: "*", action: "warn", reason: "Low contrast.", url: null };
+  fetched = Promise.resolve(listing({ blockedOffers: { [ink.id]: warned } }));
+  renderSheet();
+  await waitFor(async () => expect((await row("Ink")).getByRole("button", { name: "Install" })).toBeEnabled());
+  expect((await row("Ink")).getByText("Low contrast.")).toHaveClass("theme-browse-warned");
+});
+
 it("offers an update for an older registry install and keeps the choice", async () => {
   fetched = Promise.resolve(listing({ installed: [{ id: harbor.id, version: "0.9.0", update: "1.0.0", blocked: null }] }));
   const onInstalled = renderSheet();

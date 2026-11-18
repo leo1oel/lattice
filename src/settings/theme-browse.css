@@ -56,6 +56,7 @@
 .theme-browse-line { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-browse-description { color: var(--text-secondary); }
 .theme-browse-blocked { color: var(--status-danger); }
+.theme-browse-warned { color: color-mix(in srgb, var(--status-warning) 72%, var(--text-primary)); }
 
 .theme-block-link {
   padding: 0;

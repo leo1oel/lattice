@@ -72,7 +72,7 @@ export type RowAction =
 /** What a row offers for `theme`, given the list and the themes installed here. */
 export function rowAction(theme: IndexTheme, listing: RegistryListing, installed: readonly ThemeInfo[] | null): RowAction {
   const entry = listing.blockedOffers[theme.id];
-  if (entry) return { kind: "blocked", entry };
+  if (entry && entry.action !== "warn") return { kind: "blocked", entry };
   const record = listing.installed.find((item) => item.id === theme.id);
   if (record?.update) return { kind: "update", version: record.update };
   if (record || installed?.some((item) => item.id === theme.id && item.version === theme.version)) return { kind: "installed" };

@@ -197,7 +197,7 @@ function ThemeRow(props: {
       (reason: unknown) => setState({ busy: false, error: hostErrorMessage(reason) }),
     );
   };
-  const blocked = action.kind === "blocked" ? action.entry : null;
+  const note = props.listing.blockedOffers[theme.id] ?? null;
   const next = action.kind === "update" ? action.version : "";
   const meta = joinPhrases([theme.author, theme.license].filter((part): part is string => Boolean(part)));
   return (
@@ -209,8 +209,8 @@ function ThemeRow(props: {
           <span className="theme-browse-version">{theme.version}</span>
         </p>
         {theme.description && <p className="theme-browse-line theme-browse-description">{theme.description}</p>}
-        {blocked
-          ? <p className="theme-browse-line theme-browse-blocked">{blocked.reason}</p>
+        {note
+          ? <p className={note.action === "warn" ? "theme-browse-line theme-browse-warned" : "theme-browse-line theme-browse-blocked"}>{note.reason}</p>
           : meta && <p className="theme-browse-line theme-browse-meta">{meta}</p>}
         {state.error && <InlineMessage level="error">{state.error}</InlineMessage>}
       </div>
