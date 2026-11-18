@@ -415,15 +415,19 @@ mod tests {
     /// stay out.
     #[test]
     fn a_finder_launch_hands_the_sidecar_only_the_allowlisted_shell_settings() {
-        let shell = map(&[
+        let path = |directories: &[&str]| {
+            std::env::join_paths(directories).unwrap().into_string().unwrap()
+        };
+        let shell_path = path(&["/Users/w/.nvm/bin", "/usr/bin"]);
+        let mut shell = map(&[
             ("ANTHROPIC_BASE_URL", "https://api.moonshot.cn/anthropic"),
             ("ANTHROPIC_AUTH_TOKEN", "sk-shell"),
             ("DEEPSEEK_API_KEY", "sk-deepseek"),
             ("HTTPS_PROXY", "http://127.0.0.1:7890"),
             ("LANG", "en_US.UTF-8"),
             ("TEXINPUTS", ".:~/tex//:"),
-            ("PATH", "/Users/w/.nvm/bin:/usr/bin"),
         ]);
+        shell.insert("PATH".to_string(), shell_path);
         let launch = map(&[
             ("HOME", "/Users/w"),
             ("PATH", "/usr/bin:/bin"),
@@ -434,7 +438,7 @@ mod tests {
             launch,
             Ok(shell),
             system("http://127.0.0.1:6152"),
-            OsStr::new("/Library/TeX/texbin:/usr/bin"),
+            OsStr::new(&path(&["/Library/TeX/texbin", "/usr/bin"])),
         );
         let mut command = Command::new("node");
         environment.apply(&mut command);
@@ -447,7 +451,7 @@ mod tests {
         assert_eq!(env["HOME"], "/Users/w");
         assert_eq!(env["LANG"], "C", "the launch wins");
         assert_eq!(env["TEXINPUTS"], ".:~/tex//:");
-        assert_eq!(env["PATH"], "/Users/w/.nvm/bin:/usr/bin:/Library/TeX/texbin");
+        assert_eq!(env["PATH"], path(&["/Users/w/.nvm/bin", "/usr/bin", "/Library/TeX/texbin"]));
         assert_eq!(env["HTTPS_PROXY"], "http://127.0.0.1:7890", "the shell's proxy wins");
         assert_eq!(env["HTTP_PROXY"], "http://127.0.0.1:6152", "the system proxy fills the gap");
         let report = serde_json::to_value(environment.report("zsh".into(), true, false)).unwrap();
