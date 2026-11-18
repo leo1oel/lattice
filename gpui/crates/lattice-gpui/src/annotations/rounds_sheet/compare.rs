@@ -346,7 +346,7 @@ mod tests {
         let found = changes(
             &snapshots,
             &[round(1), round(2)],
-            &[note.clone()],
+            std::slice::from_ref(&note),
             &Version::Before,
             &Version::Round(1),
         );

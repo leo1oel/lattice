@@ -257,7 +257,7 @@ mod tests {
             ..entry()
         };
         assert_eq!(
-            create(&[malformed.clone()], false, "v", "now")["entries"][0],
+            create(std::slice::from_ref(&malformed), false, "v", "now")["entries"][0],
             json!({ "level": "error" })
         );
         let raw = create(&[malformed], true, "v", "now");

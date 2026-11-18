@@ -565,8 +565,10 @@ mod tests {
 
     #[test]
     fn a_page_is_the_base_until_rtex_lays_it_out_past_the_base() {
-        let mut model = PreviewModel::default();
-        model.base_revision = 1;
+        let mut model = PreviewModel {
+            base_revision: 1,
+            ..PreviewModel::default()
+        };
         layout(&mut model, 1, vec![page(1, vec![], true)], vec![]);
         assert!(matches!(model.page_source(1), PageSource::Base));
         layout(&mut model, 2, vec![page(1, vec![], true)], vec![]);
