@@ -173,6 +173,7 @@
     "knip": "^6.32.2",
     "linguist-languages": "9.5.0",
     "lint-staged": "17.6.0",
+    "marked": "^16.4.2",
     "oxlint": "1.87.0",
     "playwright-core": "1.63.0",
     "typescript": "~5.8.3",

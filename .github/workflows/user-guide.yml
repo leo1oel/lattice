@@ -1,0 +1,79 @@
+name: User guide
+
+# The user guide (docs/guide/, rendered by scripts/user-guide.mjs) on the
+# website's gh-pages branch under guide/ (https://leo1oel.github.io/lattice/guide/),
+# which Help ▸ User Guide opens in both apps.
+#
+# - After the Release workflow succeeds, the guide is rendered from that
+#   release's commit, so it describes the version people download, and
+#   published. Only guide/ is written: the site's own files belong to the
+#   website, and demo/ to web-demo.yml.
+# - Run by hand (workflow_dispatch) it renders and publishes the chosen ref,
+#   for a guide fix that should not wait for the next release.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: ./.github/actions/setup-pnpm
+      - run: node scripts/user-guide.mjs --out "$RUNNER_TEMP/guide"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: user-guide
+          path: ${{ runner.temp }}/guide
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Shares web-demo.yml's group: one push to gh-pages at a time.
+    concurrency:
+      group: web-demo-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: user-guide
+          path: ${{ runner.temp }}/guide
+      - uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: site
+      - name: Replace guide/ on gh-pages
+        env:
+          REF: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          cd site
+          rsync -a --delete "$RUNNER_TEMP/guide/" guide/
+          git add --all guide
+          if git diff --cached --quiet; then
+            echo "guide/ is already this build."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --quiet -m "Publish the user guide for $REF (${SHA:0:7})"
+          for attempt in 1 2 3; do
+            git push origin HEAD:gh-pages && exit 0
+            sleep $((attempt * 5))
+            git pull --rebase origin gh-pages
+          done
+          exit 1

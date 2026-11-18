@@ -75,6 +75,11 @@ pub(crate) struct MenuLabels {
     close_tab: String,
     close_window: String,
     help: String,
+    /// Help ▸ User Guide and the guide's address in the interface language
+    /// (src/app/native-locale.ts); `about_links` opens only an address on the
+    /// website.
+    user_guide: String,
+    user_guide_url: String,
     /// Help ▸ What's New in Lattice, which opens the release notes sheet
     /// (src/app/whats-new-dialog.tsx).
     whats_new: String,
@@ -358,6 +363,7 @@ pub(crate) fn build_menu<R: Runtime>(
         &labels.help,
         true,
         &[
+            &crate::about_links::user_guide_item(app, &labels.user_guide, &labels.user_guide_url)?,
             &MenuItem::with_id(app, WHATS_NEW, &labels.whats_new, true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &page_command("report-problem", &labels.report_problem, true, None)?,

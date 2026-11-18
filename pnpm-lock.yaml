@@ -446,6 +446,9 @@ importers:
       lint-staged:
         specifier: 17.6.0
         version: 17.6.0
+      marked:
+        specifier: ^16.4.2
+        version: 16.4.2
       oxlint:
         specifier: 1.87.0
         version: 1.87.0
