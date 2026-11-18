@@ -832,6 +832,10 @@ msgstr "{name} 没保存成功，仍要关闭并丢弃修改？"
 msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
 msgstr "{name} 没能完成与 Overleaf 的同步，评论还没加上。请重新同步后再添加评论。"
 
+#: src/settings/theme-browse.tsx
+msgid "{name} has a warning: {reason}"
+msgstr "{name} 有一条警告：{reason}"
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} 以不同选项加载了两次"
@@ -872,6 +876,10 @@ msgstr "{name}设置"
 #: src/editor/document-spelling.ts
 msgid "{name} spelling is now checked"
 msgstr "现已检查{name}拼写"
+
+#: src/settings/theme-browse.tsx
+msgid "{name} was turned off: {reason}"
+msgstr "{name} 已被停用：{reason}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -2929,6 +2937,10 @@ msgstr "独立成段的引文"
 msgid "Block type"
 msgstr "段落样式"
 
+#: src/settings/theme-browse.tsx
+msgid "Blocked"
+msgstr "已屏蔽"
+
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -3021,6 +3033,14 @@ msgstr "短音符示例"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "英式英语"
+
+#: src/settings/theme-browse.tsx
+msgid "Browse themes"
+msgstr "浏览主题"
+
+#: src/settings/theme-file-actions.tsx
+msgid "Browse themes…"
+msgstr "浏览主题…"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Browser dialogs are only available to a browser workspace."
@@ -5306,6 +5326,10 @@ msgstr "无法启动论文工具"
 #: src/plugins/plugin-text.ts
 msgid "Couldn’t start the plugin: {detail}"
 msgstr "无法启动插件：{detail}"
+
+#: src/settings/theme-browse.tsx
+msgid "Couldn't verify the theme list. Nothing new can be installed."
+msgstr "无法验证主题列表，暂时不能安装新主题。"
 
 #: src/editor/latex/citation-roles.ts
 msgctxt "why a passage cites a paper"
@@ -8189,6 +8213,7 @@ msgstr "检查与替换"
 
 #: src/build/compile-diagnostics-panel.tsx
 #: src/plugins/plugin-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Install"
 msgstr "安装"
 
@@ -8283,6 +8308,10 @@ msgstr "安装 TeX Live（{TEX_INSTALL_SIZE_HINT}）"
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
+
+#: src/settings/theme-browse.tsx
+msgid "Installed"
+msgstr "已安装"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9051,6 +9080,10 @@ msgstr "布局已重置"
 msgid "Layout updating"
 msgstr "版面更新中"
 
+#: src/settings/theme-browse.tsx
+msgid "Learn more"
+msgstr "了解更多"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
 msgstr "跳出代码"
@@ -9490,6 +9523,10 @@ msgstr "正在加载 AI 改动…"
 msgid "Loading the conversation…"
 msgstr "正在加载…"
 
+#: src/settings/theme-browse.tsx
+msgid "Loading the theme list"
+msgstr "正在加载主题列表"
+
 #: src/history/versions-timeline.tsx
 msgid "Loading versions…"
 msgstr "正在加载版本…"
@@ -9505,6 +9542,7 @@ msgstr "正在把导言区载入 LuaLaTeX。"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/literature-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Loading…"
 msgstr "正在加载…"
 
@@ -10740,6 +10778,10 @@ msgstr "TeX Live 中没有提供 {file} 的组件。它可能是项目或会议�
 msgid "No textual changes"
 msgstr "文字没有改动"
 
+#: src/settings/theme-browse.tsx
+msgid "No themes match"
+msgstr "没有匹配的主题"
+
 #: src/project/todo-scavenger-panel.tsx
 msgid "No TODO markers found"
 msgstr "没有待办"
@@ -11074,6 +11116,14 @@ msgstr "系统已开“降低透明度”，此项暂停"
 #: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "官方核实没完成"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline: showing the list from {date}"
+msgstr "离线：显示 {date} 的列表"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline. The theme list can't be reached."
+msgstr "离线，无法获取主题列表。"
 
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
@@ -13141,6 +13191,7 @@ msgstr "文献"
 
 #: src/overleaf/overleaf-review.tsx
 #: src/project/figure-inventory-dialog.tsx
+#: src/settings/theme-browse.tsx
 msgid "Refresh"
 msgstr "刷新"
 
@@ -14515,6 +14566,10 @@ msgstr "搜索"
 msgid "Search by name or license"
 msgstr "按名称或许可证搜索"
 
+#: src/settings/theme-browse.tsx
+msgid "Search by name, description or author"
+msgstr "按名称、描述或作者搜索"
+
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search by project or owner, or paste a link…"
 msgstr "搜项目名或作者，或粘贴链接…"
@@ -14598,6 +14653,10 @@ msgstr "在文献中搜索"
 #: src/app/command-palette.tsx
 msgid "Search the project for “{query}”"
 msgstr "在项目中搜索“{query}”"
+
+#: src/settings/theme-browse.tsx
+msgid "Search themes"
+msgstr "搜索主题"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
@@ -18482,6 +18541,10 @@ msgstr "更新表格"
 msgid "Update TeX packages"
 msgstr "更新 TeX 组件"
 
+#: src/settings/theme-browse.tsx
+msgid "Update to {next}"
+msgstr "更新到 {next}"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "已更新"
@@ -18494,6 +18557,10 @@ msgstr "更新于 {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "已用 {library} 更新 {target}。可在历史中撤销。"
+
+#: src/settings/theme-browse.tsx
+msgid "Updated {when}"
+msgstr "更新于 {when}"
 
 #: src/app/use-reference-import.ts
 msgid "Updated the entry for {citationCommand} from its sources."

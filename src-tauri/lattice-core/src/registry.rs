@@ -18,7 +18,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use lattice_theme::{Appearance, ThemeFile, MAX_THEME_BYTES};
+use lattice_theme::{AccentChoice, Appearance, Resolved, ThemeFile, MAX_THEME_BYTES};
 use minisign_verify::PublicKey;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -135,6 +135,9 @@ pub struct InstalledTheme {
 pub struct Listing {
     pub index: Option<Index>,
     pub blocked: Vec<BlockedEntry>,
+    /// The entry each listed theme's own version falls under, by id: a row
+    /// Browse shows as blocked.
+    pub blocked_offers: BTreeMap<String, BlockedEntry>,
     /// When the shown list was fetched and verified (RFC 3339).
     pub fetched_at: Option<String>,
     pub status: Status,
@@ -195,9 +198,19 @@ impl Registry {
             (self.cached(), Status::Cached)
         };
         let installed = verified.as_ref().map(|verified| self.installed(store, verified));
+        let blocked_offers = verified.as_ref().map(|verified| {
+            let themes = verified.index.themes.iter();
+            themes
+                .filter_map(|theme| {
+                    let entry = blocking(&verified.blocked, &theme.id, &theme.version)?;
+                    Some((theme.id.clone(), entry.clone()))
+                })
+                .collect()
+        });
         Listing {
             index: verified.as_ref().map(|verified| verified.index.clone()),
             blocked: verified.as_ref().map(|verified| verified.blocked.clone()).unwrap_or_default(),
+            blocked_offers: blocked_offers.unwrap_or_default(),
             fetched_at: verified.map(|verified| verified.fetched_at),
             status,
             installed: installed.unwrap_or_default(),
@@ -290,25 +303,71 @@ impl Registry {
 
     /// Every theme installed from the registry that is still that install
     /// (not removed, nor replaced by a file under the same id and another
-    /// version), with its update and block state.
-    fn installed(&self, store: &ThemeStore, verified: &Verified) -> Vec<InstalledTheme> {
+    /// version): its installed version, by id.
+    fn registry_installs(&self, store: &ThemeStore) -> BTreeMap<String, String> {
         self.records()
             .into_iter()
             .filter(|(id, record)| {
                 store.get(id).is_some_and(|theme| theme.version == record.version)
             })
-            .map(|(id, record)| InstalledTheme {
+            .map(|(id, record)| (id, record.version))
+            .collect()
+    }
+
+    /// The registry installs with their update and block state.
+    fn installed(&self, store: &ThemeStore, verified: &Verified) -> Vec<InstalledTheme> {
+        self.registry_installs(store)
+            .into_iter()
+            .map(|(id, version)| InstalledTheme {
                 update: verified
                     .index
                     .themes
                     .iter()
-                    .find(|theme| theme.id == id && verify::newer(&theme.version, &record.version))
+                    .find(|theme| theme.id == id && verify::newer(&theme.version, &version))
                     .map(|theme| theme.version.clone()),
-                blocked: blocking(&verified.blocked, &id, &record.version).cloned(),
+                blocked: blocking(&verified.blocked, &id, &version).cloned(),
                 id,
-                version: record.version,
+                version,
             })
             .collect()
+    }
+
+    /// The store's themes for the picker, each installed registry theme with
+    /// the kill-switch entry its version falls under. Themes installed from a
+    /// file are never matched: they are the writer's own.
+    pub fn list_themes(&self, store: &ThemeStore) -> Vec<ThemeInfo> {
+        let mut themes = store.list();
+        let installs = self.registry_installs(store);
+        let Some(verified) = (!installs.is_empty()).then(|| self.cached()).flatten() else {
+            return themes;
+        };
+        for theme in &mut themes {
+            if let Some(version) = installs.get(&theme.id) {
+                theme.blocked = blocking(&verified.blocked, &theme.id, version).cloned();
+            }
+        }
+        themes
+    }
+
+    /// `ThemeStore::resolve` with the kill switch: a registry theme whose
+    /// installed version is blocked with any action but `warn` resolves as no
+    /// theme, so Lattice's own colors show while the choice stays stored.
+    pub fn resolve(
+        &self, store: &ThemeStore, id: Option<&str>, appearance: Appearance, accent: AccentChoice,
+    ) -> Resolved {
+        let id = id.filter(|id| !self.turned_off(store, id));
+        store.resolve(id, appearance, accent)
+    }
+
+    /// Whether the kill switch turns the installed theme `id` off: a shell
+    /// that applies a `ThemeFile` itself (the GPUI palette) asks this first.
+    pub fn turned_off(&self, store: &ThemeStore, id: &str) -> bool {
+        let Some(version) = self.registry_installs(store).remove(id) else {
+            return false;
+        };
+        self.cached().is_some_and(|verified| {
+            blocking(&verified.blocked, id, &version).is_some_and(|entry| entry.action != "warn")
+        })
     }
 
     /// Installs (or updates to) the theme the cached list names `id`, after
