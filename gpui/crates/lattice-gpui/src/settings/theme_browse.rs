@@ -471,11 +471,16 @@ pub fn block_notice(
         )
     };
     div()
+        .min_w_0()
         .flex()
         .flex_col()
         .items_start()
         .gap(px(4.))
-        .child(controls::inline_message(level, text, cx))
+        .child(
+            div()
+                .w_full()
+                .child(controls::inline_message(level, text, cx)),
+        )
         .when_some(entry.url.clone(), |this, url| {
             this.child(
                 Button::new("theme-block-learn-more", t!("Learn more"))
