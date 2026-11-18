@@ -832,6 +832,10 @@ msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
 msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
 msgstr "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
 
+#: src/settings/theme-browse.tsx
+msgid "{name} has a warning: {reason}"
+msgstr "{name} has a warning: {reason}"
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} is loaded twice with different options"
@@ -872,6 +876,10 @@ msgstr "{name} properties"
 #: src/editor/document-spelling.ts
 msgid "{name} spelling is now checked"
 msgstr "{name} spelling is now checked"
+
+#: src/settings/theme-browse.tsx
+msgid "{name} was turned off: {reason}"
+msgstr "{name} was turned off: {reason}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -2929,6 +2937,10 @@ msgstr "Block quotation"
 msgid "Block type"
 msgstr "Block type"
 
+#: src/settings/theme-browse.tsx
+msgid "Blocked"
+msgstr "Blocked"
+
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -3021,6 +3033,14 @@ msgstr "Breve accent example"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "British English"
+
+#: src/settings/theme-browse.tsx
+msgid "Browse themes"
+msgstr "Browse themes"
+
+#: src/settings/theme-file-actions.tsx
+msgid "Browse themes…"
+msgstr "Browse themes…"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Browser dialogs are only available to a browser workspace."
@@ -5306,6 +5326,10 @@ msgstr "Couldn’t start the paper tools"
 #: src/plugins/plugin-text.ts
 msgid "Couldn’t start the plugin: {detail}"
 msgstr "Couldn’t start the plugin: {detail}"
+
+#: src/settings/theme-browse.tsx
+msgid "Couldn't verify the theme list. Nothing new can be installed."
+msgstr "Couldn't verify the theme list. Nothing new can be installed."
 
 #: src/editor/latex/citation-roles.ts
 msgctxt "why a passage cites a paper"
@@ -8189,6 +8213,7 @@ msgstr "Inspect and replace"
 
 #: src/build/compile-diagnostics-panel.tsx
 #: src/plugins/plugin-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Install"
 msgstr "Install"
 
@@ -8283,6 +8308,10 @@ msgstr "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
+
+#: src/settings/theme-browse.tsx
+msgid "Installed"
+msgstr "Installed"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9051,6 +9080,10 @@ msgstr "Layout reset"
 msgid "Layout updating"
 msgstr "Layout updating"
 
+#: src/settings/theme-browse.tsx
+msgid "Learn more"
+msgstr "Learn more"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
 msgstr "Leave a code block"
@@ -9490,6 +9523,10 @@ msgstr "Loading the agent turn…"
 msgid "Loading the conversation…"
 msgstr "Loading the conversation…"
 
+#: src/settings/theme-browse.tsx
+msgid "Loading the theme list"
+msgstr "Loading the theme list"
+
 #: src/history/versions-timeline.tsx
 msgid "Loading versions…"
 msgstr "Loading versions…"
@@ -9505,6 +9542,7 @@ msgstr "Loading your preamble into LuaLaTeX."
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/literature-settings.tsx
+#: src/settings/theme-browse.tsx
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -10740,6 +10778,10 @@ msgstr "No TeX Live package provides {file}. It may be a custom project or confe
 msgid "No textual changes"
 msgstr "No textual changes"
 
+#: src/settings/theme-browse.tsx
+msgid "No themes match"
+msgstr "No themes match"
+
 #: src/project/todo-scavenger-panel.tsx
 msgid "No TODO markers found"
 msgstr "No TODO markers found"
@@ -11074,6 +11116,14 @@ msgstr "Off while Reduce transparency is on in System Settings"
 #: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "Official verification incomplete"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline: showing the list from {date}"
+msgstr "Offline: showing the list from {date}"
+
+#: src/settings/theme-browse.tsx
+msgid "Offline. The theme list can't be reached."
+msgstr "Offline. The theme list can't be reached."
 
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
@@ -13141,6 +13191,7 @@ msgstr "References"
 
 #: src/overleaf/overleaf-review.tsx
 #: src/project/figure-inventory-dialog.tsx
+#: src/settings/theme-browse.tsx
 msgid "Refresh"
 msgstr "Refresh"
 
@@ -14515,6 +14566,10 @@ msgstr "Search"
 msgid "Search by name or license"
 msgstr "Search by name or license"
 
+#: src/settings/theme-browse.tsx
+msgid "Search by name, description or author"
+msgstr "Search by name, description or author"
+
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search by project or owner, or paste a link…"
 msgstr "Search by project or owner, or paste a link…"
@@ -14598,6 +14653,10 @@ msgstr "Search the literature for"
 #: src/app/command-palette.tsx
 msgid "Search the project for “{query}”"
 msgstr "Search the project for “{query}”"
+
+#: src/settings/theme-browse.tsx
+msgid "Search themes"
+msgstr "Search themes"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
@@ -18482,6 +18541,10 @@ msgstr "Update table"
 msgid "Update TeX packages"
 msgstr "Update TeX packages"
 
+#: src/settings/theme-browse.tsx
+msgid "Update to {next}"
+msgstr "Update to {next}"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "Updated"
@@ -18494,6 +18557,10 @@ msgstr "updated {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "Updated {target} from {library}. Undo it from History."
+
+#: src/settings/theme-browse.tsx
+msgid "Updated {when}"
+msgstr "Updated {when}"
 
 #: src/app/use-reference-import.ts
 msgid "Updated the entry for {citationCommand} from its sources."

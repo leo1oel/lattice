@@ -1,5 +1,5 @@
 import { Check, Moon, Plus, Sun } from "lucide-react";
-import { type CSSProperties, type KeyboardEvent, type ReactNode, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { ColorPicker } from "../components/ui/color-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
@@ -16,7 +16,9 @@ import {
   isCustomAccent,
 } from "./theme-customization";
 import { ThemeFileActions } from "./theme-file-actions";
-import { type ThemeInfo, type ThemeVariantInfo, useFittedAccent, useThemeList } from "./themes";
+import { ModeArt, ThemeArt } from "./theme-art";
+import { ThemeBlockNotice } from "./theme-browse";
+import { useFittedAccent, useThemeList } from "./themes";
 import type { WindowBacking } from "./use-appearance";
 import "./theme-settings.css";
 
@@ -102,14 +104,18 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
         />
       </SettingsRow>
       {themes && (
-        <SettingsRow data-setting="theme-palette" label={t`Palette`} description={chosen?.description || undefined}>
+        <SettingsRow
+          data-setting="theme-palette"
+          label={t`Palette`}
+          description={chosen?.blocked ? <ThemeBlockNotice name={chosen.name} entry={chosen.blocked} /> : chosen?.description || undefined}
+        >
           <TileGroup
             label={t`Palette`}
             value={chosen?.id ?? ""}
             className="theme-tiles-mode"
             options={[
               { id: "", name: t`Lattice`, art: <ModeArt mode={props.themePreference} tint={tint} /> },
-              ...themes.map((theme) => ({ id: theme.id, name: theme.name, art: <ThemeArt theme={theme} mode={props.themePreference} /> })),
+              ...themes.map((theme) => ({ id: theme.id, name: theme.name, art: <ThemeArt variants={theme.variants} mode={props.themePreference} /> })),
             ]}
             onChange={chooseTheme}
           />
@@ -120,7 +126,13 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
         label={t`Theme files`}
         description={themesError ?? t`Install a .lattice-theme.json file. Lattice keeps its own copy.`}
       >
-        <ThemeFileActions chosen={chosen} onInstalled={chooseTheme} onRemoved={() => patch({ theme: "" })} />
+        <ThemeFileActions
+          chosen={chosen}
+          themes={themes}
+          mode={props.themePreference}
+          onInstalled={chooseTheme}
+          onRemoved={() => patch({ theme: "" })}
+        />
       </SettingsRow>
       <SettingsRow data-setting="theme-tint" label={t`Tint`} description={chosen ? t`Set by the theme` : undefined}>
         <TileGroup
@@ -176,75 +188,6 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
       </SettingsRow>
     </SettingsGroup>
   );
-}
-
-/**
- * A miniature Lattice window in one appearance of a tint: the title bar, the
- * project, the editor with a heading in the accent, the PDF. It is drawn in a
- * theme-preview scope (theme.css), so it takes that appearance's real palette
- * whatever the window wears.
- */
-function WindowArt(props: { kind: Theme; tint: ThemeTint; className?: string; style?: CSSProperties }) {
-  return (
-    <span className={props.className ? `theme-window ${props.className}` : "theme-window"} data-theme-preview={props.kind} data-tint-preview={props.tint} style={props.style}>
-      <svg className="theme-window-art" viewBox="0 0 84 52" aria-hidden="true">
-        <rect className="theme-art-chrome" width="84" height="52" />
-        <circle className="theme-art-ink" cx="6" cy="5" r="1.4" /><circle className="theme-art-ink" cx="10.5" cy="5" r="1.4" /><circle className="theme-art-ink" cx="15" cy="5" r="1.4" />
-        <rect className="theme-art-sheet" x="3" y="10" width="18" height="39" rx="2.5" />
-        <rect className="theme-art-ink" x="6" y="14" width="10" height="2" rx="1" /><rect className="theme-art-ink" x="6" y="19" width="12" height="2" rx="1" /><rect className="theme-art-ink" x="6" y="24" width="8" height="2" rx="1" />
-        <rect className="theme-art-sheet" x="23" y="10" width="34" height="39" rx="2.5" />
-        <rect className="theme-art-accent" x="27" y="15" width="15" height="2.4" rx="1.2" />
-        <rect className="theme-art-ink" x="27" y="21" width="24" height="2" rx="1" /><rect className="theme-art-ink" x="27" y="26" width="20" height="2" rx="1" /><rect className="theme-art-ink" x="27" y="31" width="25" height="2" rx="1" /><rect className="theme-art-ink" x="27" y="36" width="14" height="2" rx="1" />
-        <rect className="theme-art-sheet" x="59" y="10" width="22" height="39" rx="2.5" />
-        <rect className="theme-art-page" x="62" y="13" width="16" height="22" rx="1" />
-        <rect className="theme-art-print" x="64.5" y="16.5" width="9" height="1.4" rx="0.7" /><rect className="theme-art-print" x="64.5" y="20" width="11" height="1" rx="0.5" /><rect className="theme-art-print" x="64.5" y="22.5" width="10" height="1" rx="0.5" /><rect className="theme-art-print" x="64.5" y="25" width="11" height="1" rx="0.5" />
-      </svg>
-    </span>
-  );
-}
-
-/** "Match system" is both appearances, split on a diagonal, as macOS draws Auto. */
-function ModeArt(props: { mode: ThemePreference; tint: ThemeTint }) {
-  if (props.mode !== "system") return <WindowArt kind={props.mode} tint={props.tint} />;
-  return (
-    <span className="theme-window-split">
-      <WindowArt kind="light" tint={props.tint} />
-      <WindowArt kind="dark" tint={props.tint} className="theme-window-second" />
-    </span>
-  );
-}
-
-/**
- * A theme as the same miniature window, in the variant for each appearance it
- * would be used in. Its colors are set on the art itself, over the preview
- * scope's, so an appearance the theme leaves out shows Lattice's.
- */
-function ThemeArt(props: { theme: ThemeInfo; mode: ThemePreference }) {
-  const art = (kind: Theme, className?: string) => (
-    <WindowArt
-      kind={kind}
-      tint="graphite"
-      className={className}
-      style={variantStyle(props.theme.variants.find((variant) => variant.appearance === kind))}
-    />
-  );
-  if (props.mode !== "system") return art(props.mode);
-  return (
-    <span className="theme-window-split">
-      {art("light")}
-      {art("dark", "theme-window-second")}
-    </span>
-  );
-}
-
-function variantStyle(variant: ThemeVariantInfo | undefined): CSSProperties | undefined {
-  if (!variant) return undefined;
-  return {
-    "--surface-chrome": variant.chrome,
-    "--surface-panel": variant.panel,
-    "--text-tertiary": variant.text,
-    ...(variant.accent ? { "--tile-accent": variant.accent } : {}),
-  } as CSSProperties;
 }
 
 /* eslint-disable lingui/no-unlocalized-strings -- a type specimen in each appearance, not copy */

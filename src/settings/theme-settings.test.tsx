@@ -17,6 +17,7 @@ const rose: ThemeInfo = {
   id: "app.lattice.rose-pine", name: "Rosé Pine", version: "1.0.0", author: "Rosé Pine", license: "MIT",
   description: "All natural pine, faux fur and a bit of soho vibes.", source: "bundled",
   variants: [variant("light", "#907aa9"), variant("dark", "#c4a7e7")],
+  blocked: null,
 };
 const mine: ThemeInfo = { ...rose, id: "dev.example.mine", name: "Mine", description: "", source: "installed" };
 let themes: ThemeInfo[];
@@ -103,4 +104,11 @@ it("offers to remove only a theme that was installed", async () => {
   cleanup();
   renderGroup({ theme: "dev.example.mine" });
   expect(await screen.findByRole("button", { name: "Remove theme" })).toBeInTheDocument();
+});
+
+it("says in the Palette row when the chosen theme was turned off by the registry", async () => {
+  themes = [rose, { ...mine, blocked: { id: mine.id, versions: "*", action: "disable", reason: "Phishes.", url: null } }];
+  renderGroup({ theme: mine.id });
+  expect(await screen.findByText("Mine was turned off: Phishes.")).toBeInTheDocument();
+  expect((await palette()).getByRole("radio", { name: "Mine" })).toBeChecked();
 });
