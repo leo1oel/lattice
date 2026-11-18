@@ -5650,7 +5650,7 @@ msgstr "Delete this message? This cannot be undone."
 msgid "Delete worksheet?"
 msgstr "Delete worksheet?"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete workspace"
 msgstr "Delete workspace"

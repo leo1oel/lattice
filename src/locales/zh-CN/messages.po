@@ -5650,7 +5650,7 @@ msgstr "删除这条消息？删了无法恢复"
 msgid "Delete worksheet?"
 msgstr "删除工作表？"
 
-#: src/app/use-command-table.ts
+#: src/app/workspace-commands.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete workspace"
 msgstr "删除工作区"
