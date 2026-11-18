@@ -1,0 +1,21 @@
+[package]
+name = "lattice-board-core"
+version = "0.1.0"
+description = "The whiteboard's model, geometry, editing algorithms and history: quiet.md's Rust port of Excalidraw 0.18, free of GPUI."
+edition.workspace = true
+publish.workspace = true
+# Copied from quiet.md (MIT), itself ported from Excalidraw (MIT); see
+# LICENSE-quiet-md and THIRD_PARTY_NOTICES.md.
+license = "MIT"
+
+[dependencies]
+base64 = "0.22"
+html5ever = "0.27"
+markup5ever_rcdom = "0.3"
+miniz_oxide = "0.8"
+regex = "1"
+rustc-hash = "2"
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha1_smol = "1"
+unicode-normalization = "0.1"
+

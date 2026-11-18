@@ -158,6 +158,7 @@ pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+S";
 
 pub fn bind_keys(cx: &mut App) {
     commands::bind_keys(cx);
+    lattice_board::bind_keys(cx);
 }
 
 /// A project open in a window, with the name its tab shows.

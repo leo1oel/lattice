@@ -43,6 +43,7 @@ image.workspace = true
 minisign-verify = "0.2"
 indexmap = { version = "2", features = ["serde"] }
 language.workspace = true
+lattice-board.workspace = true
 lattice-core.workspace = true
 lattice-editor.workspace = true
 lattice-i18n.workspace = true
