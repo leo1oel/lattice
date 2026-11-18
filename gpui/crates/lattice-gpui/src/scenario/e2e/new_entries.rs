@@ -57,7 +57,7 @@ impl Run {
         let (sheet_row, _) = self.name_entry(cx, Box::new(NewSpreadsheetInProject), "budget").await?;
         let sheet = self.opened(cx, "budget.lattice-sheet").await;
         let (board_row, _) = self.name_entry(cx, Box::new(NewBoardInProject), "map").await?;
-        let board = self.opened(cx, "map.tldr").await;
+        let board = self.opened(cx, "map.excalidraw").await;
         steps.check(
             "New spreadsheet and New board name a bare untitled row at the root, and open with their extension",
             sheet_row.as_deref() == Some("untitled")
@@ -117,7 +117,7 @@ impl Run {
         let made = [
             "chapters/appendix.tex",
             "budget.lattice-sheet",
-            "map.tldr",
+            "map.excalidraw",
             "slides/talk/index.tsx",
         ];
         cx.update(|cx| {
@@ -134,7 +134,7 @@ impl Run {
         });
         self.pause(cx, Duration::from_millis(300)).await;
         self.open(cx, &root.join("main.tex"), Some(1))?;
-        for made in ["chapters/appendix.tex", "budget.lattice-sheet", "map.tldr"] {
+        for made in ["chapters/appendix.tex", "budget.lattice-sheet", "map.excalidraw"] {
             std::fs::remove_file(root.join(made)).ok();
         }
         std::fs::remove_dir_all(root.join("slides")).ok();

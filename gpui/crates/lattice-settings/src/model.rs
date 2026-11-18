@@ -85,6 +85,11 @@ choice!(
     } default Comments
 );
 choice!(
+    /// How panel tabs draw: `Filled` marks only the selected tab;
+    /// `Outlined` rings every tab so the strip shows how many are open.
+    TabStyle { Filled = "filled", Outlined = "outlined" } default Filled
+);
+choice!(
     Tint { Graphite = "graphite", Paper = "paper", Sage = "sage", Mist = "mist", Dusk = "dusk" } default Graphite
 );
 choice!(
@@ -224,10 +229,10 @@ pub struct Appearance {
     pub prose_font_size: f32,
     pub prose_line_height: f32,
     pub editor_keymap: EditorKeymap,
-    pub editor_spellcheck: bool,
     pub interface_sounds: bool,
     pub toast_position: ToastPosition,
     pub hidden_titlebar_tools: Vec<TitlebarTool>,
+    pub tab_style: TabStyle,
     pub tint: Tint,
     pub accent: Accent,
     pub translucency: Translucency,
@@ -247,12 +252,12 @@ impl Default for Appearance {
             prose_font_size: PROSE_FONT_SIZE,
             prose_line_height: PROSE_LINE_HEIGHT,
             editor_keymap: EditorKeymap::Default,
-            editor_spellcheck: true,
             interface_sounds: true,
             // Clear of the PDF toolbar and the build's diagnostics card,
             // which share the top right.
             toast_position: ToastPosition::BottomRight,
             hidden_titlebar_tools: Vec::new(),
+            tab_style: TabStyle::Filled,
             tint: Tint::Graphite,
             accent: Accent::default(),
             translucency: Translucency::Subtle,
@@ -401,11 +406,10 @@ impl Appearance {
                 defaults.prose_line_height,
             ),
             editor_keymap: choice(field("editorKeymap"), defaults.editor_keymap),
-            // Absent means "never chose"; only an explicit false turns it off.
-            editor_spellcheck: field("editorSpellcheck") != Some(&Value::Bool(false)),
             interface_sounds: field("interfaceSounds") != Some(&Value::Bool(false)),
             toast_position: choice(field("toastPosition"), defaults.toast_position),
             hidden_titlebar_tools: hidden,
+            tab_style: choice(field("tabStyle"), defaults.tab_style),
             tint: choice(field("tint"), defaults.tint),
             accent: field("accent")
                 .and_then(Value::as_str)
@@ -414,47 +418,6 @@ impl Appearance {
             translucency: choice(field("translucency"), defaults.translucency),
             code_theme: choice(field("codeTheme"), defaults.code_theme),
             code_theme_variant: choice(field("codeThemeVariant"), defaults.code_theme_variant),
-        }
-    }
-}
-
-choice!(
-    /// Settings › Editor & builds › Grammar › English variant.
-    GrammarDialect { American = "american", British = "british" } default American
-);
-choice!(
-    /// Which rule set Harper checks with; automatic is academic for LaTeX
-    /// and standard elsewhere.
-    GrammarProfile { Auto = "auto", Academic = "academic", Standard = "standard" } default Auto
-);
-
-/// The writer's grammar choices, for every project
-/// (`lattice.grammar.v1`, `grammar-settings-store.ts`).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
-pub struct Grammar {
-    pub dialect: GrammarDialect,
-    pub profile: GrammarProfile,
-    /// Rules switched on or off over the profile, by Harper rule name.
-    pub rules: std::collections::BTreeMap<String, bool>,
-}
-
-impl Grammar {
-    /// `loadGrammarSettings`: British only when it says so, a profile only
-    /// when it names one, and the rules' booleans.
-    pub fn from_value(value: Option<&Value>) -> Grammar {
-        let field = |name: &str| value.and_then(|value| value.get(name));
-        Grammar {
-            dialect: choice(field("dialect"), GrammarDialect::American),
-            profile: choice(field("profile"), GrammarProfile::Auto),
-            rules: field("rules")
-                .and_then(Value::as_object)
-                .map(|rules| {
-                    rules
-                        .iter()
-                        .filter_map(|(name, on)| on.as_bool().map(|on| (name.clone(), on)))
-                        .collect()
-                })
-                .unwrap_or_default(),
         }
     }
 }
@@ -490,8 +453,6 @@ pub struct Settings {
     /// (false), for every project (`lattice.build-output-docked.v1`); `None`
     /// until the writer chooses, when a build that succeeded docks.
     pub build_output_docked: Option<bool>,
-    /// Settings › Editor & builds › Grammar.
-    pub grammar: Grammar,
     /// Adding a paper also saves its full text (Markdown and overview), not
     /// only its citation (`lattice.papers.save-full-text.v1`); off until the
     /// writer turns it on.
@@ -552,7 +513,6 @@ impl Settings {
             live_preview: live_preview_choices(field("livePreview")),
             live_preview_removed: field("livePreviewRemoved") == Some(&Value::Bool(true)),
             build_output_docked: field("buildOutputDocked").and_then(Value::as_bool),
-            grammar: Grammar::from_value(field("grammar")),
             save_full_text: field("saveFullText") == Some(&Value::Bool(true)),
         }
     }
@@ -572,31 +532,12 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn the_grammar_choices_are_read_as_the_tauri_app_reads_them() {
-        let grammar = Grammar::from_value(Some(&json!({
-            "dialect": "british",
-            "profile": "nonsense",
-            "rules": { "OxfordComma": true, "LongSentences": "no" }
-        })));
-        assert_eq!(grammar.dialect, GrammarDialect::British);
-        assert_eq!(grammar.profile, GrammarProfile::Auto);
-        assert_eq!(grammar.rules.len(), 1);
-        assert!(grammar.rules["OxfordComma"]);
-        assert_eq!(Grammar::from_value(None), Grammar::default());
-        let settings = Settings {
-            grammar: grammar.clone(),
-            ..Settings::default()
-        };
-        assert_eq!(Settings::from_value(&settings.to_value()).grammar, grammar);
-    }
-
-    #[test]
     fn an_empty_store_is_the_tauri_apps_defaults() {
         let appearance = Appearance::from_value(&Value::Null, false);
         assert_eq!(appearance, Appearance::default());
         assert_eq!(appearance.toast_position, ToastPosition::BottomRight);
         assert_eq!(appearance.translucency, Translucency::Subtle);
-        assert!(appearance.editor_spellcheck);
+        assert_eq!(appearance.tab_style, TabStyle::Filled);
     }
 
     #[test]
@@ -611,10 +552,10 @@ mod tests {
                 "proseFontSize": 0,
                 "proseLineHeight": -1,
                 "editorKeymap": "vim",
-                "editorSpellcheck": false,
                 "interfaceSounds": "no",
                 "toastPosition": "top-left",
                 "hiddenTitlebarTools": ["git", "nope", "comments"],
+                "tabStyle": "outlined",
                 "tint": "sage",
                 "accent": "#3D7AF2",
                 "translucency": "strong",
@@ -631,7 +572,6 @@ mod tests {
         assert_eq!(appearance.prose_font_size, PROSE_FONT_SIZE);
         assert_eq!(appearance.prose_line_height, PROSE_LINE_HEIGHT);
         assert_eq!(appearance.editor_keymap, EditorKeymap::Vim);
-        assert!(!appearance.editor_spellcheck);
         // Only an explicit false turns a switch off.
         assert!(appearance.interface_sounds);
         assert_eq!(appearance.toast_position, ToastPosition::BottomRight);
@@ -639,6 +579,7 @@ mod tests {
             appearance.hidden_titlebar_tools,
             vec![TitlebarTool::Comments, TitlebarTool::Git]
         );
+        assert_eq!(appearance.tab_style, TabStyle::Outlined);
         assert_eq!(appearance.tint, Tint::Sage);
         assert_eq!(appearance.accent, Accent::Custom("#3d7af2".into()));
         assert_eq!(appearance.accent.custom_rgb(), Some([0x3d, 0x7a, 0xf2]));

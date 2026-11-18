@@ -43,6 +43,7 @@ function mockConnectedPicker(extra: CommandTable = {}) {
     overleaf_status: connected,
     overleaf_list_projects: listed(),
     overleaf_clone_project: "/tmp/cloned/Attention Paper",
+    overleaf_download_parent: DOWNLOADS,
     ...extra,
   });
 }
@@ -54,9 +55,12 @@ function renderPicker(props: Partial<Parameters<typeof OverleafPickerDialog>[0]>
   return callbacks;
 }
 
+/** Where downloads go. */
+const DOWNLOADS = { path: "/tmp/cloned", display: "/tmp/cloned" };
+
 /** What `overleaf_clone_project` is sent for the Attention Paper row. */
 const cloneArgs = (overrides: Record<string, unknown> = {}) => ({
-  projectId: "p1", name: "Attention Paper", accessLevel: "owner", adopt: false, ...overrides,
+  projectId: "p1", name: "Attention Paper", parent: DOWNLOADS.path, accessLevel: "owner", adopt: false, ...overrides,
 });
 
 /** Select the Attention Paper row and press Open. */
@@ -212,9 +216,8 @@ describe("Overleaf picker dialog", () => {
     const onOpenLocalCopy = vi.fn();
     const { onClose, onCloned } = renderPicker({ onOpenLocalCopy, knownFolders: [{ path: nativeVlm.path }] });
     expect(await screen.findByText("Opens your local copy at ~/Papers/Native VLM")).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", {
-      names: ["Attention Paper", "Thesis Draft", "Old Notes"], folders: [nativeVlm.path],
-    });
+    // Folders are found by their own link, never by a title Overleaf can change.
+    expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", { folders: [nativeVlm.path] });
     // Only the project that has a folder here says so.
     const thesis = screen.getByRole("button", { name: /Thesis Draft/ });
     expect(within(thesis).queryByText(/Opens your local copy/)).not.toBeInTheDocument();
@@ -292,7 +295,9 @@ describe("Overleaf picker dialog", () => {
     await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
     await openFirstProject();
     await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path, false));
-    expect(invoke).toHaveBeenCalledWith("overleaf_reopen_local_copy", { path: nativeVlm.path, projectId: "p1", accessLevel });
+    expect(invoke).toHaveBeenCalledWith("overleaf_reopen_local_copy", {
+      path: nativeVlm.path, projectId: "p1", name: "Attention Paper", accessLevel,
+    });
     const reopen = vi.mocked(invoke).mock.calls.findIndex(([command]) => command === "overleaf_reopen_local_copy");
     expect(vi.mocked(invoke).mock.invocationCallOrder[reopen]).toBeLessThan(onOpenLocalCopy.mock.invocationCallOrder[0]!);
   });
@@ -466,9 +471,9 @@ describe("Overleaf picker dialog", () => {
     expect(screen.queryByText("Attention Paper")).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("overleaf_resolve_link", { link });
     fireEvent.keyDown(search, { key: "Enter" });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", {
-      projectId: shared.id, name: "Shared Paper", accessLevel: "readWrite", adopt: false,
-    }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs({
+      projectId: shared.id, name: "Shared Paper", accessLevel: "readWrite",
+    })));
   });
 
   it("asks Overleaf once for a link typed out by hand", async () => {

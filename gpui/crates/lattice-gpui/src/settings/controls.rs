@@ -444,7 +444,7 @@ pub fn block(child: impl IntoElement, joined: bool) -> AnyElement {
         .into_any_element()
 }
 
-/// A `'static` row id for a row made from data (a Harper rule, a credited
+/// A `'static` row id for a row made from data (a credited
 /// work): rows and their controls are keyed by it, and each name is interned
 /// once for the run, so the ids stay few and distinct.
 pub fn row_id(prefix: &str, name: &str) -> &'static str {

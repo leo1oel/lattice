@@ -61,6 +61,9 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/entries.rs", "A file or folder already exists at that path.", () => t`A file or folder already exists at that path.`],
   ["project/entries.rs", "Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml.", () => t`Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml.`],
   ["project/entries.rs", "Deck ids must use kebab-case letters and numbers.", () => t`Deck ids must use kebab-case letters and numbers.`],
+  // Converting a tldraw board (project/board_conversion.rs, board.rs)
+  ["project/board_conversion.rs", "Only tldraw boards (.tldr) can be converted.", () => t`Only tldraw boards (.tldr) can be converted.`],
+  ["board.rs", "The converted board could not be written: {error}", ([error]) => t`The converted board could not be written: ${error}`],
   ["project/entries.rs", "A slide deck already exists with that id.", () => t`A slide deck already exists with that id.`],
   ["project/entries.rs", "Choose a file or folder to move.", () => t`Choose a file or folder to move.`],
   ["project/entries.rs", "Choose an existing project folder.", () => t`Choose an existing project folder.`],

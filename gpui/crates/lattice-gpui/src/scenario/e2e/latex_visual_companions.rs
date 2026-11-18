@@ -5,8 +5,6 @@
 //! - the outline rail stands over the page's right edge, with a mark for
 //!   each of the document's sections (a file outside the manuscript has its
 //!   own outline, and a rail needs two marks), as over the source;
-//! - a misspelt word in the page is marked by the spell check (Harper,
-//!   answered by the owner's `harper_lint`), as in the source;
 //! - a local annotation on the file is marked in the page, with its
 //!   numbered pin in the gutter, as in the source, and its mark goes once
 //!   it is resolved (`editor_panel/latex_visual_events.rs`).
@@ -23,37 +21,26 @@ use serde_json::{Value, json};
 use super::{Run, Steps};
 use crate::annotations::{model, store};
 
-/// The rail, its marks, and the spell check's marks over the misspelt
-/// `word`, as one JSON object.
-fn companions(word: &str) -> String {
-    format!(
-        "JSON.stringify({{ \
-         rail: !!document.querySelector('.source-editor > .latex-outline-rail'), \
-         marks: document.querySelectorAll('.latex-outline-rail-marks > *').length, \
-         lints: [...document.querySelectorAll('.cm-latex-visual .cm-lintRange')].map((node) => node.textContent), \
-         flagged: [...document.querySelectorAll('.cm-latex-visual .cm-lintRange')].some((node) => node.textContent.includes({word:?})) }})"
-    )
-}
+/// The rail and its marks, as one JSON object.
+const COMPANIONS: &str = "JSON.stringify({ \
+     rail: !!document.querySelector('.source-editor > .latex-outline-rail'), \
+     marks: document.querySelectorAll('.latex-outline-rail-marks > *').length })";
 
 impl Run {
-    /// The rail over the page, and the misspelt `word` marked.
+    /// The rail over the page.
     pub(super) async fn latex_visual_companions(
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
         island: &Entity<Island>,
-        word: &str,
     ) -> Result<()> {
-        // The outline comes from the shell's read of the manuscript, and the
-        // spell check runs after typing pauses: both arrive a moment late.
+        // The outline comes from the shell's read of the manuscript, a
+        // moment late.
         let mut facts = Value::Null;
         let started = std::time::Instant::now();
         while started.elapsed() < Duration::from_secs(15) {
-            facts = self.evaluate(cx, island, &companions(word)).await;
-            if facts["rail"] == true
-                && facts["marks"].as_u64().is_some_and(|marks| marks > 0)
-                && facts["flagged"] == true
-            {
+            facts = self.evaluate(cx, island, COMPANIONS).await;
+            if facts["rail"] == true && facts["marks"].as_u64().is_some_and(|marks| marks > 0) {
                 break;
             }
             self.pause(cx, Duration::from_millis(250)).await;
@@ -62,11 +49,6 @@ impl Run {
             "the outline rail stands over the Visual page with its sections' marks, as over the source",
             facts["rail"] == true && facts["marks"].as_u64().is_some_and(|marks| marks > 0),
             json!({ "rail": facts["rail"], "marks": facts["marks"] }),
-        );
-        steps.check(
-            "a misspelt word in the Visual page is marked by the spell check, as in the source",
-            facts["flagged"] == true,
-            json!({ "word": word, "lints": facts["lints"] }),
         );
         Ok(())
     }
@@ -115,7 +97,7 @@ impl Run {
                 && facts["pins"].as_array().is_some_and(|pins| !pins.is_empty()),
             json!({ "page": facts }),
         );
-        // The window with the rail, the spelling mark and the note, when
+        // The window with the rail and the note, when
         // shots are asked for.
         self.latex_visual_shots(cx).await?;
         cx.update(|cx| {

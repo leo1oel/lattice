@@ -18,7 +18,6 @@ const release = parse(read(".github/workflows/release.yml")) as Workflow & {
 
 const SECRETS = {
   LATTICE_FIRECRAWL_KEY: "firecrawl-secret",
-  VITE_TLDRAW_LICENSE_KEY: "tldraw-secret",
   LATTICE_FONTS_DEPLOY_KEY: "fonts-secret",
   TAURI_SIGNING_PRIVATE_KEY: "updater-secret",
   APPLE_CERTIFICATE: "certificate-secret",
@@ -57,7 +56,6 @@ describe("the macOS Intel workflow", () => {
     expect(run.step("build", "Fetch the licensed interface fonts").runs).toBe(true);
     expect(run.step("build", BUILD).env).toMatchObject({
       LATTICE_FIRECRAWL_KEY: SECRETS.LATTICE_FIRECRAWL_KEY,
-      VITE_TLDRAW_LICENSE_KEY: SECRETS.VITE_TLDRAW_LICENSE_KEY,
       TAURI_SIGNING_PRIVATE_KEY: SECRETS.TAURI_SIGNING_PRIVATE_KEY,
     });
   });
@@ -80,7 +78,6 @@ describe("the macOS Intel workflow", () => {
     expect(run.step("build", "Fetch the licensed interface fonts").runs).toBe(false);
     expect(run.step("build", BUILD).env).toMatchObject({
       LATTICE_FIRECRAWL_KEY: "",
-      VITE_TLDRAW_LICENSE_KEY: "",
       TAURI_SIGNING_PRIVATE_KEY: "",
     });
   });

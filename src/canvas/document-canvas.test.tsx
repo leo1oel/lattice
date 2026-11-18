@@ -18,7 +18,7 @@ import type { PdfPreview as RealPdfPreview } from "../pdf/pdf-viewer";
 /**
  * The canvas decides *what* to mount; the editors themselves are covered by
  * their own suites. Stubbing the lazy chunk loaders keeps that decision the
- * only thing under test — and keeps tldraw, Univer, ProseMirror and pdf.js out
+ * only thing under test — and keeps Excalidraw, Univer, ProseMirror and pdf.js out
  * of jsdom, where none of them have the APIs they need.
  *
  * The stubs report the props the canvas is responsible for wiring (the
@@ -44,7 +44,7 @@ vi.mock("./canvas-lazy-modules", async () => {
     </div>
   );
   const editorStub = (testId: string) => (props: {
-    path?: string; source?: string; initialViewState?: { camera?: { x: number; y: number; z: number } };
+    path?: string; source?: string; initialViewState?: { scrollX?: number; scrollY?: number; zoom?: number };
     editorComments?: Array<{ id: string; from: number; to: number }>; activeEditorCommentId?: string | null;
     onEligibilityChange?: (reason: string | null) => void; onEditorCommentClick?: (id: string) => void;
     onCreateComment?: (from: number, to: number, body: string, report: () => void) => void; theme?: string;
@@ -64,7 +64,7 @@ vi.mock("./canvas-lazy-modules", async () => {
       data-path={props.path ?? ""}
       data-theme={props.theme ?? ""}
       data-source={props.source ?? ""}
-      data-restored-camera={String(props.initialViewState?.camera?.x ?? "")}
+      data-restored-camera={String(props.initialViewState?.scrollX ?? "")}
       data-comments={JSON.stringify(props.editorComments ?? [])}
       data-active-comment={props.activeEditorCommentId ?? ""}
       data-reveal={JSON.stringify(props.revealRequest ?? null)}
@@ -638,7 +638,7 @@ describe("DocumentCanvas / editor for the open document", () => {
 
   it.each([
     // Whole-file editors are handed their document and own the panel.
-    { mode: "source", activeFile: "diagram.tldr", testId: "board-editor", beside: false, data: { path: "diagram.tldr", source: "{}" } },
+    { mode: "source", activeFile: "map.excalidraw", testId: "board-editor", beside: false, data: { path: "map.excalidraw", source: "{}" } },
     { mode: "source", activeFile: "data.lattice-sheet", testId: "spreadsheet-editor", beside: false, data: { path: "data.lattice-sheet", source: "{}" } },
     { mode: "source", activeFile: "slides/research-update/index.tsx", testId: "open-slide-workspace", beside: false, data: { path: "slides/research-update/index.tsx", source: "{}" } },
     { mode: "split", activeFile: "notes.md", testId: "visual-markdown-editor", beside: true, data: {} },
@@ -762,7 +762,7 @@ describe("DocumentCanvas / editor for the open document", () => {
 
   it("shows the panel's placeholder instead of a hibernated board, and mounts the board again on wake", async () => {
     const hosts = { ...baseProps().hosts, editorHibernated: true };
-    const { rerenderWith } = renderCanvas({ document: { activeFile: "diagram.tldr", source: "{}" }, hosts });
+    const { rerenderWith } = renderCanvas({ document: { activeFile: "map.excalidraw", source: "{}" }, hosts });
 
     expect(within(documentHost).getByTestId("hibernated-document")).toBeInTheDocument();
     expect(screen.queryByTestId("board-editor")).toBeNull();
@@ -1137,11 +1137,11 @@ describe("DocumentCanvas / per-file view state", () => {
   it("hands the board its own saved view, not the previous file's", async () => {
     const state = viewStates({
       "main.tex": { pdf: pdfViewState(3) },
-      "diagram.tldr": { board: { pageId: "page:1", camera: { x: 120, y: 0, z: 1 } } },
+      "map.excalidraw": { board: { scrollX: 120, scrollY: 0, zoom: 1 } },
     });
     const { rerenderWith } = renderCanvas({ document: { mode: "source", activeFile: "main.tex" }, navigation: state });
 
-    rerenderWith({ document: { activeFile: "diagram.tldr", source: "{}" } });
+    rerenderWith({ document: { activeFile: "map.excalidraw", source: "{}" } });
 
     expect((await screen.findByTestId("board-editor")).dataset.restoredCamera).toBe("120");
   });
@@ -1169,14 +1169,14 @@ describe("DocumentCanvas / per-file view state", () => {
   // getter: a board that mounts again reads where it was left since, not
   // what the store held when the canvas last built it.
   it("brings a board back from hibernation where it was left, not where it first opened", async () => {
-    const path = "diagram.tldr";
-    const states: Record<string, FileViewState> = { [path]: { board: { pageId: "page:1", camera: { x: 120, y: 0, z: 1 } } } };
+    const path = "map.excalidraw";
+    const states: Record<string, FileViewState> = { [path]: { board: { scrollX: 120, scrollY: 0, zoom: 1 } } };
     const getFileViewState = (statePath: string) => states[statePath];
     const hosts = baseProps().hosts;
     const { rerenderWith } = renderCanvas({ document: { activeFile: path, source: "{}" }, navigation: { getFileViewState }, hosts });
     expect((await screen.findByTestId("board-editor")).dataset.restoredCamera).toBe("120");
 
-    states[path] = { board: { pageId: "page:1", camera: { x: 480, y: 0, z: 1 } } };
+    states[path] = { board: { scrollX: 480, scrollY: 0, zoom: 1 } };
     rerenderWith({ hosts: { ...hosts, editorHibernated: true } });
     expect(screen.queryByTestId("board-editor")).toBeNull();
     rerenderWith({ hosts: { ...hosts, editorHibernated: false } });
@@ -1184,10 +1184,10 @@ describe("DocumentCanvas / per-file view state", () => {
   });
 
   it("keeps the board on the app theme, including a live switch", async () => {
-    const { rerenderWith } = renderCanvas({ document: { mode: "source", activeFile: "diagram.tldr", source: "{}" }, preferences: { theme: "dark" } });
+    const { rerenderWith } = renderCanvas({ document: { mode: "source", activeFile: "map.excalidraw", source: "{}" }, preferences: { theme: "dark" } });
 
     expect((await screen.findByTestId("board-editor")).dataset.theme).toBe("dark");
-    rerenderWith({ document: { activeFile: "diagram.tldr", source: "{}" }, preferences: { theme: "light" } });
+    rerenderWith({ document: { activeFile: "map.excalidraw", source: "{}" }, preferences: { theme: "light" } });
     expect(screen.getByTestId("board-editor").dataset.theme).toBe("light");
   });
 });

@@ -97,7 +97,8 @@ pub fn remembered_local_copies(config_dir: &Path) -> Vec<PathBuf> {
     read_index(config_dir).folders
 }
 
-fn display_path(path: &Path) -> String {
+/// `path` for people to read, with the home folder as `~`.
+pub fn display_path(path: &Path) -> String {
     match crate::host_paths::home_dir() {
         Some(home) => display_path_from_home(path, &home),
         None => path.to_string_lossy().into_owned(),

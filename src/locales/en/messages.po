@@ -3812,6 +3812,10 @@ msgstr "Choose where to clone the repository"
 msgid "Choose where to create the project"
 msgstr "Choose where to create the project"
 
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Choose where to download Overleaf projects"
+msgstr "Choose where to download Overleaf projects"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Choose where to export the Excel workbook."
 msgstr "Choose where to export the Excel workbook."
@@ -3848,6 +3852,7 @@ msgstr "Choose your library's .bib file"
 msgid "Choose Zotero folder…"
 msgstr "Choose Zotero folder…"
 
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
@@ -5889,6 +5894,10 @@ msgstr "Download PDF"
 msgid "Download progress"
 msgstr "Download progress"
 
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Download to"
+msgstr "Download to"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/spelling-languages-row.tsx
 msgid "Downloaded dictionaries"
@@ -6754,6 +6763,12 @@ msgstr "Files in this version"
 #: src/project/arxiv-export.ts
 msgid "Files the last build used are missing"
 msgstr "Files the last build used are missing"
+
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgctxt "tab style"
+msgid "Filled"
+msgstr "Filled"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
@@ -8842,6 +8857,10 @@ msgstr "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is abou
 #: src/onboarding/get-started-steps.ts
 msgid "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck."
 msgstr "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Lattice can't save files in that folder. Choose another one."
+msgstr "Lattice can't save files in that folder. Choose another one."
 
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -11095,6 +11114,10 @@ msgstr "Only the first {shown} of {total} errors and warnings are listed. The ra
 msgid "Only the listed graphics arguments will change. Image files stay in place."
 msgstr "Only the listed graphics arguments will change. Image files stay in place."
 
+#: src/platform/host-errors-project.ts
+msgid "Only tldraw boards (.tldr) can be converted."
+msgstr "Only tldraw boards (.tldr) can be converted."
+
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 #: src/plugins/plugin-text.ts
@@ -11549,6 +11572,12 @@ msgstr "Other languages"
 #: src/canvas/document-outline.tsx
 msgid "Outline"
 msgstr "Outline"
+
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgctxt "tab style"
+msgid "Outlined"
+msgstr "Outlined"
 
 #: src/project/arxiv-export.ts
 msgid "Over arXiv’s size limit"
@@ -15696,6 +15725,11 @@ msgstr "syntax highlighting color scheme editor"
 msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgid "Tab style"
+msgstr "Tab style"
+
 #: src/editor/latex/latex-text.ts
 msgid "table"
 msgstr "table"
@@ -15723,6 +15757,11 @@ msgstr "Table generator"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Table of contents"
 msgstr "Table of contents"
+
+#. Search words for the Tab style setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "tabs outline chip Linear"
+msgstr "tabs outline chip Linear"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Taking longer than usual"
@@ -15974,6 +16013,10 @@ msgstr "That file or folder no longer exists."
 #: src/platform/host-errors-project.ts
 msgid "That folder already exists and is not empty."
 msgstr "That folder already exists and is not empty."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "That folder no longer exists. Choose another one."
+msgstr "That folder no longer exists. Choose another one."
 
 #: src/platform/host-errors-workspace.ts
 msgid "That history entry no longer exists."
@@ -16278,6 +16321,10 @@ msgstr "The conference's own citation export and Crossref disagree on: {0}. The 
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
+
+#: src/platform/host-errors-project.ts
+msgid "The converted board could not be written: {error}"
+msgstr "The converted board could not be written: {error}"
 
 #: src/platform/host-errors-project.ts
 msgid "The converted figure could not be read."

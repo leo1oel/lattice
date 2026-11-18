@@ -51,7 +51,7 @@ fn pausing_and_realtime_metadata_keep_the_link_and_its_common_ancestor() {
     set_paused(&root, false).unwrap();
     assert!(!project_link(&root).unwrap().unwrap().paused);
 
-    set_realtime_metadata(&root, "new-root-folder", "owner").unwrap();
+    set_realtime_metadata(&root, "new-root-folder", "owner", None).unwrap();
     let state = load_state(&root).unwrap();
     assert_eq!(state.root_folder_id.as_deref(), Some("new-root-folder"));
     assert_eq!(state.permission.as_deref(), Some("owner"));
@@ -60,12 +60,12 @@ fn pausing_and_realtime_metadata_keep_the_link_and_its_common_ancestor() {
     // A join that names no role leaves the recorded one alone. Overwriting it
     // with "unknown" made a writer's pending moves fail as if it had no write
     // access until a later join named the role again.
-    set_realtime_metadata(&root, "newer-root-folder", "unknown").unwrap();
+    set_realtime_metadata(&root, "newer-root-folder", "unknown", None).unwrap();
     let state = load_state(&root).unwrap();
     assert_eq!(state.root_folder_id.as_deref(), Some("newer-root-folder"));
     assert_eq!(state.permission.as_deref(), Some("owner"));
     // A role the join does name still replaces it, a downgrade included.
-    set_realtime_metadata(&root, "newer-root-folder", "readOnly").unwrap();
+    set_realtime_metadata(&root, "newer-root-folder", "readOnly", None).unwrap();
     assert_eq!(load_state(&root).unwrap().permission.as_deref(), Some("readOnly"));
 }
 
@@ -258,3 +258,28 @@ fn the_unsettled_record_reads_old_state_files_and_round_trips() {
     let read: SyncState = serde_json::from_str(&serde_json::to_string(&written).unwrap()).unwrap();
     assert_eq!(read.unsettled, Some(record));
 }
+
+/// Leo's report: a project renamed on Overleaf stops syncing with the folder
+/// it was cloned into. Overleaf's title is not the link: the folder keeps its
+/// name, `Open from Overleaf` under the new title finds it by project id, and
+/// the stored title follows Overleaf.
+#[test]
+fn a_project_renamed_on_overleaf_opens_its_existing_folder() {
+    let server = Mock::project(&[("main.tex", b"remote body")]).serve();
+    let (config, parent) = (signed_in(&server.base), TempDir::new("clone-parent"));
+    let cloned = clone_project(&config, "proj-1", "Paper", &parent, None, &|_, _| {}).unwrap();
+    // A link made before Lattice kept its list of linked folders, or listed
+    // by another app (the GPUI app reads the Tauri app's): only the download
+    // folder knows of it.
+    let fresh_config = signed_in(&server.base);
+
+    let target = clone_target("proj-1", "Paper (final)", &parent).unwrap();
+    assert_eq!((target.kind.as_str(), target.path.as_str()), ("open", cloned.to_str().unwrap()));
+    let reopened =
+        clone_project(&fresh_config, "proj-1", "Paper (final)", &parent, None, &|_, _| {}).unwrap();
+    assert_eq!(reopened, cloned);
+    assert!(!parent.join("Paper (final)").exists(), "no second copy under the new title");
+    assert_eq!(load_state(&cloned).unwrap().project_name, "Paper (final)");
+}
+
+mod project_title;

@@ -23,6 +23,7 @@ import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
+import { excalidrawAssetsPlugin } from "../../scripts/excalidraw-assets.ts";
 import { privateFontsPlugin } from "../../scripts/private-fonts.ts";
 import { reactCompilerSuppressionRules } from "../../scripts/react-compiler-suppressions.ts";
 
@@ -51,7 +52,7 @@ function webkitPolyfillsModulePlugin(): Plugin {
 
 export default defineConfig({
   root: here,
-  // The app's `.env` files (the tldraw licence key) stay where the app reads them.
+  // The app's `.env` files stay where the app reads them.
   envDir: repo,
   publicDir: false,
   // Relative URLs: a page is served at `bundle/<island>/index.html`, its
@@ -72,6 +73,7 @@ export default defineConfig({
       ],
     }),
     tailwindcss(),
+    excalidrawAssetsPlugin(),
     privateFontsPlugin(),
   ],
   resolve: {
@@ -89,7 +91,7 @@ export default defineConfig({
     emptyOutDir: true,
     // WKWebView on the macOS 14 minimum has module preload natively.
     modulePreload: { polyfill: false },
-    // Univer and tldraw are large, and served from disk: no budget to warn on.
+    // Univer and Excalidraw are large, and served from disk: no budget to warn on.
     chunkSizeWarningLimit: 16_384,
     rolldownOptions: {
       input: Object.fromEntries(ISLANDS.map((name) => [name, path.join(here, name, "index.html")])),

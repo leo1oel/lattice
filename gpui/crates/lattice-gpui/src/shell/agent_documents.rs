@@ -295,12 +295,12 @@ mod tests {
 
     #[test]
     fn canvas_tools_go_to_the_board_in_front_and_never_to_a_hidden_one() {
-        let mut hidden = candidate(StructuredKind::Board, "hidden.tldr");
+        let mut hidden = candidate(StructuredKind::Board, "hidden.excalidraw");
         hidden.shown = false;
         hidden.front = true;
-        let mut front = candidate(StructuredKind::Board, "front.tldr");
+        let mut front = candidate(StructuredKind::Board, "front.excalidraw");
         front.front = true;
-        let other = candidate(StructuredKind::Board, "other.tldr");
+        let other = candidate(StructuredKind::Board, "other.excalidraw");
         let paper = candidate(StructuredKind::Sheet, "results.lattice-sheet");
         let candidates = [hidden.clone(), other.clone(), front, paper];
         assert_eq!(pick(ToolFamily::Canvas, &canvas(), &candidates), Some(2));

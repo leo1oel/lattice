@@ -4531,7 +4531,10 @@ impl Window {
         result
     }
 
-    pub(crate) fn with_element_opacity<R>(
+    /// Paints what `f` paints at `opacity` times the opacity it is already
+    /// under, as an element's `opacity` style does (Lattice: public, for the
+    /// whiteboard's semi-transparent images and fading elements).
+    pub fn with_element_opacity<R>(
         &mut self,
         opacity: Option<f32>,
         f: impl FnOnce(&mut Self) -> R,

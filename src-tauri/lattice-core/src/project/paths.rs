@@ -148,7 +148,9 @@ const SOURCE_KINDS: &[(&str, Option<&str>, Option<&str>, bool)] = &[
     ("sty", Some("text/x-tex"), Some("% Package\n"), true),
     ("cls", Some("text/x-tex"), Some("% Package\n"), true),
     ("bst", Some("text/plain"), None, false),
-    ("tldr", None, Some(""), false),
+    ("excalidraw", None, Some(crate::board::EMPTY_SCENE), false),
+    // tldraw boards from before; opening one converts it to .excalidraw.
+    ("tldr", None, None, false),
     ("lattice-sheet", None, Some(""), false),
     ("tsx", Some("text/javascript"), Some(""), true),
     ("ts", Some("text/javascript"), Some(""), true),

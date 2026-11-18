@@ -579,7 +579,7 @@ mod tests {
 
     #[test]
     fn boards_sheets_and_decks_are_whole_file_documents() {
-        assert!(is_whole_file("figures/plan.tldr"));
+        assert!(is_whole_file("figures/plan.excalidraw"));
         assert!(is_whole_file("data.lattice-sheet"));
         assert!(!is_whole_file("main.tex"));
         assert!(!is_whole_file("notes.md"));
@@ -588,13 +588,13 @@ mod tests {
     #[test]
     fn a_sync_settles_the_held_files_it_carried() {
         let mut files = WholeFiles {
-            deferred: BTreeSet::from(["a.tldr".to_string(), "b.tldr".to_string()]),
+            deferred: BTreeSet::from(["a.excalidraw".to_string(), "b.excalidraw".to_string()]),
             ..Default::default()
         };
-        // `b.tldr` was still being edited, so the sync left it alone.
-        files.sync_started(&BTreeSet::from(["b.tldr".to_string()]));
+        // `b.excalidraw` was still being edited, so the sync left it alone.
+        files.sync_started(&BTreeSet::from(["b.excalidraw".to_string()]));
         files.synced(true);
-        assert_eq!(files.deferred, BTreeSet::from(["b.tldr".to_string()]));
+        assert_eq!(files.deferred, BTreeSet::from(["b.excalidraw".to_string()]));
     }
 
     #[test]
@@ -606,35 +606,38 @@ mod tests {
         files.sync_started(&BTreeSet::new());
         // Saved again, and an outside tool writes a board, while it runs.
         files.saved("deck.slides");
-        files.saved("plan.tldr");
+        files.saved("plan.excalidraw");
         files.synced(true);
         assert_eq!(
             files.deferred,
-            BTreeSet::from(["deck.slides".to_string(), "plan.tldr".to_string()])
+            BTreeSet::from(["deck.slides".to_string(), "plan.excalidraw".to_string()])
         );
     }
 
     #[test]
     fn a_save_while_the_probe_is_out_stays_held() {
         let mut files = WholeFiles {
-            deferred: BTreeSet::from(["a.tldr".to_string(), "plan.tldr".to_string()]),
-            probing: BTreeSet::from(["a.tldr".to_string(), "plan.tldr".to_string()]),
+            deferred: BTreeSet::from(["a.excalidraw".to_string(), "plan.excalidraw".to_string()]),
+            probing: BTreeSet::from(["a.excalidraw".to_string(), "plan.excalidraw".to_string()]),
             ..Default::default()
         };
-        files.saved("plan.tldr");
+        files.saved("plan.excalidraw");
         files.probe_ended(true);
-        assert_eq!(files.deferred, BTreeSet::from(["plan.tldr".to_string()]));
+        assert_eq!(
+            files.deferred,
+            BTreeSet::from(["plan.excalidraw".to_string()])
+        );
         assert!(files.probing.is_empty());
     }
 
     #[test]
     fn a_failed_sync_leaves_the_held_files_held() {
         let mut files = WholeFiles {
-            deferred: BTreeSet::from(["a.tldr".to_string()]),
+            deferred: BTreeSet::from(["a.excalidraw".to_string()]),
             ..Default::default()
         };
         files.sync_started(&BTreeSet::new());
         files.synced(false);
-        assert_eq!(files.deferred, BTreeSet::from(["a.tldr".to_string()]));
+        assert_eq!(files.deferred, BTreeSet::from(["a.excalidraw".to_string()]));
     }
 }

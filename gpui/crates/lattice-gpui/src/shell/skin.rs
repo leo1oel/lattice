@@ -433,6 +433,9 @@ impl Skin for LatticeSkin {
         .dirty(look.dirty)
         .preview(tab.preview)
         .pinned(tab.pinned)
+        .outlined(
+            crate::settings::get(cx).appearance.tab_style == lattice_settings::TabStyle::Outlined,
+        )
         .fit(fit)
         .when(!tab.atomic, |tab| tab.max_w(px(TAB_MAX)))
         .when(lattice_ui::parity::enabled(), |el| {

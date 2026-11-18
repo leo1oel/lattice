@@ -75,12 +75,13 @@ function hasExtension(...extensions: string[]): (path: string) => boolean {
  * writing.
  */
 const DOCUMENT_EXTENSIONS = [
-  "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr", "lattice-sheet",
+  "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "excalidraw", "lattice-sheet",
   "tsx", "ts", "jsx", "js",
 ];
 export const isProjectDocumentFilePath = hasExtension(...DOCUMENT_EXTENSIONS);
 export const isProjectSourceFilePath = hasExtension(
-  ...DOCUMENT_EXTENSIONS, "py", "mjs", "cjs",
+  // A tldraw board opens by converting it to an .excalidraw (app/tldraw-board.ts).
+  ...DOCUMENT_EXTENSIONS, "tldr", "py", "mjs", "cjs",
   "rs", "go", "c", "cc", "cpp", "h", "hpp", "java", "rb", "pl", "r",
   "sh", "bash", "zsh", "json", "yaml", "yml", "toml", "xml", "css", "scss", "sql",
 );
@@ -104,7 +105,7 @@ export function isOpenSlideDeckPath(path: string): boolean {
 
 export function isWholeFileEditorPath(path: string): boolean {
   const extension = fileExtension(path);
-  return isOpenSlideDeckPath(path) || extension === "tldr" || extension === "lattice-sheet";
+  return isOpenSlideDeckPath(path) || extension === "excalidraw" || extension === "lattice-sheet";
 }
 
 /**

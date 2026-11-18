@@ -41,6 +41,46 @@ impl Run {
             built && reloaded,
             json!({ "reloads": stats.swaps.get(swaps..) }),
         );
+        let page = cx.update(|cx| self.live_view_of(cx).read(cx).current_page());
+        steps.check(
+            "PDF: a rebuild leaves the reader on the page they were reading",
+            page == 9,
+            json!({ "page": page }),
+        );
+        self.rebuild_with_fewer_pages(cx, steps, supplement).await
+    }
+
+    /// A rebuild with fewer pages than the one being read shows its last
+    /// page, not its first, and one that gives them back keeps that page.
+    async fn rebuild_with_fewer_pages(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        supplement: &Path,
+    ) -> Result<()> {
+        const TAIL: &str = "\\newpage\n\\section{Eleven} Plain text.\n\\newpage\n\\section{Twelve} The end.\n";
+        self.with_view(cx, |view, _, cx| view.go_to_page(11, cx))?;
+        let full = std::fs::read_to_string(supplement)?;
+        std::fs::write(supplement, full.replace(TAIL, ""))?;
+        self.pause(cx, Duration::from_millis(500)).await;
+        let (built, _) = self.build(cx).await?;
+        let shrunk = self.wait_view(cx, 20, |view, _| view.page_count() == 10).await;
+        let page = cx.update(|cx| self.live_view_of(cx).read(cx).current_page());
+        steps.check(
+            "PDF: a rebuild with fewer pages than the one read shows its last page",
+            built && shrunk && page == 9,
+            json!({ "built": built, "pages": shrunk, "page": page }),
+        );
+        std::fs::write(supplement, full)?;
+        self.pause(cx, Duration::from_millis(500)).await;
+        let (built, _) = self.build(cx).await?;
+        let grown = self.wait_view(cx, 20, |view, _| view.page_count() == 12).await;
+        let page = cx.update(|cx| self.live_view_of(cx).read(cx).current_page());
+        steps.check(
+            "PDF: a rebuild that adds pages keeps the page being read",
+            built && grown && page == 9,
+            json!({ "built": built, "pages": grown, "page": page }),
+        );
         Ok(())
     }
 }

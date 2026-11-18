@@ -1,0 +1,76 @@
+/*
+ * Excalidraw dressed in Lattice's tokens (docs/design-system.md). Excalidraw
+ * themes its chrome through CSS variables on `.excalidraw`; each is mapped to
+ * a semantic role here, for both of its themes, since Lattice's roles already
+ * follow `[data-theme]`. The GPUI native board reads the same mapping.
+ */
+.board-editor-root {
+  /* Excalidraw names its own font variable --ui-font too: read Lattice's here. */
+  --board-ui-font: var(--ui-font);
+  background: var(--board-canvas-surface);
+}
+
+.board-editor-root .excalidraw,
+.board-editor-root .excalidraw.theme--dark {
+  --ui-font: var(--board-ui-font);
+  --color-primary: var(--control-active);
+  --color-primary-darker: var(--control-active);
+  --color-primary-darkest: var(--control-active);
+  --color-primary-hover: var(--control-active);
+  --color-brand-hover: var(--control-active);
+  --color-brand-active: var(--control-active);
+  --color-logo-icon: var(--control-active);
+  --color-primary-light: var(--control-pressed-surface);
+  --color-primary-light-darker: var(--control-pressed-surface);
+  --color-surface-primary-container: var(--control-pressed-surface);
+  --color-on-primary-container: var(--text-primary);
+  --color-selection: var(--focus);
+  --island-bg-color: var(--surface-elevated);
+  --popup-bg-color: var(--surface-elevated);
+  --sidebar-bg-color: var(--surface-elevated);
+  --color-surface-lowest: var(--surface-elevated);
+  --default-bg-color: var(--board-canvas-surface);
+  --text-primary-color: var(--text-primary);
+  --color-on-surface: var(--text-primary);
+  --icon-fill-color: var(--text-primary);
+  --popup-text-color: var(--text-primary);
+  --input-label-color: var(--text-secondary);
+  --keybinding-color: var(--text-secondary);
+  --button-hover-bg: var(--control-hover-surface);
+  --color-surface-mid: var(--control-hover-surface);
+  --input-hover-bg-color: var(--control-hover-surface);
+  --button-active-bg: var(--control-pressed-surface);
+  --color-surface-high: var(--control-pressed-surface);
+  --button-active-border: transparent;
+  --color-surface-low: var(--surface-chrome);
+  --default-border-color: var(--border-subtle);
+  --sidebar-border-color: var(--border-subtle);
+  --dialog-border-color: var(--border-subtle);
+  --list-border-color: var(--border-subtle);
+  --color-border-outline-variant: var(--border-subtle);
+  --color-border-outline: var(--border-strong);
+  --input-bg-color: var(--field-control-background);
+  --input-border-color: var(--field-control-border-color);
+  --shadow-island: var(--elevation-popover-shadow);
+  --modal-shadow: var(--elevation-dialog-shadow);
+  --sidebar-shadow: var(--elevation-dialog-shadow);
+  --border-radius-md: var(--radius-control);
+  --border-radius-lg: var(--radius-surface);
+  --focus-highlight-color: var(--focus);
+  --link-color: var(--focus);
+  --select-highlight-color: var(--focus);
+  --overlay-bg-color: var(--surface-backdrop);
+  --color-danger: var(--status-danger);
+  --button-destructive-color: var(--status-danger);
+  --button-destructive-bg-color: var(--status-danger-soft);
+  --color-danger-background: var(--status-danger-soft);
+  --scrollbar-thumb: var(--border-strong);
+  --scrollbar-thumb-hover: var(--text-secondary);
+  font-family: var(--board-ui-font);
+}
+
+/* The library browser links libraries.excalidraw.com; a board stays local. */
+.board-editor-root .excalidraw .default-sidebar-trigger,
+.board-editor-root .excalidraw .sidebar-trigger {
+  display: none;
+}

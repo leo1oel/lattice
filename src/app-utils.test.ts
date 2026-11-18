@@ -221,7 +221,7 @@ describe("editor file drops", () => {
   it("recognizes editors whose documents synchronize as whole files", () => {
     expectEach(isWholeFileEditorPath, [
       ["slides/research-update/index.tsx", true],
-      ["figures/model.tldr", true],
+      ["figures/model.excalidraw", true],
       ["results.LATTICE-SHEET", true],
       ["main.tex", false],
       ["slides/research-update/theme.tsx", false],
@@ -229,15 +229,15 @@ describe("editor file drops", () => {
   });
 
   it("recovers project-root whole-file links from a Markdown folder, keeping exact and missing paths", () => {
-    const paths = ["notes/local.tldr", "slides/research-update/index.tsx", "results.lattice-sheet", "sketch.tldr", "notes/other.md"];
+    const paths = ["notes/local.excalidraw", "slides/research-update/index.tsx", "results.lattice-sheet", "sketch.excalidraw", "notes/other.md"];
 
     expectEach((path: string) => resolveKnownWholeFileProjectPath(path, paths), [
       ["notes/slides/research-update/index.tsx", "slides/research-update/index.tsx"],
       ["notes/results.lattice-sheet", "results.lattice-sheet"],
-      ["notes/sketch.tldr", "sketch.tldr"],
-      ["notes/local.tldr", "notes/local.tldr"],
+      ["notes/sketch.excalidraw", "sketch.excalidraw"],
+      ["notes/local.excalidraw", "notes/local.excalidraw"],
       ["notes/other.md", "notes/other.md"],
-      ["notes/missing.tldr", "notes/missing.tldr"],
+      ["notes/missing.excalidraw", "notes/missing.excalidraw"],
     ]);
   });
 

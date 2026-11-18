@@ -12,6 +12,11 @@ license = "Apache-2.0"
 publish = false
 
 [features]
+default = ["spellcheck"]
+# Harper's spelling and grammar check (harper.rs) and the Hunspell
+# dictionaries for other languages (spelling/). The Tauri app checks prose
+# with them; the GPUI app has no spell check and builds without them.
+spellcheck = ["dep:harper-core", "dep:spellbook"]
 # The real-app measurement lab's TexLab probe (texlab.rs); the shell's own
 # `perf-lab` feature turns it on.
 perf-lab = []
@@ -92,7 +97,7 @@ lopdf = "0.42"
 # Already in the tree transitively; direct so paper.md normalization can slug
 # headings with the exact NFKD semantics of the editor's toWikiLinkSlug.
 unicode-normalization = "0.1"
-harper-core = { version = "2.7.0", default-features = false, features = ["concurrent"] }
+harper-core = { version = "2.7.0", default-features = false, features = ["concurrent"], optional = true }
 # Full-text search over the paper library (papers/search_index.rs). Without
 # the defaults: no zstd column compression or stop-word lists, which the
 # index does not use.
@@ -102,7 +107,7 @@ tantivy = { version = "0.27", default-features = false, features = ["mmap", "lz4
 jieba-rs = "0.11"
 notify = "8"
 scraper = "0.27"
-spellbook = "0.4.2"
+spellbook = { version = "0.4.2", optional = true }
 yaml-rust2 = { version = "0.10.4", default-features = false }
 # Plugin manifests (`lattice-plugin.toml`, plugins/manifest.rs); the version
 # both shells' dependency graphs already compile in.

@@ -144,7 +144,7 @@ export const SCREENS = {
     regions: [
       { name: "titlebar", css: "header.titlebar", chrome: true },
       { name: "workspace", css: "main.workspace", chrome: true },
-      ...group("attention-map.tldr"),
+      ...group("attention-map.excalidraw"),
       { name: "board/surface", css: ".board-editor-root" },
     ],
     content: [".board-editor-root", ".pdf-viewer-host"],
@@ -351,6 +351,7 @@ export const SCREENS = {
       { name: "overleaf/picker/row/name", css: ".overleaf-project-row:not(.selected) .overleaf-project-name", text: true },
       { name: "overleaf/picker/row/meta", css: ".overleaf-project-row:not(.selected) .overleaf-project-meta", text: true },
       { name: "overleaf/picker/open", css: ".overleaf-project-row.selected .overleaf-open-button:last-child", text: true },
+      { name: "overleaf/picker/destination", css: ".overleaf-destination" },
       { name: "overleaf/picker/publish", css: ".overleaf-publish-card", chrome: true },
       { name: "overleaf/picker/publish/title", css: ".overleaf-publish-copy strong", text: true },
     ],

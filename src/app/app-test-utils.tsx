@@ -89,8 +89,8 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn(), open: vi.fn(), save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn(), openUrl: vi.fn() }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(), readText: vi.fn() }));
-// The board creation flow opens the .tldr in the canvas; mounting the real
-// Tldraw editor needs browser canvas APIs jsdom doesn't have.
+// A new board opens in the canvas; the real Excalidraw editor needs canvas
+// APIs jsdom doesn't have.
 vi.mock("../editor/board/board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
 vi.mock("../editor/spreadsheet/spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
 vi.mock("../editor/presentation/open-slide-workspace", () => ({
@@ -288,7 +288,7 @@ vi.mock("@pdfslick/core", () => {
 export { mockAppCommand };
 
 const FILE_KINDS: Record<string, string> = {
-  tex: "tex", md: "markdown", bib: "bib", tldr: "board", "lattice-sheet": "spreadsheet", tsx: "tsx",
+  tex: "tex", md: "markdown", bib: "bib", excalidraw: "board", "lattice-sheet": "spreadsheet", tsx: "tsx",
   png: "figure", pdf: "figure", svg: "figure", eps: "figure", webp: "figure",
 };
 
@@ -368,7 +368,7 @@ export const markdownSnapshot = (path = "notes.md", files = [fileNode(path)]) =>
 export const overleafPaperSnapshot = () => projectSnapshot({
   root: "/tmp/lattice-overleaf-paper", projectId: "overleaf-paper-id", name: "Overleaf paper",
 });
-export const EMPTY_BOARD = "{\"tldrawFileFormatVersion\":1,\"records\":[]}";
+export const EMPTY_BOARD = "{\"type\":\"excalidraw\",\"version\":2,\"elements\":[]}";
 export const BIB_SOURCE = "@article{lattice, title={Lattice}}";
 export const PAPER_ABSTRACT = "## Abstract\n\nPaper content.";
 

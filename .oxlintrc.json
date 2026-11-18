@@ -333,7 +333,7 @@
     {
       // Headless primitives are styled once, in src/components/ui; feature code
       // uses those wrappers so menus, popovers and dialogs keep one look. The
-      // same rule keeps tldraw out of eagerly-loaded modules and raw Tauri
+      // same rule keeps Excalidraw out of eagerly-loaded modules and raw Tauri
       // `listen` out of effects. Each override below restates the whole option
       // set, because a later override replaces the options of an earlier one
       // for the same files; the two after this one each lift one restriction
@@ -343,9 +343,9 @@
       "rules": {
         "eslint/no-restricted-imports": ["error", {
           "paths": [{
-            "name": "tldraw",
+            "name": "@excalidraw/excalidraw",
             "allowTypeImports": true,
-            "message": "Value-import tldraw only in src/editor/board/ or agent-canvas-tldraw-adapter.ts: its barrel has no sideEffects flag and drags ~1.5 MB into whichever chunk imports it (docs/architecture.md §4.2)."
+            "message": "Value-import Excalidraw only in src/editor/board/ or agent-canvas-excalidraw-adapter.ts: it is several MB and belongs in the lazy board chunk (docs/architecture.md §4.2)."
           }, {
             "name": "@tauri-apps/api/event",
             "importNames": ["listen"],
@@ -364,7 +364,7 @@
     {
       // The board editor and its agent adapter load only behind the lazy
       // board-editor import (src/canvas/canvas-lazy-modules.ts).
-      "files": ["src/editor/board/**/*.{ts,tsx}", "src/agent/agent-canvas-tldraw-adapter.ts"],
+      "files": ["src/editor/board/**/*.{ts,tsx}", "src/agent/agent-canvas-excalidraw-adapter.ts"],
       "excludeFiles": ["src/**/*.test.{ts,tsx}"],
       "rules": {
         "eslint/no-restricted-imports": ["error", {
@@ -389,9 +389,9 @@
       "rules": {
         "eslint/no-restricted-imports": ["error", {
           "paths": [{
-            "name": "tldraw",
+            "name": "@excalidraw/excalidraw",
             "allowTypeImports": true,
-            "message": "Value-import tldraw only in src/editor/board/ or agent-canvas-tldraw-adapter.ts: its barrel has no sideEffects flag and drags ~1.5 MB into whichever chunk imports it (docs/architecture.md §4.2)."
+            "message": "Value-import Excalidraw only in src/editor/board/ or agent-canvas-excalidraw-adapter.ts: it is several MB and belongs in the lazy board chunk (docs/architecture.md §4.2)."
           }],
           "patterns": [{
             "group": ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],

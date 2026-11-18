@@ -310,19 +310,21 @@ pub async fn overleaf_resolve_link(
     settled(&app, run_blocking(TASK, move || overleaf::resolve_link(&config, &link)).await).await
 }
 
-/// Where Overleaf projects are downloaded to.
-fn overleaf_projects_dir(app: &AppHandle) -> Result<PathBuf, String> {
+/// Where Overleaf projects are downloaded to unless the writer chooses
+/// another folder.
+pub(super) fn overleaf_projects_dir(app: &AppHandle) -> Result<PathBuf, String> {
     documents_folder(app, "Overleaf Projects", "the Overleaf Projects folder")
 }
 
-/// What opening this project would do, so the app can ask before it acts.
+/// What opening this project in `parent` would do, so the app can ask before
+/// it acts.
 #[tauri::command]
 pub async fn overleaf_clone_target(
-    app: AppHandle, project_id: String, name: String,
+    project_id: String, name: String, parent: String,
 ) -> Result<overleaf::CloneTarget, String> {
-    let parent = overleaf_projects_dir(&app)?;
     run_blocking("Overleaf project location", move || {
-        overleaf::clone_target(&project_id, &name, &parent)
+        overleaf::check_download_parent(Path::new(&parent))?;
+        overleaf::clone_target(&project_id, &name, Path::new(&parent))
     })
     .await
 }
@@ -333,6 +335,8 @@ pub async fn overleaf_clone_project(
     window: Window,
     project_id: String,
     name: String,
+    // The folder to download into, which the next download offers again.
+    parent: String,
     access_level: Option<String>,
     // `adopt`: link the folder already sitting there instead of downloading a
     // second copy beside it. Only meaningful when `overleaf_clone_target`
@@ -340,8 +344,9 @@ pub async fn overleaf_clone_project(
     adopt: Option<bool>,
 ) -> Result<String, String> {
     let config = overleaf_config_dir(&app)?;
-    let parent = overleaf_projects_dir(&app)?;
+    let parent = PathBuf::from(parent);
     let downloaded = run_blocking("The Overleaf download", move || {
+        overleaf::check_download_parent(&parent)?;
         let access_level = access_level.as_deref();
         let progress = report_download(window);
         if adopt.unwrap_or(false) {
@@ -357,7 +362,10 @@ pub async fn overleaf_clone_project(
                 );
             }
         }
-        overleaf::clone_project(&config, &project_id, &name, &parent, access_level, &progress)
+        let root =
+            overleaf::clone_project(&config, &project_id, &name, &parent, access_level, &progress)?;
+        overleaf::remember_download_parent(&config, &parent);
+        Ok(root)
     })
     .await;
     let root = settled(&app, downloaded).await?;
@@ -384,19 +392,19 @@ pub async fn overleaf_publish_project(
     .await
 }
 
-/// The folders on this Mac already linked to the listed projects, by project
-/// id, so the picker opens those instead of downloading again. `names` are the
-/// listed projects' names (each one's download folder is a candidate);
-/// `folders` are others the app knows of, such as its recent projects.
+/// The folders on this Mac already linked to Overleaf projects, by project
+/// id, so the picker opens those instead of downloading again. `folders` are
+/// ones the app knows of, such as its recent projects; every folder in the
+/// download folder is a candidate too, read by its link rather than matched
+/// by a project's title, which can change on Overleaf.
 #[tauri::command]
 pub async fn overleaf_local_copies(
-    app: AppHandle, names: Vec<String>, folders: Vec<String>,
+    app: AppHandle, folders: Vec<String>,
 ) -> Result<BTreeMap<String, overleaf::LocalCopy>, String> {
     let config = overleaf_config_dir(&app)?;
     let parent = overleaf_projects_dir(&app)?;
     run_blocking("Overleaf local copies", move || {
-        let downloads =
-            names.iter().filter_map(|name| overleaf::download_folder(&parent, name).ok());
+        let downloads = overleaf::download_folders(&parent);
         let candidates: Vec<PathBuf> = folders.iter().map(PathBuf::from).chain(downloads).collect();
         Ok(overleaf::local_copies(&config, &candidates))
     })
@@ -408,12 +416,18 @@ pub async fn overleaf_local_copies(
 #[tauri::command]
 pub async fn overleaf_reopen_local_copy(
     app: AppHandle, state: State<'_, AppState>, path: String, project_id: String,
-    access_level: Option<String>,
+    name: Option<String>, access_level: Option<String>,
 ) -> Result<(), String> {
     let config = overleaf_config_dir(&app)?;
     let _lease = state.lease(&path, Lease::Shared).await;
     run_blocking("Overleaf local copy", move || {
-        overleaf::reopen_local_copy(&config, Path::new(&path), &project_id, access_level.as_deref())
+        overleaf::reopen_local_copy(
+            &config,
+            Path::new(&path),
+            &project_id,
+            name.as_deref(),
+            access_level.as_deref(),
+        )
     })
     .await
 }

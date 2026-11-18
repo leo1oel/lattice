@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/radix-ui/primitives",
+  "commit": "eb3a2b7091293e27df8f9ba906632d8daa3d81a3",
+  "pinned": false,
+  "via": "the default branch `main` at fetch time — no commit or tag identifies this release",
+  "files": [
+    "LICENSE"
+  ]
+}

@@ -486,7 +486,7 @@ third eager chunk means the module grouping changed and the allowlist should be
 re-derived rather than widened.
 
 Heavy libraries must stay behind dynamic imports: pdfjs, pele (Mermaid diagrams), katex,
-the CodeMirror language packs, TipTap, Univer, tldraw, Yjs. Yjs and the
+the CodeMirror language packs, TipTap, Univer, Excalidraw, Yjs. Yjs and the
 spreadsheet operations reach the Agent's spreadsheet tools through
 `loadAgentSpreadsheetModel` (`src/agent/agent-spreadsheet-tools.ts`), whose
 registry stays eager; a value import of `yjs` or `spreadsheet-yjs.ts` from an
@@ -510,23 +510,17 @@ from the start, as the workspace and canvas of a project's first frame are,
 renders behind a `ChunkGate` (`src/components/chunk-gate.tsx`): its own
 placeholder until its chunk is in, never a Suspense fallback.
 
-### 4.2 Never value-import `tldraw` from an eagerly-loaded module
+### 4.2 Never value-import Excalidraw from an eagerly-loaded module
 
-`tldraw`'s barrel has no `sideEffects` flag, so a single value import drags
-~1.5 MB plus prosemirror into the startup chunk. The whiteboard lives behind
+`@excalidraw/excalidraw` is several MB. The whiteboard lives behind
 `loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts`), and the
-agent-facing adapter is isolated in `src/agent/agent-canvas-tldraw-adapter.ts` so that
-`src/agent/agent-canvas-tools.ts` can register it without importing tldraw itself.
+agent-facing adapter is isolated in `src/agent/agent-canvas-excalidraw-adapter.ts` so that
+`src/agent/agent-canvas-tools.ts` can register it without importing Excalidraw itself.
 
-Non-test value importers of `tldraw` today: `src/editor/board/board-editor.tsx`,
-`src/editor/board/board-store.ts`, `src/editor/board/board-asset-urls.ts`,
-`src/agent/agent-canvas-tldraw-adapter.ts` — all reachable
-only through the lazy board chunk.
-
-**This rule is not lint-enforced.** There is no `no-restricted-imports` entry
-for it in `.oxlintrc.json`. The only backstop is the eager-JS budget, which
-fails the build after the fact. Treat it as a convention you must uphold by
-hand.
+Non-test value importers of `@excalidraw/excalidraw` today: `src/editor/board/board-editor.tsx`,
+`src/editor/board/board-store.ts` and `src/agent/agent-canvas-excalidraw-adapter.ts`, all reachable
+only through the lazy board chunk. The `no-restricted-imports` entry in `.oxlintrc.json` refuses
+a value import of it anywhere else in `src/`; type imports are fine.
 
 ### 4.3 The shiki grammar allowlist
 

@@ -160,13 +160,19 @@ pub async fn overleaf_rt_connect(
     // that was already under way.
     let root_folder_id = tree.root_folder_id.clone();
     let permission = tree.permission.as_str().to_string();
+    let project_name = tree.project_name.clone();
     let lease = ProjectLease::take(project, Lease::Exclusive).await;
     if current_root(&state, &window)? != root {
         return Err("The project changed before Overleaf could finish connecting.".to_string());
     }
     let root_document = reported_root_document(&lease.project, generation, &root)?;
     run_blocking("The Overleaf metadata update", move || {
-        overleaf::set_realtime_metadata(&root, &root_folder_id, &permission)?;
+        overleaf::set_realtime_metadata(
+            &root,
+            &root_folder_id,
+            &permission,
+            project_name.as_deref(),
+        )?;
         match root_document {
             Some(path) => overleaf::record_root_document(&root, path.as_deref()),
             None => Ok(()),

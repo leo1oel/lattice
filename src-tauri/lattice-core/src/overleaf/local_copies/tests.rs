@@ -97,13 +97,13 @@ fn reopening_a_local_copy_records_the_current_role() {
     link_folder(&elsewhere, host, "proj-1");
     edit_state(&elsewhere, |state| state.permission = Some("readOnly".to_string()));
 
-    reopen_local_copy(&config, &elsewhere, "proj-1", Some("readAndWrite")).unwrap();
+    reopen_local_copy(&config, &elsewhere, "proj-1", None, Some("readAndWrite")).unwrap();
     assert_eq!(load_state(&elsewhere).unwrap().permission.as_deref(), Some("readAndWrite"));
     assert_eq!(local_copies(&config, &[])["proj-1"].path, canonical(&elsewhere));
-    reopen_local_copy(&config, &elsewhere, "proj-1", None).unwrap();
+    reopen_local_copy(&config, &elsewhere, "proj-1", None, None).unwrap();
     assert_eq!(load_state(&elsewhere).unwrap().permission, None);
 
-    assert!(reopen_local_copy(&config, &elsewhere, "proj-2", Some("owner")).is_err());
+    assert!(reopen_local_copy(&config, &elsewhere, "proj-2", None, Some("owner")).is_err());
     assert_eq!(load_state(&elsewhere).unwrap().permission, None);
 }
 

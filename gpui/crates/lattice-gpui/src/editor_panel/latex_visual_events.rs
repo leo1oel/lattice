@@ -4,9 +4,6 @@
 //! canvas wires its source editor (`source-session.ts`,
 //! `use-document-surfaces.tsx`):
 //!
-//! - a word added to the dictionary, or a rule or sentence ignored, from a
-//!   lint's card, written to the project's manifest as the source's are
-//!   (`spelling.rs`), and the spell check's settings and lists sent back;
 //! - Find references and Rename on a label or citation key, the window's
 //!   own flows (`shell/references_flow.rs`);
 //! - an image pasted into the page, inserted as a figure as ⌘V in the source
@@ -114,10 +111,6 @@ impl EditorPanel {
             return;
         };
         match event {
-            LatexEvent::AddWord(word) => super::spelling::add_word(&self.project, word.clone(), cx),
-            LatexEvent::Ignore(ignore) => {
-                super::spelling::ignore_in_project(&self.project, ignore.clone(), cx)
-            }
             LatexEvent::FindReferences { kind, symbol }
             | LatexEvent::RenameSymbol { kind, symbol } => {
                 let kind = match kind.as_str() {
@@ -398,24 +391,6 @@ impl EditorPanel {
         let root = self.latex_root.clone();
         document.update(cx, |document, cx| {
             document.set_outline(nodes, &root, pdf, cx)
-        });
-    }
-
-    /// Send the Visual page whether spelling is checked, the project's
-    /// dictionary and what it leaves unchecked.
-    pub(super) fn forward_latex_spelling(&mut self, cx: &mut Context<Self>) {
-        let Some(document) = self.latex_visual_document().cloned() else {
-            return;
-        };
-        let input = super::spelling::input(&self.project, cx);
-        document.update(cx, |document, cx| {
-            document.set_spelling(
-                input.enabled,
-                &input.words,
-                &input.ignored_rules,
-                &input.ignored_sentences,
-                cx,
-            )
         });
     }
 }

@@ -44,6 +44,8 @@ pub(super) struct Tree {
     /// The id of the project's main document, which `joinProject` names as
     /// `rootDoc_id` and `rootDocUpdated` changes.
     root_doc: Option<String>,
+    /// The project's title as `joinProject` gave it.
+    project_name: Option<String>,
 }
 
 /// What `joinProject` told us about the project.
@@ -51,6 +53,9 @@ pub(super) struct Tree {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectTree {
     pub root_folder_id: String,
+    /// The project's title on Overleaf now, which the link's stored title
+    /// follows (see `overleaf::set_realtime_metadata`).
+    pub project_name: Option<String>,
     pub docs: Vec<DocEntry>,
     /// Everything in the project, so a file can be acted on by id.
     pub entities: Vec<EntityEntry>,
@@ -81,6 +86,7 @@ impl ProjectTree {
     ) -> Self {
         ProjectTree {
             root_folder_id: tree.root.clone(),
+            project_name: tree.project_name.clone(),
             docs: tree.docs(),
             entities: tree.entities(),
             root_document: tree.root_document(),
@@ -98,6 +104,7 @@ impl Tree {
             nodes: HashMap::new(),
             root: root.get("_id").and_then(Value::as_str).unwrap_or_default().to_string(),
             root_doc: None,
+            project_name: None,
         };
         tree.absorb(root, None, 0);
         tree
@@ -274,6 +281,7 @@ pub(super) fn parse_project(body: &[Value]) -> Result<(Tree, Permission, Option<
     let track_changes = project.get("trackChangesState").cloned();
     let mut tree = Tree::from_root(root);
     tree.set_root_doc(project.get("rootDoc_id").and_then(Value::as_str));
+    tree.project_name = project.get("name").and_then(Value::as_str).map(str::to_string);
     Ok((tree, permission, track_changes))
 }
 

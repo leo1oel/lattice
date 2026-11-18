@@ -81,6 +81,16 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("Deck ids must use kebab-case letters and numbers.", &[]),
     },
     Entry {
+        file: "project/board_conversion.rs",
+        literal: "Only tldraw boards (.tldr) can be converted.",
+        text: Text::Message("Only tldraw boards (.tldr) can be converted.", &[]),
+    },
+    Entry {
+        file: "board.rs",
+        literal: "The converted board could not be written: {error}",
+        text: Text::Message("The converted board could not be written: {error}", &[("error", Arg::Param(0))]),
+    },
+    Entry {
         file: "project/entries.rs",
         literal: "A slide deck already exists with that id.",
         text: Text::Message("A slide deck already exists with that id.", &[]),
@@ -1389,6 +1399,16 @@ pub(super) static ENTRIES: &[Entry] = &[
         file: "overleaf/link.rs",
         literal: "That Overleaf project name cannot be used as a folder name.",
         text: Text::Message("That Overleaf project name cannot be used as a folder name.", &[]),
+    },
+    Entry {
+        file: "overleaf/destination.rs",
+        literal: "That folder no longer exists. Choose another one.",
+        text: Text::Message("That folder no longer exists. Choose another one.", &[]),
+    },
+    Entry {
+        file: "overleaf/destination.rs",
+        literal: "Lattice can't save files in that folder. Choose another one.",
+        text: Text::Message("Lattice can't save files in that folder. Choose another one.", &[]),
     },
     Entry {
         file: "overleaf/link.rs",

@@ -15,7 +15,7 @@ const LATTICE_PROJECT_DOCUMENT_TOOL_RESULT = "lattice:project-document-tool-resu
 
 type AgentProjectDocumentType = "board" | "spreadsheet";
 
-const EXTENSIONS: Record<AgentProjectDocumentType, string> = { board: ".tldr", spreadsheet: ".lattice-sheet" };
+const EXTENSIONS: Record<AgentProjectDocumentType, string> = { board: ".excalidraw", spreadsheet: ".lattice-sheet" };
 
 export type AgentProjectDocumentToolRequest = {
   type: typeof SYNARA_PROJECT_DOCUMENT_TOOL_REQUEST;

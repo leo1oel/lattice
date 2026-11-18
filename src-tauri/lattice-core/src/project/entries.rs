@@ -9,7 +9,7 @@ use super::manifest::{read_manifest, write_manifest};
 use super::paths::{
     creation_path, extension, safe_path, source_kind, validate_entry_name, validate_user_entry,
 };
-use super::tree::tex_build_outputs;
+use super::tree::{has_revtex_control_entry, tex_build_outputs};
 use crate::models::FileChange;
 use crate::project_fs::ProjectDir;
 use crate::util::err;
@@ -211,8 +211,13 @@ fn remove_tex_build_artifacts(root: &Path, relative: &str) -> Result<(), String>
         .map(|name| tex_path.with_file_name(name))
         .into_iter()
         .filter(|_| !stem.is_empty());
+    // REVTeX's `mainNotes.bib` likewise, but only when its contents say
+    // REVTeX wrote it: a writer's `lectureNotes.bib` beside `lecture.tex` is
+    // a source, and this delete is permanent.
+    let notes = Some(tex_path.with_file_name(format!("{stem}Notes.bib")))
+        .filter(|path| !stem.is_empty() && has_revtex_control_entry(path));
     let extended = tex_build_outputs().map(|extension| tex_path.with_extension(extension));
-    for path in extended.chain(named) {
+    for path in extended.chain(named).chain(notes) {
         match fs::remove_file(path) {
             Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
                 return Err(error.to_string())
@@ -302,13 +307,13 @@ mod tests {
         }
         assert!(create_entry(root, ".research/private.txt", "file").is_err());
         assert!(create_entry(root, "binary.exe", "file").is_err());
-        // Each source kind gets its seed; boards and spreadsheets seed empty
-        // because their editors initialize the store themselves.
+        // Each source kind gets its seed: a board the empty Excalidraw scene,
+        // a spreadsheet nothing, because its editor initializes the workbook.
         for (path, seed, kind) in [
             ("notes.md", "# Notes\n", "markdown"),
             ("extra.bib", "% Bibliography\n", "bib"),
             ("supplement.html", "", "text"),
-            ("sketch.tldr", "", "tldr"),
+            ("sketch.excalidraw", crate::board::EMPTY_SCENE, "board"),
             ("data.lattice-sheet", "", "spreadsheet"),
         ] {
             assert_eq!(create_entry(root, path, "file").unwrap(), path);
@@ -487,10 +492,14 @@ mod tests {
             "main.bbl-SAVE-ERROR",
             "acs-main.bib",
             "main-blx.bib",
+            "mainNotes.bib",
         ];
         for path in stale.iter().chain(&["main.gz", "sections/main.pdf"]) {
             fixture.write(path, b"stale");
         }
+        fixture.write("mainNotes.bib", b"@CONTROL{REVTEX42Control}");
+        // A writer's bibliography named like REVTeX's is a source, kept.
+        fixture.write("sections/mainNotes.bib", b"@article{a,}");
         assert_eq!(move_entry(root, "main.tex", "sections").unwrap(), "sections/main.tex");
         assert_eq!(default_root(), "sections/main.tex");
         for path in stale {
@@ -503,9 +512,14 @@ mod tests {
         fixture.write("main.pdf", b"root PDF");
         assert_eq!(move_entry(root, "sections/main.tex", "").unwrap(), "main.tex");
         assert!(!fixture.path("sections/main.pdf").exists());
+        assert_eq!(fixture.read("sections/mainNotes.bib"), "@article{a,}");
         assert_eq!(fixture.read("main.pdf"), "root PDF");
 
+        // Still empty mid-compile, it cannot be told from a writer's file:
+        // the delete keeps it.
+        fixture.write("mainNotes.bib", b"");
         assert_eq!(rename_entry(root, "main.tex", "paper").unwrap(), "paper.tex");
+        assert!(fixture.path("mainNotes.bib").exists());
         assert_eq!(default_root(), "paper.tex");
         assert_eq!(rename_entry(root, "sections", "chapters").unwrap(), "chapters");
         assert!(fixture.path("chapters/method.tex").exists());

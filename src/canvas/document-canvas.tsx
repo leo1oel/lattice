@@ -83,7 +83,7 @@ type StructuredDocumentKind = "board" | "spreadsheet" | "presentation";
 type VisualReveal = { id: string; kind: "navigation" | "comment"; target: VisualRevealTarget };
 
 function structuredDocumentKind(path: string): StructuredDocumentKind | null {
-  if (path.toLocaleLowerCase().endsWith(".tldr")) return "board";
+  if (/\.excalidraw$/i.test(path)) return "board";
   if (isSpreadsheetPath(path)) return "spreadsheet";
   return isOpenSlideDeckPath(path) ? "presentation" : null;
 }

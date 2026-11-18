@@ -59,12 +59,12 @@ fn tutorial_project_is_complete_and_kept_until_another_build_replaces_it() {
         (Some(1000), Some(52))
     );
     assert_eq!(results["cellData"]["7"]["2"]["f"], "=AVERAGE(C3:C6)");
-    let board = json("attention-map.tldr");
-    assert_eq!(board["tldrawFileFormatVersion"], 1);
-    let board_records = board["records"].as_array().unwrap();
-    assert!(board_records.len() >= 18);
-    for id in ["shape:query", "shape:context"] {
-        assert!(board_records.iter().any(|record| record["id"] == id), "{id}");
+    let board = json("attention-map.excalidraw");
+    assert_eq!(board["type"], "excalidraw");
+    let board_elements = board["elements"].as_array().unwrap();
+    assert!(board_elements.len() >= 16);
+    for id in ["query", "context"] {
+        assert!(board_elements.iter().any(|element| element["id"] == id), "{id}");
     }
     assert_eq!(json(".research/tutorial.json")["version"], 9);
     assert_eq!(read_manifest(&root).unwrap().venue, "tutorial");

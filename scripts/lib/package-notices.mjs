@@ -50,14 +50,7 @@ export function readDirectory(dir) {
  * `frontendDist: "../dist"`, so a file placed there is embedded in the shipped
  * application binary as well as in the source tree.
  */
-const VENDORED_NOTICES = [
-  {
-    match: /^(tldraw|@tldraw\/)/,
-    file: "public/licenses/tldraw-LICENSE.md",
-    reason:
-      "the published package ships a 104-byte LICENSE.md containing only a link, while the license it links to requires \"a verbatim copy of this License in any distribution of the Software\"",
-  },
-];
+const VENDORED_NOTICES = [];
 
 /**
  * Packages that ship a license file but no `license` field, keyed by exact
@@ -80,9 +73,8 @@ const UNDECLARED_LICENSES = new Map([
  * True when a package's "license file" is a signpost rather than a license —
  * a line or two of prose with a URL in it. This is what decides whether a
  * vendored copy is substituted, and it has to be decided from the text rather
- * than the package name: several @tldraw/* packages declare
- * `SEE LICENSE IN LICENSE.md` but the file they point at is a real MIT license,
- * so attaching tldraw's source-available terms to them would be wrong.
+ * than the package name: a package may declare `SEE LICENSE IN LICENSE.md`
+ * and ship a real license there, which a vendored text must never replace.
  */
 function isStubNotice(text) {
   const lines = text.split("\n").filter((line) => line.trim().length > 0);
