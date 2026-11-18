@@ -78,7 +78,7 @@ type PluginSource =
   | { kind: "registry"; url: string; sha256: string };
 
 /** A registry block list entry: `action` is "disable" (kept off) or "warn". */
-export type PluginBlock = { id: string; versions: string; action: string; reason: string; url?: string | null };
+type PluginBlock = { id: string; versions: string; action: string; reason: string; url?: string | null };
 
 export type PluginInfo = {
   id: string;
