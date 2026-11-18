@@ -205,9 +205,11 @@ catalogs, and the tests that `vitest related` finds from what your branch
 changed against `origin/main`, plus the invariant tests no import leads to. It
 builds no Rust.
 
-Pull requests run no CI: no GitHub checks, and no required local status.
-The full CI (`ci.yml`, `gpui.yml`) runs for a release tag, weekly on main, and
-by hand from the Actions tab.
+A pull request has no required check, local or remote. A push to a branch of
+this repository runs the CI jobs its change needs (`ci.yml`, `gpui.yml`;
+`scripts/ci-tier.mjs` decides), and everything runs for a release tag, weekly
+on main, and on a dispatch with `full`. `pnpm ci:local` runs the same tier on
+your Mac first (docs/agent-validation.md).
 `pnpm signoff` (`scripts/signoff.mjs`) is an optional, slower local check you
 may run when a change reaches further: the same stages, plus the bundle
 budgets, clippy and the tests of the changed Rust crates, and the GPUI app

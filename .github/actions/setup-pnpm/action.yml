@@ -17,7 +17,24 @@ runs:
       with:
         # Matches mise.toml's `node`, which local `pnpm check` runs on.
         node-version: 22
-        cache: pnpm
-        cache-dependency-path: ${{ inputs.project }}/pnpm-lock.yaml
+    # The store is restored on every ref but saved from main only. setup-node's
+    # own `cache: pnpm` saved a 250-300 MB store from every branch that ran,
+    # visible to that branch alone, which kept the repository's 10 GB Actions
+    # cache over its limit (10.7 GB on 2026-11-18) and evicted the caches every
+    # run needs, MiKTeX's among them (gpui.yml run 44171052878).
+    - id: store
+      shell: bash
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+    - id: restore
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ inputs.project }}-${{ hashFiles(format('{0}/pnpm-lock.yaml', inputs.project)) }}
+        restore-keys: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ inputs.project }}-
     - run: pnpm --dir "${{ inputs.project }}" install --frozen-lockfile
       shell: bash
+    - if: github.ref == 'refs/heads/main' && steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: ${{ steps.restore.outputs.cache-primary-key }}
