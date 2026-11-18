@@ -52,6 +52,14 @@ msgstr "“{command}” in the terminal"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "“{destinationName}” already exists there. Choose another location"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "“{name}” is already in {targetDirectory}"
+msgstr "“{name}” is already in {targetDirectory}"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "“{name}” is already in the project root"
+msgstr "“{name}” is already in the project root"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
@@ -2257,14 +2265,6 @@ msgstr "An imported source"
 #: src/papers/bibliography-audit.tsx
 msgid "An index matched, but the official proceedings could not be reached"
 msgstr "An index matched, but the official proceedings could not be reached"
-
-#: src/project/import-conflict-dialog.tsx
-msgid "An item with this name is already in {targetDirectory}"
-msgstr "An item with this name is already in {targetDirectory}"
-
-#: src/project/import-conflict-dialog.tsx
-msgid "An item with this name is already in the project root"
-msgstr "An item with this name is already in the project root"
 
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
@@ -7033,10 +7033,6 @@ msgstr "For all"
 msgid "For developing a plugin: Lattice runs the folder in place, so your edits apply on the next run."
 msgstr "For developing a plugin: Lattice runs the folder in place, so your edits apply on the next run."
 
-#: src/project/import-conflict-dialog.tsx
-msgid "For each item already here"
-msgstr "For each item already here"
-
 #: src/app/format-document.ts
 msgid "Format"
 msgstr "Format"
@@ -7754,7 +7750,6 @@ msgid "Implies"
 msgstr "Implies"
 
 #: src/app/use-project-tree.ts
-#: src/project/import-conflict-dialog.tsx
 msgid "Import"
 msgstr "Import"
 
@@ -11840,10 +11835,6 @@ msgstr "Overview"
 msgid "Overview only"
 msgstr "Overview only"
 
-#: src/project/import-conflict-dialog.tsx
-msgid "Overwrite files of the same name; merge folders"
-msgstr "Overwrite files of the same name; merge folders"
-
 #. Search words for the agent Model endpoint settings page, space-separated
 #: src/settings/settings-search-index.ts
 msgid "own API base URL custom"
@@ -13402,6 +13393,10 @@ msgstr "Replace in project"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Replace listed usages"
 msgstr "Replace listed usages"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "Replace overwrites files of the same name and merges folders. Keep both imports a numbered copy."
+msgstr "Replace overwrites files of the same name and merges folders. Keep both imports a numbered copy."
 
 #: src/project/submission-items.tsx
 msgid "Replace template"
