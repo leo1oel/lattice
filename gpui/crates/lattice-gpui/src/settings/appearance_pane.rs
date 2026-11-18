@@ -12,7 +12,7 @@ use gpui::{
 use lattice_i18n::{t, tc};
 use lattice_settings::{
     Accent as StoredAccent, AccentPreset, Choice as _, CodeTheme as StoredCodeTheme,
-    CodeThemeVariant, INTERFACE_SCALE_STEPS, InterfaceLanguage, ThemePreference,
+    CodeThemeVariant, INTERFACE_SCALE_STEPS, InterfaceLanguage, TabStyle, ThemePreference,
     Tint as StoredTint, TitlebarTool, ToastPosition, Translucency, nearest_interface_step,
 };
 use lattice_ui::{
@@ -119,6 +119,15 @@ fn general(
         false,
         |on, _, cx| super::update_appearance(cx, |a| a.interface_sounds = on),
     );
+    let mut tab_style = Segmented::new("tab-style").filled();
+    for (style, label) in [
+        (TabStyle::Filled, tc!("tab style", "Filled")),
+        (TabStyle::Outlined, tc!("tab style", "Outlined")),
+    ] {
+        tab_style = tab_style.label(label, appearance.tab_style == style, move |_, _, cx| {
+            super::update_appearance(cx, |a| a.tab_style = style)
+        });
+    }
     let rows = vec![
         row(
             dialog,
@@ -145,6 +154,14 @@ fn general(
         row(
             dialog,
             Row::new("toast-position", t!("Notification position")).control(toast),
+            width,
+            cx,
+        ),
+        row(
+            dialog,
+            Row::new("tab-style", t!("Tab style"))
+                .control(tab_style)
+                .wrap(Wrap::Line),
             width,
             cx,
         ),

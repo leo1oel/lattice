@@ -394,9 +394,11 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
         (
             was.appearance.toast_position,
             &was.appearance.hidden_titlebar_tools,
+            was.appearance.tab_style,
         ) == (
             now.appearance.toast_position,
             &now.appearance.hidden_titlebar_tools,
+            now.appearance.tab_style,
         )
     }) {
         cx.refresh_windows();

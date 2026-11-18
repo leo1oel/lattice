@@ -105,6 +105,12 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
             t!("Bottom center"),
             t!("toast notification")
         )),
+        Entry::row(Appearance, appearance, "tab-style", t!("Tab style")).terms(format!(
+            "{} {} {}",
+            tc!("tab style", "Filled"),
+            tc!("tab style", "Outlined"),
+            t!("tabs outline chip Linear")
+        )),
         Entry::row(Appearance, source, "source-font", t!("Font")).terms(format!(
             "{source_terms} SF Mono Menlo Inter Atkinson Hyperlegible OpenDyslexic"
         )),

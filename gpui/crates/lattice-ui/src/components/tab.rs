@@ -9,6 +9,9 @@
 //!
 //! A selected tab is the ink at 10% laid opaque on the panel's own surface;
 //! its label is primary ink while its group holds focus, secondary otherwise.
+//! Outlined (Settings › Appearance › Tab style) rings every tab in the strong
+//! border, inside its bounds so no tab changes width, as trellis.css's
+//! `--trellis-tab-ring` does: the strip shows how many tabs are open.
 //! An unselected tab's label takes the primary ink under the pointer. The tab
 //! and its X are tab stops with the one focus ring; the X shows on the
 //! selected tab, under the pointer, and while it holds keyboard focus.
@@ -116,6 +119,8 @@ pub struct PanelTab {
     preview: bool,
     /// A pinned tab: a pin in its close slot until the pointer is over it.
     pinned: bool,
+    /// Ringed in the strong border (Tab style › Outlined).
+    outlined: bool,
     closable: bool,
     fit: TabFit,
     on_close: Option<ClickHandler>,
@@ -140,6 +145,7 @@ impl PanelTab {
             dirty: false,
             preview: false,
             pinned: false,
+            outlined: false,
             closable: false,
             fit: TabFit::Full,
             on_close: None,
@@ -210,6 +216,13 @@ impl PanelTab {
     /// the tab, where it is the close square again (trellis.css).
     pub fn pinned(mut self, pinned: bool) -> Self {
         self.pinned = pinned;
+        self
+    }
+
+    /// Ring the tab in the strong border, selected or not (Settings ›
+    /// Appearance › Tab style › Outlined).
+    pub fn outlined(mut self, outlined: bool) -> Self {
+        self.outlined = outlined;
         self
     }
 
@@ -411,6 +424,16 @@ impl RenderOnce for PanelTab {
             })
         })
         .children(self.parity.clone().and_then(parity::probe))
+        .when(self.outlined, |tab| {
+            tab.relative().child(
+                div()
+                    .absolute()
+                    .inset_0()
+                    .rounded(TAB_RADIUS)
+                    .border_1()
+                    .border_color(palette.line_strong),
+            )
+        })
         .child(
             div()
                 .relative()

@@ -6755,6 +6755,12 @@ msgstr "此版本的文件"
 msgid "Files the last build used are missing"
 msgstr "上次编译用到的文件已缺失"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgctxt "tab style"
+msgid "Filled"
+msgstr "填充"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
 msgstr "实心方块"
@@ -11554,6 +11560,12 @@ msgstr "其他语言"
 msgid "Outline"
 msgstr "大纲"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgctxt "tab style"
+msgid "Outlined"
+msgstr "描边"
+
 #: src/project/arxiv-export.ts
 msgid "Over arXiv’s size limit"
 msgstr "超出 arXiv 的大小限制"
@@ -15700,6 +15712,11 @@ msgstr "语法高亮 配色 配色方案 编辑器 代码"
 msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
 
+#: src/settings/appearance-settings-pane.tsx
+#: src/settings/settings-search-index.ts
+msgid "Tab style"
+msgstr "标签页样式"
+
 #: src/editor/latex/latex-text.ts
 msgid "table"
 msgstr "表格"
@@ -15727,6 +15744,11 @@ msgstr "插入表格"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Table of contents"
 msgstr "目录"
+
+#. Search words for the Tab style setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "tabs outline chip Linear"
+msgstr "标签页 标签 描边 边框 Linear"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Taking longer than usual"
