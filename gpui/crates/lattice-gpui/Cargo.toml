@@ -15,6 +15,10 @@ offscreen-shots = ["gpui/test-support", "gpui_platform/test-support"]
 
 [dependencies]
 anyhow.workspace = true
+# Copy path drops the verbatim `\\?\` prefix std's canonicalize gives the
+# project root on Windows, so the clipboard holds the path as Explorer and the
+# Tauri app spell it.
+dunce = "1.0"
 # A terminal's exit status, from Zed's terminal (terminal/launch.rs).
 async-channel = "2.5"
 # The history timeline's dates in the local time zone (history/time.rs), and
