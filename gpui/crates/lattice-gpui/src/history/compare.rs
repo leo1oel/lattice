@@ -20,15 +20,15 @@
 use std::{path::PathBuf, time::Duration};
 
 use gpui::{
-    AppContext as _, Context, Entity, IntoElement, ParentElement as _, Render, ScrollHandle,
-    SharedString, Styled as _, Subscription, Task, WeakEntity, Window, div,
-    prelude::FluentBuilder as _, px,
+    AppContext as _, Context, Entity, InteractiveElement as _, IntoElement, ParentElement as _,
+    Render, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription,
+    Task, WeakEntity, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_core::git::{GitLogEntry, GitLogFile};
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, Segmented},
+    components::{Button, LatticeTooltip, Segmented},
     tokens::FONT_WEIGHT_SEMIBOLD,
 };
 
@@ -455,6 +455,61 @@ impl CompareView {
             panel.update(cx, |panel, cx| panel.open_file(path, None, cx));
         }
     }
+
+    /// `.compare-wrap`, a `.ui-compact-selectable` toggle: whether the
+    /// source diff wraps its long lines, kept in settings for every window
+    /// (`diff-wrap-setting.ts`).
+    fn render_wrap(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let palette = cx.palette().clone();
+        let wrap = crate::settings::get(cx).history_diff_wrap;
+        let label: SharedString = t!("Wrap long lines").into();
+        div()
+            .id("compare-wrap")
+            .flex()
+            .flex_none()
+            .items_center()
+            .gap(px(4.))
+            .h(px(28.))
+            .px(px(10.))
+            .rounded(px(6.))
+            .border_1()
+            .cursor_pointer()
+            .text_role(TextRole::Micro, cx)
+            .font_weight(FONT_WEIGHT_SEMIBOLD)
+            .map(|button| {
+                if wrap {
+                    // `aria-pressed`: the active control's border, wash and ink.
+                    button
+                        .border_color(palette.control_active_border)
+                        .bg(palette.toolbar_active)
+                        .text_color(palette.accent)
+                } else {
+                    let hover_border = palette.line_strong;
+                    let hover = palette.hover;
+                    let ink = palette.text;
+                    button
+                        .border_color(palette.line)
+                        .text_color(palette.text_secondary)
+                        .hover(move |style| {
+                            style.border_color(hover_border).bg(hover).text_color(ink)
+                        })
+                }
+            })
+            .tooltip(move |_, cx| LatticeTooltip::view(label.clone(), None, cx))
+            .on_click(cx.listener(move |_, _, _, cx| {
+                crate::settings::update(cx, |settings| settings.history_diff_wrap = !wrap);
+                cx.notify();
+            }))
+            .child(Icon::TEXT_WRAP.element(
+                px(13.),
+                if wrap {
+                    palette.accent
+                } else {
+                    palette.text_secondary
+                },
+            ))
+            .child(t!("Wrap"))
+    }
 }
 
 impl Render for CompareView {
@@ -512,6 +567,9 @@ impl Render for CompareView {
         );
         let compared = self.file.value.as_ref();
         let has_prose = compared.is_some_and(|file| file.passages.is_some());
+        // Prose already wraps, and a binary file has no lines.
+        let shows_source = compared
+            .is_some_and(|file| file.loaded.is_some() && (!self.prose || file.passages.is_none()));
         let bar = div()
             .relative()
             .children(lattice_ui::parity::probe("compare/bar"))
@@ -552,30 +610,38 @@ impl Render for CompareView {
                             .child(to_name),
                     ),
             )
-            .when(has_prose, |this| {
-                this.child(
-                    div().ml_auto().child(
-                        Segmented::new("compare-mode")
-                            .filled()
-                            .label(
-                                t!("Prose"),
-                                self.prose,
-                                cx.listener(|this, _, _, cx| {
-                                    this.prose = true;
-                                    cx.notify();
-                                }),
-                            )
-                            .label(
-                                t!("Source"),
-                                !self.prose,
-                                cx.listener(|this, _, _, cx| {
-                                    this.prose = false;
-                                    cx.notify();
-                                }),
-                            ),
-                    ),
-                )
-            });
+            .child(
+                // `.compare-tools`: Wrap, then Prose / Source, at the end of the row.
+                div()
+                    .flex()
+                    .flex_none()
+                    .items_center()
+                    .gap(px(8.))
+                    .ml_auto()
+                    .when(shows_source, |this| this.child(self.render_wrap(cx)))
+                    .when(has_prose, |this| {
+                        this.child(
+                            Segmented::new("compare-mode")
+                                .filled()
+                                .label(
+                                    t!("Prose"),
+                                    self.prose,
+                                    cx.listener(|this, _, _, cx| {
+                                        this.prose = true;
+                                        cx.notify();
+                                    }),
+                                )
+                                .label(
+                                    t!("Source"),
+                                    !self.prose,
+                                    cx.listener(|this, _, _, cx| {
+                                        this.prose = false;
+                                        cx.notify();
+                                    }),
+                                ),
+                        )
+                    }),
+            );
 
         let mut out = div()
             .flex()

@@ -525,6 +525,7 @@ impl HistoryPanel {
                 false,
                 None,
                 Some(open_line),
+                false,
                 window,
                 cx,
             ),
@@ -541,6 +542,7 @@ impl HistoryPanel {
                     true,
                     None,
                     None,
+                    false,
                     window,
                     cx,
                 )
