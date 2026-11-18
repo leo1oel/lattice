@@ -72,6 +72,7 @@ lucide! {
     REFRESH = "icons" / "refresh-cw";
     SEARCH = "icons" / "search";
     TRIANGLE_ALERT = "icons" / "triangle-alert";
+    PALETTE = "icons" / "palette";
     ZOOM_IN = "icons" / "zoom-in";
     ZOOM_OUT = "icons" / "zoom-out";
     ARROW_LEFT = "icons" / "arrow-left";

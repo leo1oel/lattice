@@ -21,9 +21,10 @@ use lattice_i18n::{join_phrases, locale, t};
 use lattice_settings::ThemePreference;
 use lattice_ui::fluid_hover::FluidHover;
 use lattice_ui::{
-    ActiveLattice as _, Appearance, TextRole, TextRoleStyle as _, TypeScale,
+    ActiveLattice as _, Appearance, Icon, TextRole, TextRoleStyle as _, TypeScale,
     components::{Button, Field, LayerPlacement, ModalLayer, Sheet},
     interaction::mix,
+    tokens::CONTAINER_DIALOG_SHEET,
 };
 use model::{Line, RowAction};
 
@@ -335,28 +336,12 @@ impl Render for ThemeBrowse {
             ThemePreference::Dark => Some(Appearance::Dark),
         };
         let query = self.search.read(cx).value().trim().to_string();
-        let refresh = Button::new("theme-browse-refresh", t!("Refresh"))
-            .compact()
-            .ghost()
-            .disabled(self.refreshing)
-            .on_click(cx.listener(|this, _, _, cx| this.load(true, cx)));
         let mut body = div()
             .flex()
             .flex_col()
             .gap(px(8.))
             .pt(px(6.))
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(8.))
-                    .child(
-                        div()
-                            .flex_1()
-                            .child(Field::new(&self.search).search().compact()),
-                    )
-                    .child(refresh),
-            )
+            .child(Field::new(&self.search).search().compact())
             .child(self.status(cx));
         let line = model::status_line(self.listing.as_ref(), self.refreshing);
         if line == Line::Loading {
@@ -431,7 +416,19 @@ pub fn sheet(browse: Entity<ThemeBrowse>, cx: &gpui::App) -> AnyElement {
             });
         }
     };
+    let refreshing = browse.read(cx).refreshing;
+    let refresh = Button::new("theme-browse-refresh", t!("Refresh"))
+        .compact()
+        .ghost()
+        .disabled(refreshing)
+        .on_click({
+            let browse = browse.clone();
+            move |_, _, cx| browse.update(cx, |browse, cx| browse.load(true, cx))
+        });
     let surface = Sheet::new("theme-browse", t!("Browse themes"))
+        .width(CONTAINER_DIALOG_SHEET)
+        .icon(Icon::PALETTE)
+        .header_action(refresh)
         .on_close(close)
         .child(div().h(px(560.)).overflow_hidden().child(browse))
         .into_any_element();
