@@ -222,7 +222,9 @@ Files that differ are kept side by side. Nothing is overwritten`,
       return clone(project, inThisWindow);
     }
     try {
-      await invoke("overleaf_reopen_local_copy", { path: copy.path, projectId: project.id, accessLevel: project.accessLevel });
+      await invoke("overleaf_reopen_local_copy", {
+        path: copy.path, projectId: project.id, name: project.name, accessLevel: project.accessLevel,
+      });
     } catch (reason) {
       const detail = toMessage(reason);
       dispatch({ type: "opening", project: null });
@@ -252,7 +254,6 @@ Files that differ are kept side by side. Nothing is overwritten`,
     if (!canOpenLocal || !listed.length) return;
     let disposed = false;
     lookup.current = invoke<Record<string, LocalCopy>>("overleaf_local_copies", {
-      names: listed.map((project) => project.name),
       folders: (knownFolders ?? []).map((folder) => folder.path),
     })
       // Without an answer every project downloads, which is what it did before.

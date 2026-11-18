@@ -313,8 +313,13 @@ async fn join(
     // `joinProject` is the only source of the root folder id uploads need:
     // recorded before the bridge hears the channel is up, as its first
     // automatic sync may start at once.
-    overleaf::set_realtime_metadata(&root, &tree.root_folder_id, tree.permission.as_str())
-        .map_err(|error| (error, false))?;
+    overleaf::set_realtime_metadata(
+        &root,
+        &tree.root_folder_id,
+        tree.permission.as_str(),
+        tree.project_name.as_deref(),
+    )
+    .map_err(|error| (error, false))?;
     overleaf::record_root_document(&root, tree.root_document.as_deref())
         .map_err(|error| (error, false))?;
     let entities = tree.entities.clone();
