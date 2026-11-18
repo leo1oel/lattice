@@ -1597,6 +1597,14 @@ pub trait PlatformTextSystem: Send + Sync {
     fn glyph_dilation_for_color(&self, _color: Hsla) -> u8 {
         0
     }
+    /// A glyph's outline in font units, y up (gpui-fast: `fast::glyph_outline`).
+    fn glyph_outline(
+        &self,
+        _font_id: FontId,
+        _glyph_id: GlyphId,
+    ) -> Option<Vec<crate::fast::glyph_outline::GlyphOutlineCmd>> {
+        None
+    }
 }
 
 #[expect(missing_docs)]

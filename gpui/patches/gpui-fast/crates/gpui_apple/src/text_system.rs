@@ -201,6 +201,14 @@ impl PlatformTextSystem for AppleTextSystem {
         self.0.read().glyph_for_char(font_id, ch)
     }
 
+    fn glyph_outline(
+        &self,
+        font_id: FontId,
+        glyph_id: GlyphId,
+    ) -> Option<Vec<gpui::GlyphOutlineCmd>> {
+        crate::fast::glyph_outline::outline(self.0.read().fonts.get(font_id.0)?, glyph_id)
+    }
+
     fn glyph_raster_bounds(&self, params: &RenderGlyphParams) -> Result<Bounds<DevicePixels>> {
         self.0.read().raster_bounds(params)
     }
