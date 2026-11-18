@@ -4,13 +4,15 @@
 //! Lattice starts its own executable in [`FLAG`] mode, as it starts
 //! `sandbox-exec` on macOS. That process stays outside the sandbox: it mounts
 //! the name filter (`name_filter`) over `/`, starts the system `bwrap` with
-//! that mount as the sandbox's root and the mounts of `layout` over it, and
-//! waits for it. The sandbox ends with that process, and that process with
-//! Lattice.
+//! that mount as the sandbox's root and the mounts of `layout` over it, where
+//! the kernel allows it out of reach of the host's abstract sockets
+//! (`abstract_sockets`), and waits for it. The sandbox ends with that
+//! process, and that process with Lattice.
 
 use super::layout::{home_folder, runtime_folders, Layout};
 use super::name_filter;
 use crate::commands::host_environment;
+use abstract_sockets::AbstractSocketScope;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io;
@@ -178,6 +180,13 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
     let filter = name_filter::mount(Path::new("/"), &mountpoint.0)
         .map_err(|error| format!("could not mount the bibliography filter: {error}"))?;
     let layout = Layout::new(home_folder().as_deref(), &runtime_folders(), &agent_home);
+    let scope = AbstractSocketScope::new(&bubblewrap)
+        .inspect_err(|reason| {
+            eprintln!(
+                "Lattice agent guard: the agent can reach the host's abstract sockets: {reason}"
+            )
+        })
+        .ok();
     let mut command = Command::new(&bubblewrap);
     command.args(layout.arguments(&mountpoint.0)).arg("--").args(&program);
     host_environment(&mut command).env_remove(FUSERMOUNT_PATH);
@@ -185,8 +194,9 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
     // through `pass_on_termination`, and bubblewrap dies with this process
     // (`--die-with-parent`) when the SIGKILL that follows it ends this one.
     command.process_group(0);
-    // SAFETY: `sigprocmask`, `umask`, `setrlimit`, `syscall` and `fcntl` are
-    // async-signal-safe, the only calls made between fork and exec.
+    // SAFETY: `sigprocmask`, `umask`, `setrlimit`, `prctl`, `syscall` and
+    // `fcntl` are async-signal-safe, the only calls made between fork and
+    // exec.
     unsafe {
         command.pre_exec(move || {
             // The sandbox starts with SIGTERM as a program expects to find it.
@@ -198,7 +208,9 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
             // The filter's connection to the kernel, and the files it holds
             // open, must not follow the sidecar into the sandbox.
             close_on_exec_from(3);
-            Ok(())
+            // Once the kernel has the scope, a sandbox without it does not
+            // start: the error stops the spawn.
+            scope.as_ref().map_or(Ok(()), AbstractSocketScope::enter)
         });
     }
     let mut sandbox =
@@ -395,5 +407,6 @@ fn close_on_exec_from(first: libc::c_uint) {
     }
 }
 
+mod abstract_sockets;
 #[cfg(test)]
 mod tests;

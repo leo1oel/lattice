@@ -192,7 +192,8 @@ it emits **no** Tauri events, only three commands (`synara_ensure_ready`,
   (`bibliography_guard/linux.rs`), which mounts a FUSE file system that
   refuses changes to `*.bib` names (`bibliography_guard/name_filter.rs`) and
   runs the sidecar under the system's bubblewrap with that mount as its root,
-  and without the session bus or the display (`bibliography_guard/layout.rs`).
+  and without the session bus or the display (`bibliography_guard/layout.rs`,
+  `bibliography_guard/linux/abstract_sockets.rs`).
   Where there is no guard (Windows, a Linux system without bubblewrap, FUSE
   or user namespaces, or a project in a folder the Linux guard does not
   cover) `synara_ensure_ready` answers the `unsupported` state without

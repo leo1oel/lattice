@@ -2,9 +2,10 @@ use super::*;
 use crate::test_support::TempDir;
 use std::ffi::CString;
 use std::os::fd::AsRawFd;
+use std::os::linux::net::SocketAddrExt;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{FileExt, PermissionsExt};
-use std::os::unix::net::UnixListener;
+use std::os::unix::net::{SocketAddr, UnixListener, UnixStream};
 
 /// A folder where the guard reaches. Not the system temp dir, which the
 /// sandbox takes from the host unfiltered.
@@ -77,10 +78,16 @@ impl Sandbox {
         }
     }
 
-    /// `program` inside the sandbox.
+    /// `program` inside the sandbox, under the abstract socket scope where
+    /// the kernel has one, as `guard` starts it.
     fn program(&self, program: &[&OsStr]) -> Command {
         let mut command = Command::new(&self.bubblewrap);
         command.args(self.layout.arguments(&self.mountpoint.0)).arg("--").args(program);
+        let scope = AbstractSocketScope::new(&self.bubblewrap).ok();
+        // SAFETY: `enter` is async-signal-safe.
+        unsafe {
+            command.pre_exec(move || scope.as_ref().map_or(Ok(()), AbstractSocketScope::enter));
+        }
         command
     }
 
@@ -509,4 +516,56 @@ fn the_sandbox_cannot_have_systemd_start_a_process_or_search_the_keyring() {
         }
     }
     assert_eq!(fs::read_to_string(&bibliography).unwrap(), "original");
+}
+
+/// What the probe below connects to, when the test after it runs it inside
+/// the sandbox: the name of an abstract socket.
+const ABSTRACT_PROBE: &str = "LATTICE_GUARD_ABSTRACT_PROBE";
+
+/// Not a test of its own: inside the sandbox, the test binary itself is the
+/// client, as no shell tool reaches an abstract socket. Exits 0 when the
+/// kernel refuses the connection, 1 when it is made.
+#[test]
+fn abstract_socket_probe() {
+    let Some(name) = std::env::var_os(ABSTRACT_PROBE) else { return };
+    let address = SocketAddr::from_abstract_name(name.as_bytes()).unwrap();
+    let code = match UnixStream::connect_addr(&address) {
+        Ok(_) => 1,
+        Err(error) if error.raw_os_error() == Some(libc::EPERM) => 0,
+        Err(error) => {
+            eprintln!("the probe failed otherwise: {error}");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+
+/// A host process's abstract socket, as the X server's beside its file in
+/// `/tmp/.X11-unix`, is out of the sandbox's reach where the kernel has
+/// Landlock scopes. A stand-in listens here.
+#[test]
+fn the_sandbox_cannot_connect_to_the_hosts_abstract_sockets() {
+    if !guard_available() {
+        return;
+    }
+    let sandbox = Sandbox::new();
+    if let Err(reason) = AbstractSocketScope::new(&sandbox.bubblewrap) {
+        eprintln!("skipped, the sandbox reaches abstract sockets here: {reason}");
+        return;
+    }
+    let name = format!("lattice-guard-test-{}", uuid::Uuid::new_v4());
+    let address = SocketAddr::from_abstract_name(name.as_bytes()).unwrap();
+    let _listener = UnixListener::bind_addr(&address).unwrap();
+    // Outside, it is reached as any process reaches it.
+    UnixStream::connect_addr(&address).expect("connect outside the sandbox");
+    let test = module_path!().split_once("::").map_or(module_path!(), |(_, path)| path);
+    let test = format!("{test}::abstract_socket_probe");
+    let executable = std::env::current_exe().unwrap();
+    let status = sandbox
+        .program(&[executable.as_os_str(), "--exact".as_ref(), test.as_ref()])
+        .env(ABSTRACT_PROBE, &name)
+        .stdout(Stdio::null())
+        .status()
+        .expect("run the probe in the sandbox");
+    assert_eq!(status.code(), Some(0), "1: the sandbox connected; 2: the probe failed otherwise");
 }

@@ -25,7 +25,8 @@
 //! A hard link or a rename cannot cross from one of those mounts into the
 //! filter, and the sidecar cannot change the mounts: bubblewrap drops its
 //! capabilities before it starts the sidecar, and a namespace nested inside
-//! gets them locked.
+//! gets them locked. Hiding a socket's file does not hide an abstract one,
+//! which is the guard's to refuse (`linux.rs`).
 
 use std::ffi::{OsStr, OsString};
 use std::fs;
