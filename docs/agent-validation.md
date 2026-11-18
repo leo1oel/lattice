@@ -120,6 +120,7 @@ Before pushing, run the same tier on your Mac:
 
 ```bash
 pnpm ci:local          # --plan to see the stages, --base REF, --full
+pnpm ci:local --headless   # on a Mac someone is using: no stage opens a window
 ```
 
 It prints which CI jobs your change needs and runs the local stages that
@@ -140,6 +141,11 @@ jobs (Rust, GPUI, the WebKit benchmark), which are the slowest to get a
 runner for. Do not use the trailer for a change to packaging
 or the release (`release.yml`, `src-tauri/tauri*.conf.json`, the bundle and
 signing scripts).
+
+The GPUI e2e, its main baseline and the WebKit benchmark open windows. On a Mac
+someone is using, run `pnpm ci:local --headless`, which skips them and prints
+no trailer, and run `pnpm ci:local` whole on a Mac that may open windows before
+pushing.
 
 ### A review round's GPUI e2e, and the main baseline
 

@@ -42,6 +42,10 @@
  *   --base REF   compare against REF instead of origin/main (its merge base)
  *   --full       every stage, whatever changed
  *   --plan       print the plan only
+ *   --headless   skip the stages that open windows (the GPUI e2e, its main
+ *                baseline and the WebKit benchmark), for a Mac someone is
+ *                using; it prints no trailer, so run it whole on a Mac that
+ *                may open windows before pushing
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -58,6 +62,7 @@ import { extraStages } from "./signoff.mjs";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
 const PERF_LOCK = "/tmp/lattice-inapp-test.lock";
+const WINDOWED = new Set(["gpui-main", "gpui-e2e", "webkit-bench"]);
 
 const LOCAL = {
   vitest: "gate (vitest related + invariants)",
@@ -152,11 +157,12 @@ export function localStages(tier, files, mergeBase) {
 
 async function main() {
   const argv = process.argv.slice(2);
-  const options = { base: "origin/main", full: false, plan: false };
+  const options = { base: "origin/main", full: false, plan: false, headless: false };
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === "--base") options.base = argv[++index];
     else if (argv[index] === "--full") options.full = true;
     else if (argv[index] === "--plan") options.plan = true;
+    else if (argv[index] === "--headless") options.headless = true;
     else throw new Error(`Unknown option ${argv[index]}`);
   }
   const started = Date.now();
@@ -171,7 +177,9 @@ async function main() {
     console.log("ci:local: nothing CI checks changed; CI skips every job");
     return;
   }
-  const stages = localStages(tier, files, mergeBase);
+  const stages = localStages(tier, files, mergeBase).map((stage) =>
+    options.headless && WINDOWED.has(stage.name) && !stage.skip ? { name: stage.name, skip: "opens windows; --headless" } : stage,
+  );
   if (options.plan) {
     for (const stage of stages) console.log(`  ${stage.name.padEnd(12)} ${stage.skip ? `skip (${stage.skip})` : stage.why}`);
     return;
@@ -185,6 +193,10 @@ async function main() {
   }
   console.log(`ci:local: every stage passed in ${minutes} min`);
   if (!tier.jobs.rust && !tier.jobs.gpui && !tier.jobs["perf-bench"]) return;
+  if (stages.some((stage) => stage.skip === "opens windows; --headless")) {
+    console.log("ci:local: --headless skipped the stages that open windows; run it whole on a Mac that may open windows for the CI-local trailer");
+    return;
+  }
   if (git("status", "--porcelain")) {
     console.log("ci:local: commit the change and run this again for the CI-local trailer; it names the commit's tree");
     return;
