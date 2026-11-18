@@ -5,7 +5,8 @@
     "A step joins only with the main run that shows it failing; take it off once it passes on main (the job notes a listed step that passed).",
     "The steps of scripts/gpui-e2e-quarantine.json are listed too, as flaky: they caused most red runs while passing on main more often than not.",
     "followup is the issue that owns the fix: LEO-14 for macOS, LEO-15 for Windows (a step on both platforms is under LEO-14 and fixed for both).",
-    "Collected from main runs macos: 44173099111, 44154544765, 44162980527; windows: 44162980527, 44213516921."
+    "Collected from main runs macos: 44173099111, 44154544765, 44162980527; windows: 44162980527, 44213516921.",
+    "Also steps that failed in branch runs 44225936391 and 44226228810, whose GPUI sources equal main's: a hosted-runner flake looks like this."
   ],
   "steps": [
     {
@@ -1129,10 +1130,11 @@
     {
       "step": "⌘C with several rows selected copies each one's path and says how many",
       "platforms": [
-        "windows"
+        "windows",
+        "macos"
       ],
-      "reason": "Windows: failed in 1 of 2 main runs (44213516921), so intermittent; observed {\"copied\":\"\\\\\\\\?\\\\D:\\\\a\\\\_temp\\\\e2e-project\\\\main.tex\\n\\\\\\\\?\\\\D:\\\\a\\\\_temp\\\\e2e-project\\\\references.bib\",\"notice\":\"▶ Build: #869781\"}",
-      "followup": "LEO-15"
+      "reason": "Windows: failed in 1 of 2 main runs (44213516921), so intermittent; observed {\"copied\":\"\\\\\\\\?\\\\D:\\\\a\\\\_temp\\\\e2e-project\\\\main.tex\\n\\\\\\\\?\\\\D:\\\\a\\\\_temp\\\\e2e-project\\\\references.bib\",\"notice\":\"▶ Build: #869781\"} | macOS: passed in every main run but failed in branch run 44226228810, whose GPUI sources equal main's, so intermittent",
+      "followup": "LEO-14"
     },
     {
       "step": "KaTeX sets an equation with the project's macros, as a picture with ink, kept once set",
@@ -1212,6 +1214,30 @@
       ],
       "reason": "Flaky: one of the 8 steps behind 207 of 274 e2e failures over 265 runs (scripts/gpui-e2e-quarantine.json); it passed in these main runs but fails others at random",
       "followup": "LEO-14"
+    },
+    {
+      "step": "renaming a label rewrites its \\label and every \\ref",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: passed in every main run but failed in branch run 44225936391, whose GPUI sources equal main's, so intermittent",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "the bar's PDF toggle shows or hides the PDF, and Exit focus leaves focus mode",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: passed in every main run but failed in branch run 44225936391, whose GPUI sources equal main's, so intermittent",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "Manual only: an edit to the open file reloads it and does not build",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: passed in every main run but failed in branch run 44226228810, whose GPUI sources equal main's, so intermittent",
+      "followup": "LEO-15"
     }
   ]
 }
