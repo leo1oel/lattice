@@ -22,6 +22,7 @@
 //! elements changed, emits `BoardEvent::Changed` so the editor saves.
 
 pub mod action;
+pub mod agent_canvas;
 pub mod canvas;
 pub mod chrome;
 pub mod fonts;
