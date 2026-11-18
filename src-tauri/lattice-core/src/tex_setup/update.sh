@@ -12,3 +12,7 @@ status updating-packages
 tlmgr_with_fallback update --self
 CURRENT_STEP="Updating the installed LaTeX packages"
 tlmgr_with_fallback update --all 2>&1 | relay_progress updating-packages
+
+# Last, so the files tlmgr wrote as root are handed over too.
+CURRENT_STEP="Handing the TeX Live folder to the signed-in user"
+hand_over_tree

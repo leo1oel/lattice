@@ -29,6 +29,10 @@ repair_basictex_permissions() {
     false
   fi
   owner_uid="$(/usr/bin/stat -f '%u' "${EXPECTED_TEXMFROOT}")"
+  # A tree handed to the signed-in user is theirs to read already.
+  if [[ -n "${HANDOFF_TREE}" && "${owner_uid}" == "${HANDOFF_UID}" ]]; then
+    return 0
+  fi
   if [[ "${owner_uid}" != "0" ]]; then
     echo "Refusing to repair a BasicTeX tree not owned by root: ${EXPECTED_TEXMFROOT}"
     false
@@ -119,3 +123,7 @@ if [[ -x "${TEXBIN}/updmap-sys" ]]; then
   CURRENT_STEP="Refreshing the TeX font maps"
   "${TEXBIN}/updmap-sys"
 fi
+
+# Last, so the files tlmgr wrote as root are handed over too.
+CURRENT_STEP="Handing the TeX Live folder to the signed-in user"
+hand_over_tree

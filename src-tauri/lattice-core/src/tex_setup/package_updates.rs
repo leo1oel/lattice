@@ -1,7 +1,8 @@
 //! Whether the installed TeX Live packages have updates: what
-//! `tlmgr update --list` reports, and whether the TeX is the BasicTeX that
-//! Lattice installs (and so may update) or the writer's own. Free of side
-//! effects, so tests cover it everywhere.
+//! `tlmgr update --list` reports, and whether the TeX is a TeX Live tree
+//! under /usr/local/texlive (BasicTeX or MacTeX, which Lattice may update) or
+//! something else the writer looks after. Free of side effects, so tests
+//! cover it everywhere.
 
 use serde::Serialize;
 
@@ -9,9 +10,14 @@ use serde::Serialize;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TexPackageUpdates {
-    /// The TeX is a BasicTeX, which Lattice installs and may update behind
-    /// the administrator prompt. Any other TeX gets `UPDATE_COMMAND` to run.
+    /// The TeX is a TeX Live tree under /usr/local/texlive (BasicTeX or
+    /// MacTeX), which Lattice may update. Any other TeX gets
+    /// `UPDATE_COMMAND` to run.
     pub managed: bool,
+    /// The signed-in user owns the managed tree, so updates and package
+    /// installs run without the administrator prompt. The first prompted
+    /// run hands the tree over (macos.rs), after which this stays true.
+    pub passwordless: bool,
     /// Installed packages the repository has a newer revision of.
     pub packages: Vec<TexPackageUpdate>,
     /// Why the repository could not be asked (offline, timed out); then
@@ -82,14 +88,15 @@ pub(super) fn update_list_failure(stderr: &str) -> Option<String> {
     (!reason.is_empty()).then(|| reason.join("\n"))
 }
 
-/// Whether `texmfroot` (`kpsewhich -var-value=TEXMFROOT`) is a BasicTeX tree,
-/// `/usr/local/texlive/<year>basic`: the one kind of TeX Lattice installs.
-pub(super) fn is_basic_tex_root(texmfroot: &str) -> bool {
-    texmfroot
-        .trim()
-        .strip_prefix("/usr/local/texlive/")
-        .and_then(|rest| rest.strip_suffix("basic"))
-        .is_some_and(|year| year.len() == 4 && year.bytes().all(|byte| byte.is_ascii_digit()))
+/// The tree `texmfroot` (`kpsewhich -var-value=TEXMFROOT`) names when it is
+/// a TeX Live year tree, `/usr/local/texlive/<year>` (MacTeX, the TeX Live
+/// installer) or `/usr/local/texlive/<year>basic` (BasicTeX): the trees
+/// Lattice updates, and the only ones it hands to the signed-in user.
+pub(super) fn tex_live_root(texmfroot: &str) -> Option<&str> {
+    let root = texmfroot.trim();
+    let tree = root.strip_prefix("/usr/local/texlive/")?;
+    let year = tree.strip_suffix("basic").unwrap_or(tree);
+    (year.len() == 4 && year.bytes().all(|byte| byte.is_ascii_digit())).then_some(root)
 }
 
 #[cfg(test)]
@@ -160,26 +167,39 @@ mod tests {
     }
 
     #[test]
-    fn only_basic_tex_trees_are_managed() {
-        assert!(is_basic_tex_root("/usr/local/texlive/2026basic\n"));
-        assert!(is_basic_tex_root("/usr/local/texlive/2027basic"));
+    fn only_tex_live_year_trees_are_managed() {
+        assert_eq!(
+            tex_live_root("/usr/local/texlive/2026basic\n"),
+            Some("/usr/local/texlive/2026basic")
+        );
+        assert_eq!(
+            tex_live_root("/usr/local/texlive/2027basic"),
+            Some("/usr/local/texlive/2027basic")
+        );
+        assert_eq!(tex_live_root("/usr/local/texlive/2026\n"), Some("/usr/local/texlive/2026"));
         for other in [
-            "/usr/local/texlive/2026",
+            "/usr/local/texlive/texmf-local",
+            "/usr/local/texlive/2026/",
             "/usr/local/texlive/basic",
             "/opt/texlive/2026basic",
             "/usr/local/texlive/2026basic/../2026",
             "",
         ] {
-            assert!(!is_basic_tex_root(other), "{other}");
+            assert_eq!(tex_live_root(other), None, "{other}");
         }
     }
 
     #[test]
     fn report_serializes_for_the_doctor() {
-        let report = TexPackageUpdates { managed: true, packages: Vec::new(), error: None };
+        let report = TexPackageUpdates {
+            managed: true,
+            passwordless: false,
+            packages: Vec::new(),
+            error: None,
+        };
         assert_eq!(
             serde_json::to_value(report).unwrap(),
-            serde_json::json!({ "managed": true, "packages": [] })
+            serde_json::json!({ "managed": true, "passwordless": false, "packages": [] })
         );
     }
 }

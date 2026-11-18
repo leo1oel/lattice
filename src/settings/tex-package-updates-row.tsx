@@ -12,7 +12,7 @@ const NAMED_PACKAGES = 3;
 
 /**
  * The doctor's "TeX packages" check, an item of its checklist: whether the
- * installed packages have updates. A TeX that Lattice did not install gets
+ * installed packages have updates. A TeX outside /usr/local/texlive gets
  * the command to run, since Lattice does not change it. Checks on mounting,
  * as the page itself does: a TeX that was current last week may not be now.
  */
@@ -63,7 +63,7 @@ export function TexPackageUpdatesCheck({ updates }: { updates: TexPackageUpdates
 }
 
 /**
- * Under the checklist, for the BasicTeX Lattice installed: the one-click
+ * Under the checklist, for a TeX Live tree Lattice manages: the one-click
  * update, its progress, and its result.
  */
 export function TexPackageUpdatesActions({ updates, disabled }: { updates: TexPackageUpdates; disabled: boolean }) {

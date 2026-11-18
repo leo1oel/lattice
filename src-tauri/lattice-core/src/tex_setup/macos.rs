@@ -5,12 +5,12 @@
 use super::installer::{
     basic_tex_script, dependency_install_error, dependency_script, extract_uv_archive,
     install_error, install_warning, installer_stage_progress, package_update_error,
-    package_update_script, privileged_command, tex_live_year, valid_tex_dependency_name, BASIC_TEX,
-    BASIC_TEX_YEAR, REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS, UV, UV_ARCHIVE_ROOT,
+    package_update_script, privileged_command, tex_live_year, valid_tex_dependency_name, Handoff,
+    BASIC_TEX, BASIC_TEX_YEAR, REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS, UV, UV_ARCHIVE_ROOT,
 };
 use super::package_providers::{tex_live_package_for_file, TexLiveProviders};
 use super::package_updates::{
-    is_basic_tex_root, parse_update_list, update_list_failure, TexPackageUpdates, UPDATE_COMMAND,
+    parse_update_list, tex_live_root, update_list_failure, TexPackageUpdates, UPDATE_COMMAND,
 };
 use super::{TexDependencyInstall, TexInstallMode, TexInstallProgress};
 use crate::commands;
@@ -18,7 +18,7 @@ use crate::host::Sink;
 use crate::util::{swap_in_dir, DirSwapError};
 use std::fs;
 use std::io::Read;
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -70,8 +70,17 @@ pub fn install_tex(mode: TexInstallMode, on_progress: &Progress) -> Result<Optio
     }
     send_progress(on_progress, "downloading", 0.55);
 
-    let script = basic_tex_script(&package_path, &root_path, install_base);
-    let output = run_privileged_installer(&script, &root_path, on_progress, Privileged::BasicTex)?;
+    // The tree this install leaves: the BasicTeX it installs, or the TeX
+    // Live it reuses. Handing it over makes this the last prompt.
+    let tree = if install_base {
+        Some(format!("/usr/local/texlive/{BASIC_TEX_YEAR}basic"))
+    } else {
+        managed_tree(tlmgr)
+    };
+    let handoff = tree.as_deref().and_then(handoff_to_user);
+    let script = basic_tex_script(&package_path, &root_path, install_base, handoff);
+    let output =
+        run_installer(&script, &root_path, on_progress, Privileged::BasicTex, Some(handoff))?;
     let warning = install_warning(&output);
     if let Some(warning) = &warning {
         log::warn!(target: "lattice::tex-setup", "{warning}");
@@ -99,7 +108,9 @@ pub fn check_package_updates() -> Option<TexPackageUpdates> {
     if !tlmgr.is_file() {
         return None;
     }
-    let managed = managed_tex(&tlmgr);
+    let tree = managed_tree(&tlmgr);
+    let managed = tree.is_some();
+    let passwordless = tree.as_deref().is_some_and(owned_by_user);
     let deadline = Instant::now() + UPDATE_LIST_TIMEOUT;
     let mut failures = Vec::new();
     for repository in std::iter::once(None).chain(FALLBACK_REPOSITORIES.map(Some)) {
@@ -111,7 +122,7 @@ pub fn check_package_updates() -> Option<TexPackageUpdates> {
         match output_before(command, deadline) {
             Ok(output) if output.status.success() => {
                 let packages = parse_update_list(&String::from_utf8_lossy(&output.stdout));
-                return Some(TexPackageUpdates { managed, packages, error: None });
+                return Some(TexPackageUpdates { managed, passwordless, packages, error: None });
             }
             Ok(output) => failures.push(
                 update_list_failure(&String::from_utf8_lossy(&output.stderr))
@@ -125,17 +136,43 @@ pub fn check_package_updates() -> Option<TexPackageUpdates> {
     }
     failures.dedup();
     let error = Some(failures.join("\n"));
-    Some(TexPackageUpdates { managed, packages: Vec::new(), error })
+    Some(TexPackageUpdates { managed, passwordless, packages: Vec::new(), error })
 }
 
-/// Whether the TeX at `tlmgr` is a BasicTeX tree, by the kpsewhich beside it.
-fn managed_tex(tlmgr: &Path) -> bool {
-    let Some(kpsewhich) = tlmgr.parent().map(|parent| parent.join("kpsewhich")) else {
-        return false;
-    };
-    Command::new(kpsewhich).arg("-var-value=TEXMFROOT").output().is_ok_and(|output| {
-        output.status.success() && is_basic_tex_root(&String::from_utf8_lossy(&output.stdout))
-    })
+/// The TeX Live year tree the TeX at `tlmgr` belongs to, by the kpsewhich
+/// beside it; `None` for any other TeX.
+fn managed_tree(tlmgr: &Path) -> Option<String> {
+    let kpsewhich = tlmgr.parent()?.join("kpsewhich");
+    let output = Command::new(kpsewhich).arg("-var-value=TEXMFROOT").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    tex_live_root(&String::from_utf8_lossy(&output.stdout)).map(String::from)
+}
+
+/// Whether the signed-in user owns `tree` where tlmgr writes: a tree an
+/// earlier prompt handed over. Stock MacTeX and BasicTeX trees are root's.
+/// Ownership, not mode bits, since that is what the handoff changes.
+fn owned_by_user(tree: &str) -> bool {
+    // SAFETY: getuid has no preconditions and cannot fail.
+    let uid = unsafe { libc::getuid() };
+    let tree = Path::new(tree);
+    [
+        tree,
+        &tree.join("bin"),
+        &tree.join("tlpkg"),
+        &tree.join("tlpkg/texlive.tlpdb"),
+        &tree.join("texmf-dist"),
+    ]
+    .iter()
+    .all(|path| fs::symlink_metadata(path).is_ok_and(|metadata| metadata.uid() == uid))
+}
+
+/// The handoff a prompted run of `tree` makes; none for root itself.
+fn handoff_to_user(tree: &str) -> Option<Handoff<'_>> {
+    // SAFETY: getuid has no preconditions and cannot fail.
+    let uid = unsafe { libc::getuid() };
+    (uid != 0).then_some(Handoff { tree, uid })
 }
 
 /// `command`'s output, killing it (and whatever it started) at `deadline`.
@@ -182,22 +219,25 @@ fn output_before(mut command: Command, deadline: Instant) -> Result<Output, Stri
     Ok(Output { status, stdout, stderr })
 }
 
-/// Update tlmgr and every installed package of the BasicTeX Lattice manages,
-/// behind the same administrator prompt as the install.
+/// Update tlmgr and every installed package of a TeX Live tree under
+/// /usr/local/texlive: as the signed-in user once they own the tree, else
+/// behind the administrator prompt, which hands the tree over so it is the
+/// last one.
 pub fn update_packages(on_progress: &Progress) -> Result<(), String> {
     let _install_guard = InstallGuard::acquire()?;
     let tlmgr = commands::resolve("tlmgr");
     if !tlmgr.is_file() {
         return Err("TeX Live's package manager is not installed.".into());
     }
-    if !managed_tex(&tlmgr) {
+    let Some(tree) = managed_tree(&tlmgr) else {
         return Err(format!(
-            "Lattice only updates the BasicTeX it installs. In Terminal: {UPDATE_COMMAND}"
+            "Lattice only updates TeX Live installed under /usr/local/texlive. In Terminal: {UPDATE_COMMAND}"
         ));
-    }
+    };
+    let elevate = (!owned_by_user(&tree)).then(|| handoff_to_user(&tree));
     let root_path = privileged_root("lattice-tex-update-root");
-    let script = package_update_script(&root_path, &tlmgr);
-    run_privileged_installer(&script, &root_path, on_progress, Privileged::PackageUpdate)?;
+    let script = package_update_script(&root_path, &tlmgr, elevate.flatten());
+    run_installer(&script, &root_path, on_progress, Privileged::PackageUpdate, elevate)?;
     send_progress(on_progress, "complete", 1.0);
     Ok(())
 }
@@ -238,14 +278,16 @@ pub fn install_dependency(
             }
         }
     };
+    // A tree the user owns installs as them; any other prompts, and a
+    // TeX Live tree is handed over so the prompt is the last one.
+    let tree = managed_tree(&tlmgr);
+    let elevate = match tree.as_deref() {
+        Some(tree) if owned_by_user(tree) => None,
+        tree => Some(tree.and_then(handoff_to_user)),
+    };
     let root_path = privileged_root("lattice-tex-dependency-root");
-    let script = dependency_script(&root_path, &tlmgr, &package, repository);
-    run_privileged_installer(
-        &script,
-        &root_path,
-        on_progress,
-        Privileged::Dependency(missing_file),
-    )?;
+    let script = dependency_script(&root_path, &tlmgr, &package, repository, elevate.flatten());
+    run_installer(&script, &root_path, on_progress, Privileged::Dependency(missing_file), elevate)?;
     send_progress(on_progress, "verifying-dependency", 0.95);
     verify_tex_dependency(&kpsewhich, missing_file)?;
     send_progress(on_progress, "complete", 1.0);
@@ -500,28 +542,67 @@ enum Privileged<'a> {
     PackageUpdate,
 }
 
-/// Run `script` as root behind the administrator prompt, relaying the stages
-/// it writes to `<root>/status` as progress. Returns what the script wrote to
-/// its original stdout (fd 4 in installer-prelude.sh).
-fn run_privileged_installer(
+/// The administrator prompt's message for a run that hands `tree` over, so
+/// the writer approves the ownership change knowingly. macOS shows it above
+/// the password field; the system names the app itself.
+fn handoff_prompt(install: Privileged<'_>, tree: &str) -> String {
+    let action = match install {
+        Privileged::BasicTex => "install BasicTeX".to_string(),
+        Privileged::Dependency(missing_file) => {
+            format!("install the LaTeX package for {missing_file}")
+        }
+        Privileged::PackageUpdate => "update your TeX packages".to_string(),
+    };
+    format!(
+        "Lattice wants to {action}. Approving also makes you the owner of {tree}, so later TeX updates and package installs no longer ask for your password."
+    )
+}
+
+/// Run `script`, relaying the stages it writes to `<root>/status` as
+/// progress. `elevate` is `None` to run it as the signed-in user, or
+/// `Some(handoff)` to run it as root behind the administrator prompt, whose
+/// message then says which tree the run hands over. Returns what the script
+/// wrote to its original stdout (fd 4 in installer-prelude.sh).
+fn run_installer(
     script: &str, root: &Path, on_progress: &Progress, install: Privileged<'_>,
+    elevate: Option<Option<Handoff<'_>>>,
 ) -> Result<String, String> {
     let (name, authorization_progress) = match install {
         Privileged::BasicTex => ("BasicTeX", 0.58),
         Privileged::Dependency(missing_file) => (missing_file, 0.2),
         Privileged::PackageUpdate => ("the TeX package update", 0.1),
     };
-    send_progress(on_progress, "authorizing", authorization_progress);
-    let mut child = Command::new("/usr/bin/osascript")
-        .args([
-            "-e",
-            "on run argv",
-            "-e",
-            "do shell script (item 1 of argv) with administrator privileges",
-            "-e",
-            "end run",
-        ])
-        .arg(privileged_command(script))
+    let mut command = match elevate {
+        None => {
+            let mut command = Command::new("/bin/bash");
+            command.arg("-c").arg(script).stdin(Stdio::null());
+            command
+        }
+        Some(handoff) => {
+            send_progress(on_progress, "authorizing", authorization_progress);
+            let mut command = Command::new("/usr/bin/osascript");
+            command.args(["-e", "on run argv", "-e"]);
+            match handoff {
+                Some(handoff) => command
+                    .args([
+                        "do shell script (item 1 of argv) with prompt (item 2 of argv) with administrator privileges",
+                        "-e",
+                        "end run",
+                    ])
+                    .arg(privileged_command(script))
+                    .arg(handoff_prompt(install, handoff.tree)),
+                None => command
+                    .args([
+                        "do shell script (item 1 of argv) with administrator privileges",
+                        "-e",
+                        "end run",
+                    ])
+                    .arg(privileged_command(script)),
+            };
+            command
+        }
+    };
+    let mut child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
