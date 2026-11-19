@@ -587,8 +587,8 @@ impl Run {
                     view.step_page(-1, cx)
                 }
                 let fit = view.fit();
-                if let Some(mode) = fit {
-                    view.toggle_fit(mode, cx);
+                if fit.is_some() {
+                    view.clear_fit(cx);
                 }
                 fit
             })
@@ -620,7 +620,7 @@ impl Run {
                 json!({ "rows": rows.iter().map(|(ix, _, target)| (*ix, *target)).collect::<Vec<_>>() }),
             );
             if let Some(mode) = fit {
-                cx.update(|cx| view.update(cx, |view, cx| view.toggle_fit(mode, cx)));
+                cx.update(|cx| view.update(cx, |view, cx| view.apply_fit(mode, cx)));
             }
             return Ok(());
         };
@@ -651,7 +651,7 @@ impl Run {
         self.pause(cx, SETTLE).await;
         let cleared = snapshot(cx).lit.is_none();
         if let Some(mode) = fit {
-            cx.update(|cx| view.update(cx, |view, cx| view.toggle_fit(mode, cx)));
+            cx.update(|cx| view.update(cx, |view, cx| view.apply_fit(mode, cx)));
         }
         steps.check(
             "leaving the PDF toolbar fades its fill out",

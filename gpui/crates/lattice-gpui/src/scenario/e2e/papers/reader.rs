@@ -20,6 +20,7 @@ use crate::{
         PapersPanel,
         reader::{PaperReader, ReaderView},
     },
+    pdf::FitMode,
     scenario::Run,
 };
 
@@ -329,6 +330,7 @@ impl Run {
         );
         self.island_shot(cx, "paper-reader-pdf").await?;
         if pdf_shown {
+            self.paper_pdf_fit_width(cx, steps, &reader).await?;
             self.paper_pdf_toolbar_start(cx, steps, root, bundle, &reader)
                 .await?;
             self.paper_pdf_actions(cx, steps, root, bundle, &reader)
@@ -360,6 +362,44 @@ impl Run {
     /// the web (staged here, as the scenario has no network) the toolbar
     /// holds only the way back, over the page's skeleton, and then over
     /// "Could not load PDF" when it did not come.
+    /// Fit page to width pressed while the page is already fitted fits it
+    /// again and stays on; only a zoom leaves the fit, and the button then
+    /// brings the fitted scale back.
+    async fn paper_pdf_fit_width(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        reader: &Entity<PaperReader>,
+    ) -> Result<()> {
+        let Some(view) = cx.update(|cx| reader.read(cx).pdf_view()) else {
+            return Ok(());
+        };
+        let state = |cx: &mut AsyncApp| cx.update(|cx| (view.read(cx).fit(), view.read(cx).scale()));
+        cx.update(|cx| view.update(cx, |view, cx| view.apply_fit(FitMode::Width, cx)));
+        self.pause(cx, Duration::from_millis(300)).await;
+        let fitted = state(cx);
+        cx.update(|cx| view.update(cx, |view, cx| view.apply_fit(FitMode::Width, cx)));
+        self.pause(cx, Duration::from_millis(300)).await;
+        let again = state(cx);
+        cx.update(|cx| view.update(cx, |view, cx| view.step_zoom(-1., cx)));
+        self.pause(cx, Duration::from_millis(300)).await;
+        let zoomed = state(cx);
+        cx.update(|cx| view.update(cx, |view, cx| view.apply_fit(FitMode::Width, cx)));
+        self.pause(cx, Duration::from_millis(300)).await;
+        let refitted = state(cx);
+        steps.check(
+            "the paper's PDF: Fit page to width pressed when fitted stays on, and refits after a zoom",
+            fitted.0 == Some(FitMode::Width)
+                && again == fitted
+                && zoomed.0.is_none()
+                && zoomed.1 < fitted.1
+                && refitted.0 == Some(FitMode::Width)
+                && (refitted.1 - fitted.1).abs() < 0.01,
+            json!({ "fitted": format!("{fitted:?}"), "again": format!("{again:?}"), "zoomed": format!("{zoomed:?}"), "refitted": format!("{refitted:?}") }),
+        );
+        Ok(())
+    }
+
     async fn paper_pdf_toolbar_start(
         &self,
         cx: &mut AsyncApp,
