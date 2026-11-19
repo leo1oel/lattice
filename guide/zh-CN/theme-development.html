@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>制作主题 · Lattice 使用指南</title>
+<style>
+:root { color-scheme: light dark; --text: #1f2328; --muted: #59636e; --line: #d8dbd2; --surface: #f4f5f0; --accent: #556324; --background: #fff; }
+@media (prefers-color-scheme: dark) { :root { --text: #e6e6e3; --muted: #9a9a95; --line: #3a3a37; --surface: #252523; --accent: #b5c47a; --background: #181817; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+header { display: flex; gap: 20px; align-items: baseline; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+header a { color: var(--text); text-decoration: none; }
+header .home { font-weight: 650; }
+header .language { margin-left: auto; color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 800px); gap: 44px; padding: 28px; }
+nav ol { list-style: none; margin: 0; padding: 0; position: sticky; top: 28px; }
+nav a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+nav a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; }
+main h1 { font-size: 30px; line-height: 1.25; margin: 0 0 18px; }
+main h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+main h3 { font-size: 17px; margin: 26px 0 8px; }
+main a { color: var(--accent); }
+main img { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+main code, main kbd { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 1px 5px; }
+main pre { background: var(--surface); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+main pre code { padding: 0; }
+main table { border-collapse: collapse; margin: 12px 0; }
+main th, main td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--muted); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 20px; } nav ol { position: static; } }
+</style>
+</head>
+<body>
+<header><a class="home" href="../../">Lattice</a><a class="language" href="../theme-development.html" hreflang="en" lang="en">English</a></header>
+<div class="layout">
+<nav><ol><li><a href="index.html">Lattice 使用指南</a></li><li><a href="getting-started.html">快速上手</a></li><li><a href="writing.html">写作</a></li><li><a href="citations.html">引用与论文库</a></li><li><a href="building.html">编译与排错</a></li><li><a href="history.html">历史与版本对比</a></li><li><a href="overleaf.html">Overleaf 同步</a></li><li><a href="boards.html">白板</a></li><li><a href="agent.html">AI 助手</a></li><li><a href="plugins-and-themes.html">插件与主题</a></li><li><a href="workspaces.html">面板与工作区</a></li><li><a href="settings-and-shortcuts.html">设置与快捷键</a></li><li><a href="troubleshooting.html">常见问题</a></li><li><a href="plugin-development.html">第一个插件</a></li><li><a href="plugin-reference.html">插件清单与 API</a></li><li><a href="plugin-publishing.html">发布插件</a></li><li><a href="theme-development.html" aria-current="page">制作主题</a></li></ol></nav>
+<main>
+<h1 id="制作主题">制作主题</h1>
+<p>主题给 Lattice 换配色。它是数据，不是代码：一个 <code>.lattice-theme.json</code> 文件，为 Lattice 的设计角色（例如窗口、编辑器、文字和强调色）指定颜色。其他颜色（悬停、按下、选中时的底色）都由 Lattice 根据这些颜色推算，所以主题在各种状态下都保持一致。主题改不了尺寸、字体或行为，也不能运行任何东西，所以安装主题不需要任何权限，并且所有平台都能用。</p>
+<h2 id="1-编写主题文件">1. 编写主题文件</h2>
+<p>新建 <code>meadow.lattice-theme.json</code>：</p>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;https://leo1oel.github.io/lattice-plugins/schema/theme-1.json&quot;,
+  &quot;schema&quot;: 1,
+  &quot;id&quot;: &quot;io.github.yourname.meadow&quot;,
+  &quot;name&quot;: &quot;Meadow&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;author&quot;: &quot;Your Name&quot;,
+  &quot;license&quot;: &quot;MIT&quot;,
+  &quot;description&quot;: &quot;Soft greens for long writing sessions.&quot;,
+  &quot;variants&quot;: [
+    {
+      &quot;id&quot;: &quot;day&quot;,
+      &quot;name&quot;: &quot;Meadow Day&quot;,
+      &quot;appearance&quot;: &quot;light&quot;,
+      &quot;colors&quot;: {
+        &quot;window&quot;: &quot;#eef2e6&quot;,
+        &quot;chrome&quot;: &quot;#e4eadb&quot;,
+        &quot;panel&quot;: &quot;#f6f8f1&quot;,
+        &quot;editor&quot;: &quot;#fbfcf8&quot;,
+        &quot;text&quot;: &quot;#27331f&quot;,
+        &quot;text-secondary&quot;: &quot;#56624c&quot;,
+        &quot;line&quot;: &quot;#27331f1f&quot;,
+        &quot;accent&quot;: &quot;#4f7a28&quot;
+      },
+      &quot;syntax&quot;: { &quot;keyword&quot;: &quot;#4f7a28&quot;, &quot;comment&quot;: &quot;#6f7a66&quot; }
+    },
+    {
+      &quot;id&quot;: &quot;night&quot;,
+      &quot;name&quot;: &quot;Meadow Night&quot;,
+      &quot;appearance&quot;: &quot;dark&quot;,
+      &quot;colors&quot;: {
+        &quot;window&quot;: &quot;#161b13&quot;,
+        &quot;chrome&quot;: &quot;#1c2318&quot;,
+        &quot;panel&quot;: &quot;#20281b&quot;,
+        &quot;editor&quot;: &quot;#1a2016&quot;,
+        &quot;text&quot;: &quot;#e3ead8&quot;,
+        &quot;text-secondary&quot;: &quot;#a9b49c&quot;,
+        &quot;line&quot;: &quot;#e3ead81f&quot;,
+        &quot;accent&quot;: &quot;#9cc56b&quot;
+      }
+    }
+  ]
+}
+</code></pre>
+<p><code>$schema</code> 这一行让 VS Code 等编辑器在你输入时检查文件、补全角色名。</p>
+<ul>
+<li><strong><code>id</code></strong> 是反向域名、全小写，属于你自己，和插件一样。<code>app.lattice.*</code> 属于 Lattice 自带的主题。</li>
+<li><strong>变体：</strong> 1 到 8 个，每个是 <code>light</code> 或 <code>dark</code>。Lattice 使用第一个与窗口外观相符的变体；只有深色变体时，浅色外观保持 Lattice 自己的配色。</li>
+<li><strong>颜色只能是字面值 <code>#RRGGBB</code> 或 <code>#RRGGBBAA</code>。</strong> 不能用颜色名、<code>var()</code> 或其他函数。线条通常是半透明的，如上例。</li>
+<li><strong>每个角色都是可选的。</strong> 没写的角色沿用 Lattice 在该外观下的颜色，所以一个主题可以小到只有两个表面色和一个强调色。</li>
+<li>未知的角色是错误。文件最大 256 KiB。</li>
+</ul>
+<h2 id="角色">角色</h2>
+<table>
+<thead>
+<tr>
+<th>部分</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>colors</code>，表面</td>
+<td><code>window</code>、<code>chrome</code>、<code>panel</code>、<code>raised</code>、<code>input</code>、<code>editor</code>、<code>pdf-ground</code></td>
+</tr>
+<tr>
+<td><code>colors</code>，文字</td>
+<td><code>text</code>、<code>text-secondary</code></td>
+</tr>
+<tr>
+<td><code>colors</code>，线条</td>
+<td><code>line</code>、<code>line-strong</code></td>
+</tr>
+<tr>
+<td><code>colors</code>，强调</td>
+<td><code>accent</code>、<code>focus</code>、<code>selection</code></td>
+</tr>
+<tr>
+<td><code>colors</code>，状态</td>
+<td><code>danger</code>、<code>success</code>、<code>warning</code>、<code>info</code>、<code>annotation</code></td>
+</tr>
+<tr>
+<td><code>syntax</code></td>
+<td>编辑器的 16 种语法颜色，例如 <code>keyword</code>、<code>command</code> 和 <code>comment</code></td>
+</tr>
+<tr>
+<td><code>terminal</code></td>
+<td><code>black</code> … <code>white</code> 和 <code>bright-black</code> … <code>bright-white</code></td>
+</tr>
+</tbody></table>
+<p>Lattice 会保证文字可读：文字、状态和语法颜色在其背景上达不到 4.5:1 对比度时，会在保持色相的前提下调整到够为止，强调色则保证 4.6:1。只有经过大幅校正才可读的主题看起来会不对劲，所以请自己检查配色。完整的角色列表见 <a href="https://github.com/leo1oel/lattice/blob/main/docs/themes.md#roles">docs/themes.md</a>（英文）和 <a href="https://github.com/leo1oel/lattice/blob/main/design-system/themes/theme-1.schema.json">JSON Schema</a>。</p>
+<h2 id="2-在-lattice-中试用">2. 在 Lattice 中试用</h2>
+<ol>
+<li>打开 <strong>设置 › 外观</strong>。在 <strong>主题</strong> 下的 <strong>主题文件</strong> 旁边选择 <strong>从文件安装…</strong>，选中 <code>meadow.lattice-theme.json</code>。</li>
+<li>Lattice 安装后会直接选中它：Meadow 出现在 <strong>配色</strong> 中并被勾选，旁边显示它的描述。把 <strong>颜色主题</strong> 在 <strong>浅色</strong> 和 <strong>深色</strong> 之间切换，查看两个变体。</li>
+</ol>
+<p>Lattice 在安装时会检查文件，并指出哪里不对，例如未知的角色。它会保存一份副本，所以修改文件之后，要再安装一次才能看到变化。</p>
+<p><img src="../images/zh-theme-dev-installed.webp" alt="设置 › 外观：从文件安装的 Meadow 主题"></p>
+<h2 id="3-发布">3. 发布</h2>
+<p>主题和插件走同一个注册表，条目更简单。注册表的地址列在 <a href="plugin-publishing.html#%E6%B3%A8%E5%86%8C%E8%A1%A8%E5%9C%B0%E5%9D%80">注册表地址</a>。</p>
+<ol>
+<li><p>把主题文件和许可证放进一个公开的 GitHub 仓库（这里是 <code>https://github.com/yourname/lattice-theme-meadow</code>），给提交打标签：</p>
+<pre><code class="language-sh">git tag v1.0.0
+git push origin v1.0.0
+</code></pre>
+</li>
+<li><p>计算已提交文件的哈希。主题不需要打包，哈希就是文件本身的：</p>
+<pre><code class="language-sh">shasum -a 256 meadow.lattice-theme.json
+</code></pre>
+</li>
+<li><p>在注册表的 fork 里添加 <code>themes/&lt;id&gt;/entry.json</code>，这里是 <code>themes/io.github.yourname.meadow/entry.json</code>：</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;io.github.yourname.meadow&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;repository&quot;: &quot;https://github.com/yourname/lattice-theme-meadow&quot;,
+  &quot;tag&quot;: &quot;v1.0.0&quot;,
+  &quot;commit&quot;: &quot;&lt;the full 40-character sha the tag points at&gt;&quot;,
+  &quot;path&quot;: &quot;meadow.lattice-theme.json&quot;,
+  &quot;sha256&quot;: &quot;&lt;what shasum printed&gt;&quot;
+}
+</code></pre>
+<p><code>id</code> 和 <code>version</code> 与主题文件一致，文件夹名等于 <code>id</code>，<code>path</code> 是该文件在仓库里的路径。</p>
+</li>
+<li><p>和 <a href="plugin-publishing.html#3-%E6%B7%BB%E5%8A%A0%E6%9D%A1%E7%9B%AE">插件</a> 一样，在 fork 里运行 <code>npm ci</code> 和 <code>node scripts/validate.mjs --base origin/main</code>。新主题会打印 <code>ok   themes/io.github.yourname.meadow/entry.json</code> 和 <code>note: new theme: needs a human review (first submission)</code>。</p>
+</li>
+<li><p>开 pull request，填写检查清单中主题的部分。</p>
+</li>
+</ol>
+<p>CI 只拉取你的标签，要求它指向 <code>commit</code>，从该提交读取 <code>path</code> 处的文件（必须是普通文件，最大 256 KiB），核对它的 SHA-256，按 schema 校验，并检查它的 <code>id</code> 和 <code>version</code> 与条目一致、变体 id 不重复。</p>
+<p>然后审核者会问：</p>
+<ol>
+<li>id 或名称是否在冒充他人？</li>
+<li>描述是否准确，许可证是否齐全，仓库是否真实且公开？移植的配色要注明原作者并保留其许可证。</li>
+<li>是否可读？只有经过 Lattice 对比度校正才能用的主题会被拒绝。</li>
+<li>是否只是数据？不能有字体、图片或 schema 之外的内容。</li>
+</ol>
+<p>合并后，主题会像插件一样随下一次索引签名发布（见 <a href="plugin-publishing.html#6-%E7%AD%BE%E5%90%8D">签名</a>），出现在 <strong>设置 › 外观 › 浏览主题…</strong> 中。那里的预览色块是根据索引绘制的，所以用户点 <strong>安装</strong> 之前不会下载任何东西。</p>
+<h2 id="更新与紧急停用">更新与紧急停用</h2>
+<p>更新主题时，在文件里升高 <code>version</code>，给新提交打标签，再修改条目里的 <code>version</code>、<code>tag</code>、<code>commit</code> 和 <code>sha256</code>。版本只能升高。从 <strong>浏览主题</strong> 安装过的用户会收到更新提示，更新后仍保持他们选中的主题。</p>
+<p>注册表的 <a href="plugin-publishing.html#%E7%B4%A7%E6%80%A5%E5%81%9C%E7%94%A8%E5%BC%80%E5%85%B3">紧急停用开关</a> 同样适用于主题。用户选中的某个版本被 <code>&quot;disable&quot;</code> 停用时，Lattice 改用自己的配色，同时保留用户的选择，并在 <strong>设置 › 外观</strong> 中显示“&lt;名称&gt; 已被停用：&lt;原因&gt;”。<code>&quot;warn&quot;</code> 条目会让主题继续生效，并在那里显示警告。从文件安装的主题永远不会被停用。</p>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第一个插件 · Lattice 使用指南</title>
+<style>
+:root { color-scheme: light dark; --text: #1f2328; --muted: #59636e; --line: #d8dbd2; --surface: #f4f5f0; --accent: #556324; --background: #fff; }
+@media (prefers-color-scheme: dark) { :root { --text: #e6e6e3; --muted: #9a9a95; --line: #3a3a37; --surface: #252523; --accent: #b5c47a; --background: #181817; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+header { display: flex; gap: 20px; align-items: baseline; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+header a { color: var(--text); text-decoration: none; }
+header .home { font-weight: 650; }
+header .language { margin-left: auto; color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 800px); gap: 44px; padding: 28px; }
+nav ol { list-style: none; margin: 0; padding: 0; position: sticky; top: 28px; }
+nav a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+nav a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; }
+main h1 { font-size: 30px; line-height: 1.25; margin: 0 0 18px; }
+main h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+main h3 { font-size: 17px; margin: 26px 0 8px; }
+main a { color: var(--accent); }
+main img { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+main code, main kbd { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 1px 5px; }
+main pre { background: var(--surface); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+main pre code { padding: 0; }
+main table { border-collapse: collapse; margin: 12px 0; }
+main th, main td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--muted); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 20px; } nav ol { position: static; } }
+</style>
+</head>
+<body>
+<header><a class="home" href="../../">Lattice</a><a class="language" href="../plugin-development.html" hreflang="en" lang="en">English</a></header>
+<div class="layout">
+<nav><ol><li><a href="index.html">Lattice 使用指南</a></li><li><a href="getting-started.html">快速上手</a></li><li><a href="writing.html">写作</a></li><li><a href="citations.html">引用与论文库</a></li><li><a href="building.html">编译与排错</a></li><li><a href="history.html">历史与版本对比</a></li><li><a href="overleaf.html">Overleaf 同步</a></li><li><a href="boards.html">白板</a></li><li><a href="agent.html">AI 助手</a></li><li><a href="plugins-and-themes.html">插件与主题</a></li><li><a href="workspaces.html">面板与工作区</a></li><li><a href="settings-and-shortcuts.html">设置与快捷键</a></li><li><a href="troubleshooting.html">常见问题</a></li><li><a href="plugin-development.html" aria-current="page">第一个插件</a></li><li><a href="plugin-reference.html">插件清单与 API</a></li><li><a href="plugin-publishing.html">发布插件</a></li><li><a href="theme-development.html">制作主题</a></li></ol></nav>
+<main>
+<h1 id="第一个插件">第一个插件</h1>
+<p>插件会往命令面板（<code>⌘K</code>）里添加命令。一个插件就是一个文件夹，里面有清单文件 <code>lattice-plugin.toml</code> 和一个 Node 脚本。运行它的某个命令时，Lattice 在沙盒中启动这个脚本，通过 stdin 把命令发给它，再把它的回答显示出来：一条消息、一个可供选择的列表，或者文件里的问题。插件从不自己绘制界面，也不自己写文件；它请 Lattice 去做，由用户确认。</p>
+<p>本页一步步做出一个叫 Hello 的插件。<a href="plugin-reference.html">插件清单与 API</a> 是它用到的所有内容的参考，<a href="plugin-publishing.html">发布插件</a> 讲怎样把它上架到插件市场。</p>
+<p>你需要：</p>
+<ul>
+<li>一台装有 Lattice 0.18 或更高版本的 Mac。插件目前只在 macOS 上运行，Lattice 用自带的 Node 运行插件，所以安装你插件的人不需要再装任何东西；</li>
+<li>终端里有 Node 22 或更高版本（<code>node --version</code>），用来在 Lattice 之外试运行插件和打包。</li>
+</ul>
+<h2 id="1-新建文件夹">1. 新建文件夹</h2>
+<pre><code class="language-sh">mkdir hello &amp;&amp; cd hello
+curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice/main/plugin-sdk/lattice-plugin.mjs
+</code></pre>
+<p><code>lattice-plugin.mjs</code> 就是 SDK：一个 MIT 许可、没有依赖的文件，替你处理通信协议。它要放在你的文件夹里，因为插件只能读取自己的文件夹。它的 TypeScript 类型在 <a href="https://github.com/leo1oel/lattice/tree/main/plugin-sdk">plugin-sdk</a> 里（<code>index.d.ts</code> 和 <code>api.d.ts</code>）。</p>
+<h2 id="2-编写清单文件">2. 编写清单文件</h2>
+<p>新建 <code>lattice-plugin.toml</code>：</p>
+<pre><code class="language-toml">schema = 1
+id = &quot;io.github.yourname.hello&quot;
+name = &quot;Hello&quot;
+version = &quot;0.1.0&quot;
+api = 1
+license = &quot;MIT&quot;
+description = &quot;Greets you and counts the words you selected.&quot;
+runtime = &quot;node&quot;
+main = &quot;main.mjs&quot;
+
+[[commands]]
+id = &quot;greet&quot;
+title = &quot;Say hello&quot;
+description = &quot;Greets you by name.&quot;
+input = { kind = &quot;text&quot;, placeholder = &quot;Your name&quot; }
+</code></pre>
+<ul>
+<li><code>id</code> 是插件永久的身份：反向域名、全小写，用你自己拥有的名字，例如 <code>io.github.&lt;你的 GitHub 用户名&gt;.&lt;插件名&gt;</code>。<code>app.lattice.*</code> 留给 Lattice 自己的插件。</li>
+<li><code>api = 1</code> 是插件需要的最低插件 API 级别。Lattice 0.18 支持级别 1。</li>
+<li>每个 <code>[[commands]]</code> 在命令面板里显示为“Hello: <title>”。<code>input = { kind = &quot;text&quot; }</code> 表示运行命令前先让用户输入一段文字。</li>
+</ul>
+<h2 id="3-编写命令">3. 编写命令</h2>
+<p>新建 <code>main.mjs</code>：</p>
+<pre><code class="language-js">import { definePlugin, PluginError } from &quot;./lattice-plugin.mjs&quot;;
+
+definePlugin({
+  commands: {
+    async greet({ input, context }) {
+      const name = input?.trim();
+      if (!name) throw new PluginError(&quot;Type your name first.&quot;);
+      return {
+        kind: &quot;message&quot;,
+        summary: `Hello, ${name}`,
+        markdown: `Hello, **${name}**! This is *${context.project.name}*.`,
+      };
+    },
+  },
+});
+</code></pre>
+<p><code>commands</code> 下的每个键是清单里的一个命令 id。处理函数会收到 <code>{ input, context, host, signal }</code>，返回一个结果。抛出 <code>PluginError</code> 则把它的消息显示给用户。</p>
+<h2 id="4-在终端里试运行">4. 在终端里试运行</h2>
+<p>Lattice 和插件之间用 JSON-RPC 通信，每行一条 JSON 消息。你可以自己扮演 Lattice：</p>
+<pre><code class="language-sh">(
+  echo &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;initialize&quot;,&quot;params&quot;:{&quot;hostApiLevel&quot;:1,&quot;hostApiCompat&quot;:1}}&#39;
+  echo &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:2,&quot;method&quot;:&quot;command/run&quot;,&quot;params&quot;:{&quot;command&quot;:&quot;greet&quot;,&quot;input&quot;:&quot;Ada&quot;,&quot;context&quot;:{&quot;project&quot;:{&quot;name&quot;:&quot;thesis&quot;}}}}&#39;
+  sleep 1
+) | node main.mjs
+</code></pre>
+<p>插件回答这两条消息：</p>
+<pre><code class="language-text">{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;result&quot;:{&quot;apiLevel&quot;:1}}
+{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:2,&quot;result&quot;:{&quot;kind&quot;:&quot;message&quot;,&quot;summary&quot;:&quot;Hello, Ada&quot;,&quot;markdown&quot;:&quot;Hello, **Ada**! This is *thesis*.&quot;}}
+</code></pre>
+<p>如果把 <code>&quot;input&quot;</code> 改成 <code>&quot;&quot;</code>，它会改为回答 <code>{&quot;code&quot;:-32000,&quot;message&quot;:&quot;Type your name first.&quot;}</code>。<code>sleep 1</code> 让 stdin 在插件回答期间保持打开：stdin 一关闭 SDK 就退出，因为 Lattice 正是这样结束一次运行的。</p>
+<h2 id="5-从文件夹安装">5. 从文件夹安装</h2>
+<ol>
+<li>打开 <strong>设置 › 插件</strong>，在 <strong>从文件夹安装…</strong> 旁边选择 <strong>选择文件夹…</strong>，选中 <code>hello</code> 文件夹。</li>
+<li>Hello 出现在 <strong>已安装</strong> 中，标为 <strong>开发者</strong>，处于关闭状态。把它开启：Lattice 会问“启用 Hello？”，并列出它将能够做的事，这里是“除项目名称外无其他访问权限”。选择 <strong>启用</strong>。</li>
+<li>打开一个项目，按 <code>⌘K</code>，输入“hello”，选择 <strong>Hello: Say hello</strong>。输入你的名字，按回车。命令面板显示“Hello, <strong>Ada</strong>! This is <em>Understanding Attention</em>.”</li>
+</ol>
+<p><img src="../images/zh-plugin-dev-installed.webp" alt="设置 › 插件：从文件夹安装的 Hello，标为“开发者”"></p>
+<p>Lattice 直接运行这个文件夹，并且每次运行都会重新读取，所以保存 <code>main.mjs</code> 或清单文件后，再运行一次命令即可。</p>
+<h2 id="6-读取项目">6. 读取项目</h2>
+<p>没有任何权限时，插件只能知道项目的名称。要读取更多内容，插件要在清单里申请，用户开启它时同意。把 <code>lattice-plugin.toml</code> 换成下面这一版，它加上了 <code>[permissions]</code> 表和第二个命令：</p>
+<pre><code class="language-toml">schema = 1
+id = &quot;io.github.yourname.hello&quot;
+name = &quot;Hello&quot;
+version = &quot;0.1.0&quot;
+api = 1
+license = &quot;MIT&quot;
+description = &quot;Greets you and counts the words you selected.&quot;
+runtime = &quot;node&quot;
+main = &quot;main.mjs&quot;
+
+[permissions]
+project-read = [&quot;context&quot;]
+
+[[commands]]
+id = &quot;greet&quot;
+title = &quot;Say hello&quot;
+description = &quot;Greets you by name.&quot;
+input = { kind = &quot;text&quot;, placeholder = &quot;Your name&quot; }
+
+[[commands]]
+id = &quot;count&quot;
+title = &quot;Count words in the selection&quot;
+</code></pre>
+<p><code>project-read = [&quot;context&quot;]</code> 让插件拿到主文档、当前文件、参考文献路径、选区（最多 12,000 个字符）和光标位置。再把 <code>main.mjs</code> 换成下面这一版，用上它们：</p>
+<pre><code class="language-js">import { definePlugin, PluginError } from &quot;./lattice-plugin.mjs&quot;;
+
+definePlugin({
+  commands: {
+    async greet({ input, context, host }) {
+      const name = input?.trim();
+      if (!name) throw new PluginError(&quot;Type your name first.&quot;);
+      host.log(&quot;info&quot;, `greeting ${name}`);
+      const file = context.project.activeFile ?? &quot;no file&quot;;
+      return {
+        kind: &quot;message&quot;,
+        summary: `Hello, ${name}`,
+        markdown: `Hello, **${name}**! You are editing \`${file}\` in *${context.project.name}*.`,
+      };
+    },
+
+    async count({ context }) {
+      const selection = context.selection;
+      if (!selection?.text) throw new PluginError(&quot;Select some text first.&quot;);
+      const words = selection.text.split(/\s+/).filter(Boolean).length;
+      return {
+        kind: &quot;items&quot;,
+        summary: `${words} words selected`,
+        items: [
+          {
+            id: &quot;words&quot;,
+            title: `${words} words`,
+            subtitle: `${selection.file}, line ${selection.from.line}`,
+            actions: [
+              { type: &quot;copy&quot;, title: &quot;Copy the count&quot;, text: String(words) },
+              { type: &quot;reveal&quot;, title: &quot;Show the selection&quot;, file: selection.file, line: selection.from.line },
+            ],
+          },
+        ],
+      };
+    },
+  },
+});
+</code></pre>
+<p><code>count</code> 返回的是一个列表而不是消息。每个条目带有操作（action），即 Lattice 替插件执行的动作：按回车执行第一个，这里是复制字数。</p>
+<p>带上选区试运行 <code>count</code>：</p>
+<pre><code class="language-sh">(
+  echo &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;initialize&quot;,&quot;params&quot;:{&quot;hostApiLevel&quot;:1,&quot;hostApiCompat&quot;:1}}&#39;
+  echo &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:2,&quot;method&quot;:&quot;command/run&quot;,&quot;params&quot;:{&quot;command&quot;:&quot;count&quot;,&quot;context&quot;:{&quot;project&quot;:{&quot;name&quot;:&quot;thesis&quot;},&quot;selection&quot;:{&quot;file&quot;:&quot;main.tex&quot;,&quot;text&quot;:&quot;Attention is all you need&quot;,&quot;from&quot;:{&quot;line&quot;:12,&quot;column&quot;:1},&quot;to&quot;:{&quot;line&quot;:12,&quot;column&quot;:26}}}}}&#39;
+  sleep 1
+) | node main.mjs
+</code></pre>
+<p>回到 Lattice，再运行一次 <strong>Hello: Say hello</strong>。它不会运行：插件现在申请的权限超出了你允许的范围，所以命令面板提示“此插件请求了新的权限。请在“设置 › 插件”中查看。”选择 <strong>打开设置</strong>。Hello 的卡片显示 <strong>请求了新的权限</strong>；选择 <strong>查看…</strong>，核对列表，再选择 <strong>启用</strong>。所有已安装的插件都是这样，所以插件不可能在用户不知情的情况下获得访问权限。</p>
+<p><img src="../images/zh-plugin-dev-review.webp" alt="清单改动后，Hello 的卡片请求新的权限"></p>
+<p>现在 <strong>Hello: Say hello</strong> 会说出你正在编辑的文件，<strong>Hello: Count words in the selection</strong> 会统计你选中的字数；按回车复制这个数字。</p>
+<p><img src="../images/zh-plugin-dev-hello.webp" alt="命令面板显示 Hello 的回答"></p>
+<h2 id="7-查看日志">7. 查看日志</h2>
+<ul>
+<li><p><strong><code>host.log(level, message)</code></strong> 写入 Lattice 的日志 <code>~/Library/Logs/app.leo1oel.researchwriter/lattice.log</code>，每行带有 <code>lattice::plugins</code> 标记和你插件的 id。开发时可以一直跟着看：</p>
+<pre><code class="language-sh">tail -f ~/Library/Logs/app.leo1oel.researchwriter/lattice.log | grep --line-buffered lattice::plugins
+</code></pre>
+<p>运行 <strong>Hello: Say hello</strong> 会添加一行，结尾是 <code>io.github.yourname.hello: greeting Ada</code>。<strong>设置 › 日志 › 打开日志文件夹</strong> 可以打开这个文件夹。</p>
+</li>
+<li><p><strong><code>console.log</code> 和 stderr。</strong> SDK 把 <code>console.log</code> 输出到 stderr，因为 stdout 用来传协议。插件没有作答就停止时，Lattice 会在命令面板里显示它 stderr 的最后部分。其他情况下 stderr 只在 <code>debug</code> 级别写入日志，所以要从终端启动 Lattice 才能看到：</p>
+<pre><code class="language-sh">LATTICE_LOG=debug /Applications/Lattice.app/Contents/MacOS/research-writer
+</code></pre>
+</li>
+<li><p><strong>不要自己往 stdout 打印。</strong> stdout 上出现一行不是 JSON-RPC 的内容，这次运行就会结束，命令面板显示“插件返回了 Lattice 无法读取的内容”。</p>
+</li>
+</ul>
+<h2 id="接下来">接下来</h2>
+<ul>
+<li><a href="plugin-reference.html">插件清单与 API</a>：所有权限、Lattice 调用、结果和操作。</li>
+<li><a href="plugin-publishing.html">发布插件</a>：打包 Hello，上架插件市场，发布更新。</li>
+<li>两个可以照抄的真实插件：<a href="https://github.com/leo1oel/lattice/tree/main/examples/plugins/bib-check">bib-check</a>（检查 <code>.bib</code> 文件的问题）和 <a href="https://github.com/leo1oel/lattice/tree/main/examples/plugins/zotero-search">zotero-search</a>（搜索 Zotero 并插入引用）。</li>
+</ul>
+</main>
+</div>
+</body>
+</html>

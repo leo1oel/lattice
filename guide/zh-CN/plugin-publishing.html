@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>发布插件 · Lattice 使用指南</title>
+<style>
+:root { color-scheme: light dark; --text: #1f2328; --muted: #59636e; --line: #d8dbd2; --surface: #f4f5f0; --accent: #556324; --background: #fff; }
+@media (prefers-color-scheme: dark) { :root { --text: #e6e6e3; --muted: #9a9a95; --line: #3a3a37; --surface: #252523; --accent: #b5c47a; --background: #181817; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+header { display: flex; gap: 20px; align-items: baseline; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+header a { color: var(--text); text-decoration: none; }
+header .home { font-weight: 650; }
+header .language { margin-left: auto; color: var(--muted); }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 800px); gap: 44px; padding: 28px; }
+nav ol { list-style: none; margin: 0; padding: 0; position: sticky; top: 28px; }
+nav a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+nav a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; }
+main h1 { font-size: 30px; line-height: 1.25; margin: 0 0 18px; }
+main h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+main h3 { font-size: 17px; margin: 26px 0 8px; }
+main a { color: var(--accent); }
+main img { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+main code, main kbd { font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 1px 5px; }
+main pre { background: var(--surface); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+main pre code { padding: 0; }
+main table { border-collapse: collapse; margin: 12px 0; }
+main th, main td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--muted); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 20px; } nav ol { position: static; } }
+</style>
+</head>
+<body>
+<header><a class="home" href="../../">Lattice</a><a class="language" href="../plugin-publishing.html" hreflang="en" lang="en">English</a></header>
+<div class="layout">
+<nav><ol><li><a href="index.html">Lattice 使用指南</a></li><li><a href="getting-started.html">快速上手</a></li><li><a href="writing.html">写作</a></li><li><a href="citations.html">引用与论文库</a></li><li><a href="building.html">编译与排错</a></li><li><a href="history.html">历史与版本对比</a></li><li><a href="overleaf.html">Overleaf 同步</a></li><li><a href="boards.html">白板</a></li><li><a href="agent.html">AI 助手</a></li><li><a href="plugins-and-themes.html">插件与主题</a></li><li><a href="workspaces.html">面板与工作区</a></li><li><a href="settings-and-shortcuts.html">设置与快捷键</a></li><li><a href="troubleshooting.html">常见问题</a></li><li><a href="plugin-development.html">第一个插件</a></li><li><a href="plugin-reference.html">插件清单与 API</a></li><li><a href="plugin-publishing.html" aria-current="page">发布插件</a></li><li><a href="theme-development.html">制作主题</a></li></ol></nav>
+<main>
+<h1 id="发布插件">发布插件</h1>
+<p><strong>设置 › 插件 › 浏览</strong> 中的插件市场列出的是 Lattice 注册表里的插件。注册表是一个 GitHub 仓库，每个插件是其中一个小条目，通过 pull request 添加。条目钉住你源码仓库的一个标签，以及你的插件文件夹在这个标签下打包后的 SHA-256。注册表从不接受你自己打好的 zip：它的 CI 自己打包你标签下的文件夹，只有哈希一致时才发布这个 zip，所以审核者读过的源码和用户装到的内容逐字节相同。</p>
+<p>本页把 <a href="plugin-development.html">第一个插件</a> 里的 Hello 插件上架到市场。主题走同一个注册表，见 <a href="theme-development.html">制作主题</a>。</p>
+<h2 id="注册表地址">注册表地址</h2>
+<p>本指南中只有这张表和 <a href="#6-%E7%AD%BE%E5%90%8D">签名</a> 一节里的命令写了注册表的地址，所以注册表迁到 lattice-writer GitHub 组织时，要改的就是这些。</p>
+<table>
+<thead>
+<tr>
+<th>内容</th>
+<th>位置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>注册表仓库</td>
+<td><a href="https://github.com/leo1oel/lattice-plugins">leo1oel/lattice-plugins</a></td>
+</tr>
+<tr>
+<td>它的 README：条目格式和 CI 检查</td>
+<td><a href="https://github.com/leo1oel/lattice-plugins#readme">README.md</a></td>
+</tr>
+<tr>
+<td>审核清单</td>
+<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a></td>
+</tr>
+<tr>
+<td>pull request 检查清单</td>
+<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/.github/pull_request_template.md">pull_request_template.md</a></td>
+</tr>
+<tr>
+<td>紧急停用名单</td>
+<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/blocked.json">blocked.json</a></td>
+</tr>
+<tr>
+<td>Lattice 读取的签名索引</td>
+<td><a href="https://leo1oel.github.io/lattice-plugins/index.json">index.json</a>，以及 <a href="https://leo1oel.github.io/lattice-plugins/index.json.minisig">index.json.minisig</a></td>
+</tr>
+<tr>
+<td>签名公钥</td>
+<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/keys/primary.pub">keys/primary.pub</a></td>
+</tr>
+</tbody></table>
+<h2 id="发布之前">发布之前</h2>
+<p>下面这些由注册表自动检查，其余由审核者阅读：</p>
+<ul>
+<li>插件是 <code>node</code> 插件，脚本是可读的源码：不能是压缩或生成的代码（不能有超过 1,000 个字符的行），不能用 <code>eval</code>、<code>new Function</code> 或 <code>vm</code>，不能下载并运行远程代码。依赖要以可读源码的形式放在插件文件夹里。</li>
+<li>清单有 <code>description</code>，<code>license</code> 是 Lattice 接受的许可证（见 <a href="plugin-reference.html#%E6%B8%85%E5%8D%95%E6%96%87%E4%BB%B6">清单文件</a>）。</li>
+<li>文件夹里有 <code>README.md</code> 和 <code>LICENSE</code> 文件。README 列出每个 <code>network</code> 源和 <code>network-local</code> 端口及其用途，说明每个密钥的用途；如果插件会把项目内容发到本机之外，要明确写出来。</li>
+<li><code>id</code> 属于你，不冒充他人：未经许可不要用“Lattice”或“Overleaf”这样的名字，不要用容易混淆的 id。</li>
+<li>你已经在 Lattice 里通过从文件夹安装运行过它的每个命令。</li>
+</ul>
+<p>给 Hello 加上 <code>README.md</code>：</p>
+<pre><code class="language-markdown"># Hello
+
+A Lattice plugin that greets you and counts the words you selected.
+
+## What it reads
+
+- `project-read = [&quot;context&quot;]`: the project&#39;s name, the active file and the selected text, to put them in its answers.
+
+It makes no network connections and sends nothing off your Mac.
+</code></pre>
+<p>再加一个 <code>LICENSE</code>，写上 MIT 许可证全文和你的名字。</p>
+<h2 id="1-给源码打标签">1. 给源码打标签</h2>
+<p>把插件文件夹推到一个公开的 GitHub 仓库（这里是 <code>https://github.com/yourname/lattice-hello</code>，插件在仓库根目录），然后给要上架的提交打标签：</p>
+<pre><code class="language-sh">git tag v0.1.0
+git push origin v0.1.0
+</code></pre>
+<p>插件也可以放在大仓库的某个子文件夹里，条目的 <code>path</code> 指向那个文件夹即可。</p>
+<h2 id="2-打包并计算哈希">2. 打包并计算哈希</h2>
+<p>用 Lattice 的打包脚本打包该标签的一份干净检出：</p>
+<pre><code class="language-sh">curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice/main/plugin-sdk/scripts/pack-plugin.mjs
+git clone --quiet --depth 1 --branch v0.1.0 https://github.com/yourname/lattice-hello release
+node pack-plugin.mjs release dist/hello-0.1.0.zip
+</code></pre>
+<p>它打印 zip 的路径和 SHA-256：</p>
+<pre><code class="language-text">/Users/you/dist/hello-0.1.0.zip
+sha256 c6d59e1c411f807169880145090894fb684ecdf624f13351a97f60e48399db87
+</code></pre>
+<p>打包是可复现的：同样的文件在任何 Mac 或 CI 机器上都得到同样的字节，与文件时间戳、所有者或磁盘列出文件的顺序无关。它收录文件夹下的普通文件，按路径排序，跳过测试（<code>*.test.mjs</code>）和所有名字以点开头的文件或文件夹（所以 <code>.git</code> 不会进去），每个文件都不压缩、直接存储（stored），时间固定为 1980-01-01，权限为 0644，可执行文件为 0755。之所以存储而不压缩，是因为不同 zlib 版本压缩出的字节不同，压缩后的 zip 在你的 Mac 和注册表 CI 上会得到不同的哈希。<code>unzip -v dist/hello-0.1.0.zip</code> 会把每个条目列为 <code>Stored</code>。</p>
+<p>要打包干净的克隆，而不是你的工作文件夹。CI 打包的正是 git 在该标签下记录的内容，所以文件夹里一个未跟踪的文件，或者 git 没有记录的可执行权限，都会让哈希和 CI 对不上。打包两次应得到同样的哈希；如果不同，说明文件夹里有东西在变。</p>
+<h2 id="3-添加条目">3. 添加条目</h2>
+<p>Fork 注册表（<a href="#%E6%B3%A8%E5%86%8C%E8%A1%A8%E5%9C%B0%E5%9D%80">地址</a>），在你的 fork 里添加 <code>plugins/&lt;id&gt;/entry.json</code>，这里是 <code>plugins/io.github.yourname.hello/entry.json</code>：</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;io.github.yourname.hello&quot;,
+  &quot;version&quot;: &quot;0.1.0&quot;,
+  &quot;repository&quot;: &quot;https://github.com/yourname/lattice-hello&quot;,
+  &quot;tag&quot;: &quot;v0.1.0&quot;,
+  &quot;commit&quot;: &quot;&lt;the full 40-character sha the tag points at&gt;&quot;,
+  &quot;path&quot;: &quot;.&quot;,
+  &quot;sha256&quot;: &quot;c6d59e1c411f807169880145090894fb684ecdf624f13351a97f60e48399db87&quot;,
+  &quot;author&quot;: &quot;Your Name&quot;,
+  &quot;categories&quot;: [&quot;writing&quot;]
+}
+</code></pre>
+<ul>
+<li><code>id</code> 和 <code>version</code> 与清单一致，文件夹名等于 <code>id</code>。</li>
+<li><code>commit</code> 是在你的仓库里运行 <code>git rev-parse &quot;v0.1.0^{commit}&quot;</code> 打印的值。</li>
+<li><code>path</code> 是插件在仓库里的文件夹，在根目录时写 <code>&quot;.&quot;</code>。</li>
+<li><code>sha256</code> 是 <code>pack-plugin.mjs</code> 打印的值。</li>
+<li><code>categories</code> 最多四个小写单词，例如 <code>citations</code>、<code>bibliography</code> 或 <code>writing</code>。</li>
+</ul>
+<p>开 pull request 之前，先运行和 CI 相同的检查。在你 fork 的检出里，确认 <code>main</code> 是最新的，并使用 Node 22 或更高版本：</p>
+<pre><code class="language-sh">npm ci
+node scripts/validate.mjs --base origin/main
+</code></pre>
+<p>对新插件，它打印：</p>
+<pre><code class="language-text">ok   plugins/io.github.yourname.hello/entry.json
+     note: asks for: {&quot;projectRead&quot;:[&quot;context&quot;],&quot;networkLocal&quot;:[],&quot;network&quot;:[],&quot;secrets&quot;:[]}
+     note: new plugin: needs a human review per REVIEW.md (first submission)
+</code></pre>
+<p>哈希不对时会失败，提示 <code>sha256 mismatch: the entry says …, the pack of . at &lt;commit&gt; is …</code>。然后开 pull request，一个 pull request 只放一个条目，并填写其中的检查清单。</p>
+<h2 id="4-ci-检查什么">4. CI 检查什么</h2>
+<p>每个 pull request 上，注册表的 <code>validate.mjs</code> 只拉取你的标签，要求它指向 <code>commit</code>，并从 git 对象库里读取该提交下的文件夹。然后它：</p>
+<ul>
+<li>拒绝符号链接和子模块，并遵守 Lattice 的上限：10,000 个文件、解压后 200 MiB、zip 50 MiB；</li>
+<li>打包文件夹，把 SHA-256 和条目里的比对；</li>
+<li>按 Lattice 的方式检查清单（schema、id、版本、API 级别、名称、权限和命令），以及市场规则：运行时为 <code>node</code>，有描述，许可证在接受列表中，有 README 和许可证文件；</li>
+<li>拒绝有超过 1,000 个字符的行、或使用 <code>eval</code>、<code>new Function</code>、<code>vm</code> 的脚本；</li>
+<li>对更新，检查 <code>version</code> 是否升高，打印新版本比已发布版本多申请的权限，并标出仓库或运行时的变化；</li>
+<li>检查 <code>blocked.json</code> 格式是否正确。</li>
+</ul>
+<h2 id="5-人工审核">5. 人工审核</h2>
+<p>CI 做机械的那一半；另一半由维护者（目前是 Leo）按 <a href="https://github.com/leo1oel/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a> 审核，并把结论写在 pull request 里。每次首次提交、以及改变仓库或所有者、扩大权限或改变运行时的更新，都要人工审核。其他更新在 CI 通过并经过 24 小时冷静期后合并，期间任何维护者都可以叫停。</p>
+<p>审核者阅读你钉住的提交下的源码，并会问：</p>
+<ol>
+<li>id 或名称是否在冒充他人？</li>
+<li>描述是否准确，许可证是否齐全，仓库是否真实且公开？移植的作品要注明原作者。</li>
+<li>权限是否与宣称的用途相符，每个源、端口和密钥是否都在 README 里说明了？</li>
+<li>它是否会把项目内容发到本机之外？如果会，README 和描述是否明确写出？</li>
+<li>源码是否可读，没有下载并运行远程代码，没有未以可读源码形式附带的依赖？</li>
+<li>它是否以误导人的方式重复了内置功能？</li>
+</ol>
+<h2 id="6-签名">6. 签名</h2>
+<p>你不需要签任何东西。pull request 合并后，注册表的发布工作流会打包每个条目，生成 <code>index.json</code> 和 <code>blocked.json</code>，用注册表的 minisign 密钥给两者签名，再连同 zip 一起发布到 GitHub Pages。签名任务只在 <code>main</code> 上运行，每次都要等 Leo 批准，私钥只作为该任务受保护环境的密钥存在。</p>
+<p>Lattice 用内置在应用里的公钥验证这两个签名，拒绝比上次验证过的更旧的索引，并在安装前核对每个 zip 的 SHA-256 和清单是否与索引一致。所以无论是被攻破的下载服务器，还是拿到你 GitHub 账号的人，都改不了用户装到的内容。你也可以自己验证已发布的索引：</p>
+<pre><code class="language-sh">curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
+curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
+curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice-plugins/main/keys/primary.pub
+minisign -V -p primary.pub -m index.json
+</code></pre>
+<p>它会打印 <code>Signature and comment signature verified</code>，以及类似 <code>lattice-plugins file:index.json serial:2</code> 的可信注释。（用 <code>brew install minisign</code> 安装 minisign。）</p>
+<p>下一次发布后，你的插件就会出现在 <strong>浏览</strong> 中，安装后标为 <strong>已审核</strong>。</p>
+<h2 id="更新与权限变化">更新与权限变化</h2>
+<p>发布新版本：</p>
+<ol>
+<li>在 <code>lattice-plugin.toml</code> 里升高 <code>version</code>，提交，并给这个提交打标签（<code>v0.2.0</code>）。</li>
+<li>像第 2 步一样，重新打包干净的标签。</li>
+<li>在你的条目里修改 <code>version</code>、<code>tag</code>、<code>commit</code> 和 <code>sha256</code>，然后开 pull request。</li>
+</ol>
+<p>版本只能升高，仓库也应保持不变：换仓库需要人工审核。更新申请了更多权限时，CI 会准确列出新增的部分，例如：</p>
+<pre><code class="language-text">ok   plugins/io.github.yourname.hello/entry.json
+     note: asks for: {&quot;projectRead&quot;:[&quot;context&quot;],&quot;networkLocal&quot;:[],&quot;network&quot;:[&quot;https://api.crossref.org&quot;],&quot;secrets&quot;:[]}
+     note: new network: https://api.crossref.org
+     note: permissions grew: needs a human review
+</code></pre>
+<p>用户在 <strong>设置 › 插件</strong> 中看到的是：</p>
+<ul>
+<li>不申请新权限的更新由 <strong>全部更新</strong> 应用，插件保持开启。</li>
+<li>申请了更多权限的更新单独留在自己的卡片上，只列出新增的部分，用户可以选择 <strong>允许并更新</strong>，或保留现有版本。</li>
+</ul>
+<p>所以尽量保持权限稳定；确实需要新权限时，在 README 和 pull request 里说明原因。开发时从文件夹安装的插件也一样：新的权限会让插件停止运行，直到你选择 <strong>查看…</strong> 并重新开启。</p>
+<h2 id="紧急停用开关">紧急停用开关</h2>
+<p>如果某个已发布的版本被发现有害或有严重问题，注册表可以在所有 Mac 上把它停用。<a href="https://github.com/leo1oel/lattice-plugins/blob/main/blocked.json">blocked.json</a> 列出被停用的版本，和索引一起签名发布：</p>
+<pre><code class="language-json">[
+  {
+    &quot;id&quot;: &quot;io.github.yourname.hello&quot;,
+    &quot;versions&quot;: &quot;&lt;=0.1.0&quot;,
+    &quot;action&quot;: &quot;disable&quot;,
+    &quot;reason&quot;: &quot;Crashes on projects without a main document; update to 0.1.1.&quot;,
+    &quot;url&quot;: &quot;https://github.com/yourname/lattice-hello/issues/1&quot;
+  }
+]
+</code></pre>
+<ul>
+<li><code>versions</code> 是一个 semver 范围，<code>&quot;*&quot;</code> 表示所有版本。</li>
+<li><code>&quot;disable&quot;</code> 关闭已安装的副本，拒绝安装这些版本，并在插件卡片上显示原因，<strong>了解更多</strong> 链接到 <code>url</code>。<code>&quot;warn&quot;</code> 让插件继续工作，把原因显示为警告。</li>
+<li>Lattice 从不删除插件的文件或数据文件夹，也从不影响从文件夹安装的插件。</li>
+<li>从 <code>plugins/</code> 中删除条目只会阻止新的安装。已安装的副本会继续工作，除非也被停用。</li>
+</ul>
+<p>要撤回你自己的某个版本，开一个 pull request 往 <code>blocked.json</code> 里加一项，同时发布修复后的版本；任何人发现有害插件，都可以用同样的方式开 issue 或 pull request。它在下一次签名发布时生效。</p>
+</main>
+</div>
+</body>
+</html>
