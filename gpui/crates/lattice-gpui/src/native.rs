@@ -18,7 +18,9 @@ use objc2::{
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
+mod front;
 mod input_source;
+pub use front::{app_is_active, bring_to_front, deactivate_app};
 pub use input_source::{
     current_input_source, post_hid_key, post_hid_shift_tap, restore_keyboard, select_input_method,
     use_ascii_keyboard,
@@ -541,39 +543,6 @@ pub fn window_number(native: Native) -> isize {
 pub fn order_front(native: Native) {
     unsafe {
         let _: () = msg_send![native.window, orderFrontRegardless];
-    }
-}
-
-/// Put the window in front of everything and make it key, so macOS neither
-/// occludes it (which stops its display link) nor GPUI throttles it as an
-/// inactive window while a scenario measures it. Lattice's lab does the same
-/// for WebKit with `LATTICE_WK_NOOCC`.
-pub fn bring_to_front(native: Native) {
-    const FLOATING_WINDOW_LEVEL: isize = 3;
-    unsafe {
-        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-        let _: () = msg_send![app, activateIgnoringOtherApps: Bool::YES];
-        let _: () = msg_send![native.window, setLevel: FLOATING_WINDOW_LEVEL];
-        let _: () = msg_send![native.window, orderFrontRegardless];
-        let _: () = msg_send![native.window, makeKeyWindow];
-    }
-}
-
-/// Whether this app is the active one, whose key window takes the keyboard.
-pub fn app_is_active() -> bool {
-    unsafe {
-        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-        let active: Bool = msg_send![app, isActive];
-        active.as_bool()
-    }
-}
-
-/// Hand activation back to the app that had it, so this one runs in the
-/// background, its windows no longer key (`scenario/input_lock.rs`).
-pub fn deactivate_app() {
-    unsafe {
-        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-        let _: () = msg_send![app, deactivate];
     }
 }
 
