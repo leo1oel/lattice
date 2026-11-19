@@ -594,6 +594,11 @@ msgstr "{documentName} — Markdown 源码"
 msgid "{documentName} — source"
 msgstr "{documentName} — 源码"
 
+#: src/plugins/plugin-browse.tsx
+#: src/plugins/plugin-details.tsx
+msgid "{downloads} downloads"
+msgstr "{downloads} 次下载"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "{dpi} DPI at the specified width"
 msgstr "按指定宽度计算为 {dpi} DPI"
@@ -2196,6 +2201,10 @@ msgstr "全部第三方软件（{total}）"
 msgid "All your projects are archived or trashed"
 msgstr "项目都已归档或删除"
 
+#: src/plugins/plugin-details.tsx
+msgid "Allow and update"
+msgstr "允许并更新"
+
 #: src/settings/settings-search-index.ts
 msgid "Allow external commands"
 msgstr "外部程序"
@@ -2941,6 +2950,8 @@ msgstr "独立成段的引文"
 msgid "Block type"
 msgstr "段落样式"
 
+#: src/plugins/plugin-browse.tsx
+#: src/plugins/plugin-details.tsx
 #: src/settings/theme-browse.tsx
 msgid "Blocked"
 msgstr "已屏蔽"
@@ -3037,6 +3048,10 @@ msgstr "短音符示例"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "英式英语"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Browse"
+msgstr "浏览"
 
 #: src/settings/theme-browse.tsx
 msgid "Browse themes"
@@ -4358,6 +4373,10 @@ msgstr "命令"
 msgid "Command palette"
 msgstr "命令面板"
 
+#: src/plugins/plugin-details.tsx
+msgid "Commands it adds"
+msgstr "新增的命令"
+
 #: src/build/compile-explain.ts
 msgid "Commands such as \\usepackage only work before {BEGIN_DOCUMENT}. Move this line into the preamble."
 msgstr "\\usepackage 这类命令只能写在 {BEGIN_DOCUMENT} 之前。把这一行移到导言区。"
@@ -5331,6 +5350,10 @@ msgstr "无法启动论文工具"
 msgid "Couldn’t start the plugin: {detail}"
 msgstr "无法启动插件：{detail}"
 
+#: src/plugins/plugin-browse.tsx
+msgid "Couldn't verify the plugin list. Nothing new can be installed."
+msgstr "无法验证插件列表，暂时不能安装新插件。"
+
 #: src/settings/theme-browse.tsx
 msgid "Couldn't verify the theme list. Nothing new can be installed."
 msgstr "无法验证主题列表，暂时不能安装新主题。"
@@ -5703,6 +5726,10 @@ msgctxt "error disclosure"
 msgid "Details"
 msgstr "详情"
 
+#: src/plugins/plugin-browse.tsx
+msgid "Details for {name}"
+msgstr "{name} 的详情"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "行列式样式的矩阵"
@@ -5711,6 +5738,10 @@ msgstr "行列式样式的矩阵"
 #: src/settings/settings-search-index.ts
 msgid "develop"
 msgstr "开发"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Developer"
+msgstr "开发者"
 
 #: src/app/report-problem.ts
 msgid "Diagnostic log saved"
@@ -8237,6 +8268,10 @@ msgstr "请安装 {tool} 以更新此图。"
 msgid "Install a .lattice-theme.json file. Lattice keeps its own copy."
 msgstr "安装一个 .lattice-theme.json 文件，Lattice 会保存一份副本。"
 
+#: src/plugins/plugin-details.tsx
+msgid "Install and turn on"
+msgstr "安装并启用"
+
 #: src/settings/settings-dialog.tsx
 msgid "Install automatically"
 msgstr "自动安装"
@@ -8291,6 +8326,10 @@ msgstr "安装组件"
 msgid "Install one of them."
 msgstr "装好其中一个。"
 
+#: src/plugins/plugin-details.tsx
+msgid "Install only"
+msgstr "仅安装"
+
 #. placeholder {0}: status.missingFile
 #: src/build/tex-dependency-installer.tsx
 msgid "Install package for {0}"
@@ -8321,6 +8360,12 @@ msgstr "安装 TeX Live（{TEX_INSTALL_SIZE_HINT}）"
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
 
+#: src/plugins/plugin-browse.tsx
+msgid "Install…"
+msgstr "安装…"
+
+#: src/plugins/plugin-browse.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/settings/theme-browse.tsx
 msgid "Installed"
 msgstr "已安装"
@@ -8491,6 +8536,10 @@ msgstr "约塔"
 msgid "Is “{word}” misspelled?"
 msgstr "“{word}” 是否拼错了？"
 
+#: src/plugins/plugin-details.tsx
+msgid "It can’t read other files, use your API keys or environment, or write files without asking you."
+msgstr "它不能读取其他文件，不能使用你的 API 密钥或环境变量，也不能未经你同意写入文件。"
+
 #: src/settings/grammar-rule-reasons.ts
 msgid "It flags phrases like “most early in training”, which it says are not errors."
 msgstr "它会标出 “most early in training” 这类短语，而它自己也说明这些并不是错误。"
@@ -8616,6 +8665,10 @@ msgstr "保留原值"
 #: src/settings/settings-search-index.ts
 msgid "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document. A document that fails there because a package ignores TeX’s output directory, such as minted 2.x, builds beside itself instead."
 msgstr "将 .aux、.log、SyncTeX 等临时文件放在项目隐藏的 .research/build 文件夹中，PDF 仍保留在文档旁边。若某个宏包不遵循 TeX 的输出目录（例如 minted 2.x）导致文档在那里编译失败，该文档会改为在其所在文件夹中编译。"
+
+#: src/plugins/plugin-details.tsx
+msgid "Keep {current}"
+msgstr "保留 {current}"
 
 #: src/project/import-conflict-dialog.tsx
 msgid "Keep both"
@@ -9056,6 +9109,8 @@ msgid "Lattice theme"
 msgstr "Lattice 主题"
 
 #: src/platform/host-errors-plugins.ts
+#: src/plugins/plugin-details.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/plugins/plugin-text.ts
 msgid "Lattice turned this plugin off: {reason}"
 msgstr "Lattice 已停用此插件：{reason}"
@@ -9097,6 +9152,8 @@ msgstr "布局已重置"
 msgid "Layout updating"
 msgstr "版面更新中"
 
+#: src/plugins/plugin-details.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/settings/theme-browse.tsx
 msgid "Learn more"
 msgstr "了解更多"
@@ -9544,6 +9601,10 @@ msgstr "正在加载 AI 改动…"
 msgid "Loading the conversation…"
 msgstr "正在加载…"
 
+#: src/plugins/plugin-browse.tsx
+msgid "Loading the plugin list"
+msgstr "正在加载插件列表"
+
 #: src/settings/theme-browse.tsx
 msgid "Loading the theme list"
 msgstr "正在加载主题列表"
@@ -9562,6 +9623,7 @@ msgstr "正在把导言区载入 LuaLaTeX。"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
+#: src/plugins/plugin-browse.tsx
 #: src/settings/literature-settings.tsx
 #: src/settings/theme-browse.tsx
 msgid "Loading…"
@@ -10041,6 +10103,10 @@ msgstr "有多个 MiKTeX 组件提供 {file}：{packages}。未自动安装任�
 msgid "Most cited here"
 msgstr "本文引用最多"
 
+#: src/plugins/plugin-browse.tsx
+msgid "Most downloaded"
+msgstr "下载最多"
+
 #: src/trellis/trellis-labels.ts
 msgid "Move {title} to"
 msgstr "把{title}移到"
@@ -10101,6 +10167,7 @@ msgstr "我的模板"
 msgid "Nabla / del"
 msgstr "纳布拉 / 梯度算子"
 
+#: src/plugins/plugin-browse.tsx
 #: src/project/rename-dialog.tsx
 msgid "Name"
 msgstr "名称"
@@ -10517,6 +10584,10 @@ msgstr "本段不缩进"
 msgid "No independent metadata to verify a possible record"
 msgstr "没有可核对的资料"
 
+#: src/plugins/plugin-settings.tsx
+msgid "No installed plugins match"
+msgstr "没有匹配的已安装插件"
+
 #: src/build/compile-explain.ts
 msgid "No label {label}"
 msgstr "找不到标签 {label}"
@@ -10678,9 +10749,17 @@ msgstr "还没有论文"
 msgid "No PDF yet"
 msgstr "还没有 PDF"
 
+#: src/plugins/plugin-browse.tsx
+msgid "No plugins are listed yet."
+msgstr "插件列表里还没有插件。"
+
 #: src/plugins/plugin-settings.tsx
 msgid "No plugins installed."
 msgstr "尚未安装插件。"
+
+#: src/plugins/plugin-browse.tsx
+msgid "No plugins match"
+msgstr "没有匹配的插件"
 
 #: src/editor/latex/visual/visual-float-widget.ts
 #: src/editor/latex/visual/visual-widgets.ts
@@ -10953,6 +11032,10 @@ msgid "Not reached"
 msgstr "未到达"
 
 #: src/plugins/plugin-settings.tsx
+msgid "Not reviewed"
+msgstr "未经审核"
+
+#: src/plugins/plugin-settings.tsx
 msgid "Not saved"
 msgstr "未保存"
 
@@ -11138,9 +11221,14 @@ msgstr "系统已开“降低透明度”，此项暂停"
 msgid "Official verification incomplete"
 msgstr "官方核实没完成"
 
+#: src/plugins/plugin-browse.tsx
 #: src/settings/theme-browse.tsx
 msgid "Offline: showing the list from {date}"
 msgstr "离线：显示 {date} 的列表"
+
+#: src/plugins/plugin-browse.tsx
+msgid "Offline. The plugin list can't be reached."
+msgstr "离线，无法获取插件列表。"
 
 #: src/settings/theme-browse.tsx
 msgid "Offline. The theme list can't be reached."
@@ -12491,6 +12579,7 @@ msgstr "插件为命令面板（⌘K）添加命令。每个插件都在沙盒�
 msgid "Plugins install only over https."
 msgstr "插件只能通过 https 安装。"
 
+#: src/plugins/plugin-details.tsx
 #: src/plugins/plugin-text.ts
 msgid "Plugins run only on macOS for now."
 msgstr "插件目前仅能在 macOS 上运行。"
@@ -12498,6 +12587,10 @@ msgstr "插件目前仅能在 macOS 上运行。"
 #: src/plugins/plugin-settings.tsx
 msgid "Plugins run only on macOS for now. They are listed here, but can’t be turned on."
 msgstr "插件目前仅能在 macOS 上运行。它们会列在这里，但无法启用。"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins view"
+msgstr "插件视图"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
@@ -13098,6 +13191,10 @@ msgstr "最近项目"
 msgid "Recently added"
 msgstr "最近添加"
 
+#: src/plugins/plugin-browse.tsx
+msgid "Recently updated"
+msgstr "最近更新"
+
 #: src/onboarding/get-started-panel.tsx
 msgid "Recheck"
 msgstr "重新检测"
@@ -13211,6 +13308,7 @@ msgid "References"
 msgstr "文献"
 
 #: src/overleaf/overleaf-review.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/figure-inventory-dialog.tsx
 #: src/settings/theme-browse.tsx
 msgid "Refresh"
@@ -13296,6 +13394,7 @@ msgstr "重新载入面板"
 #: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/live-preview/live-preview-settings.tsx
+#: src/plugins/plugin-details.tsx
 #: src/plugins/plugin-settings.tsx
 #: src/project/deadline-card.tsx
 #: src/project/submission-items.tsx
@@ -14120,6 +14219,10 @@ msgstr "审阅这条建议"
 msgid "Review…"
 msgstr "查看…"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Reviewed"
+msgstr "已审核"
+
 #. placeholder {0}: rounds.revisable
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Revise from {0} annotations"
@@ -14588,6 +14691,7 @@ msgstr "搜索"
 msgid "Search by name or license"
 msgstr "按名称或许可证搜索"
 
+#: src/plugins/plugin-settings.tsx
 #: src/settings/theme-browse.tsx
 msgid "Search by name, description or author"
 msgstr "按名称、描述或作者搜索"
@@ -14628,6 +14732,10 @@ msgstr "搜索文件、论文、命令"
 msgid "Search folders"
 msgstr "搜索分类"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Search installed plugins"
+msgstr "搜索已安装的插件"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "搜索论文"
@@ -14659,6 +14767,10 @@ msgstr "搜索论文"
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
 msgstr "搜索 PDF"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Search plugins"
+msgstr "搜索插件"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Search references"
@@ -15301,6 +15413,10 @@ msgstr "行排序"
 msgid "Sort papers"
 msgstr "论文排序"
 
+#: src/plugins/plugin-browse.tsx
+msgid "Sort plugins"
+msgstr "插件排序"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Sort references"
 msgstr "文献排序"
@@ -15339,6 +15455,10 @@ msgstr "来源"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Source changes"
 msgstr "源码修改"
+
+#: src/plugins/plugin-details.tsx
+msgid "Source code"
+msgstr "源代码"
 
 #: src/trellis/trellis-titles.ts
 msgid "Source control"
@@ -17771,9 +17891,18 @@ msgstr "这个 PDF 已从项目移除"
 msgid "This plugin asks for new permissions. Review them in Settings › Plugins."
 msgstr "此插件请求了新的权限。请在“设置 › 插件”中查看。"
 
+#: src/plugins/plugin-details.tsx
+msgid "This plugin can"
+msgstr "此插件可以"
+
 #: src/platform/host-errors-plugins.ts
 msgid "This plugin does not declare that secret."
 msgstr "此插件没有声明该密钥。"
+
+#: src/plugins/plugin-details.tsx
+#: src/plugins/plugin-settings.tsx
+msgid "This plugin has a warning: {reason}"
+msgstr "此插件有一条警告：{reason}"
 
 #: src/plugins/plugin-text.ts
 msgid "This plugin is no longer installed."
@@ -18192,6 +18321,7 @@ msgstr "清华大学学位论文（{name}）"
 msgid "TSV (tab)"
 msgstr "TSV（制表符分隔）"
 
+#: src/plugins/plugin-details.tsx
 #: src/plugins/plugin-settings.tsx
 msgid "Turn off {name}"
 msgstr "关闭 {name}"
@@ -18200,6 +18330,7 @@ msgstr "关闭 {name}"
 msgid "Turn on"
 msgstr "启用"
 
+#: src/plugins/plugin-details.tsx
 #: src/plugins/plugin-settings.tsx
 msgid "Turn on {name}"
 msgstr "启用 {name}"
@@ -18550,6 +18681,10 @@ msgstr "上下双线箭头"
 msgid "Update “{key}” in {file}?"
 msgstr "更新 {file} 中的“{key}”？"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Update all"
+msgstr "全部更新"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Update annotation…"
 msgstr "修改批注…"
@@ -18587,9 +18722,18 @@ msgstr "更新表格"
 msgid "Update TeX packages"
 msgstr "更新 TeX 组件"
 
+#: src/plugins/plugin-browse.tsx
 #: src/settings/theme-browse.tsx
 msgid "Update to {next}"
 msgstr "更新到 {next}"
+
+#: src/plugins/plugin-details.tsx
+msgid "Update to {version}"
+msgstr "更新到 {version}"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Update…"
+msgstr "更新…"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
@@ -18604,6 +18748,11 @@ msgstr "更新于 {0}"
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "已用 {library} 更新 {target}。可在历史中撤销。"
 
+#: src/plugins/plugin-details.tsx
+msgid "Updated {updated}"
+msgstr "更新于 {updated}"
+
+#: src/plugins/plugin-browse.tsx
 #: src/settings/theme-browse.tsx
 msgid "Updated {when}"
 msgstr "更新于 {when}"
@@ -18873,10 +19022,19 @@ msgstr "版本 {0} 已安装，重启 Lattice 后即可使用。"
 msgid "Version {0} is ready to install"
 msgstr "新版本 {0} 可安装"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Version {next} is available"
+msgstr "版本 {next} 可用"
+
+#: src/plugins/plugin-details.tsx
 #: src/telemetry/app-updater.tsx
 #: src/telemetry/update-recovery.ts
 msgid "Version {version}"
 msgstr "版本 {version}"
+
+#: src/plugins/plugin-details.tsx
+msgid "Version {version} also wants:"
+msgstr "版本 {version} 还需要："
 
 #. placeholder {0}: versions.error
 #: src/history/versions-timeline.tsx
