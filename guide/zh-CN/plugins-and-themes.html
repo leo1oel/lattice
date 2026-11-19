@@ -49,13 +49,24 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 <p>编辑器的语法配色在同一页的 <strong>代码主题</strong> 中单独设置。</p>
 <h2 id="插件">插件</h2>
 <p>插件会往命令面板（<code>⌘K</code>）里添加命令。每个插件都在沙盒中运行，只能访问你开启时允许的内容。</p>
-<p>打开 <strong>设置 › 插件</strong>：</p>
+<p>打开 <strong>设置 › 插件</strong>。这一页有 <strong>已安装</strong> 和 <strong>浏览</strong> 两个视图，共用一个搜索框，搜索当前显示的视图。</p>
+<h3 id="浏览插件市场">浏览插件市场</h3>
+<p><strong>浏览</strong> 列出 Lattice 插件市场中的插件。列表带有签名，被篡改的列表会被拒绝；离线时显示最后一次校验通过的列表。可以按下载最多、最近更新或名称排序，点 <strong>刷新</strong> 重新获取列表。</p>
+<p>点某个插件查看详情：作者、版本和许可证、<strong>此插件可以</strong> 做什么和不能做什么，以及它添加的命令。然后选择：</p>
+<ul>
+<li><strong>安装并启用</strong>：安装插件并开启。</li>
+<li><strong>仅安装</strong>：安装但保持关闭，之后再开启。</li>
+</ul>
+<p><img src="../images/zh-plugins.webp" alt="设置 › 插件 › 浏览：列出插件市场中的插件"></p>
+<h3 id="已安装的插件">已安装的插件</h3>
+<p>每个已安装的插件都标明来源：来自插件市场的是 <strong>已审核</strong>，从 URL 安装的是 <strong>未经审核</strong>，从文件夹安装的是 <strong>开发者</strong>。用开关开启或关闭插件；开启时会列出它申请的权限。在插件卡片上可以移除插件。</p>
+<p>有更新时，卡片上会提示。<strong>全部更新</strong> 会应用所有不需要新权限的更新。需要比你已允许的更多权限的更新会单独留在卡片上，只列出新增的部分，可以选择 <strong>允许并更新</strong>，或保留当前版本。</p>
+<p>如果某个插件被从市场撤下，Lattice 会将其关闭，并在卡片上说明原因（<strong>了解更多</strong>）。插件目前只能在 macOS 上运行。</p>
+<h3 id="自己安装插件">自己安装插件</h3>
 <ul>
 <li><strong>从 URL 安装…</strong>：通过 <code>https</code> 下载插件的 <code>.zip</code> 发布包，并核对作者公布的 SHA-256。</li>
 <li><strong>从文件夹安装…</strong>：用于开发插件；Lattice 直接运行这个文件夹，你的修改在下次运行时生效。</li>
 </ul>
-<p><img src="../images/zh-plugins.webp" alt="设置 › 插件：从 URL 安装和从文件夹安装"></p>
-<p>新装的插件默认关闭。打开时会列出它申请的权限；如果更新后申请了更多权限，Lattice 会再次询问。在同一页可以移除插件。插件目前只能在 macOS 上运行。</p>
 <p>想写插件？见 <a href="https://github.com/leo1oel/lattice/blob/main/docs/plugins.md">插件开发文档</a>（英文）。</p>
 </main>
 </div>

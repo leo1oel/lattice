@@ -49,13 +49,24 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 <p>The editor&#39;s syntax colors are set separately under <strong>Code theme</strong> on the same page.</p>
 <h2 id="plugins">Plugins</h2>
 <p>Plugins add commands to the command palette (<code>⌘K</code>). Each runs in a sandbox and can reach only what you allow when you turn it on.</p>
-<p>Open <strong>Settings › Plugins</strong>:</p>
+<p>Open <strong>Settings › Plugins</strong>. The page has two views, <strong>Installed</strong> and <strong>Browse</strong>, and one search field for whichever view is showing.</p>
+<h3 id="browse-the-plugin-market">Browse the plugin market</h3>
+<p><strong>Browse</strong> lists the plugins in the Lattice plugin market. The list is signed, so Lattice refuses one that has been tampered with, and when you&#39;re offline it shows the last list it verified. Sort by most downloaded, recently updated or name, and choose <strong>Refresh</strong> to fetch the list again.</p>
+<p>Choose a plugin to see its details: who made it, its version and licence, what <strong>This plugin can</strong> do and what it can&#39;t, and the commands it adds. Then choose:</p>
+<ul>
+<li><strong>Install and turn on</strong>: installs the plugin and turns it on.</li>
+<li><strong>Install only</strong>: installs it turned off, to turn on later.</li>
+</ul>
+<p><img src="images/en-plugins.webp" alt="Settings › Plugins › Browse, listing plugins from the market"></p>
+<h3 id="installed-plugins">Installed plugins</h3>
+<p>Each installed plugin shows where it came from: <strong>Reviewed</strong> for a plugin from the market, <strong>Not reviewed</strong> for one installed from a URL, <strong>Developer</strong> for a folder. Turn a plugin on or off with its switch; turning it on lists the permissions it asks for. Remove a plugin from its card.</p>
+<p>When an update is available, the card says so. <strong>Update all</strong> applies every update that asks for nothing new. An update that asks for more than you allowed waits on its own card and lists only what is new, with <strong>Allow and update</strong> or keep the version you have.</p>
+<p>If a plugin is withdrawn from the market, Lattice turns it off and says why on its card (<strong>Learn more</strong>). Plugins run on macOS only for now.</p>
+<h3 id="install-a-plugin-yourself">Install a plugin yourself</h3>
 <ul>
 <li><strong>Install from URL…</strong>: a plugin&#39;s <code>.zip</code> release over <code>https</code>, checked against the SHA-256 its author publishes.</li>
 <li><strong>Install from folder…</strong>: for developing a plugin; Lattice runs the folder in place, so your edits apply on the next run.</li>
 </ul>
-<p><img src="images/en-plugins.webp" alt="Settings › Plugins with Install from URL and Install from folder"></p>
-<p>A new plugin is off until you turn it on. Turning it on lists the permissions it asks for; if an update asks for more, Lattice asks again. Remove a plugin from the same page. Plugins run on macOS only for now.</p>
 <p>Writing a plugin? See the <a href="https://github.com/leo1oel/lattice/blob/main/docs/plugins.md">plugin developer docs</a>.</p>
 </main>
 </div>
