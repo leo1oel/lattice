@@ -80,7 +80,7 @@ Settings › Plugins:
 Then turn the plugin on, which shows what it asks for. Its commands appear in
 the command palette (⌘K) as "<Plugin>: <Command>".
 
-A public registry (`leo1oel/lattice-plugins`: reviewed index of versions and
+A public registry (`lattice-writer/lattice-plugins`: reviewed index of versions and
 hashes, a remote block list, signed releases) comes later (decision D4).
 
 ## Writing a plugin
