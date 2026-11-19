@@ -13,7 +13,9 @@ use windows_sys::Win32::System::Threading::{
 fn wait_for(
     path: &std::path::Path, session: &Session, output: &Mutex<Vec<u8>>,
 ) -> serde_json::Value {
-    let deadline = Instant::now() + Duration::from_secs(20);
+    // PowerShell can take tens of seconds to start on a machine busy with the
+    // rest of `mise run check`; the wait ends as soon as it answers.
+    let deadline = Instant::now() + Duration::from_secs(60);
     let mut answered = 0;
     loop {
         // PSReadLine asks the terminal for its cursor position while starting

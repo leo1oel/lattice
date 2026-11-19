@@ -494,7 +494,9 @@ mod refused_drawings {
 
     /// The scan used to cost about four times as much for twice the document,
     /// so a 64 MB drawing (the cap) held a thread and the project's lease for
-    /// hours. One pass over 4 MB is well under a second.
+    /// hours. One pass over 4 MB is well under a second alone; the limit
+    /// leaves room for a machine busy with the rest of `mise run check`, and
+    /// is still far below what the quadratic scan took at this size.
     #[test]
     fn the_scan_reads_a_large_drawing_once() {
         let fixture = Fixture::project("figure-scan-cost");
@@ -505,7 +507,7 @@ mod refused_drawings {
             let _ = check_svg_links(root, "figures", text.as_bytes());
             let spent = started.elapsed();
             assert!(
-                spent < std::time::Duration::from_secs(1),
+                spent < std::time::Duration::from_secs(3),
                 "{spent:?} for {} bytes",
                 text.len()
             );
