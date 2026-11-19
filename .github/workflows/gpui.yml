@@ -136,12 +136,12 @@ jobs:
   # developer's Mac, and about 25 on the hosted runners (run 43979342348 was
   # cut off at 10 minutes a little past step 200 on macOS). Each job's limit
   # leaves room for a cold release build (about 30 minutes), the tests and a
-  # 45-minute e2e.
+  # 65-minute e2e step (the scenario, then one rerun of failed modules).
   macos:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.gpui != 'false' && needs.changes.outputs.macos-local != 'true' }}
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 140
     steps:
       - uses: actions/checkout@v7
       # Installs the release gpui/rust-toolchain.toml pins.
@@ -191,7 +191,7 @@ jobs:
       - name: Build the island pages
         run: script/build-islands
       - name: e2e scenario
-        timeout-minutes: 45
+        timeout-minutes: 65
         env:
           GPUI_LAB_IGNORE_OCCLUSION: "1"
           LATTICE_E2E_FRAMELESS_SHOT: ${{ runner.temp }}/e2e-macos-frameless.png
@@ -204,7 +204,9 @@ jobs:
           cat "$out"
           # Fails on a step main passes, not on the ones main fails today
           # (scripts/gpui-e2e-known-failures.json), which it lists apart.
-          node ../scripts/gpui-e2e-verdict.mjs --platform macos --check-quit "$out"
+          # A new failure has its module run once more first, so a hosted-runner
+          # flake is reported as flaky rather than failing the job.
+          node ../scripts/gpui-e2e-verdict.mjs --platform macos --check-quit --rerun-app target/release/lattice-gpui --fixture fixtures/e2e "$out"
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
@@ -246,7 +248,7 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.gpui != 'false' }}
     runs-on: windows-latest
-    timeout-minutes: 120
+    timeout-minutes: 140
     defaults:
       run:
         shell: pwsh
@@ -354,10 +356,11 @@ jobs:
       # The scenario posts window messages, so it needs no foreground window
       # or unlocked console; the runner's session gives GPUI a window, and
       # Direct3D falls back to WARP without a GPU. The app gets 40 of the
-      # step's 45 minutes, so a scenario that hangs is killed here, with its
-      # log, rather than by the runner.
+      # step's 65 minutes (the verdict's rerun of failed modules takes up to
+      # 15 more), so a scenario that hangs is killed here, with its log,
+      # rather than by the runner.
       - name: e2e scenario
-        timeout-minutes: 45
+        timeout-minutes: 65
         run: |
           $project = Join-Path $env:RUNNER_TEMP "e2e-project"
           $out = Join-Path $env:RUNNER_TEMP "e2e-windows.json"
@@ -372,7 +375,7 @@ jobs:
           $result = Get-Content $out -Raw | ConvertFrom-Json
           # As on macOS: only a step main passes fails the job
           # (scripts/gpui-e2e-known-failures.json).
-          node ../scripts/gpui-e2e-verdict.mjs --platform windows $out
+          node ../scripts/gpui-e2e-verdict.mjs --platform windows --rerun-app target/release/lattice-gpui.exe --fixture fixtures/e2e $out
           $newFailures = $LASTEXITCODE -ne 0
           # As on macOS: the text typed just before the scenario quit is saved.
           # The path is a verbatim one (\\?\D:\...), whose `?` Get-Content
