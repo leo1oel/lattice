@@ -49,7 +49,13 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(
         data-slot="search-field"
       >
         {showIcon ? <Search className="ui-search-field-icon" aria-hidden="true" /> : null}
+        {/* A query is not prose: macOS would otherwise turn "the" into "The"
+            when the field loses focus, which a case-sensitive search reads as
+            a different query. A caller may still opt back in. */}
         <input
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           {...props}
           {...keys}
           ref={ref}

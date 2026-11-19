@@ -89,6 +89,12 @@ describe("LaTeX editor extensions", () => {
     // The two "all" actions name what they do; both read "All" before.
     expect(view.dom.querySelector('.cm-search button[name="select"]')).toHaveTextContent("Select all");
     expect(view.dom.querySelector('.cm-search button[name="replaceAll"]')).toHaveTextContent("Replace all");
+    for (const name of ["search", "replace"]) {
+      const field = view.dom.querySelector(`.cm-search input[name="${name}"]`);
+      expect(field).toHaveAttribute("autocorrect", "off");
+      expect(field).toHaveAttribute("autocapitalize", "off");
+      expect(field).toHaveAttribute("spellcheck", "false");
+    }
   });
 
   it("soft-wraps lines and keeps native spellcheck off whether or not Harper is enabled", () => {

@@ -53,6 +53,15 @@ function describeSearchControls(view: EditorView): void {
       if (control instanceof HTMLButtonElement || !control.getAttribute("aria-label")) control.setAttribute("aria-label", description);
     }
 
+    // CodeMirror builds its fields as plain inputs, which macOS autocorrects
+    // ("the" becomes "The" on blur) and underlines as misspelt.
+    for (const field of panel.querySelectorAll<HTMLInputElement>("input.cm-textfield")) {
+      if (field.getAttribute("spellcheck") === "false") continue;
+      field.setAttribute("spellcheck", "false");
+      field.setAttribute("autocorrect", "off");
+      field.setAttribute("autocapitalize", "off");
+    }
+
     let count = panel.querySelector<HTMLElement>(".cm-search-count");
     if (!count) {
       count = element("span", "cm-search-count");

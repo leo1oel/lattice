@@ -41,4 +41,12 @@ describe("SearchField", () => {
     fireEvent.click(clear);
     expect(onClear).toHaveBeenCalledOnce();
   });
+
+  it("keeps the system from correcting or capitalizing the query", () => {
+    render(<SearchField aria-label="Search files" />);
+    const input = screen.getByRole("searchbox", { name: "Search files" });
+    expect(input).toHaveAttribute("autocorrect", "off");
+    expect(input).toHaveAttribute("autocapitalize", "off");
+    expect(input).toHaveAttribute("spellcheck", "false");
+  });
 });
