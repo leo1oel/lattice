@@ -2797,6 +2797,14 @@ extern "C" fn handle_key_event(
                 && with_input_handler(this, |input_handler| {
                     input_handler.query_prefers_ime_for_printable_keys()
                 })
+                .unwrap_or(false)
+                // A key bound on its own (`$`, Vim's `:`) reaches its binding
+                // first, as a browser's page sees a key the input method is
+                // not composing before it is inserted (gpui's
+                // `fast::ime_bindings`).
+                && !with_input_handler(this, |input_handler| {
+                    input_handler.query_binds_printable_key(&key_down_event.keystroke)
+                })
                 .unwrap_or(false);
 
             if is_composing

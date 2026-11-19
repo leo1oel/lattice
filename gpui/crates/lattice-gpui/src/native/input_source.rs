@@ -2,12 +2,19 @@
 
 use std::ffi::c_void;
 
-use objc2_foundation::NSString;
+use anyhow::{Context as _, Result};
+use objc2::{
+    class, msg_send,
+    rc::Retained,
+    runtime::{AnyObject, Bool},
+};
+use objc2_foundation::{NSPoint, NSString};
 
 #[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
     fn CFRelease(object: *const c_void);
     fn CFBooleanGetValue(boolean: *const c_void) -> bool;
+    fn CFRetain(object: *const c_void) -> *const c_void;
 }
 
 #[link(name = "Carbon", kind = "framework")]
@@ -15,9 +22,16 @@ unsafe extern "C" {
     fn TISCopyCurrentKeyboardInputSource() -> *mut c_void;
     fn TISCopyCurrentASCIICapableKeyboardLayoutInputSource() -> *mut c_void;
     fn TISSelectInputSource(source: *mut c_void) -> i32;
+    fn TISCreateInputSourceList(
+        properties: *const AnyObject,
+        all_installed: bool,
+    ) -> *mut AnyObject;
+    fn TISEnableInputSource(source: *mut c_void) -> i32;
+    fn TISDisableInputSource(source: *mut c_void) -> i32;
     fn TISGetInputSourceProperty(source: *mut c_void, key: *const c_void) -> *const c_void;
     static kTISPropertyInputSourceIsASCIICapable: *const c_void;
     static kTISPropertyInputSourceID: *const c_void;
+    static kTISPropertyInputSourceIsEnabled: *const c_void;
 }
 
 /// The input source `use_ascii_keyboard` switched away from, retained.
@@ -84,4 +98,100 @@ pub fn restore_keyboard() {
         TISSelectInputSource(previous);
         CFRelease(previous);
     }
+}
+
+/// The keyboard a step types on, given back when it is dropped: the source
+/// in use before it is selected again, and the input method disabled again
+/// when the step had to enable it.
+pub struct InputMethod {
+    source: *mut c_void,
+    previous: *mut c_void,
+    enabled_here: bool,
+}
+
+/// Select the installed input source `id` (an input method's mode, such as
+/// Pinyin's `com.apple.inputmethod.SCIM.ITABC`), enabling it first when the
+/// user has not, until the returned guard is dropped.
+pub fn select_input_method(id: &str) -> Result<InputMethod> {
+    unsafe {
+        let filter: Retained<AnyObject> = msg_send![class!(NSDictionary),
+            dictionaryWithObject: &*NSString::from_str(id),
+            forKey: kTISPropertyInputSourceID.cast::<AnyObject>()];
+        let list = TISCreateInputSourceList(&*filter, true);
+        let list: Option<Retained<AnyObject>> = Retained::from_raw(list);
+        let list = list.with_context(|| format!("no input source {id} is installed"))?;
+        let count: usize = msg_send![&*list, count];
+        anyhow::ensure!(count > 0, "no input source {id} is installed");
+        let source: *mut AnyObject = msg_send![&*list, objectAtIndex: 0usize];
+        let source = CFRetain(source.cast()).cast_mut();
+        let enabled = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsEnabled);
+        let enabled_here = enabled.is_null() || !CFBooleanGetValue(enabled);
+        if enabled_here {
+            TISEnableInputSource(source);
+        }
+        let previous = TISCopyCurrentKeyboardInputSource();
+        let status = TISSelectInputSource(source);
+        let method = InputMethod {
+            source,
+            previous,
+            enabled_here,
+        };
+        anyhow::ensure!(status == 0, "could not select {id} (status {status})");
+        Ok(method)
+    }
+}
+
+impl Drop for InputMethod {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.previous.is_null() {
+                TISSelectInputSource(self.previous);
+                CFRelease(self.previous);
+            }
+            if self.enabled_here {
+                TISDisableInputSource(self.source);
+            }
+            CFRelease(self.source);
+        }
+    }
+}
+
+/// The id of the keyboard input source in use.
+pub fn current_input_source() -> Option<String> {
+    unsafe {
+        let source = TISCopyCurrentKeyboardInputSource();
+        if source.is_null() {
+            return None;
+        }
+        let id = input_source_id(source);
+        CFRelease(source);
+        id
+    }
+}
+
+/// Shift pressed and let go alone, through the window, as an input method
+/// that switches between its own language and English on Shift sees it.
+pub fn send_shift_tap(native: super::Native) -> Result<()> {
+    const FLAGS_CHANGED: usize = 12;
+    const SHIFT_KEY: u16 = 0x38;
+    let none = NSString::from_str("");
+    unsafe {
+        let number: isize = msg_send![native.window, windowNumber];
+        for modifiers in [super::SHIFT_MODIFIER, 0] {
+            let event: Option<Retained<AnyObject>> = msg_send![class!(NSEvent),
+                keyEventWithType: FLAGS_CHANGED,
+                location: NSPoint::new(0.0, 0.0),
+                modifierFlags: modifiers,
+                timestamp: super::uptime(),
+                windowNumber: number,
+                context: std::ptr::null_mut::<AnyObject>(),
+                characters: &*none,
+                charactersIgnoringModifiers: &*none,
+                isARepeat: Bool::NO,
+                keyCode: SHIFT_KEY];
+            let event = event.context("NSEvent refused the Shift event")?;
+            let _: () = msg_send![native.window, sendEvent: &*event];
+        }
+    }
+    Ok(())
 }
