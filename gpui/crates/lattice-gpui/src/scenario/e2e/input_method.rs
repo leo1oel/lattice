@@ -8,7 +8,9 @@
 //! pairs in a LaTeX file and Vim's `:` opens its command line. The run types
 //! on an ASCII layout (`native::use_ascii_keyboard`); this module selects
 //! Pinyin (enabling it first where the user has not) and puts the keyboard
-//! back after. The chapter is put back too.
+//! back after. The keys go through the system's event stream
+//! (`native::post_hid_key`), as Pinyin composes only keys it takes before
+//! the window does. The chapter is put back too.
 
 use std::{path::Path, time::Duration};
 
@@ -68,16 +70,12 @@ impl Run {
         let selected = native::current_input_source();
         self.pause(cx, Duration::from_millis(200)).await;
 
-        self.type_text(cx, "ni").await?;
-        self.pause(cx, Duration::from_millis(150)).await;
+        self.hid_keys(cx, "ni").await?;
         let marked = self.marked(cx, &editor)?;
-        self.press(cx, ' ', false).await?;
-        self.pause(cx, Duration::from_millis(200)).await;
+        self.hid_keys(cx, " ").await?;
         let candidate = tail(cx);
         let candidate_unmarked = !self.marked(cx, &editor)?;
-        self.type_text(cx, "ni").await?;
-        self.press(cx, '\n', false).await?;
-        self.pause(cx, Duration::from_millis(200)).await;
+        self.hid_keys(cx, "ni\n").await?;
         let letters = tail(cx);
         let letters_unmarked = !self.marked(cx, &editor)?;
         let first = candidate.trim_end_matches('|');
@@ -93,19 +91,14 @@ impl Run {
             json!({ "source": selected, "marked": marked, "candidate": candidate, "letters": letters }),
         );
 
-        native::send_shift_tap(self.native(cx)?)?;
-        self.pause(cx, Duration::from_millis(150)).await;
-        self.type_text(cx, "ab").await?;
-        self.pause(cx, Duration::from_millis(150)).await;
+        native::post_hid_shift_tap()?;
+        self.hid_keys(cx, "ab").await?;
         let english = tail(cx);
         let english_unmarked = !self.marked(cx, &editor)?;
-        native::send_shift_tap(self.native(cx)?)?;
-        self.pause(cx, Duration::from_millis(150)).await;
-        self.type_text(cx, "n").await?;
-        self.pause(cx, Duration::from_millis(150)).await;
+        native::post_hid_shift_tap()?;
+        self.hid_keys(cx, "n").await?;
         let chinese_again = self.marked(cx, &editor)?;
-        self.press(cx, '\u{1b}', false).await?;
-        self.pause(cx, Duration::from_millis(150)).await;
+        self.hid_keys(cx, "\u{1b}").await?;
         let cancelled = tail(cx);
         steps.check(
             "with Pinyin selected, Shift switches it to English, where letters go in as typed, and back",
@@ -117,8 +110,7 @@ impl Run {
         );
 
         let before = tail(cx);
-        self.type_text(cx, "$").await?;
-        self.pause(cx, Duration::from_millis(150)).await;
+        self.hid_keys(cx, "$").await?;
         let paired = tail(cx);
         let typed = before.trim_end_matches('|');
         steps.check(
@@ -131,9 +123,7 @@ impl Run {
         cx.update(|cx| crate::app::set_vim_mode(true, cx));
         self.pause(cx, Duration::from_millis(200)).await;
         self.select(cx, &editor, 0, 0)?;
-        self.press(cx, '\u{1b}', false).await?;
-        self.press(cx, ':', false).await?;
-        self.pause(cx, Duration::from_millis(150)).await;
+        self.hid_keys(cx, "\u{1b}:").await?;
         let opened = cx.update(|cx| editor.read(cx).vim_ex_open());
         self.press(cx, '\u{1b}', false).await?;
         cx.update(|cx| crate::app::set_vim_mode(false, cx));
@@ -146,6 +136,29 @@ impl Run {
         );
         drop(method);
         drop(front);
+        Ok(())
+    }
+
+    /// `keys` typed as the keyboard sends them (`native::post_hid_key`),
+    /// through the input method in use, then a pause for the app to take
+    /// them, since the system delivers posted keys on its own time.
+    async fn hid_keys(&self, cx: &mut AsyncApp, keys: &str) -> Result<()> {
+        for key in keys.chars() {
+            let (code, shift) = match key {
+                'a' => (0x00, false),
+                'b' => (0x0b, false),
+                'i' => (0x22, false),
+                'n' => (0x2d, false),
+                ' ' => (0x31, false),
+                '\n' => (0x24, false),
+                '\u{1b}' => (0x35, false),
+                '$' => (0x15, true),
+                ':' => (0x29, true),
+                _ => anyhow::bail!("no key code for {key:?}"),
+            };
+            native::post_hid_key(code, shift)?;
+        }
+        self.pause(cx, Duration::from_millis(250)).await;
         Ok(())
     }
 

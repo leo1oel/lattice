@@ -20,7 +20,8 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 mod input_source;
 pub use input_source::{
-    current_input_source, restore_keyboard, select_input_method, send_shift_tap, use_ascii_keyboard,
+    current_input_source, post_hid_key, post_hid_shift_tap, restore_keyboard, select_input_method,
+    use_ascii_keyboard,
 };
 
 #[link(name = "CoreGraphics", kind = "framework")]
