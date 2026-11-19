@@ -5,7 +5,7 @@
 //
 // The zip is reproducible: the same files give the same bytes on any machine,
 // whatever their mtimes, owners or the order the file system lists them in.
-// The plugin registry (leo1oel/lattice-plugins, scripts/pack.mjs) packs the
+// The plugin registry (lattice-writer/lattice-plugins, scripts/pack.mjs) packs the
 // tagged source with a copy of this code and requires the entry's sha256, so
 // what a reviewer read is byte for byte what Lattice installs. Change both
 // together: any difference here changes every registry hash.
