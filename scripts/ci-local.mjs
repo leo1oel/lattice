@@ -115,7 +115,10 @@ async function waitForPerfLock() {
  */
 function mainBaselineStage(mergeBase) {
   if (readBaseline(mergeBase)?.exact) return { name: "gpui-main", skip: `this Mac's main baseline has ${mergeBase.slice(0, 9)}` };
-  const worktree = path.join(baselineDir(), "..", "ci-local-main");
+  // One per run: two threads' ci:local on the same Mac shared one path, and
+  // the second's `git worktree remove` pulled the tree from under the first's
+  // baseline (spawnSync git ENOENT once its e2e had finished).
+  const worktree = path.join(baselineDir(), "..", `ci-local-main-${process.pid}`);
   return {
     name: "gpui-main",
     why: `the merge base's e2e on this Mac, for the baseline (${mergeBase.slice(0, 9)})`,
