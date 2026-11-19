@@ -3,12 +3,12 @@
 //! projects as a compact list, at most 240px tall (26% of the window, 96px
 //! in a window under 760px) and scrolled past that. A row is 32px: the
 //! Cloud glyph for an Overleaf project or the folder's, the name, its
-//! parent folder (home as ~), an "Overleaf" or "Missing" badge and when it
-//! was opened; a missing project's glyph, name and folder are dimmed. The
+//! parent folder (home as ~), an "Overleaf" or "Missing" badge and how long
+//! ago it was opened ("4 days ago"); a missing project's glyph, name and folder are dimmed. The
 //! app's gliding hover fill lights the row under the pointer, and a press
 //! opens it as a desk card does. With more recent projects than the desk
-//! and the list hold, "Show all N projects" opens the recent project
-//! finder.
+//! and the list hold, "Show all N projects", after the Search glyph in the
+//! style of the screen's quieter ways in, opens the recent project finder.
 
 use std::path::{Path, PathBuf};
 
@@ -18,8 +18,10 @@ use gpui::{
 };
 use lattice_i18n::t;
 use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::Button,
-    fluid_hover::FluidHover, parity, tokens::FONT_WEIGHT_MEDIUM,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
+    fluid_hover::FluidHover,
+    parity,
+    tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_REGULAR},
 };
 
 use super::desk::{DESK_SIZE, age, parent_folder_label};
@@ -86,9 +88,7 @@ pub fn more_projects(
         } else {
             Icon::FOLDER
         };
-        let opened = project
-            .opened_at
-            .map(|opened| t!("Opened {opened}", opened = age(opened, now)).to_string());
+        let opened = project.opened_at.map(|opened| age(opened, now));
         let path: PathBuf = project.path.clone();
         let open = open.clone();
         let row = div()
@@ -175,16 +175,33 @@ pub fn more_projects(
                 .flex_col()
                 .children(rows),
         )
+        // The welcome screen's quieter ways in (`more_action`): 28px,
+        // caption, secondary ink, the hairline wash under the pointer.
         .children(shows_all(total).then(|| {
+            let (hover_ink, hover_wash) = (palette.text, palette.line);
             div().flex().child(
-                Button::new(
-                    "welcome-show-all-projects",
-                    t!("Show all {count} projects", count = total),
-                )
-                .ghost()
-                .compact()
-                .disabled(disabled)
-                .on_click(move |_, window, cx| show_all(window, cx)),
+                div()
+                    .id("welcome-show-all-projects")
+                    .flex()
+                    .items_center()
+                    .gap(px(6.))
+                    .h(px(28.))
+                    .px(px(10.))
+                    .rounded(px(6.))
+                    .text_role(TextRole::Caption, cx)
+                    .line_height(px(15.))
+                    .font_weight(FONT_WEIGHT_REGULAR)
+                    .text_color(palette.text_secondary)
+                    .whitespace_nowrap()
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(hover_wash).text_color(hover_ink))
+                    .on_click(move |_, window, cx| {
+                        if !disabled {
+                            show_all(window, cx)
+                        }
+                    })
+                    .child(Icon::SEARCH.element(px(15.), palette.text_secondary))
+                    .child(t!("Show all {count} projects", count = total)),
             )
         }))
         .into_any_element()
