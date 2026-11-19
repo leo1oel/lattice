@@ -101,7 +101,10 @@ impl SynaraSurface {
                 log::warn!("{}: refused {command}", self.kind.name());
                 self.respond(
                     id,
-                    Err(format!("{} has no {command} yet", crate::APP_NAME)),
+                    Err(format!(
+                        "{} has no {command} yet",
+                        crate::flavor::current().name
+                    )),
                     cx,
                 );
             }

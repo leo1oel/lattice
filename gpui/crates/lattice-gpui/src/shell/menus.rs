@@ -58,7 +58,7 @@ fn show_about(cx: &mut App) {
     {
         let _ = cx;
         crate::native::show_about_panel(
-            crate::APP_NAME,
+            crate::flavor::current().name,
             lattice_core::VERSION,
             TRELLIS_ATTRIBUTION,
             &[(&website, WEBSITE_URL), (&github, REPOSITORY_URL)],
@@ -74,7 +74,7 @@ fn show_about(cx: &mut App) {
             .update(cx, |_, window, cx| {
                 let _ = window.prompt(
                     gpui::PromptLevel::Info,
-                    crate::APP_NAME,
+                    crate::flavor::current().name,
                     Some(&detail),
                     &[tc!("dialog button", "OK")],
                     cx,
@@ -218,7 +218,7 @@ fn margin_review(mode: crate::editor_panel::MarginMode) -> MenuItem {
 }
 
 fn menus(front: Front, cx: &App) -> Vec<Menu> {
-    let name = crate::APP_NAME;
+    let name = crate::flavor::current().name;
     let (website, github) = link_titles();
     let mut lattice = vec![MenuItem::action(
         tc!("macOS menu bar", "About {name}", name = name),

@@ -368,10 +368,12 @@ fn updates(
     width: PageWidth,
     cx: &mut Context<SettingsDialog>,
 ) -> AnyElement {
-    // Lattice Beta updates itself only from its own channel, and only once
-    // the writer turns that on (`crate::updater`); until then each release
-    // is on GitHub, as the Tauri app says where it cannot update itself.
-    let on = super::get(cx).app_updates;
+    // Lattice updates itself always, as the Tauri app does. Lattice Beta
+    // updates itself only from its own channel, and only once the writer
+    // turns that on (`crate::updater`); until then each release is on
+    // GitHub, as the Tauri app says where it cannot update itself.
+    let always = crate::flavor::current().replaces_tauri;
+    let on = always || super::get(cx).app_updates;
     let version = if on {
         Button::new("check-for-updates", t!("Check for updates"))
             .compact()
@@ -389,8 +391,9 @@ fn updates(
             .on_click(|_, _, cx| cx.open_url(LATEST_RELEASE_URL))
             .into_any_element()
     };
-    let rows = vec![
-        row(
+    let mut rows = Vec::new();
+    if !always {
+        rows.push(row(
             dialog,
             Row::new("app-updates", t!("Beta updates"))
                 .control(controls::switch("app-updates", on, false, |on, _, cx| {
@@ -399,16 +402,16 @@ fn updates(
                 .description(t!("Check Lattice Beta’s own release channel at launch and every six hours, and offer each new version. Off until you turn it on."), cx),
             width,
             cx,
-        ),
-        row(
-            dialog,
-            Row::new("version", t!("Version"))
-                .description(t!("Version {version}", version = lattice_core::VERSION), cx)
-                .control(version),
-            width,
-            cx,
-        ),
-    ];
+        ));
+    }
+    rows.push(row(
+        dialog,
+        Row::new("version", t!("Version"))
+            .description(t!("Version {version}", version = lattice_core::VERSION), cx)
+            .control(version),
+        width,
+        cx,
+    ));
     controls::group(Some(t!("App updates").into()), rows, cx)
 }
 

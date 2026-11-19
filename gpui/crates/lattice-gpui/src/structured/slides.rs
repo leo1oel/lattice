@@ -127,7 +127,7 @@ impl DeckSession {
                 let Some(presentation) = self.presentation.clone() else {
                     return Task::ready(Err(format!(
                         "Open Slide is not part of this build of {}.",
-                        crate::APP_NAME
+                        crate::flavor::current().name
                     )));
                 };
                 // The page names the project; only this deck's may be asked for.

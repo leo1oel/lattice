@@ -548,7 +548,10 @@ impl StructuredDocument {
                 log::warn!("{}: refused {command}", self.kind.island());
                 self.respond(
                     id,
-                    Err(format!("{} has no {command} yet", crate::APP_NAME)),
+                    Err(format!(
+                        "{} has no {command} yet",
+                        crate::flavor::current().name
+                    )),
                     cx,
                 );
             }

@@ -7,13 +7,16 @@
 //! The offer to restart later ("Lattice {version} is ready") comes with the
 //! automatic mode's Settings row.
 //!
-//! It is off until the writer turns on Settings › Editor & builds › Preview
-//! updates (`appUpdates`): until then it checks nothing, the menu has no
-//! Check for Updates…, and Report a problem files at once. Its channel
-//! ([`GPUI_ENDPOINT`]) is the GPUI app's own, apart from the Tauri app's
-//! `latest.json`, and its archives are signed with the Tauri updater's key
+//! Its channel is the flavor's (`crate::flavor`). Lattice reads the Tauri
+//! app's `latest.json`, always, as the Tauri app does. Lattice Beta reads
+//! its own channel, apart from the Tauri app's, and only once the writer turns
+//! on Settings › Editor & builds › Beta updates (`appUpdates`): until then it
+//! checks nothing, the menu has no Check for Updates…, and Report a problem
+//! files at once. Both are signed with the Tauri updater's key
 //! (`scripts/gpui-bundle.mjs` signs them, as tauri-action signs the Tauri
-//! app's).
+//! app's). `LATTICE_GPUI_UPDATER_ENDPOINT` names another manifest (a local
+//! feed, for rehearsing a release); what it offers is still checked against
+//! that key and installed only when newer.
 
 pub mod install;
 pub mod manifest;
@@ -37,21 +40,19 @@ pub struct Channel {
     pub public_key: String,
 }
 
-/// The GPUI app's release manifest: the `latest.json` asset of the
-/// `lattice-beta` prerelease, which only Lattice Beta (GPUI) builds are published to. A
-/// prerelease is never GitHub's latest release, so the Tauri app's
-/// `releases/latest/download/latest.json` never sees it.
-pub const GPUI_ENDPOINT: &str =
-    "https://github.com/leo1oel/lattice/releases/download/lattice-beta/latest.json";
-
-/// The channel this run updates from: [`GPUI_ENDPOINT`], checked with the
-/// Tauri updater's public key (`plugins.updater.pubkey` in tauri.conf.json).
+/// The channel this run updates from: the flavor's manifest, or the one
+/// `LATTICE_GPUI_UPDATER_ENDPOINT` names, checked with the Tauri updater's
+/// public key (`plugins.updater.pubkey` in tauri.conf.json).
 pub fn channel() -> Option<Channel> {
     let config: serde_json::Value =
         serde_json::from_str(include_str!("../../../../src-tauri/tauri.conf.json")).ok()?;
     let public_key = config["plugins"]["updater"]["pubkey"].as_str()?;
+    let endpoint = std::env::var("LATTICE_GPUI_UPDATER_ENDPOINT")
+        .ok()
+        .filter(|endpoint| !endpoint.is_empty())
+        .unwrap_or_else(|| crate::flavor::current().endpoint.to_string());
     Some(Channel {
-        endpoint: GPUI_ENDPOINT.to_string(),
+        endpoint,
         public_key: public_key.to_string(),
     })
 }
@@ -86,7 +87,7 @@ struct UpdaterGlobal(Entity<Updater>);
 impl Global for UpdaterGlobal {}
 
 /// Make the updater; with a channel, check at launch and every six hours
-/// while Beta updates is on.
+/// while it is on.
 pub fn install(scripted: bool, cx: &mut App) -> Entity<Updater> {
     let updater = cx.new(|cx| {
         let mut updater = Updater {
@@ -166,11 +167,12 @@ fn source() -> String {
 }
 
 impl Updater {
-    /// The channel, while Beta updates is on.
+    /// The channel, while updates are on: always for Lattice, and while
+    /// Beta updates is on for Lattice Beta.
     fn active_channel(&self, cx: &App) -> Option<Channel> {
-        self.channel
-            .clone()
-            .filter(|_| crate::settings::get(cx).app_updates)
+        self.channel.clone().filter(|_| {
+            crate::flavor::current().replaces_tauri || crate::settings::get(cx).app_updates
+        })
     }
 
     /// Check the channel; `announce` (the menu) also says when nothing is
@@ -433,10 +435,9 @@ pub(crate) fn use_channel(channel: Channel, cx: &mut App) {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn the_channel_is_the_gpui_feed_checked_with_the_tauri_updaters_key() {
+    fn the_channel_is_the_flavors_feed_checked_with_the_tauri_updaters_key() {
         let channel = super::channel().unwrap();
-        assert_eq!(channel.endpoint, super::GPUI_ENDPOINT);
-        assert!(!channel.endpoint.contains("/latest/download/"));
+        assert_eq!(channel.endpoint, crate::flavor::current().endpoint);
         let config: serde_json::Value =
             serde_json::from_str(include_str!("../../../../src-tauri/tauri.conf.json")).unwrap();
         assert_eq!(channel.public_key, config["plugins"]["updater"]["pubkey"]);

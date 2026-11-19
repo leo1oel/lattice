@@ -15,9 +15,10 @@
  *      docs/synara-runtime.md; prepare-presentation-runtime.mjs), the bundled
  *      skills, the icon and the Chinese InfoPlist.strings;
  *   3. an Info.plist with the Tauri bundle's keys (src-tauri/Info.plist, the
- *      version and minimum macOS from tauri.conf.json) under the GPUI app's
- *      own name and identifier, so it installs beside Lattice.app and never
- *      shares its data;
+ *      version and minimum macOS from tauri.conf.json) under the flavor's
+ *      name and identifier (FLAVORS below): Lattice Beta, which installs
+ *      beside Lattice.app, or Lattice, the Tauri app's own identity, which
+ *      the Tauri updater installs in its place;
  *   4. signatures, inside out, with the hardened runtime and
  *      src-tauri/Entitlements.plist: the Developer ID in
  *      APPLE_SIGNING_IDENTITY (as release.yml exports it), else ad hoc;
@@ -28,20 +29,21 @@
  *      window, unlike Tauri's dmg bundler), a .zip, and the updater archive
  *      (.app.tar.gz) with its minisign .sig (TAURI_SIGNING_PRIVATE_KEY and
  *      _PASSWORD, the Tauri updater's key, through `tauri signer sign`) and a
- *      latest.json for the GPUI channel (crates/lattice-gpui/src/updater.rs).
+ *      latest.json for it (crates/lattice-gpui/src/updater.rs).
  *
  * Without keys every step still runs: the app is signed ad hoc, nothing is
  * notarized, and the archive has no .sig (so no latest.json). It publishes
  * nothing; gpui/docs/updater.md says how the channel is published.
  *
  * Usage:
- *   node scripts/gpui-bundle.mjs [--binary PATH] [--out DIR] [--skip-islands]
- *     [--skip-runtimes] [--no-dmg] [--feed URL]
+ *   node scripts/gpui-bundle.mjs [--flavor beta|main] [--binary PATH]
+ *     [--out DIR] [--skip-islands] [--skip-runtimes] [--no-dmg] [--feed URL]
+ *     --flavor         beta (default): Lattice Beta; main: Lattice
  *     --skip-islands   reuse gpui/islands/dist
  *     --skip-runtimes  reuse the staged src-tauri/synara-runtime and
  *                      presentation-runtime as they are
  *     --feed URL       where latest.json and the archive are published
- *                      (default: the lattice-beta prerelease)
+ *                      (default: the flavor's, FLAVORS below)
  */
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -51,10 +53,32 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { codesign, signMachOTree } from "./lib/codesign.mjs";
 
-export const PRODUCT = "Lattice Beta";
-export const IDENTIFIER = "app.leo1oel.lattice-beta";
+/**
+ * The apps the GPUI binary ships as; it reads which one it is from the
+ * bundle's identifier (gpui/crates/lattice-gpui/src/flavor.rs).
+ */
+export const FLAVORS = {
+  // Installed beside the Tauri Lattice, with its own data and its own
+  // channel: the lattice-beta prerelease (gpui/docs/updater.md).
+  beta: {
+    product: "Lattice Beta",
+    identifier: "app.leo1oel.lattice-beta",
+    artifact: "Lattice-Beta",
+    feed: () => "https://github.com/leo1oel/lattice/releases/download/lattice-beta",
+  },
+  // The Tauri app's name and identifier, so the Tauri updater puts it in
+  // place of Lattice.app on Apple silicon Macs and it keeps the app's
+  // privacy grants, Keychain items and Dock place. Its files carry
+  // tauri-action's names, so the release workflow's upload replaces the
+  // Tauri app's (.github/workflows/release.yml).
+  main: {
+    product: "Lattice",
+    identifier: "app.leo1oel.researchwriter",
+    artifact: "Lattice",
+    feed: (version) => `https://github.com/leo1oel/lattice/releases/download/v${version}`,
+  },
+};
 export const EXECUTABLE = "lattice-gpui";
-export const DEFAULT_FEED = "https://github.com/leo1oel/lattice/releases/download/lattice-beta";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tauri = path.join(repo, "src-tauri");
@@ -69,16 +93,16 @@ function capture(command, args, options = {}) {
   return execFileSync(command, args, { encoding: "utf8", cwd: repo, ...options });
 }
 
-/** The Info.plist keys: the Tauri bundle's own (src-tauri/Info.plist) under the GPUI app's identity. */
-export function infoPlist({ version, minimumSystemVersion, extra }) {
+/** The Info.plist keys: the Tauri bundle's own (src-tauri/Info.plist) under the flavor's identity. */
+export function infoPlist({ flavor, version, minimumSystemVersion, extra }) {
   return {
     CFBundleDevelopmentRegion: "en",
-    CFBundleDisplayName: PRODUCT,
+    CFBundleDisplayName: flavor.product,
     CFBundleExecutable: EXECUTABLE,
     CFBundleIconFile: "icon.icns",
-    CFBundleIdentifier: IDENTIFIER,
+    CFBundleIdentifier: flavor.identifier,
     CFBundleInfoDictionaryVersion: "6.0",
-    CFBundleName: PRODUCT,
+    CFBundleName: flavor.product,
     CFBundlePackageType: "APPL",
     CFBundleShortVersionString: version,
     CFBundleVersion: version,
@@ -89,7 +113,7 @@ export function infoPlist({ version, minimumSystemVersion, extra }) {
   };
 }
 
-/** The GPUI channel's manifest, in the shape tauri-action writes latest.json (crates/lattice-gpui/src/updater/manifest.rs reads it). */
+/** The flavor's manifest, in the shape tauri-action writes latest.json (crates/lattice-gpui/src/updater/manifest.rs reads it). */
 export function updaterManifest({ version, signature, url, pubDate = new Date().toISOString(), notes = "" }) {
   return { version, notes, pub_date: pubDate, platforms: { "darwin-aarch64": { signature, url } } };
 }
@@ -103,16 +127,20 @@ async function main() {
     options: {
       binary: { type: "string" },
       out: { type: "string" },
-      feed: { type: "string", default: DEFAULT_FEED },
+      flavor: { type: "string", default: "beta" },
+      feed: { type: "string" },
       "skip-islands": { type: "boolean", default: false },
       "skip-runtimes": { type: "boolean", default: false },
       "no-dmg": { type: "boolean", default: false },
     },
   });
   if (process.platform !== "darwin") throw new Error("the GPUI app bundle is built on macOS only");
+  const flavor = FLAVORS[values.flavor];
+  if (!flavor) throw new Error(`--flavor is one of ${Object.keys(FLAVORS).join(", ")}, not ${values.flavor}`);
 
   const config = JSON.parse(readFileSync(path.join(tauri, "tauri.conf.json"), "utf8"));
   const version = config.version;
+  const feed = values.feed ?? flavor.feed(version);
   const minimumSystemVersion = config.bundle.macOS.minimumSystemVersion;
   const identityEnv = process.env.APPLE_SIGNING_IDENTITY?.trim();
   const identity = identityEnv && identityEnv !== "-" ? identityEnv : "-";
@@ -156,7 +184,7 @@ async function main() {
   }
 
   // 3. The bundle.
-  const app = path.join(out, `${PRODUCT}.app`);
+  const app = path.join(out, `${flavor.product}.app`);
   rmSync(app, { recursive: true, force: true });
   const contents = path.join(app, "Contents");
   for (const dir of ["MacOS", "Frameworks", "Resources/zh-Hans.lproj"]) mkdirSync(path.join(contents, dir), { recursive: true });
@@ -174,7 +202,7 @@ async function main() {
   const scratch = mkdtempSync(path.join(os.tmpdir(), "gpui-bundle-"));
   try {
     const json = path.join(scratch, "Info.json");
-    writeFileSync(json, JSON.stringify(infoPlist({ version, minimumSystemVersion, extra })));
+    writeFileSync(json, JSON.stringify(infoPlist({ flavor, version, minimumSystemVersion, extra })));
     run("plutil", ["-convert", "xml1", "-o", path.join(contents, "Info.plist"), json]);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
@@ -190,7 +218,7 @@ async function main() {
   console.log(`gpui-bundle: signed ${signed + 2} Mach-O files and the bundle ${identity === "-" ? "ad hoc" : `as ${identity}`}`);
 
   // 5. Notarize the app before it is packed, so every package holds the stapled app.
-  const base = `Lattice-Beta_${version}_aarch64`;
+  const base = `${flavor.artifact}_${version}_aarch64`;
   if (key) {
     const upload = path.join(out, `${base}.notarize.zip`);
     run("ditto", ["-c", "-k", "--keepParent", app, upload]);
@@ -213,10 +241,10 @@ async function main() {
     const dmg = path.join(out, `${base}.dmg`);
     const stage = mkdtempSync(path.join(os.tmpdir(), "gpui-dmg-"));
     try {
-      run("ditto", [app, path.join(stage, `${PRODUCT}.app`)]);
+      run("ditto", [app, path.join(stage, `${flavor.product}.app`)]);
       symlinkSync("/Applications", path.join(stage, "Applications"));
       rmSync(dmg, { force: true });
-      run("hdiutil", ["create", "-volname", PRODUCT, "-srcfolder", stage, "-fs", "HFS+", "-format", "UDZO", "-ov", dmg]);
+      run("hdiutil", ["create", "-volname", flavor.product, "-srcfolder", stage, "-fs", "HFS+", "-format", "UDZO", "-ov", dmg]);
     } finally {
       rmSync(stage, { recursive: true, force: true });
     }
@@ -232,14 +260,14 @@ async function main() {
   // The updater's archive holds the app at its root, as tauri-plugin-updater's
   // does (crates/lattice-gpui/src/updater/install.rs unpacks it).
   const archive = path.join(out, `${base}.app.tar.gz`);
-  run("tar", ["-czf", archive, "-C", out, `${PRODUCT}.app`], { env: { ...process.env, COPYFILE_DISABLE: "1" } });
+  run("tar", ["-czf", archive, "-C", out, `${flavor.product}.app`], { env: { ...process.env, COPYFILE_DISABLE: "1" } });
   outputs.push(archive);
   if (process.env.TAURI_SIGNING_PRIVATE_KEY) {
     rmSync(`${archive}.sig`, { force: true });
     run(path.join(repo, "node_modules", ".bin", "tauri"), ["signer", "sign", archive]);
     const signature = readFileSync(`${archive}.sig`, "utf8").trim();
     const manifest = path.join(out, "latest.json");
-    const url = `${values.feed.replace(/\/$/, "")}/${path.basename(archive)}`;
+    const url = `${feed.replace(/\/$/, "")}/${path.basename(archive)}`;
     writeFileSync(manifest, `${JSON.stringify(updaterManifest({ version, signature, url }), null, 2)}\n`);
     outputs.push(`${archive}.sig`, manifest);
   } else {
