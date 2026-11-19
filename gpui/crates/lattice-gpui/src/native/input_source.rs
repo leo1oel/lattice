@@ -97,51 +97,92 @@ pub fn restore_keyboard() {
 }
 
 /// The keyboard a step types on, given back when it is dropped: the source
-/// in use before it is selected again, and the input method disabled again
-/// when the step had to enable it.
+/// in use before it is selected again, and the input sources the step had
+/// to enable disabled again.
 pub struct InputMethod {
     source: *mut c_void,
     previous: *mut c_void,
-    enabled_here: bool,
+    enabled_here: Vec<*mut c_void>,
 }
 
-/// Select the installed input source `id` (an input method's mode, such as
-/// Pinyin's `com.apple.inputmethod.SCIM.ITABC`), enabling it first when the
-/// user has not, for the system and for `native`'s view's text input
-/// context (which otherwise picks the change up only when it is activated
-/// again), until the returned guard is dropped.
-pub fn select_input_method(native: super::Native, id: &str) -> Result<InputMethod> {
+/// The installed input source `id`, retained.
+fn installed_source(id: &str) -> Option<*mut c_void> {
     unsafe {
         let filter: Retained<AnyObject> = msg_send![class!(NSDictionary),
             dictionaryWithObject: &*NSString::from_str(id),
             forKey: kTISPropertyInputSourceID.cast::<AnyObject>()];
         let list = TISCreateInputSourceList(&*filter, true);
-        let list: Option<Retained<AnyObject>> = Retained::from_raw(list);
-        let list = list.with_context(|| format!("no input source {id} is installed"))?;
+        let list: Retained<AnyObject> = Retained::from_raw(list)?;
         let count: usize = msg_send![&*list, count];
-        anyhow::ensure!(count > 0, "no input source {id} is installed");
+        if count == 0 {
+            return None;
+        }
         let source: *mut AnyObject = msg_send![&*list, objectAtIndex: 0usize];
-        let source = CFRetain(source.cast()).cast_mut();
+        Some(CFRetain(source.cast()).cast_mut())
+    }
+}
+
+/// Enable `source` when the user has not; returns whether it was enabled
+/// here.
+fn enable(source: *mut c_void) -> bool {
+    unsafe {
         let enabled = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsEnabled);
-        let enabled_here = enabled.is_null() || !CFBooleanGetValue(enabled);
-        if enabled_here {
+        let enable = enabled.is_null() || !CFBooleanGetValue(enabled);
+        if enable {
             TISEnableInputSource(source);
         }
-        let previous = TISCopyCurrentKeyboardInputSource();
-        let status = TISSelectInputSource(source);
-        let method = InputMethod {
-            source,
-            previous,
-            enabled_here,
-        };
-        anyhow::ensure!(status == 0, "could not select {id} (status {status})");
+        enable
+    }
+}
+
+/// Select the installed input source `id` (an input method's mode, such as
+/// Pinyin's `com.apple.inputmethod.SCIM.ITABC`), enabling it and its input
+/// method (`com.apple.inputmethod.SCIM`) first when the user has not, as a
+/// fresh Mac (a CI runner) has neither, for the system and for `native`'s
+/// view's text input context (which otherwise picks the change up only when
+/// it is activated again), until the returned guard is dropped.
+pub fn select_input_method(native: super::Native, id: &str) -> Result<InputMethod> {
+    let source =
+        installed_source(id).with_context(|| format!("no input source {id} is installed"))?;
+    let mut method = InputMethod {
+        source,
+        previous: unsafe { TISCopyCurrentKeyboardInputSource() },
+        enabled_here: Vec::new(),
+    };
+    if let Some(parent) = id
+        .rsplit_once('.')
+        .and_then(|(parent, _)| installed_source(parent))
+    {
+        if enable(parent) {
+            method.enabled_here.push(parent);
+        } else {
+            unsafe { CFRelease(parent) };
+        }
+    }
+    if enable(source) {
+        method
+            .enabled_here
+            .push(unsafe { CFRetain(source) }.cast_mut());
+    }
+    // Enabling lands asynchronously, so a source enabled just now may refuse
+    // to be selected for a moment.
+    let mut status = 0;
+    for _ in 0..20 {
+        status = unsafe { TISSelectInputSource(source) };
+        if status == 0 {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    anyhow::ensure!(status == 0, "could not select {id} (status {status})");
+    unsafe {
         let context: *mut AnyObject = msg_send![native.view, inputContext];
         if !context.is_null() {
             let _: () =
                 msg_send![context, setSelectedKeyboardInputSource: &*NSString::from_str(id)];
         }
-        Ok(method)
     }
+    Ok(method)
 }
 
 impl Drop for InputMethod {
@@ -151,8 +192,9 @@ impl Drop for InputMethod {
                 TISSelectInputSource(self.previous);
                 CFRelease(self.previous);
             }
-            if self.enabled_here {
-                TISDisableInputSource(self.source);
+            for source in self.enabled_here.drain(..).rev() {
+                TISDisableInputSource(source);
+                CFRelease(source);
             }
             CFRelease(self.source);
         }
