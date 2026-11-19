@@ -14,11 +14,12 @@ import { Cloud, CloudAlert, Link2 } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { EmptyState } from "../components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
-import type { OverleafLink, OverleafStatus } from "../app-types";
+import type { OverleafLink, OverleafStatus, OverleafSyncVia } from "../app-types";
 import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } from "../app-utils";
 import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { notifyError, notifyInfo } from "../telemetry/app-notify";
@@ -85,6 +86,16 @@ export function OverleafSettingsSection(props: {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [tokenSaved, setTokenSaved] = useState<boolean | null>(null);
+  const [tokenDraft, setTokenDraft] = useState("");
+  const [tokenBusy, setTokenBusy] = useState(false);
+  useEffect(() => {
+    let disposed = false;
+    invoke<{ saved: boolean }>("get_overleaf_git_token_status")
+      .then((value) => { if (!disposed) setTokenSaved(value.saved); })
+      .catch(() => { if (!disposed) setTokenSaved(false); });
+    return () => { disposed = true; };
+  }, []);
   const login = useOverleafLogin((session) => {
     setStatus(session);
     if (session.connected) props.onLinkChanged();
@@ -140,6 +151,47 @@ export function OverleafSettingsSection(props: {
       }
     } catch (reason) {
       notifyError(OVERLEAF_SOURCE, t`Could not change Overleaf sync`, { detail: toMessage(reason) });
+    }
+  };
+
+  /**
+   * Switching keeps the link and what the Overleaf sync recorded, so switching
+   * back resumes as an ordinary sync. Git has no live channel: the backend
+   * closes the open one, and the rest of the app re-reads the link.
+   */
+  const setSyncVia = async (via: OverleafSyncVia) => {
+    if (!props.projectRoot) {
+      notifyError(OVERLEAF_SOURCE, t`Open the linked Overleaf project before changing how it syncs.`);
+      return;
+    }
+    try {
+      await invoke("overleaf_set_sync_via", { projectRoot: props.projectRoot, via });
+      setLink((current) => (current ? { ...current, syncVia: via } : current));
+      props.onLinkChanged();
+      if (via === "git" && tokenSaved === false) {
+        notifyInfo(OVERLEAF_SOURCE, t`Add your Overleaf git token`, {
+          detail: t`Git sync needs it below before it can sync`,
+          dedupeKey: "overleaf-git-token-missing",
+        });
+      }
+    } catch (reason) {
+      notifyError(OVERLEAF_SOURCE, t`Could not change how this project syncs`, { detail: toMessage(reason) });
+    }
+  };
+
+  /** Keep the token in the system keychain, or forget it when `token` is null. */
+  const saveToken = async (token: string | null) => {
+    if (tokenBusy) return;
+    setTokenBusy(true);
+    try {
+      const saved = await invoke<{ saved: boolean }>("set_overleaf_git_token", { token });
+      setTokenSaved(saved.saved);
+      setTokenDraft("");
+      dismissAppToastByDedupeKey("overleaf-git-token-missing");
+    } catch (reason) {
+      notifyError(OVERLEAF_SOURCE, t`Could not save the Overleaf git token`, { detail: toMessage(reason) });
+    } finally {
+      setTokenBusy(false);
     }
   };
 
@@ -279,6 +331,40 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
           onChange={props.onRemoteDeleteChange}
           options={{ ask: t`Ask before deleting`, always: t`Delete on Overleaf too`, never: t`Keep it on Overleaf` }}
         />
+      </SettingsGroup>
+      <SettingsGroup title={t`Git sync`} data-setting="overleaf-git">
+        {link && (
+          <SelectRow
+            setting="overleaf-sync-via"
+            label={t`Sync files with`}
+            description={link.syncVia === "git"
+              ? t`Live editing, chat and comments are off. You commit your own changes; Sync fetches, merges and pushes them`
+              : t`Overleaf’s own sync. Choose Git bridge to sync the project’s repository through Overleaf’s git bridge instead`}
+            value={link.syncVia}
+            onChange={(via) => void setSyncVia(via)}
+            options={{ rest: t`Overleaf sync`, git: t`Git bridge` }}
+          />
+        )}
+        <SettingsRow
+          label={t`Git token`}
+          htmlFor="overleaf-git-token"
+          data-setting="overleaf-git-token"
+          description={tokenSaved === null
+            ? t`Checking the keychain…`
+            : tokenSaved
+              ? t`Saved in the system keychain`
+              : t`Create one in Overleaf under Account Settings → Git integration. Git access needs a plan that includes it`}
+        />
+        <form className="overleaf-git-token-form" onSubmit={(event) => { event.preventDefault(); void saveToken(tokenDraft.trim()); }}>
+          <Input id="overleaf-git-token" type="password" autoComplete="off" spellCheck={false} maxLength={1024} disabled={tokenBusy}
+            placeholder={tokenSaved ? t`Enter a replacement token` : t`Paste your Overleaf git token`}
+            value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} />
+          <div className="overleaf-git-token-actions">
+            <Button size="compact" type="submit" disabled={tokenBusy || !tokenDraft.trim()}>{t`Save`}</Button>
+            {tokenSaved && <Button size="compact" variant="ghost" disabled={tokenBusy} onClick={() => void saveToken(null)}>{t`Remove token`}</Button>}
+            {tokenBusy && <InfinityLoader size={14} />}
+          </div>
+        </form>
       </SettingsGroup>
     </div>
   );

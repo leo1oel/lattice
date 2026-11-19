@@ -125,7 +125,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     collabTab: overleafCollabTab, conflictPath, selfId: overleafSelfId, docPaths: overleafDocPaths,
   } = useStoreSlice(overleafStore, bridgeFields);
   // Every window's, so a switch to manual in one stops live syncing in all.
-  const [overleafSyncMode] = useSharedSetting(overleafSyncModeSetting);
+  const [sharedSyncMode] = useSharedSetting(overleafSyncModeSetting);
   const {
     setLinkFor: setOverleafLinkFor, setSyncing: setOverleafSyncing, setRemoteChanges: setOverleafRemoteChanges,
     setPickerOpen: setOverleafPickerOpen, setReviewOpen: setOverleafReviewOpen, setCollabOpen: setOverleafCollabOpen,
@@ -134,6 +134,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const overleafLinkLoadGenerationRef = useRef(0);
   const currentOverleafLink = overleafLinkFor?.root === project?.root ? overleafLinkFor : null;
   const overleafLink = currentOverleafLink?.active ? currentOverleafLink.link : null;
+  // Git has no live channel and nothing in it syncs on its own, so such a
+  // project behaves as manual whatever the shared setting says.
+  const overleafGitSync = overleafLink?.syncVia === "git";
+  const overleafSyncMode = overleafGitSync ? "manual" : sharedSyncMode;
   const overleafProjectLinked = currentOverleafLink !== null;
   const overleafStartupCheckedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: OverleafSyncOptions) => Promise<void>>(async () => {});
@@ -370,8 +374,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         trace.ok(overleafSyncSummary(result));
       } else trace.finish("success", overleafSyncSummary(result));
       // Only a real content change becomes a version: committing a no-op woke
-      // the filesystem watcher and reloaded unrelated previews.
-      if (incoming || hadUnsavedEdits || result.pushed.length > 0) {
+      // the filesystem watcher and reloaded unrelated previews. A project that
+      // syncs through git is committed by its writer alone.
+      if (!overleafGitSync && (incoming || hadUnsavedEdits || result.pushed.length > 0)) {
         void invoke<string | null>("git_auto_commit", {
           message: AUTO_COMMIT_MESSAGES.overleafSync, author: null, projectRoot: syncRoot,
         }).catch(() => {});
@@ -423,7 +428,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     }
   }, [
     activeFileRef, compile, currentOverleafLivePaths, holdSyncGate, loadFile, oweSync, openOverleafSettingsRef, openProjectFile,
-    overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
+    overleafGitSync, overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
     save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
   ]);
 
@@ -516,7 +521,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // Editing through Overleaf's own channel.
   const overleafRealtime = useOverleafRealtime({
     store: overleafStore,
-    enabled: overleafLink !== null,
+    // Git has no live channel: nothing here would write behind the repository.
+    enabled: overleafLink !== null && !overleafGitSync,
     documents: overleafSyncMode === "live",
     projectRoot: project?.root ?? null,
     // Whole-file editors (slides, boards, sheets) serialize at once; character OT would compete.
@@ -643,8 +649,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       .map(({ name, hue, row, column }) => ({ name: name || t`Anonymous`, hue, row, column }));
   }, [activeAsset, activeFile, activePaper, overleafDocPaths, overleafPresence.peers, overleafPresence.reconnecting, overleafRealtime.docId, t]);
 
-  // Chat, comment threads and suggestions ride the linked project's channel.
-  const overleafChannel = { enabled: overleafLink !== null, projectRoot: project?.root ?? null };
+  // Chat, comment threads and suggestions ride the linked project's channel,
+  // which a project syncing through git does not open.
+  const overleafChannel = { enabled: overleafLink !== null && !overleafGitSync, projectRoot: project?.root ?? null };
   const overleafChat = useOverleafChat(overleafChannel);
 
   // Where each thread sits in the live document: the channel's copy moves with
@@ -753,7 +760,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     };
   }, [overleafLink, overleafSyncMode, project?.root, setOverleafRemoteChanges]);
 
-  useBuildAutoversion(build, overleafLink);
+  // A git-synced project is committed by its writer alone.
+  useBuildAutoversion(build, overleafGitSync ? null : overleafLink);
 
   return {
     overleafLink, overleafProjectLinked, overleafSyncing,

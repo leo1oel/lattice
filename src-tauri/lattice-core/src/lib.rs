@@ -48,6 +48,7 @@ pub mod model_endpoint;
 pub mod models;
 mod openalex;
 pub mod overleaf;
+pub mod overleaf_git_token;
 pub mod overleaf_rt;
 pub mod paper_pdf_proxy;
 pub mod papers;

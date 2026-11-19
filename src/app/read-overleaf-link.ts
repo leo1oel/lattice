@@ -10,6 +10,7 @@ export async function readOverleafLink(root: string): Promise<OverleafLinkFor | 
   return link ? {
     root,
     link: { ...link, host: link.host.trim() || status.host.trim() },
-    active: status.connected && !link.paused && overleafLinkMatchesSession(status.host, link.host),
+    // Git sync needs no web session: its token is the credential.
+    active: !link.paused && (link.syncVia === "git" || (status.connected && overleafLinkMatchesSession(status.host, link.host))),
   } : null;
 }

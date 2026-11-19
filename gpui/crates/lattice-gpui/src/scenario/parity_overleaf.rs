@@ -65,6 +65,7 @@ impl Run {
                     host: HOST.into(),
                     last_sync: Some(iso_ago(4 * MINUTE_MS)),
                     paused: false,
+                    sync_via: Default::default(),
                 };
                 self.with_window(cx, |shell, window, cx| {
                     let bridge = shell.read(cx).overleaf.clone();

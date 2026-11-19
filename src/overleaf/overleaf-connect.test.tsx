@@ -14,7 +14,7 @@ vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn() }));
 const disconnected: OverleafStatus = { connected: false, expired: false, email: null, name: null, host: "https://www.overleaf.com" };
 const connected: OverleafStatus = { ...disconnected, connected: true, email: "researcher@example.edu", name: "Robin" };
 const linkedProject: OverleafLink = {
-  projectId: "p1", projectName: "Attention Paper", host: "https://www.overleaf.com", lastSync: "2026-07-24T00:00:00Z", paused: false,
+  projectId: "p1", projectName: "Attention Paper", host: "https://www.overleaf.com", lastSync: "2026-07-24T00:00:00Z", paused: false, syncVia: "rest",
 };
 /** A sign-in window that reports the account connected on the first poll. */
 const signsIn: CommandTable = {
@@ -157,6 +157,43 @@ describe("Overleaf settings section", () => {
     fireEvent.click(resume);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_set_paused", { projectRoot: "/tmp/project", paused: false }));
     expect(await screen.findByRole("button", { name: "Pause syncing" })).toBeInTheDocument();
+  });
+
+  it("switches a project to git sync and tells the app, so the live channel closes", async () => {
+    const onLinkChanged = vi.fn();
+    mockInvoke({ overleaf_status: connected, overleaf_link: linkedProject, overleaf_set_sync_via: undefined, get_overleaf_git_token_status: { saved: true } });
+    render(settings({ onLinkChanged }));
+    const via = await screen.findByRole("combobox", { name: "Sync files with" });
+    expect(via).toHaveTextContent("Overleaf sync");
+
+    await pick(via, "Git bridge");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_set_sync_via", { projectRoot: "/tmp/project", via: "git" }));
+    await waitFor(() => expect(onLinkChanged).toHaveBeenCalled());
+    expect(screen.getByRole("combobox", { name: "Sync files with" })).toHaveTextContent("Git bridge");
+    expect(screen.getByText(/Live editing, chat and comments are off/)).toBeInTheDocument();
+  });
+
+  it("keeps the git token in the keychain: sent once, cleared from the field, never shown back", async () => {
+    mockInvoke({
+      overleaf_status: connected,
+      overleaf_link: null,
+      get_overleaf_git_token_status: { saved: false },
+      set_overleaf_git_token: (args: { token: string | null }) => ({ saved: args.token !== null }),
+    });
+    render(settings());
+    const field = await screen.findByLabelText("Git token");
+    expect(await screen.findByText(/Create one in Overleaf under Account Settings/)).toBeInTheDocument();
+
+    fireEvent.change(field, { target: { value: "  olp_abc123  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_overleaf_git_token", { token: "olp_abc123" }));
+    expect(await screen.findByText("Saved in the system keychain")).toBeInTheDocument();
+    expect(field).toHaveValue("");
+    expect(screen.queryByDisplayValue("olp_abc123")).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Remove token" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_overleaf_git_token", { token: null }));
+    expect(await screen.findByText(/Create one in Overleaf under Account Settings/)).toBeInTheDocument();
   });
 
   it("signs out only once the warning is accepted, then lets the user reconnect", async () => {

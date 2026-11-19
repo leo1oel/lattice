@@ -296,7 +296,7 @@ core; `browser_host/` and `ipc/` in the shell.
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~700 lines) declares the shell's modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **259** commands in
+lifecycle and the child runtimes, and registers **262** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
@@ -325,7 +325,7 @@ Practical consequence: to find what a button does, grep the command name in
 
 | `ipc` module | Commands | Examples |
 | --- | --- | --- |
-| `overleaf` + `overleaf_history` + `overleaf_realtime` + `overleaf_comments` | 48 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops`, `overleaf_comment_in_document` |
+| `overleaf` + `overleaf_history` + `overleaf_realtime` + `overleaf_comments` | 51 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_set_sync_via`, `overleaf_rt_connect`, `overleaf_rt_send_ops`, `overleaf_comment_in_document` |
 | `files` | 29 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
 | `build` | 31 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
@@ -378,6 +378,19 @@ ships `socket.io-client 0.9.17-overleaf-5` and the wire protocol is the legacy
 `overleaf_rt.rs` documents the handshake, upgrade, framing and the exact frames
 Lattice emits, pinned against the Overleaf-Workshop VS Code extension. Read
 that header before changing anything under `overleaf_rt/`.
+
+A linked project can instead sync through Overleaf's **git bridge**
+(`SyncState::sync_via`, set per project in Settings → Overleaf). Then
+`overleaf_sync` runs `overleaf/git_sync.rs` → `git/bridge.rs`: fetch
+`overleaf/master`, merge it (unrelated histories allowed, so a folder first
+linked through the web sync merges when its files agree), and push `HEAD`.
+Nothing commits for the writer: no post-sync or build auto-commit, and
+uncommitted files are reported, not sent. There is no live channel
+(`realtime_config` refuses, the frontend opens none), no preview, and the web
+sync's `.research/` table is left untouched so switching back resumes from it.
+The token lives in the system keychain (`overleaf_git_token.rs`) and reaches git
+only through the environment of the one process that needs it, scoped to the
+remote's URL.
 
 `overleaf` handles the non-realtime side: login/session (`overleaf/account.rs`,
 `overleaf-session.json` in app data), linking and clone (`overleaf/link.rs`),

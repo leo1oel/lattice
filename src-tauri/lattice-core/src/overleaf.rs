@@ -48,6 +48,7 @@ mod destination;
 mod doc_comment;
 mod doc_push;
 mod files;
+mod git_sync;
 mod link;
 mod local_copies;
 mod merge;
@@ -70,10 +71,11 @@ pub use doc_comment::{comment_in_document, CommentPlacement};
 pub use files::{
     agreed_text, checkpoint_realtime_text, is_conflict_copy, restore_set_aside, RealtimeCheckpoint,
 };
+pub use git_sync::{git_probe, git_sync, MISSING_TOKEN as GIT_TOKEN_MISSING};
 pub use link::{
     adopt_project, clone_project, clone_target, download_folders, project_link, publish_project,
     realtime_config, record_relocation, reopen_local_copy, set_paused, set_permission,
-    set_realtime_metadata, CloneTarget, OverleafLink,
+    set_realtime_metadata, set_sync_via, sync_via, CloneTarget, OverleafLink, SyncVia,
 };
 pub use local_copies::{
     display_path, local_copies, remember_local_copy, remembered_local_copies, LocalCopy,

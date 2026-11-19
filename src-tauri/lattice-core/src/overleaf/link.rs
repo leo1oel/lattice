@@ -30,6 +30,27 @@ pub(super) const STATE_DIR: &str = ".research";
 pub(super) const STATE_FILE: &str = "overleaf.json";
 pub(super) const PAUSED: &str =
     "Syncing is paused for this project. Resume it in Settings → Overleaf.";
+pub(super) const GIT_SYNC_NO_LIVE: &str =
+    "This project syncs through git, which has no live editing. Switch back to Overleaf sync in Settings → Overleaf to edit live.";
+
+/// How a linked project's files travel to and from Overleaf.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SyncVia {
+    /// Overleaf's web API: the sync that diffs, merges and uploads, with
+    /// live editing.
+    #[default]
+    Rest,
+    /// Overleaf's git bridge: the project's own repository is fetched,
+    /// merged and pushed, and every commit is the writer's.
+    Git,
+}
+
+impl SyncVia {
+    fn is_rest(&self) -> bool {
+        *self == SyncVia::Rest
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,6 +61,8 @@ pub struct OverleafLink {
     pub last_sync: Option<String>,
     /// Linked, but not syncing until it is resumed.
     pub paused: bool,
+    /// How the project's files travel to and from Overleaf.
+    pub sync_via: SyncVia,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -114,6 +137,11 @@ pub(super) struct SyncState {
     /// never confirm a download that would wipe the file out.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub own_writes: BTreeMap<String, HistoryFrom>,
+    /// How this project's files travel. Only [`SyncVia::Git`] changes anything
+    /// stored here: the table above is the REST sync's, left as it was so
+    /// switching back resumes from the last common ancestor.
+    #[serde(default, skip_serializing_if = "SyncVia::is_rest")]
+    pub sync_via: SyncVia,
 }
 
 /// Why the agreed table differs from Overleaf's copy at a path (see
@@ -210,8 +238,8 @@ impl SyncState {
     }
 
     fn link(self) -> OverleafLink {
-        let SyncState { project_id, project_name, host, last_sync, paused, .. } = self;
-        OverleafLink { project_id, project_name, host, last_sync, paused }
+        let SyncState { project_id, project_name, host, last_sync, paused, sync_via, .. } = self;
+        OverleafLink { project_id, project_name, host, last_sync, paused, sync_via }
     }
 
     /// The root folder id uploads need, once realtime has supplied it.
@@ -275,6 +303,23 @@ pub fn set_paused(root: &Path, paused: bool) -> Result<(), String> {
     save_state(root, &state)
 }
 
+/// How this project's files travel. A folder with no link is `Rest`: there is
+/// nothing for git to sync it with.
+pub fn sync_via(root: &Path) -> SyncVia {
+    load_state(root).map_or(SyncVia::Rest, |state| state.sync_via)
+}
+
+/// Switch how this project's files travel, keeping the link and everything
+/// the REST sync recorded either way.
+pub fn set_sync_via(root: &Path, via: SyncVia) -> Result<(), String> {
+    let mut state = load_state(root)?;
+    if state.sync_via == via {
+        return Ok(());
+    }
+    state.sync_via = via;
+    save_state(root, &state)
+}
+
 /// Record what Overleaf says this account may do, so syncing can respect it
 /// even when the realtime channel is not connected.
 pub fn set_permission(root: &Path, permission: &str) -> Result<(), String> {
@@ -327,6 +372,9 @@ pub fn realtime_config(
     let state = load_state(root)?;
     if state.paused {
         return Err(PAUSED.to_string());
+    }
+    if state.sync_via == SyncVia::Git {
+        return Err(GIT_SYNC_NO_LIVE.to_string());
     }
     let host = sync_host(&state, &session)?;
     let user_id = ensure_user_id(config_dir, &mut session);

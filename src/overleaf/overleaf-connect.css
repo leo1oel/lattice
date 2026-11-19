@@ -6,6 +6,21 @@
    state; cards share one border, radius and padding; secondary text is always
    caption/tertiary; state color is kept to small dots and the glyph tint. */
 
+/* ---- Git token ---------------------------------------------------------- */
+
+.overleaf-git-token-form {
+  display: grid;
+  gap: var(--space-3);
+  padding-block: var(--space-2) var(--space-4);
+}
+
+.overleaf-git-token-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 /* ---- Shared ------------------------------------------------------------- */
 
 .overleaf-glyph {
