@@ -28,6 +28,9 @@
  *   --ratchet   lower the ceilings these counts beat; never raises one
  *   --update    set every ceiling from this run, up or down (review the diff)
  * Options:
+ *   --machine-allowance  with --check: let a count exceed its ceiling by the
+ *                   factor scripts/perf-bench/machine-allowances.json records
+ *                   for this machine (pnpm ci:local passes it; CI does not)
  *   --only a,b      run only these scenarios (with --layout, these checks)
  *   --shard K/N     run every N-th scenario (then layout check), starting
  *                   at the K-th: CI splits one engine's run across N runners
@@ -95,9 +98,10 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { freePort } from "./lib/util.mjs";
-import { applyBudgets, bestOf, COUNTS, gatedCounts } from "./perf-bench/budgets.mjs";
+import { bestOf, COUNTS, gatedCounts } from "./perf-bench/budgets.mjs";
 import { profileSummary } from "./perf-bench/cpu-profile.mjs";
 import { formatTable } from "./perf-bench/results-table.mjs";
+import { holdToCeilings } from "./perf-bench/hold-ceilings.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { launchWebKit } from "./perf-bench/webkit.mjs";
 import { LAYOUT_CHECKS } from "./perf-bench/layout-checks.mjs";
@@ -141,10 +145,11 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, against: null, only: null, shard: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dist: null, buildOnly: null, dev: false, serve: false, stop: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
+  const options = { runs: 2, against: null, only: null, shard: null, json: null, profile: null, check: false, machineAllowance: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dist: null, buildOnly: null, dev: false, serve: false, stop: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
+    else if (arg === "--machine-allowance") options.machineAllowance = true;
     else if (arg === "--ratchet") options.ratchet = true;
     else if (arg === "--update") options.update = true;
     else if (arg === "--headful") options.headful = true;
@@ -183,6 +188,7 @@ function parseArgs(argv) {
   if (!["en", "zh-CN", "system"].includes(options.lang)) throw new Error("--lang takes en, zh-CN or system");
   if (options.url && argv.includes("--lang")) throw new Error("--url names its own page; put lang= in it instead of --lang");
   if (options.locale && !options.smoke) throw new Error("--locale sets the browser language of --smoke's page; add --smoke");
+  if (options.machineAllowance && (!options.check || options.ratchet || options.update)) throw new Error("--machine-allowance loosens --check on this machine: add --check, and leave out --ratchet and --update, which set the ceilings");
   if (!(options.engine in BUDGETS)) throw new Error(`Unknown engine ${options.engine}: use chromium or webkit`);
   if (options.profile && options.engine !== "chromium") throw new Error("--profile records Chromium CPU profiles only");
   if (options.against !== null) {
@@ -799,32 +805,7 @@ async function benchmark(options, scenarios, vite) {
   }
   if (options.url) return;
 
-  const mode = options.update ? "update" : options.ratchet ? "ratchet" : "check";
-  const budgetsFile = BUDGETS[options.engine];
-  const { budgets, failures, slack, changed } = applyBudgets(
-    JSON.parse(readFileSync(budgetsFile, "utf8")),
-    results.map(({ scenario, result }) => ({ name: scenario.name, result })),
-    mode,
-    options.engine,
-  );
-  if (changed && !options.dev && !options.only && !options.shard) {
-    writeFileSync(budgetsFile, `${JSON.stringify(budgets, null, 2)}\n`);
-    console.log(`\nWrote ${path.relative(repo, budgetsFile)}.`);
-  } else if (changed) {
-    console.log("\nCeilings are only written from a full production run (no --dev, --only or --shard).");
-  }
-  if (slack.length) {
-    console.log(`\nRoom to ratchet (pnpm perf:bench --ratchet lowers these ceilings):`);
-    for (const { scenario, key, value, ceiling } of slack) console.log(`  ${scenario} ${key}: ${value}, ceiling ${ceiling}`);
-  }
-  if (failures.length) {
-    console.log("\nOver budget:");
-    for (const { scenario, key, value, ceiling } of failures) console.log(`  ${scenario} ${key}: ${value} exceeds ceiling ${ceiling}`);
-    console.log("\nFind the cause with `pnpm perf:bench --dev --only <scenario> --json out.json`: each run lists the");
-    console.log("components that rendered and the state hooks that started each update. Fix it, or, if the extra");
-    console.log(`work is intended, raise the ceiling in ${path.relative(repo, budgetsFile)} and say why in the pull request.`);
-    if (options.check) process.exitCode = 1;
-  }
+  holdToCeilings(results, options, BUDGETS[options.engine]);
 }
 
 /**

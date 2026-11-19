@@ -1,0 +1,16 @@
+{
+  "machines": {
+    "leodeMac-Mini": {
+      "machine": "Leo's Mac mini: Mac18,5, Apple M6, 16 GB, macOS 27.0, 1920×1080 display",
+      "webkit": {
+        "startup": {
+          "hooks": {
+            "github": 13612,
+            "local": 14361,
+            "evidence": "b3c9bf1b6 measured 13612 on GitHub's macOS runner (ci.yml run 44474437371, perf-bench-webkit 1/2) and 14361 in a production build on this Mac (2026-11-19). Main at 5c9197738 measured 14361 and 14347 here, and the release head 22e0af1f2 measured 13651 on GitHub (run 44489888943)."
+          }
+        }
+      }
+    }
+  }
+}

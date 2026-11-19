@@ -2,8 +2,10 @@ import { isRecord } from "../app-utils";
 import { hasOnlyKeys, isWorkspaceRelativePath } from "./agent-protocol";
 
 /**
- * `unsupported`: this platform cannot keep the Agent from writing .bib files
- * itself (synara/bibliography_guard.rs), so it never starts there.
+ * `unsupported`: Lattice cannot keep the Agent from writing .bib files itself
+ * (synara/bibliography_guard.rs), so it does not start: on a platform with
+ * no guard, on a Linux system without what the guard needs, or for a project
+ * in a folder the Linux guard does not cover.
  */
 type SynaraRuntimeState = "starting" | "ready" | "stopped" | "unsupported";
 

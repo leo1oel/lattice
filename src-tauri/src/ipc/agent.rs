@@ -2,19 +2,31 @@
 //! custom model endpoint it may use (`model_endpoint`).
 
 use crate::model_endpoint::{self, Endpoint, EndpointStatus, KeyUpdate, ProbeReport};
-use crate::synara::{EnvironmentReport, SynaraRuntime, SynaraRuntimeInfo};
+use crate::synara::{
+    EnvironmentReport, GuardOptions, GuardOptionsReport, SynaraRuntime, SynaraRuntimeInfo,
+};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
+/// Start the agent service for the window's project, `workspace_root`, when
+/// it has one open: the bibliography guard has to cover that folder too.
 #[tauri::command]
-pub async fn synara_ensure_ready(app: AppHandle) -> Result<SynaraRuntimeInfo, String> {
+pub async fn synara_ensure_ready(
+    app: AppHandle, workspace_root: Option<String>,
+) -> Result<SynaraRuntimeInfo, String> {
     // Process launch, sandbox verification and health polling can take seconds.
     // A synchronous command occupies the native event loop before the WebView
     // can paint the loading surface that requested it.
-    tauri::async_runtime::spawn_blocking(move || app.state::<SynaraRuntime>().ensure_ready())
-        .await
-        .map_err(|error| format!("Agent startup worker failed: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        let runtime = app.state::<SynaraRuntime>();
+        match workspace_root.filter(|root| !root.is_empty()) {
+            Some(root) => runtime.ensure_ready_for(std::path::Path::new(&root)),
+            None => runtime.ensure_ready(),
+        }
+    })
+    .await
+    .map_err(|error| format!("Agent startup worker failed: {error}"))?
 }
 
 #[tauri::command]
@@ -50,6 +62,27 @@ pub async fn synara_agent_environment(app: AppHandle) -> Result<EnvironmentRepor
     tauri::async_runtime::spawn_blocking(move || app.state::<SynaraRuntime>().agent_environment())
         .await
         .map_err(|error| format!("Agent environment worker failed: {error}"))
+}
+
+/// [`SynaraRuntime::guard_options`], off the main thread: asking whether the
+/// kernel can scope the sandbox looks bubblewrap up on disk.
+#[tauri::command]
+pub async fn synara_guard_options(app: AppHandle) -> Result<GuardOptionsReport, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<SynaraRuntime>().guard_options())
+        .await
+        .map_err(|error| format!("Agent settings worker failed: {error}"))
+}
+
+/// [`SynaraRuntime::set_guard_options`], off the main thread.
+#[tauri::command]
+pub async fn synara_set_guard_options(
+    app: AppHandle, options: GuardOptions,
+) -> Result<GuardOptionsReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<SynaraRuntime>().set_guard_options(options)
+    })
+    .await
+    .map_err(|error| format!("Agent settings worker failed: {error}"))?
 }
 
 /// [`SynaraRuntime::restart`], off the main thread.

@@ -2339,6 +2339,15 @@ impl PlatformInputHandler {
             .unwrap_or(false)
     }
 
+    /// Whether a key binding of the focused context takes `keystroke` by
+    /// itself, so what an input method inserts for it goes to the binding
+    /// (`fast::ime_bindings`).
+    pub fn query_binds_printable_key(&mut self, keystroke: &crate::Keystroke) -> bool {
+        self.cx
+            .update(|window, cx| crate::fast::ime_bindings::binds_printable_key(window, cx, keystroke))
+            .unwrap_or(false)
+    }
+
     /// See [`InputHandler::text_input_configuration`].
     pub fn text_input_configuration(
         &mut self,

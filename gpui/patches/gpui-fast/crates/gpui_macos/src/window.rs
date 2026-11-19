@@ -686,6 +686,9 @@ pub(crate) struct MacWindowState {
     previous_modifiers_changed_event: Option<PlatformInput>,
     keystroke_for_do_command: Option<Keystroke>,
     do_command_handled: Option<bool>,
+    // A key the input method is handed although a binding takes it
+    // (`fast::ime_keys`): what it inserts for the key goes to the binding.
+    binding_for_ime_insert: Option<Keystroke>,
     external_files_dragged: bool,
     // Whether the next left-mouse click is also the focusing click.
     first_mouse: bool,
@@ -1161,6 +1164,7 @@ impl MacWindow {
                 previous_modifiers_changed_event: None,
                 keystroke_for_do_command: None,
                 do_command_handled: None,
+                binding_for_ime_insert: None,
                 external_files_dragged: false,
                 first_mouse: false,
                 app_owns_titlebar_drag,
@@ -2798,6 +2802,11 @@ extern "C" fn handle_key_event(
                     input_handler.query_prefers_ime_for_printable_keys()
                 })
                 .unwrap_or(false);
+            let binding_takes_key = is_ime_printable_key
+                && with_input_handler(this, |input_handler| {
+                    input_handler.query_binds_printable_key(&key_down_event.keystroke)
+                })
+                .unwrap_or(false);
 
             if is_composing
                 || is_ime_printable_key
@@ -2810,6 +2819,8 @@ extern "C" fn handle_key_event(
                     let mut lock = window_state.as_ref().lock();
                     lock.keystroke_for_do_command = Some(key_down_event.keystroke.clone());
                     lock.do_command_handled.take();
+                    lock.binding_for_ime_insert =
+                        binding_takes_key.then(|| key_down_event.keystroke.clone());
                     drop(lock);
                 }
 
@@ -2822,6 +2833,7 @@ extern "C" fn handle_key_event(
                     }
                 };
                 window_state.as_ref().lock().keystroke_for_do_command.take();
+                window_state.as_ref().lock().binding_for_ime_insert.take();
                 if let Some(handled) = window_state.as_ref().lock().do_command_handled.take() {
                     return handled.to_objc();
                 } else if handled == Bool::YES {
@@ -3605,6 +3617,9 @@ extern "C" fn insert_text(
     text: *mut AnyObject,
     replacement_range: NSRange,
 ) {
+    if binding_takes_ime_insert(this) {
+        return;
+    }
     unsafe {
         let is_attributed_string: Bool = msg_send![text, isKindOfClass: class!(NSAttributedString)];
         let text: *mut AnyObject = if is_attributed_string == Bool::YES {
@@ -3675,6 +3690,33 @@ extern "C" fn attributed_substring_for_proposed_range(
     })
     .flatten()
     .unwrap_or(ptr::null_mut::<AnyObject>())
+}
+
+/// What the input method inserts for a key a binding takes (`$` that Pinyin
+/// makes `￥`, Vim's `:`) goes to the binding instead, while nothing was
+/// marked (`fast::ime_keys`); returns whether the binding handled it.
+fn binding_takes_ime_insert(this: &AnyObject) -> bool {
+    let state = unsafe { get_window_state(this) };
+    let mut lock = state.as_ref().lock();
+    let Some(keystroke) = lock.binding_for_ime_insert.take() else {
+        return false;
+    };
+    let mut event_callback = lock.event_callback.take();
+    drop(lock);
+    let handled = event_callback.as_mut().is_some_and(|callback| {
+        !callback(PlatformInput::KeyDown(KeyDownEvent {
+            keystroke,
+            is_held: false,
+            prefer_character_input: false,
+        }))
+        .propagate
+    });
+    let mut lock = state.as_ref().lock();
+    lock.event_callback = event_callback;
+    if handled {
+        lock.do_command_handled = Some(true);
+    }
+    handled
 }
 
 // We ignore which selector it asks us to do because the user may have

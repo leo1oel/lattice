@@ -99,6 +99,20 @@ describe("settings search", () => {
     }
   });
 
+  it("finds the agent sandbox's opt-ins only on Linux, the one host whose sandbox has them", () => {
+    expect(search("ssh agent")).toEqual([]);
+    expect(search("reduced isolation")).toEqual([]);
+    const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko)");
+    try {
+      expect(search("ssh agent")).toEqual(["agent-forward-ssh-agent"]);
+      expect(search("reduced isolation")).toEqual(["agent-reduced-isolation"]);
+      expect(search("abstract sockets")).toEqual(["agent-reduced-isolation"]);
+      expect(search("signed commits")).toEqual(["agent-forward-ssh-agent"]);
+    } finally {
+      userAgent.mockRestore();
+    }
+  });
+
   it("finds Your name by the name its comments are signed with", () => {
     expect(search("lovelace", true, "Ada Lovelace")).toEqual(["author-name"]);
   });
