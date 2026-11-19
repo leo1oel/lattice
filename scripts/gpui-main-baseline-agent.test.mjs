@@ -57,7 +57,7 @@ describe("gpui-main-baseline-agent", () => {
   it("writes a launchd agent that ticks from the checkout", () => {
     const text = plist({ node: "/opt/node", checkout: "/c/main & co", every: 15, minHours: 2, log: "/l/agent.log", env: { PATH: "/bin:/usr/bin", EMPTY: undefined } });
     expect(text).toContain(`<string>${LABEL}</string>`);
-    expect(text).toContain("<string>/c/main &amp; co/scripts/gpui-main-baseline-agent.mjs</string>");
+    expect(text).toContain(`<string>${path.join("/c/main &amp; co", "scripts", "gpui-main-baseline-agent.mjs")}</string>`);
     expect(text).toContain("<integer>900</integer>");
     expect(text).toContain("<key>PATH</key>");
     expect(text).not.toContain("EMPTY");

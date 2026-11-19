@@ -52,7 +52,9 @@ describe("gpuiBuildCommand", () => {
   });
 });
 
-describe("repoLevelWrapper", () => {
+// The wrapper is a POSIX shell script for cargo's RUSTC_WRAPPER, and Node on
+// Windows has no `sh` on its PATH.
+describe.skipIf(process.platform === "win32")("repoLevelWrapper", () => {
   const dirs = [];
   afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 

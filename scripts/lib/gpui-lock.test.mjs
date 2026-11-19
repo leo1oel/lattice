@@ -25,7 +25,8 @@ function holdAs(owner, writtenSecondsAgo = 0) {
 }
 
 function deadPid() {
-  return spawnSync("true").pid;
+  // Node itself, since Windows has no `true` to spawn.
+  return spawnSync(process.execPath, ["-e", ""]).pid;
 }
 
 describe("machineLock", () => {

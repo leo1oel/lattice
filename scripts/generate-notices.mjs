@@ -165,6 +165,11 @@ function collectStaged(runtime) {
   if (!isFile(join(packageRoot, "package.json"))) return { ...runtime, available: false, entries: [] };
   const stale = runtime.staleReason(join(projectRoot, runtime.root));
   if (stale) return { ...runtime, available: false, stale, entries: [] };
+  // The app ships from macOS, and both runtimes hold native binaries for the
+  // host that staged them (rolldown, lightningcss). A copy staged anywhere
+  // else would attribute that host's binaries instead, so its section is
+  // kept, as for a runtime that is not staged.
+  if (process.platform !== "darwin") return { ...runtime, available: false, host: process.platform, entries: [] };
 
   const entries = [];
   const seen = new Set();
@@ -627,7 +632,8 @@ for (const runtime of staged) {
   if (runtime.available) row(runtime.logLabel, runtime.entries.length, " packages");
   else {
     const why = runtime.stale ? ` (stale: ${runtime.stale})` : "";
-    row(runtime.logLabel, "n/a", `  — ${runtime.root}/ is not staged${why}${runtime.carriedOver ? " (previous section kept)" : ""}`);
+    const state = runtime.host ? `is staged on ${runtime.host}, not macOS` : `is not staged${why}`;
+    row(runtime.logLabel, "n/a", `  — ${runtime.root}/ ${state}${runtime.carriedOver ? " (previous section kept)" : ""}`);
   }
 }
 row("total", all.length, ` packages, ${Date.now() - started} ms`);
@@ -668,7 +674,7 @@ if (args.has("--check")) {
     log("");
     log("THIRD_PARTY_NOTICES.md is out of date. Run `pnpm notices` and commit the result.");
     for (const runtime of staged.filter((candidate) => !candidate.available)) {
-      log(`(The ${runtime.closure} section was not verified — ${runtime.root}/ is not staged.)`);
+      log(`(The ${runtime.closure} section was not verified — ${runtime.root}/ ${runtime.host ? `is staged on ${runtime.host}, not macOS` : "is not staged"}.)`);
     }
     process.exit(1);
   }

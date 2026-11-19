@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { baselineDir, parseE2e, parseGate } from "./gpui-main-baseline.mjs";
 
@@ -45,6 +46,6 @@ describe("gpui-main-baseline", () => {
   });
 
   it("writes under the shared build directory", () => {
-    expect(baselineDir({ LATTICE_GPUI_BUILD_DIR: "/x" })).toBe("/x/main-baseline");
+    expect(baselineDir({ LATTICE_GPUI_BUILD_DIR: "/x" })).toBe(path.join("/x", "main-baseline"));
   });
 });
