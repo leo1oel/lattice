@@ -167,7 +167,7 @@ export function localStages(tier, files, mergeBase) {
       name: "webkit-bench",
       why: "the WebKit benchmark and layout checks against their ceilings, as CI's macOS shards",
       command: "sh",
-      args: ["-c", "pnpm exec playwright-core install webkit >/dev/null && pnpm perf:bench --check --layout --engine webkit"],
+      args: ["-c", "pnpm exec playwright-core install webkit >/dev/null && pnpm perf:bench --check --machine-allowance --layout --engine webkit"],
       timeout: 2_400_000,
       before: waitForPerfLock,
     });
