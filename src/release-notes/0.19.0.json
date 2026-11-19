@@ -14,6 +14,17 @@
       }
     },
     {
+      "icon": "feather",
+      "title": {
+        "en": "Spell check in the native Lattice",
+        "zh": "原生 Lattice 的拼写检查"
+      },
+      "body": {
+        "en": "The native Lattice checks spelling in .tex, Markdown and text files with macOS's own spell checker, in the language macOS detects for each paragraph, so Chinese prose is never marked. Right-click a marked word for suggestions, Ignore Spelling or Learn Spelling. Words in the project dictionary are left alone, and Settings › Editor & builds › Check spelling turns the check off. Grammar checking and the dictionaries for other languages are not part of the native version.",
+        "zh": "原生 Lattice 用 macOS 自带的拼写检查器检查 .tex、Markdown 和纯文本文件，按 macOS 识别出的每段语言检查，中文不会被标记。右键点击标出的词，可以选择建议、忽略拼写或学习拼写。项目词典里的词不会被标出，在设置 › 编辑编译 › 检查拼写中可以关闭检查。语法检查和其他语言的词典不在原生版本中。"
+      }
+    },
+    {
       "icon": "git",
       "title": {
         "en": "Lattice Beta is now Lattice",

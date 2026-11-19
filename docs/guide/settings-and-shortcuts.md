@@ -9,7 +9,7 @@ Open **Lattice › Settings…** (`⌘,`). The search box at the top finds any s
 | Section | What's there |
 | --- | --- |
 | **Appearance** | Interface language (English or 简体中文), interface size, sounds, notification position, tab style, editor fonts, theme and code theme, title bar tools. |
-| **Editor & builds** | Editor keymap (default, Vim or Emacs), your name, spelling and grammar, automatic build, auxiliary files, compile engine, shell escape, app updates. |
+| **Editor & builds** | Editor keymap (default, Vim or Emacs), your name, spelling and grammar (on an Apple silicon Mac, spelling only, with macOS's checker), automatic build, auxiliary files, compile engine, shell escape, app updates. |
 | **Agent** | Providers, MCP, Skills, Usage & limits, Model endpoint, Environment. See [The Agent](agent.md). |
 | **Integrations** | Overleaf, Literature services (keys for literature search), Plugins. |
 | **Diagnostics** | TeX doctor, Logs. |
