@@ -564,7 +564,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .welcome-recent-row .ui-badge { flex: none; }
 .welcome-recent-row[data-missing] :is(.welcome-recent-name, .welcome-recent-folder, .welcome-recent-icon) { opacity: .55; }
 .welcome-recent-all { justify-self: start; }
-.recent-project-finder .picker-text[data-missing] { opacity: .55; }
+.recent-project-finder .picker-text[data-missing],
+[role="menuitem"] > [data-missing] { opacity: .55; }
 .recent-project-finder .ui-badge { flex: none; }
 /* A short window keeps the actions and drops the desk rather than clipping the title. */
 @media (max-height: 620px) { .welcome-desk-frame { display: none; } }
