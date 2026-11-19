@@ -1394,6 +1394,14 @@
       ],
       "reason": "Windows: failed once in run 44460622331 attempt 2 of #1148, which does not touch it, and passed in every main run since #1103, so intermittent; observed {}",
       "followup": "LEO-15"
+    },
+    {
+      "step": "a native click on the zoom controls over the page reaches GPUI, and the page zooms",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in 4 of 5 main baselines on the Mac mini's local gate (main 2e39149ce, 5c9197738, a216812a5, b3dd2c790; passed at 54bb273ac), and in both full ci:local runs of #1163 while it passed in all three islands-only runs, so intermittent in a full run; observed {\"scale\":1.0,\"page_presses\":0,\"bounds\":\"Some(Bounds { origin: Point { x: 288px, y: 86px }, size: Size { 648px × 802px } })\"}",
+      "followup": "LEO-14"
     }
   ]
 }
