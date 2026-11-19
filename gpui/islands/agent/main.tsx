@@ -22,7 +22,7 @@
  * embedded Agent.
  *
  * Host to page:
- *   agent:open        { surface, projectRoot, locale, visible, appearance, git? }   on every ready
+ *   agent:open        { surface, projectRoot, locale, visible, appearance, git?, thread? }   on every ready
  *   agent:visible     { visible }            the panel shown or hidden
  *   agent:opened                             the panel was brought forward
  *   agent:workspace   { … }                  what the writer is working in (useAgentContext's inputs)
@@ -124,6 +124,8 @@ type AgentOpen = {
   visible: boolean;
   appearance: Appearance;
   git?: GitState;
+  /** The panel's thread, which the window keeps across a hibernation that took this page's storage. */
+  thread?: string | null;
 };
 
 /** useAgentContext's inputs, as the owner reads them from the window. */
@@ -534,6 +536,7 @@ function AgentIsland() {
     const stops = [
       bridge.on("agent:open", (payload) => {
         const open = payload as AgentOpen;
+        if (open.thread) persistSynaraThread(open.projectRoot, open.thread);
         setOpened(open);
         setOverleaf(NOT_LINKED);
         setVisible(open.visible);
