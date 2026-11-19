@@ -184,11 +184,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     setRecents((current) => ({ ...current, projects: rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }) }));
   }, []);
 
-  const { check: checkRecentProjects, finder: recentFinder } = useRecentProjectMarks({
-    listShown: projectMenuOpen || (!project && !launching),
-    closeProjectMenu: () => setProjectMenuOpen(false),
-    onMarked: (projects) => setRecents((current) => ({ ...current, projects })),
-  });
+  const { check: checkRecentProjects, finder: recentFinder } = useRecentProjectMarks(
+    projectMenuOpen || (!project && !launching), setProjectMenuOpen, setRecents,
+  );
 
   const enterProject = useCallback(async (
     snapshot: ProjectSnapshot,

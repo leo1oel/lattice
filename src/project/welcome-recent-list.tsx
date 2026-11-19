@@ -25,14 +25,17 @@ export function RecentProjectIcon({ project, size }: { project: RecentProject; s
  * when it was last opened) in a box that scrolls, then "Show all", the
  * finder over every recent project.
  */
+/** How many the list shows before "Show all". */
+const LISTED = 20;
+
 export function WelcomeRecentList(props: {
+  /** The recent projects after the desk's, newest first. */
   projects: readonly RecentProject[];
   /** Every recent project the finder would search, for "Show all"'s count. */
   total: number;
   disabled: boolean;
   onOpen: (path: string) => void;
-  /** Given only when the desk and this list leave some out. */
-  onShowAll?: () => void;
+  onShowAll: () => void;
 }) {
   const { t, i18n } = useLingui();
   // Ages are read against when the list was laid out, not each render.
@@ -43,7 +46,7 @@ export function WelcomeRecentList(props: {
       <h2 className="welcome-recents-title">{t`More projects`}</h2>
       <ScrollArea viewportClassName="welcome-recent-list-viewport">
         <ul className="welcome-recent-list">
-          {props.projects.map((item) => (
+          {props.projects.slice(0, LISTED).map((item) => (
             <li key={item.path}>
               <button
                 type="button"
@@ -65,7 +68,7 @@ export function WelcomeRecentList(props: {
           ))}
         </ul>
       </ScrollArea>
-      {props.onShowAll && (
+      {props.projects.length > LISTED && (
         <button type="button" className="welcome-more-action welcome-recent-all" onClick={props.onShowAll}>
           <Search size={15} /> {t`Show all ${total} projects`}
         </button>

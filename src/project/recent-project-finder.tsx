@@ -36,6 +36,7 @@ export function RecentProjectFinder(props: {
       label={t`Open a recent project`}
       searchLabel={t`Search recent projects`}
       placeholder={t`Open a recent project…`}
+      detailPlacement="end"
       emptyText={t`No recent projects`}
       noMatch={(query) => ({ title: t`No recent project matches “${query}”` })}
       rank={rank}

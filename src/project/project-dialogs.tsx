@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Cloud, FileArchive, Folder, FolderOpen, GitBranch, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
@@ -17,7 +17,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { ChunkGate } from "../components/chunk-gate";
 import { chunk, lazyChunk } from "../lib/lazy-chunk";
 import { WelcomeLattice } from "./welcome-lattice";
-import { welcomeDeskProjects, welcomeListProjects } from "./first-pages";
+import { welcomeDeskProjects } from "./first-pages";
 import { WelcomeDesk } from "./welcome-desk";
 import { PROJECT_VENUES } from "./project-venues";
 
@@ -25,8 +25,7 @@ import { PROJECT_VENUES } from "./project-venues";
 const loadLocalTemplates = chunk(() => import("./local-templates"));
 const LocalTemplates = lazyChunk(loadLocalTemplates, (module) => module.LocalTemplates);
 // Only a writer with more than three recent projects sees the list under the desk.
-const loadWelcomeRecentList = chunk(() => import("./welcome-recent-list"));
-const WelcomeRecentList = lazyChunk(loadWelcomeRecentList, (module) => module.WelcomeRecentList);
+const WelcomeRecentList = lazy(() => import("./welcome-recent-list").then((module) => ({ default: module.WelcomeRecentList })));
 
 /** A recent project launch could not reopen, with the backend's reason. */
 export type UnopenedProject = RecentProject & { reason: string };
@@ -69,8 +68,7 @@ export function Welcome(props: {
   const { t } = useLingui();
   // The welcome screen lays out a few projects to reopen; the switcher in a project goes deeper.
   const recents = welcomeDeskProjects(props.recentProjects, props.unopenedProject?.path);
-  const listed = welcomeListProjects(props.recentProjects, props.unopenedProject?.path);
-  const unlisted = props.recentProjects.length - recents.length - listed.length - (props.unopenedProject ? 1 : 0);
+  const others = props.unopenedProject ? props.recentProjects.filter((item) => item.path !== props.unopenedProject?.path) : props.recentProjects;
   const unopened = props.unopenedProject;
   const unopenedName = unopened?.name;
   const unopenedReason = unopened?.reason ?? "";
@@ -119,17 +117,15 @@ export function Welcome(props: {
             {recents.length > 0 && (
               <WelcomeDesk projects={recents} disabled={Boolean(props.busyLabel)} onOpen={props.onRecent} />
             )}
-            {listed.length > 0 && (
+            {others.length > recents.length && (
               <Suspense fallback={null}>
-                <ChunkGate chunk={loadWelcomeRecentList}>
-                  <WelcomeRecentList
-                    projects={listed}
-                    total={props.recentProjects.length}
-                    disabled={Boolean(props.busyLabel)}
-                    onOpen={props.onRecent}
-                    onShowAll={unlisted > 0 ? props.onShowAllRecent : undefined}
-                  />
-                </ChunkGate>
+                <WelcomeRecentList
+                  projects={others.slice(recents.length)}
+                  total={props.recentProjects.length}
+                  disabled={Boolean(props.busyLabel)}
+                  onOpen={props.onRecent}
+                  onShowAll={props.onShowAllRecent}
+                />
               </Suspense>
             )}
           </section>

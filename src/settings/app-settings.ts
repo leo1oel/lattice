@@ -160,28 +160,6 @@ export function rememberRecentProject(entry: RecentProject): RecentProject[] {
   ].slice(0, RECENT_PROJECTS_MAX));
 }
 
-/** What `recent_project_states` found for one folder. */
-export type RecentProjectState = { missing: boolean; overleaf: boolean };
-
-/**
- * Mark each listed project as its folder was found, keeping the order: a
- * folder that is gone stays listed and marked, never dropped unseen. Returns
- * null when nothing changed, so a caller writes and re-renders only for news.
- */
-export function markRecentProjects(states: ReadonlyMap<string, RecentProjectState>): RecentProject[] | null {
-  let changed = false;
-  const projects = loadRecentProjects().map((item) => {
-    const state = states.get(item.path);
-    if (!state || (Boolean(item.missing) === state.missing && Boolean(item.overleaf) === state.overleaf)) return item;
-    changed = true;
-    const { missing: _missing, overleaf: _overleaf, ...rest } = item;
-    // A folder that is gone keeps what it last was: its link comes back with it.
-    const overleaf = state.missing ? item.overleaf : state.overleaf;
-    return { ...rest, ...(overleaf ? { overleaf: true } : {}), ...(state.missing ? { missing: true } : {}) };
-  });
-  return changed ? persistRecentProjects(projects) : null;
-}
-
 /** The palette's recently run command ids, newest first. Only ids: never a query or anything from a document. */
 export function loadRecentCommands(): string[] {
   return safely(() => {

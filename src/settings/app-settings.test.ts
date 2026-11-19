@@ -14,7 +14,6 @@ import {
   loadRecentProjects,
   loadSettingsTab,
   loadWorkspaceLayout,
-  markRecentProjects,
   markTutorialSeen,
   persistFileViewStates,
   persistLivePreviewEnabled,
@@ -26,6 +25,7 @@ import {
   type WorkspaceLayout,
 } from "./app-settings";
 import type { FileViewState } from "../app-types";
+import { markRecentProjects } from "../project/recent-project-states";
 
 beforeEach(() => localStorage.clear());
 

@@ -16,6 +16,11 @@ export function AppWelcomeScreen({ lifecycle, onSettings, onInstallTex, onOpenOv
   onInstallTex: () => void;
   onOpenOverleaf: () => void;
 }) {
+  // Left to React as it was inside App: compiled on its own it memoized each
+  // of these props, about 900 bytes of eager JS for a screen App re-renders
+  // only as the lifecycle changes.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
+  "use no memo";
   const { createForm, updateCreateForm } = lifecycle;
   return (
     <Welcome

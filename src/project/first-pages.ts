@@ -42,8 +42,6 @@ const FIRST_PAGES_KEPT = 8;
 const MAX_SWITCHER_PROJECTS = 8;
 /** How many File ▸ Open Recent lists before "All Recent Projects…". */
 const MAX_OPEN_RECENT_PROJECTS = 10;
-/** How many the welcome screen lists under its desk before "Show all". */
-const WELCOME_LIST_SIZE = 20;
 
 /** The recent projects other than the one in front, newest first: what the finder searches. */
 export function otherProjects(recents: readonly RecentProject[], currentPath: string | undefined) {
@@ -64,10 +62,6 @@ export function openRecentProjects(recents: readonly RecentProject[], currentPat
   return otherProjects(recents, currentPath).slice(0, MAX_OPEN_RECENT_PROJECTS);
 }
 
-/** The projects the welcome screen lists under its desk: the next twenty after the desk's own. */
-export function welcomeListProjects(recents: readonly RecentProject[], unopenedPath: string | null | undefined) {
-  return recents.filter((item) => item.path !== unopenedPath).slice(WELCOME_DESK_SIZE, WELCOME_DESK_SIZE + WELCOME_LIST_SIZE);
-}
 
 const DATABASE = "lattice.first-pages";
 const STORE = "pages";
