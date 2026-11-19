@@ -16,6 +16,11 @@ import type { PdfSyncTarget } from "./pdf-source-targets";
 
 /** Owner → window, addressed to the window's label. */
 export const PDF_WINDOW_STATE_EVENT = "pdf-window:state";
+/**
+ * Owner → window: the live preview's model as it changes, for the window to
+ * draw over its pages (LivePreviewRelayMessage, live-preview-mirror.ts).
+ */
+export const PDF_WINDOW_LIVE_EVENT = "pdf-window:live";
 /** Window → owners: every workspace window hears it and keeps its own window's. */
 export const PDF_WINDOW_ACTION_EVENT = "pdf-window:action";
 /** Backend → owner: the writer closed the window (its close button, ⌘W). */
@@ -60,6 +65,12 @@ export type PdfWindowAction = { window: string } & (
   | { kind: "page"; page: number }
   | { kind: "view-state"; state: PdfFileViewState }
   | { kind: "select"; text: string }
+  /** The live preview's mirror: the window shows a new build's PDF (basePromoted). */
+  | { kind: "live-base-promoted" }
+  /** The live preview's mirror: a live paragraph cannot be drawn until the next layout (waitForLayout). */
+  | { kind: "live-wait-for-layout" }
+  /** The live preview's mirror lost its place: send the model again from the start. */
+  | { kind: "live-resync" }
 );
 
 /** What the owner does for each action. */
@@ -75,6 +86,9 @@ export type PdfWindowHandlers = {
   page: (page: number) => void;
   viewState: (state: PdfFileViewState) => void;
   select: (text: string) => void;
+  liveBasePromoted: () => void;
+  liveWaitForLayout: () => void;
+  liveResync: () => void;
 };
 
 /**
@@ -101,6 +115,9 @@ export function runPdfWindowAction(
     case "page": handlers.page(action.page); break;
     case "view-state": handlers.viewState(action.state); break;
     case "select": handlers.select(action.text); break;
+    case "live-base-promoted": handlers.liveBasePromoted(); break;
+    case "live-wait-for-layout": handlers.liveWaitForLayout(); break;
+    case "live-resync": handlers.liveResync(); break;
     default: return false;
   }
   return true;

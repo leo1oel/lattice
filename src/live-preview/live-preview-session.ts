@@ -13,15 +13,10 @@
  * `baseShown`), so edits the PDF on screen already holds stop being painted.
  */
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { FontStore, ImageStore } from "./rtex-render";
-import { PreviewModel } from "./rtex-model";
-import { ResourceLoader } from "./rtex-resources";
+import { applyModelOp, LivePreviewAssets, type FallbackSource, type PdfDocument } from "./live-preview-assets";
+import { PreviewModel, type ModelOp, type ModelSnapshot } from "./rtex-model";
 import { SourceSync } from "./rtex-source-sync";
-import type { Command, DisplayList, LayoutUpdateEvent, ParagraphUpdateEvent, Reply, RtexEvent } from "./rtex-protocol";
-import { getDocument } from "../pdf/pdfjs-runtime";
-import { PDF_CMAP_URL, PDF_STANDARD_FONT_DATA_URL } from "../pdf/pdf-viewer-utils";
-
-type PdfDocument = Awaited<ReturnType<typeof getDocument>["promise"]>;
+import type { Command, LayoutUpdateEvent, ParagraphUpdateEvent, Reply, RtexEvent } from "./rtex-protocol";
 
 /**
  * Where the session is. `starting`: rtex is loading the preamble.
@@ -44,8 +39,17 @@ export type LivePreviewSnapshot = Readonly<{
 
 const INITIAL: LivePreviewSnapshot = { phase: "starting", layoutPending: false, detail: null, rebuilding: false };
 
-/** A fallback PDF of one layout, kept in memory: rtex deletes the file two layouts later. */
-type Fallback = { layoutVersion: number; document: Promise<PdfDocument | null> };
+/** What a mirror of the session starts from (live-preview-mirror.ts). */
+export type LivePreviewMirrorStart = {
+  projectRoot: string;
+  /** The rtex session the mirror reads fonts, images and fallback PDFs from. */
+  session: number;
+  model: ModelSnapshot;
+  fallback: FallbackSource | null;
+};
+
+/** A change to the model, with the fallback PDF rtex wrote with a layout. */
+export type LivePreviewModelChange = { change: ModelOp; fallback: string | null };
 
 const EVENT_CMDS = new Set(["edit", "set_document"]);
 
@@ -53,15 +57,16 @@ export class LivePreviewSession {
   readonly model = new PreviewModel();
   /** How many of each event and reply rtex sent: what the perf lab reports beside its timings. */
   readonly received = new Map<string, number>();
-  readonly fonts = new FontStore();
-  readonly images: ImageStore;
-  private readonly resources: ResourceLoader;
+  private readonly assets = new LivePreviewAssets((kind, path) => this.readFile(kind, path), () => this.markPages("all"));
+  readonly fonts = this.assets.fonts;
+  readonly images = this.assets.images;
   private readonly sync = new SourceSync();
   private session: number | null = null;
   private disposed = false;
   private snapshot: LivePreviewSnapshot = INITIAL;
   private readonly listeners = new Set<() => void>();
   private readonly pageListeners = new Set<(pages: ReadonlySet<number> | "all") => void>();
+  private readonly modelListeners = new Set<(change: LivePreviewModelChange) => void>();
 
   // ---- The command queue, and the revision each command left rtex at.
   private readonly queue: Command[] = [];
@@ -94,7 +99,6 @@ export class LivePreviewSession {
   private activePath: string | null = null;
   private editorDirty = false;
 
-  private fallback: Fallback | null = null;
   private generation = -1;
   private basePages: number | null = null;
 
@@ -102,9 +106,6 @@ export class LivePreviewSession {
     private readonly projectRoot: string,
     private readonly mainFile: string,
   ) {
-    this.images = new ImageStore(rasterizePdfImage);
-    this.images.onLoaded = () => this.markPages("all");
-    this.resources = new ResourceLoader((kind, path) => this.readFile(kind, path));
     // First in the queue, ahead of any edit made while rtex starts: the
     // revision rtex loaded the files at, which the base PDF was built from.
     this.enqueue([{ cmd: "status" }]);
@@ -144,9 +145,10 @@ export class LivePreviewSession {
     this.disposed = true;
     const session = this.session;
     if (session !== null) void invoke("live_preview_stop", { projectRoot: this.projectRoot, session }).catch(() => undefined);
-    void this.fallback?.document.then((document) => document?.loadingTask.destroy());
+    this.assets.dispose();
     this.listeners.clear();
     this.pageListeners.clear();
+    this.modelListeners.clear();
   }
 
   // ---- What the app reports ------------------------------------------------------------------------
@@ -257,7 +259,23 @@ export class LivePreviewSession {
 
   /** The fallback PDF that draws pages of layout `layoutVersion`, once loaded. */
   fallbackDocument(layoutVersion: number): Promise<PdfDocument | null> | null {
-    return this.fallback && this.fallback.layoutVersion >= layoutVersion ? this.fallback.document : null;
+    return this.assets.fallbackDocument(layoutVersion);
+  }
+
+  /**
+   * Every change to the model from now on, in order, for a mirror that
+   * started from `mirrorStart()`: the PDF's separate window draws the same
+   * pages from them.
+   */
+  subscribeModel(listener: (change: LivePreviewModelChange) => void): () => void {
+    this.modelListeners.add(listener);
+    return () => { this.modelListeners.delete(listener); };
+  }
+
+  /** The model as it is now, for a mirror; null until rtex has started. */
+  mirrorStart(): LivePreviewMirrorStart | null {
+    if (this.session === null) return null;
+    return { projectRoot: this.projectRoot, session: this.session, model: this.model.snapshot(), fallback: this.assets.fallbackSource() };
   }
 
   /** A live paragraph cannot be drawn exactly: say the layout is catching up with it. */
@@ -280,6 +298,13 @@ export class LivePreviewSession {
   }
 
   // ---- Internals ---------------------------------------------------------------------------------
+
+  /** Make `change` to the model, and pass it on to the mirrors. */
+  private change(change: ModelOp, fallback: string | null = null): ReadonlySet<number> | "all" {
+    const dirty = applyModelOp(this.model, this.assets, change, fallback);
+    for (const listener of [...this.modelListeners]) listener({ change, fallback });
+    return dirty;
+  }
 
   private bumpFile(path: string): number {
     const generation = (this.fileGeneration.get(path) ?? 0) + 1;
@@ -323,7 +348,7 @@ export class LivePreviewSession {
 
   private applyBase(revision: number): void {
     this.pendingBase = null;
-    this.model.setBase(revision);
+    this.change({ op: "base", revision });
     // rtex lays out again only when pagination moved, so its last layout can
     // be older than the PDF now on screen; the rows a live paragraph clears
     // come from that layout, so ask for one that matches the PDF.
@@ -364,7 +389,7 @@ export class LivePreviewSession {
       // The revision before any change of ours: the files the base PDF was built from.
       if (!this.revisions.has(-1)) {
         this.revisions.set(-1, reply.versions.source_revision);
-        this.model.baseRevision = reply.versions.source_revision;
+        this.change({ op: "loaded", revision: reply.versions.source_revision });
         this.latestRevision = Math.max(this.latestRevision, reply.versions.source_revision);
         if (this.pendingBase === 0) this.applyBase(reply.versions.source_revision);
       }
@@ -377,7 +402,7 @@ export class LivePreviewSession {
     }
     const { result } = reply;
     if (sent?.index != null) this.recordRevision(sent.index, result.source_revision);
-    if (result.outcome.removed.length) this.markPages(this.model.dropOverlays(result.outcome.removed));
+    if (result.outcome.removed.length) this.markPages(this.change({ op: "drop", ids: result.outcome.removed }));
     if (result.routed !== "fast") this.awaitLayout(result.source_revision);
   }
 
@@ -398,7 +423,7 @@ export class LivePreviewSession {
   private onEvent(event: RtexEvent): void {
     switch (event.event) {
       case "EngineState":
-        if (event.engine_generation !== this.generation && this.generation >= 0) this.markPages(this.model.dropOverlays());
+        if (event.engine_generation !== this.generation && this.generation >= 0) this.markPages(this.change({ op: "drop" }));
         this.generation = event.engine_generation;
         if (event.state === "Failed") this.updateSnapshot({ phase: "paused", detail: event.reason });
         else if (event.state === "Ready") this.updateSnapshot({ phase: this.model.hasLayout ? "live" : "first-layout", detail: null });
@@ -415,7 +440,7 @@ export class LivePreviewSession {
         break;
       case "SessionExited":
         this.updateSnapshot({ phase: "error", detail: event.stderr || null });
-        this.markPages(this.model.dropOverlays());
+        this.markPages(this.change({ op: "drop" }));
         break;
       default:
         break;
@@ -428,18 +453,17 @@ export class LivePreviewSession {
       if (!this.model.hasLayout) this.updateSnapshot({ phase: "error", detail: null });
       return;
     }
-    if (event.pdf_fallback) this.loadFallback(event.pdf_fallback, event.versions.layout_version);
-    const dirty = this.model.applyLayout({
-      pages: event.pages_changed,
-      pagesTotal: event.pages_total,
-      placements: event.placements,
-      revision: event.versions.source_revision,
-      layoutVersion: event.versions.layout_version,
-      hasFallback: Boolean(event.pdf_fallback),
-    });
-    // Only the pages drawn from the display list need its fonts and images:
-    // most pages stay the PDF's, and a paper's figures run to tens of MB.
-    this.loadResources(event.pages_changed.filter((page) => this.model.pageSource(page.page).kind === "display-list").map((page) => page.dl));
+    const dirty = this.change({
+      op: "layout",
+      input: {
+        pages: event.pages_changed,
+        pagesTotal: event.pages_total,
+        placements: event.placements,
+        revision: event.versions.source_revision,
+        layoutVersion: event.versions.layout_version,
+        hasFallback: Boolean(event.pdf_fallback),
+      },
+    }, event.pdf_fallback ?? null);
     const settled = event.convergence.state === "Converged" || event.convergence.state === "PassLimitReached";
     this.updateSnapshot({
       phase: this.snapshot.phase === "paused" ? "paused" : "live",
@@ -453,7 +477,7 @@ export class LivePreviewSession {
   private onParagraph(event: ParagraphUpdateEvent): void {
     const revision = event.versions.source_revision;
     if (event.status === "removed") {
-      this.markPages(this.model.applyParagraph(event.par_id, event.dl, [], revision));
+      this.markPages(this.change({ op: "paragraph", parId: event.par_id, dl: event.dl, fragments: [], revision }));
       return;
     }
     // Something in it cannot be drawn exactly, or TeX stopped on an error:
@@ -464,43 +488,8 @@ export class LivePreviewSession {
     }
     if (revision <= this.model.baseRevision) return;
     const fragments = event.pagination_stale ? event.fragments : this.model.placeLive(event.par_id, event.fragments);
-    this.markPages(this.model.applyParagraph(event.par_id, event.dl, fragments, revision));
-    this.loadResources([event.dl]);
+    this.markPages(this.change({ op: "paragraph", parId: event.par_id, dl: event.dl, fragments, revision }));
     if (event.pagination_stale) this.awaitLayout(revision);
-  }
-
-  private loadResources(dls: DisplayList[]): void {
-    const fonts = this.resources.fontsFor(dls, (key) => this.fonts.has(key)).then((found) => {
-      for (const [key, resource] of found) this.fonts.add(key, resource);
-      return found.size;
-    });
-    const images = this.resources.imagesFor(dls, (file) => this.images.has(file)).then((found) => {
-      for (const [file, { resource, page }] of found) this.images.add(file, resource, page);
-      return found.size;
-    });
-    void Promise.all([fonts, images]).then(([newFonts, newImages]) => {
-      if (!this.disposed && newFonts + newImages > 0) this.markPages("all");
-    });
-  }
-
-  private loadFallback(path: string, layoutVersion: number): void {
-    const previous = this.fallback;
-    const document = this.readFile("fallback", path)
-      .then((data) => getDocument({
-        data,
-        cMapUrl: PDF_CMAP_URL,
-        cMapPacked: true,
-        standardFontDataUrl: PDF_STANDARD_FONT_DATA_URL,
-        // As the main viewer: WKWebView can paint embedded Type 1 FontFace glyphs blank.
-        disableFontFace: true,
-        useSystemFonts: false,
-      }).promise)
-      .catch(() => null);
-    this.fallback = { layoutVersion, document };
-    void document.then(() => {
-      void previous?.document.then((old) => old?.loadingTask.destroy());
-      if (!this.disposed) this.markPages("all");
-    });
   }
 
   private async readFile(kind: "font" | "image" | "fallback", path: string): Promise<Uint8Array> {
@@ -527,24 +516,4 @@ export class LivePreviewSession {
 /** The files rtex reads as source: the document's .tex files. */
 function isTexPath(path: string): boolean {
   return path.toLowerCase().endsWith(".tex");
-}
-
-/** A PDF image a display list draws (\includegraphics of a PDF), rasterized once for drawImage. */
-async function rasterizePdfImage(data: Uint8Array, n: number): Promise<CanvasImageSource> {
-  const task = getDocument({ data: data.slice(), disableFontFace: true, useSystemFonts: false });
-  const document = await task.promise;
-  try {
-    const page = await document.getPage(Math.max(1, Math.min(n, document.numPages)));
-    const natural = page.getViewport({ scale: 1 });
-    // enough pixels for a sharp figure at 200 % zoom on a 2× screen
-    const scale = Math.min(6, 2400 / Math.max(natural.width, natural.height));
-    const viewport = page.getViewport({ scale });
-    const canvas = window.document.createElement("canvas");
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-    await page.render({ canvas, viewport }).promise;
-    return canvas;
-  } finally {
-    void task.destroy();
-  }
 }

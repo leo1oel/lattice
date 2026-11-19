@@ -41,6 +41,33 @@ export interface LayoutInput {
 }
 
 /**
+ * One change to the model, as the session makes it: what the PDF's separate
+ * window replays to draw the same pages (live-preview-mirror.ts).
+ */
+export type ModelOp =
+  | { op: "layout"; input: LayoutInput }
+  | { op: "paragraph"; parId: number; dl: DisplayList; fragments: Fragment[]; revision: number }
+  /** Every overlay when `ids` is absent. */
+  | { op: "drop"; ids?: number[] }
+  /** A new base PDF is on screen (setBase). */
+  | { op: "base"; revision: number }
+  /** The revision rtex loaded the project at, before any change of ours. */
+  | { op: "loaded"; revision: number };
+
+/** Everything the model holds, as plain data: a separate window's starting point. */
+export type ModelSnapshot = {
+  pages: [number, PageUpdate][];
+  pagesTotal: number;
+  placements: [number, Fragment[]][];
+  overlays: Overlay[];
+  pageRevision: [number, number][];
+  pageLayout: [number, number][];
+  fallbackLayout: number | null;
+  layoutRevision: number | null;
+  baseRevision: number;
+};
+
+/**
  * Where page `n` comes from: the base PDF as pdf.js drew it, or rtex's layout,
  * from its display list (`exact`) or from the fallback PDF of its layout.
  */
@@ -72,6 +99,49 @@ export class PreviewModel {
 
   get hasLayout(): boolean {
     return this.layoutRevision !== null;
+  }
+
+  /** Make `change`. Returns the pages whose drawing changed ("all" for a new base). */
+  apply(change: ModelOp): ReadonlySet<number> | "all" {
+    switch (change.op) {
+      case "layout": return this.applyLayout(change.input);
+      case "paragraph": return this.applyParagraph(change.parId, change.dl, change.fragments, change.revision);
+      case "drop": return this.dropOverlays(change.ids);
+      case "base":
+        this.setBase(change.revision);
+        return "all";
+      case "loaded":
+        this.baseRevision = change.revision;
+        return new Set();
+    }
+  }
+
+  snapshot(): ModelSnapshot {
+    return {
+      pages: [...this.pages],
+      pagesTotal: this.pagesTotal,
+      placements: [...this.placements],
+      overlays: [...this.overlays.values()],
+      pageRevision: [...this.pageRevision],
+      pageLayout: [...this.pageLayout],
+      fallbackLayout: this.fallbackLayout,
+      layoutRevision: this.layoutRevision,
+      baseRevision: this.baseRevision,
+    };
+  }
+
+  static fromSnapshot(snapshot: ModelSnapshot): PreviewModel {
+    const model = new PreviewModel();
+    for (const [n, page] of snapshot.pages) model.pages.set(n, page);
+    for (const [id, fragments] of snapshot.placements) model.placements.set(id, fragments);
+    for (const overlay of snapshot.overlays) model.overlays.set(overlay.parId, overlay);
+    for (const [n, revision] of snapshot.pageRevision) model.pageRevision.set(n, revision);
+    for (const [n, layout] of snapshot.pageLayout) model.pageLayout.set(n, layout);
+    model.pagesTotal = snapshot.pagesTotal;
+    model.fallbackLayout = snapshot.fallbackLayout;
+    model.layoutRevision = snapshot.layoutRevision;
+    model.baseRevision = snapshot.baseRevision;
+    return model;
   }
 
   /** Install a background layout. Returns the pages whose drawing changed. */
