@@ -5,7 +5,7 @@ Each is upstream's source at an exact pin plus the diffs in this directory, noth
 
 | Crate | Upstream | Pin | License | Diffs |
 |---|---|---|---|---|
-| `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff`, `gpui-fast-interface-zoom.diff`, `gpui-fast-file-drop-modality.diff`, `gpui-fast-active-drag-type.diff`, `gpui-fast-deferred-draw-splice.diff`, `gpui-fast-glyph-outline.diff`, `gpui-fast-element-opacity.diff`, `gpui-fast-single-scene-insert.diff` |
+| `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff`, `gpui-fast-interface-zoom.diff`, `gpui-fast-file-drop-modality.diff`, `gpui-fast-active-drag-type.diff`, `gpui-fast-deferred-draw-splice.diff`, `gpui-fast-glyph-outline.diff`, `gpui-fast-element-opacity.diff`, `gpui-fast-single-scene-insert.diff`, `gpui-fast-lazy-journal.diff` |
 | `gpui-fast/crates/gpui_apple` | the same repository's `crates/gpui_apple` (the Metal renderer and the Apple text system) | the same commit | Apache-2.0 | `gpui-fast-backdrop-blur.diff`, `gpui-fast-font-smoothing.diff`, `gpui-fast-glyph-outline.diff` |
 | `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff`, `gpui-fast-overlay-first-mouse.diff`, `gpui-fast-lab-assume-key.diff`, `gpui-fast-backdrop-blur.diff` |
 | `gpui-component` | [crates.io `gpui-component`](https://crates.io/crates/gpui-component) (GPUI Kit's components) | 0.9.1, crate SHA-256 `e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03` | Apache-2.0 | `gpui-component-overlays.diff`, `gpui-component-lattice-hooks.diff` |
@@ -60,6 +60,9 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
   The whiteboard draws a semi-transparent image (an Excalidraw element's `opacity`) and the elements the eraser is about to take (faded to 20%) this way; a path or text gets its opacity in its color, but an image sprite has no color to carry it.
   quiet.md's gpui 0.2.2 patch #34 made the same method public for the same uses.
   Nothing else changes.
+- **`gpui-fast-lazy-journal.diff`**: the foreground journal (`profiler/journal.rs`) starts recording at the first `App::foreground_journal` call instead of when the `App` is built.
+  Upstream installs it with every app, so its 4 MB ring of slots is allocated and written for the life of the process, while only the hang monitor and the bench harness read it, and Lattice uses neither. Until something asks for it, the recording calls find no journal and do nothing.
+  A thread's turn depth is now counted with or without a journal, so one installed inside a turn ends it in step. A journal installed late holds nothing from before.
 - **`gpui-fast-glyph-outline.diff`** (`gpui` and `gpui_apple`): `WindowTextSystem::glyph_outline(font_id, glyph_id)`, a shaped glyph's outline in font units with y up (`GlyphOutlineCmd`, `fast/glyph_outline.rs` in each crate; upstream files get only the trait's hook and a forwarding method).
   GPUI draws a glyph only as a sprite rasterized upright, and the whiteboard rotates text elements as Excalidraw does; it shapes the text with GPUI as usual and draws the glyphs' outlines under the element's rotation, so the face is the one the shaper picked, CoreText's fallback fonts included.
   The outline is font-kit's (CoreText); the trait's default, which every other platform keeps, is `None`, as it is for a bitmap glyph (color emoji).
