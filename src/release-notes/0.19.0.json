@@ -36,6 +36,17 @@
       }
     },
     {
+      "icon": "shapes",
+      "title": {
+        "en": "Side panels share one surface",
+        "zh": "侧边栏使用同一种底色"
+      },
+      "body": {
+        "en": "Project, Papers, the outline and the Agent's page now sit on one surface, a tone below the editor, which follows your theme and light or dark. In the native Lattice, the Agent's page follows named themes such as Nord too.",
+        "zh": "项目、文献、大纲和 Agent 页面现在使用同一种底色，比编辑器低一个色阶，并跟随主题和浅色/深色外观。在原生 Lattice 中，Agent 页面也会跟随 Nord 等命名主题。"
+      }
+    },
+    {
       "icon": "git",
       "title": {
         "en": "Lattice Beta is now Lattice",
