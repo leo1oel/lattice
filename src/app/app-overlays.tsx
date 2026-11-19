@@ -11,6 +11,7 @@ import { showError } from "./notify";
 import type { useInterfaceZoom } from "./use-interface-zoom";
 import type { useProjectLifecycle } from "./use-project-lifecycle";
 import type { useWhatsNew } from "./use-whats-new";
+import { updatedFromThisLaunch } from "./whats-new";
 
 // Memoized: its props are stable, and App re-renders on every keystroke.
 const InterfaceZoomHud = memo(InterfaceZoomPill);
@@ -40,10 +41,13 @@ export function AppOverlays({ interfaceScale, interfaceZoom, whatsNew, lifecycle
           />
         </Suspense>
       )}
-      {/* Waits for What's new to close: one sheet at a time after an update. */}
-      <Suspense fallback={null}>
-        <NativeAppOffer whatsNewOpen={whatsNew.open} />
-      </Suspense>
+      {/* Only an update can bring the offer, so other launches never load it.
+          It waits for What's new to close: one sheet at a time after an update. */}
+      {updatedFromThisLaunch() && (
+        <Suspense fallback={null}>
+          <NativeAppOffer whatsNewOpen={whatsNew.open} />
+        </Suspense>
+      )}
       {clone.open && (
         <Suspense fallback={null}>
           <CloneRepositoryDialog recentProjectPath={clone.recentProjectPath} onClose={clone.close} onCloned={clone.opened} />

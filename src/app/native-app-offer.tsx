@@ -4,8 +4,9 @@ import { autoOfferNativeApp, releaseNativeApp, type NativeAppRelease } from "./n
 const NativeAppDialog = lazy(() => import("./native-app-dialog").then((module) => ({ default: module.NativeAppDialog })));
 
 /**
- * The native app's automatic offer (native-app.ts), mounted for every window
- * but loaded on demand, so none of it sits on the startup path: the dialog
+ * The native app's automatic offer (native-app.ts), mounted only on the first
+ * launch after an update and loaded on demand, so none of it sits on the
+ * startup path of any other launch: the dialog
  * once this launch qualifies and the check finds a release, held back while
  * What's new is open so the two sheets never stack. The dialog records how
  * it was answered.
