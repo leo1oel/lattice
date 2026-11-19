@@ -85,7 +85,7 @@ struct HostBridgeConfig<'a> {
 }
 
 fn bind_browser_listener() -> io::Result<TcpListener> {
-    #[cfg(feature = "perf-lab")]
+    #[cfg(all(feature = "perf-lab", target_os = "macos"))]
     if let Some(port) = crate::perf_lab::port() {
         // A lab run has its own port, never the shipped app's.
         return TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));

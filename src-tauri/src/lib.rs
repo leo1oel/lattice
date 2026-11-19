@@ -28,7 +28,9 @@ mod macos_window;
 mod native_locale;
 mod open_slide_presenter;
 mod pdf_window;
-#[cfg(feature = "perf-lab")]
+// The lab drives WKWebView with AppKit input, so it exists on macOS alone:
+// elsewhere `perf-lab` compiles to nothing, and `--all-features` still builds.
+#[cfg(all(feature = "perf-lab", target_os = "macos"))]
 mod perf_lab;
 mod project_tab_groups;
 mod save_before_close;
@@ -100,7 +102,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
     traffic_lights::install_traffic_light_alignment(&window);
     macos_window::apply_window_material(&window, &macos_window::WindowMaterial::at_launch());
     macos_window::render_at_display_refresh_rate(&window);
-    #[cfg(feature = "perf-lab")]
+    #[cfg(all(feature = "perf-lab", target_os = "macos"))]
     perf_lab::tune_wkwebview(&window);
     Ok(window)
 }
@@ -212,7 +214,7 @@ fn resources(app: &tauri::App) -> tauri::Result<lattice_core::host::Resources> {
 
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
-    #[cfg(feature = "perf-lab")]
+    #[cfg(all(feature = "perf-lab", target_os = "macos"))]
     perf_lab::disable_app_nap();
     app.manage(AppState::from_environment());
     app.manage(browser_host::BrowserHost::default());
@@ -228,8 +230,9 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ipc::themes::Themes::new(&resources));
     let background = browser_host::launched_as_host();
     // Explicit, browser-host and measurement launches should use their own workspace.
-    let restore_tabs =
-        !background && std::env::var_os("LATTICE_PROJECT").is_none() && !cfg!(feature = "perf-lab");
+    let restore_tabs = !background
+        && std::env::var_os("LATTICE_PROJECT").is_none()
+        && !cfg!(all(feature = "perf-lab", target_os = "macos"));
     app.manage(if restore_tabs {
         project_tab_groups::ProjectTabGroups::load(&resources.app_data_dir)
     } else {
@@ -327,33 +330,33 @@ pub fn run() {
         .on_menu_event(|app, event| native_locale::handle_menu_event(app, &event))
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_config,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_now,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_echo,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_bytes,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_texlab_probe,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_write,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_emit,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_magnify,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_focus,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_key,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_shortcut,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_edit_menu,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_wheel,
-            #[cfg(feature = "perf-lab")]
+            #[cfg(all(feature = "perf-lab", target_os = "macos"))]
             perf_lab::perf_mouse,
             #[cfg(target_os = "linux")]
             linux_release_notice::check_linux_release,

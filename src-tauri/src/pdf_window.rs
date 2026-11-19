@@ -107,7 +107,7 @@ fn build(
     };
     let window = builder.build()?;
     crate::macos_window::render_at_display_refresh_rate(&window);
-    #[cfg(feature = "perf-lab")]
+    #[cfg(all(feature = "perf-lab", target_os = "macos"))]
     crate::perf_lab::tune_wkwebview(&window);
     Ok(())
 }
