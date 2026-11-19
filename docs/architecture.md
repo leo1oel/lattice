@@ -185,15 +185,30 @@ it emits **no** Tauri events, only three commands (`synara_ensure_ready`,
   (`sidecar::NodeRuntime`) — against
   `synara-runtime/server/dist/index.mjs`, on the previous port when it is still
   free and otherwise with `--dynamic-port`, and `SYNARA_HOST=127.0.0.1`. The
-  whole process tree runs inside `BIBLIOGRAPHY_SANDBOX_PROFILE`
-  (`synara/bibliography_guard.rs`), a Seatbelt profile only macOS has. Linux
-  builds have no such guard, so there `synara_ensure_ready` answers the
-  `unsupported` state without starting anything, and the agent surfaces say
-  why (`SynaraLoadingSurface`).
+  whole process tree runs inside the bibliography guard
+  (`synara/bibliography_guard.rs`). On macOS that is
+  `BIBLIOGRAPHY_SANDBOX_PROFILE`, a Seatbelt profile. On Linux Lattice starts
+  its own executable in `--lattice-agent-guard` mode
+  (`bibliography_guard/linux.rs`), which mounts a FUSE file system that
+  refuses changes to `*.bib` names (`bibliography_guard/name_filter.rs`) and
+  runs the sidecar under the system's bubblewrap with that mount as its root,
+  and without the session bus, the display, the SSH agent or the daemons'
+  sockets in `/run` (`bibliography_guard/layout.rs`), under a Landlock scope
+  that keeps it from the host's abstract sockets
+  (`bibliography_guard/linux/abstract_sockets.rs`).
+  A kernel without that scope keeps the agent off like a missing bubblewrap;
+  the writer's two opt-ins for the sandbox are `synara/guard_options.rs`.
+  Where there is no guard (Windows, a Linux system without bubblewrap, FUSE,
+  user namespaces or, unless the writer opted in, a kernel that scopes
+  abstract sockets, or a project in a folder the Linux guard does not
+  cover) `synara_ensure_ready` answers the `unsupported` state without
+  starting anything, and the agent surfaces say why
+  (`SynaraLoadingSurface`).
 - Port discovery is out-of-band: Node writes
   `<SYNARA_HOME>/userdata/server-runtime.json` containing `{pid, origin}`
   (`RUNTIME_STATE_RELATIVE_PATH`). `wait_until_ready` polls that file every
-  50 ms for up to 20 s, requires `pid` to match the child it spawned, then
+  50 ms for up to 20 s, requires `pid` to match the child it spawned (in the
+  Linux sandbox's own process table the service is always 2), then
   `GET {origin}/health` and checks `startupReady` (`health_is_ready`). The
   health client (like the repair client) comes from `http::loopback`, which
   skips proxies on purpose — a system `ALL_PROXY`

@@ -171,7 +171,7 @@ describe("user-triggered compile repair", () => {
   // every status with an error (or not at all), and polling retried forever
   // with the editor read-only and Cancel unable to reach the task.
   const LOST = "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got.";
-  // The relay's answer when the service does not know the thread (synara.rs TASK_UNKNOWN).
+  // The relay's answer when the service does not know the thread (synara/task_relay.rs TASK_UNKNOWN).
   it("gives up on a task the agent service no longer knows", async () => {
     mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => { throw "agent_task_unknown"; } });
     const { result, onComplete } = renderRepair();

@@ -2500,7 +2500,7 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("The bundled {0} is missing at {path}.", &[("0", Arg::Helper(Helper::BundledPart, 0)), ("path", Arg::Param(1))]),
     },
     Entry {
-        file: "synara.rs",
+        file: "synara/task_relay.rs",
         literal: "The agent service returned {status}.",
         text: Text::Message("The agent service returned {status}.", &[("status", Arg::Param(0))]),
     },
@@ -2508,6 +2508,31 @@ pub(super) static ENTRIES: &[Entry] = &[
         file: "synara/bibliography_guard.rs",
         literal: "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.",
         text: Text::Message("The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.", &[]),
+    },
+    Entry {
+        file: "synara/bibliography_guard/linux.rs",
+        literal: "The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly.",
+        text: Text::Message("The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly.", &[]),
+    },
+    Entry {
+        file: "synara/bibliography_guard/linux.rs",
+        literal: "The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly.",
+        text: Text::Message("The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly.", &[]),
+    },
+    Entry {
+        file: "synara/bibliography_guard/linux.rs",
+        literal: "The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly.",
+        text: Text::Message("The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly.", &[]),
+    },
+    Entry {
+        file: "synara/bibliography_guard/linux.rs",
+        literal: "The built-in agent is off because this system cannot keep it away from the X server and the other abstract sockets of your session, through which it could leave its sandbox and edit bibliography (.bib) files directly. That needs Linux 6.12 or later with Landlock, and a bubblewrap (bwrap) that is not setuid. To run the agent anyway, turn on “Run the agent with reduced isolation” in Settings › Agent › Environment.",
+        text: Text::Message("The built-in agent is off because this system cannot keep it away from the X server and the other abstract sockets of your session, through which it could leave its sandbox and edit bibliography (.bib) files directly. That needs Linux 6.12 or later with Landlock, and a bubblewrap (bwrap) that is not setuid. To run the agent anyway, turn on “Run the agent with reduced isolation” in Settings › Agent › Environment.", &[]),
+    },
+    Entry {
+        file: "synara/bibliography_guard/linux.rs",
+        literal: "The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it.",
+        text: Text::Message("The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it.", &[]),
     },
     Entry {
         file: "terminal/windows.rs",

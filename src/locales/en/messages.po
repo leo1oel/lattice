@@ -2070,8 +2070,8 @@ msgid "Agent is revising, {0} of {1} answered"
 msgstr "Agent is revising, {0} of {1} answered"
 
 #: src/agent/synara-loading-surface.tsx
-msgid "Agent isn’t available on Linux yet"
-msgstr "Agent isn’t available on Linux yet"
+msgid "Agent isn’t available here"
+msgstr "Agent isn’t available here"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Agent isn’t available on Windows yet"
@@ -3540,6 +3540,10 @@ msgstr "Changes"
 msgctxt "git panel"
 msgid "Changes"
 msgstr "Changes"
+
+#: src/settings/agent-guard-settings.tsx
+msgid "Changes here apply the next time the agent starts."
+msgstr "Changes here apply the next time the agent starts."
 
 #: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
@@ -9008,6 +9012,10 @@ msgstr "Lattice builds your PDF with the TeX Live on this computer. Install it f
 msgid "Lattice can't save files in that folder. Choose another one."
 msgstr "Lattice can't save files in that folder. Choose another one."
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection."
+msgstr "Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection."
+
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -9242,6 +9250,11 @@ msgstr "Less than a minute left"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Less than or equal"
 msgstr "Less than or equal"
+
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Let the agent use your SSH agent"
+msgstr "Let the agent use your SSH agent"
 
 #: src/plugins/plugin-settings.tsx
 msgid "Licence: {license}"
@@ -11255,10 +11268,6 @@ msgstr "On “{0}”"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "on line"
-
-#: src/agent/synara-loading-surface.tsx
-msgid "On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming."
-msgstr "On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming."
 
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
@@ -14395,6 +14404,11 @@ msgstr "run {run}"
 msgid "Run TeX doctor"
 msgstr "Run TeX doctor"
 
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Run the agent with reduced isolation"
+msgstr "Run the agent with reduced isolation"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Run-in paragraph heading"
 msgstr "Run-in paragraph heading"
@@ -14411,6 +14425,11 @@ msgstr "Running {title}…"
 #: src/settings/theme-settings.tsx
 msgid "Sage"
 msgstr "Sage"
+
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Sandbox"
+msgstr "Sandbox"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Sans-serif text"
@@ -16531,6 +16550,31 @@ msgstr "The built-in agent did not become ready within {seconds} seconds."
 
 #: src/build/compile-repair-messages.ts
 #: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly."
+msgstr "The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly."
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly."
+msgstr "The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly."
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off because this system cannot keep it away from the X server and the other abstract sockets of your session, through which it could leave its sandbox and edit bibliography (.bib) files directly. That needs Linux 6.12 or later with Landlock, and a bubblewrap (bwrap) that is not setuid. To run the agent anyway, turn on “Run the agent with reduced isolation” in Settings › Agent › Environment."
+msgstr "The built-in agent is off because this system cannot keep it away from the X server and the other abstract sockets of your session, through which it could leave its sandbox and edit bibliography (.bib) files directly. That needs Linux 6.12 or later with Landlock, and a bubblewrap (bwrap) that is not setuid. To run the agent anyway, turn on “Run the agent with reduced isolation” in Settings › Agent › Environment."
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly."
+msgstr "The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly."
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it."
+msgstr "The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it."
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
 msgid "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly."
 msgstr "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly."
 
@@ -18011,6 +18055,16 @@ msgstr "This sentence is {count} words long."
 msgid "This source line has no matching position in the PDF."
 msgstr "This source line has no matching position in the PDF."
 
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "This system cannot keep the agent away from the X server and other abstract sockets on this computer; that needs Linux 6.12 or later. With this on the agent runs anyway and can reach them, so it could escape its sandbox and edit .bib files directly."
+msgstr "This system cannot keep the agent away from the X server and other abstract sockets on this computer; that needs Linux 6.12 or later. With this on the agent runs anyway and can reach them, so it could escape its sandbox and edit .bib files directly."
+
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "This system keeps the agent away from abstract sockets by itself now, so this changes nothing here. You can turn it off."
+msgstr "This system keeps the agent away from abstract sockets by itself now, so this changes nothing here. You can turn it off."
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "This table has source edits or unsupported structure. Continue editing it in the source editor."
 msgstr "This table has source edits or unsupported structure. Continue editing it in the source editor."
@@ -19255,6 +19309,11 @@ msgstr "When off, adding a paper adds only its citation. Its full text can still
 #: src/settings/settings-search-index.ts
 msgid "When you delete a file here"
 msgstr "When you delete a file here"
+
+#: src/settings/agent-guard-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "While this is off, git over SSH and signed commits do not work inside the agent. With it on, the agent can use every key your SSH agent holds, on any server those keys open."
+msgstr "While this is off, git over SSH and signed commits do not work inside the agent. With it on, the agent can use every key your SSH agent holds, on any server those keys open."
 
 #: src/components/ui/color-picker.tsx
 msgid "White"

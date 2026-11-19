@@ -7,6 +7,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { restartAgentRuntime } from "../agent/agent-environment";
+import { AgentGuardSettings } from "./agent-guard-settings";
 import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
 import { toMessage } from "../app-utils";
 import "./agent-environment-settings.css";
@@ -51,7 +52,8 @@ function reduce(state: State, action: Action): State {
 /**
  * Settings › Agent › Environment: the proxy and provider variables the agent
  * receives, from the login shell and the system proxy, and a restart that
- * makes it read them again.
+ * makes it read them again. On Linux, the sandbox's two opt-ins follow
+ * (`agent-guard-settings.tsx`).
  */
 export function AgentEnvironmentSettings(props: { runtime: SynaraRuntimeInfo }) {
   const { t } = useLingui();
@@ -132,6 +134,7 @@ export function AgentEnvironmentSettings(props: { runtime: SynaraRuntimeInfo }) 
           </SettingsRow>
         ))}
       </SettingsGroup>
+      <AgentGuardSettings />
     </div>
   );
 }

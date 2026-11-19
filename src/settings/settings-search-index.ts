@@ -3,6 +3,7 @@ import type { SettingsTab } from "../app-types";
 import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import { TIMELESS } from "./interface-font-credit";
 import { updatesItself } from "../telemetry/updates-itself";
+import { hostPlatform } from "../platform/host-platform";
 
 /**
  * One searchable setting. `id` is the `data-setting` of the row it reveals;
@@ -103,6 +104,11 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "model-endpoint", place: t`Model endpoint`, id: "model-endpoint-runtime", label: t`Pi runtime` },
     { tab: "environment", label: t`Environment`, place: t`Agent`, terms: `HTTPS_PROXY ANTHROPIC_BASE_URL ${t({ message: "proxy key endpoint shell restart", comment: "Search words for the agent Environment settings page, space-separated" })}` },
     { tab: "environment", place: t`Environment`, id: "agent-restart", label: t`Restart agent` },
+    // The sandbox's two opt-ins (agent-guard-settings.tsx), which only the Linux sandbox has.
+    ...(hostPlatform() === "linux" ? [
+      { tab: "environment", place: t`Environment`, id: "agent-reduced-isolation", label: t`Run the agent with reduced isolation`, terms: `${t`Sandbox`} Landlock X11`, description: `${t`This system cannot keep the agent away from the X server and other abstract sockets on this computer; that needs Linux 6.12 or later. With this on the agent runs anyway and can reach them, so it could escape its sandbox and edit .bib files directly.`} ${t`This system keeps the agent away from abstract sockets by itself now, so this changes nothing here. You can turn it off.`}` },
+      { tab: "environment", place: t`Environment`, id: "agent-forward-ssh-agent", label: t`Let the agent use your SSH agent`, terms: `${t`Sandbox`} git SSH_AUTH_SOCK`, description: t`While this is off, git over SSH and signed commits do not work inside the agent. With it on, the agent can use every key your SSH agent holds, on any server those keys open.` },
+    ] satisfies SettingsSearchEntry[] : []),
     { tab: "overleaf", label: overleaf, place: t`Integrations` },
     { tab: "overleaf", place: overleaf, id: "overleaf-connection", label: t`Connection` },
     { tab: "overleaf", place: overleaf, id: "overleaf-sync-mode", label: t`Sync mode`, terms: `${t`Live sync`} ${t`Manual`}` },
