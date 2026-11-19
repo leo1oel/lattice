@@ -1,7 +1,8 @@
 //! The project switcher's menu, as the Tauri app's (`src/project/project-menu.tsx`):
-//! the recent projects other than this one (five at most), each opened in a
-//! window of its own by its row or in this window by the row's trailing
-//! window glyph; then Open another folder (with its own in-this-window
+//! the recent projects other than this one (eight at most, an Overleaf
+//! project on the Cloud glyph), each opened in a window of its own by its
+//! row or in this window by the row's trailing window glyph, and with more
+//! than eight, "All recent projects…", the recent project finder; then Open another folder (with its own in-this-window
 //! glyph), New project, Clone repository…, Open from Overleaf, the Guided
 //! tutorial, and Settings, the titlebar's way into Settings, as the app's
 //! menu ends.
@@ -14,8 +15,6 @@
 //! under it (the recent projects and their glyphs, Open from Overleaf, the
 //! Guided tutorial) are dimmed, as the app's `busy` dims them.
 
-use std::path::PathBuf;
-
 use gpui::{Action as _, App, IntoElement, Styled as _, WeakEntity, Window, px};
 use lattice_i18n::t;
 use lattice_ui::{
@@ -24,7 +23,7 @@ use lattice_ui::{
 };
 
 use crate::{
-    recents::RecentProjects,
+    recents::{RecentProject, RecentProjects},
     shell::{
         Shell,
         commands::{
@@ -35,17 +34,7 @@ use crate::{
 };
 
 /// How many other projects the menu lists.
-const MAX_SWITCHER_PROJECTS: usize = 5;
-
-/// The recent projects other than `current`, newest first.
-fn switcher_projects(current: Option<&PathBuf>, cx: &App) -> Vec<(String, PathBuf)> {
-    RecentProjects::list(cx)
-        .iter()
-        .filter(|recent| Some(&recent.path) != current)
-        .take(MAX_SWITCHER_PROJECTS)
-        .map(|recent| (recent.name.clone(), recent.path.clone()))
-        .collect()
-}
+const MAX_SWITCHER_PROJECTS: usize = 8;
 
 pub(super) fn project_menu(
     shell: WeakEntity<Shell>,
@@ -60,12 +49,20 @@ pub(super) fn project_menu(
     let exporting = shell
         .upgrade()
         .is_some_and(|shell| shell.read(cx).exporting_zip());
-    let recents = switcher_projects(current.as_ref(), cx);
+    RecentProjects::refresh(cx);
+    let others = RecentProjects::others(current.as_deref(), cx);
+    let more = others.len() > MAX_SWITCHER_PROJECTS;
     let mut menu = menu.min_w(px(208.));
     // With no other project to go back to, the menu starts at its actions.
-    if !recents.is_empty() {
+    if !others.is_empty() {
         menu = menu.label(t!("Recent projects"));
-        for (name, path) in recents {
+        for RecentProject {
+            name,
+            path,
+            overleaf,
+            ..
+        } in others.into_iter().take(MAX_SWITCHER_PROJECTS)
+        {
             let here = OpenRecentProject {
                 path: path.clone(),
                 here: true,
@@ -75,7 +72,7 @@ pub(super) fn project_menu(
                     name.clone(),
                     Box::new(OpenRecentProject { path, here: false }),
                 )
-                .icon(Icon::FOLDER)
+                .icon(if overleaf { Icon::CLOUD } else { Icon::FOLDER })
                 .disabled(exporting)
                 .secondary(
                     Icon::APP_WINDOW,
@@ -85,6 +82,19 @@ pub(super) fn project_menu(
                     )),
                     move |window, cx| window.dispatch_action(here.boxed_clone(), cx),
                 ),
+            );
+        }
+        // On its shell directly, as Settings below is.
+        if more {
+            let shell = shell.clone();
+            menu = menu.item(
+                MenuAction::new(t!("All recent projects…"), move |window, cx| {
+                    shell
+                        .update(cx, |shell, cx| shell.open_recent_finder(window, cx))
+                        .ok();
+                })
+                .icon(Icon::SEARCH)
+                .disabled(exporting),
             );
         }
         menu = menu.separator();

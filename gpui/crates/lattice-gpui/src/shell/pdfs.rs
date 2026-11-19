@@ -113,6 +113,17 @@ impl Shell {
         }
     }
 
+    /// A build the writer asked for (the Build chip, the palette, ⌘S) brings
+    /// a closed or hidden PDF panel back first, as the Tauri app's
+    /// `showProjectPdf` does, unless the PDF is in its own window; in focus
+    /// mode the PDF stays as the writer set it.
+    pub(super) fn show_project_pdf(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.layout.focus.is_some() || self.pdf.read(cx).in_window() {
+            return;
+        }
+        self.show_view("pdf", false, window, cx);
+    }
+
     /// A build left `document`'s PDF: it is the live one now. `requested`
     /// when the writer asked for the build, which brings the live tab to the
     /// front.

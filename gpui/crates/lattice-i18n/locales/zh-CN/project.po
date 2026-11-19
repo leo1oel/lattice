@@ -1,3 +1,7 @@
 #: lattice-gpui/src/project.rs
 msgid "Could not set the main document"
 msgstr "无法设为主文档"
+
+#: lattice-gpui/src/welcome/more_projects.rs
+msgid "Show all {count} projects"
+msgstr "显示全部 {count} 个项目"

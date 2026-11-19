@@ -137,17 +137,22 @@ pub fn follow_front(cx: &mut App) {
     });
 }
 
-/// File ▸ Open Recent: the recent projects, newest first, at most five, the
-/// one in front left out (`switcherProjects`). Each opens as Open Recent does
-/// in the app: in a window of its own once the window shows a project.
+/// How many projects File ▸ Open Recent lists before All Recent Projects….
+const OPEN_RECENT_SHOWN: usize = 10;
+
+/// File ▸ Open Recent: the recent projects, newest first, at most ten, the
+/// one in front left out (`switcherProjects`), then with more, a separator
+/// and All Recent Projects…, the recent project finder. Each opens as Open
+/// Recent does in the app: in a window of its own once the window shows a
+/// project.
 fn open_recent(cx: &App) -> MenuItem {
     let front = cx
         .active_window()
         .and_then(|window| windows::root_of(window, cx));
-    let items: Vec<MenuItem> = crate::recents::RecentProjects::list(cx)
+    let others = crate::recents::RecentProjects::others(front.as_deref(), cx);
+    let mut items: Vec<MenuItem> = others
         .iter()
-        .filter(|recent| Some(&recent.path) != front.as_ref())
-        .take(5)
+        .take(OPEN_RECENT_SHOWN)
         .map(|recent| {
             MenuItem::action(
                 recent.name.clone(),
@@ -158,6 +163,15 @@ fn open_recent(cx: &App) -> MenuItem {
             )
         })
         .collect();
+    if others.len() > OPEN_RECENT_SHOWN {
+        items.extend([
+            MenuItem::separator(),
+            MenuItem::action(
+                tc!("macOS menu bar", "All Recent Projects…"),
+                OpenRecentFinder,
+            ),
+        ]);
+    }
     // With no other project to offer, it stays in its place, dimmed.
     let none = items.is_empty();
     MenuItem::submenu(

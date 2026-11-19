@@ -10,3 +10,8 @@
    control, and an install's error under them. */
 .theme-file-actions { display: grid; justify-items: end; gap: var(--space-3); min-width: 0; }
 .theme-file-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
+/* Four buttons (a chosen theme adds Remove theme) are wider than the page
+   leaves a control, so they wrap rather than squeeze the label to a
+   character a line. */
+.ui-settings-row:has(> .ui-settings-row-control > .theme-file-actions) > .ui-settings-row-copy { flex: 1 1 160px; min-width: 160px; }
+.ui-settings-row-control:has(> .theme-file-actions) { flex: 0 1 auto; min-width: 0; }

@@ -6,7 +6,8 @@
 //! the mark weaving itself in a 50px frame, "Lattice" in the display serif
 //! (36 to 48px with the window), then New project, Open folder and Guided
 //! tutorial; the projects to go back to (why the last one could not reopen,
-//! then the desk of up to three, `desk`); and quieter, the other ways in:
+//! then the desk of up to three, `desk`, and under it the next twenty in
+//! a compact list, `more_projects`); and quieter, the other ways in:
 //! Clone repository, Import ZIP, Install LaTeX tools. Its 48px top strip
 //! drags the window and holds Settings at the right. The column rises 6px
 //! into place on the slow tier, the actions, the desk and the other ways in
@@ -17,10 +18,11 @@
 pub mod clone;
 mod desk;
 
-pub(crate) use desk::age;
+pub(crate) use desk::{age, parent_folder_label};
 mod field;
 pub mod local_templates;
 mod mark;
+mod more_projects;
 pub mod new_project;
 pub mod save_template;
 
@@ -59,6 +61,8 @@ pub enum WelcomeEvent {
     OpenFolder,
     Tutorial,
     OpenRecent(PathBuf),
+    /// "Show all N projects": the recent project finder.
+    ShowAllRecents,
     CloneRepository,
     ImportZip,
     InstallLatexTools,
@@ -99,6 +103,7 @@ impl Welcome {
             .take(desk::DESK_SIZE)
             .map(|project| project.path.clone())
             .collect();
+        RecentProjects::refresh(cx);
         let load = FirstPages::load(&roots, cx);
         let pages_task = cx.spawn(async move |this, cx| {
             let pages = load.await;
@@ -125,19 +130,22 @@ impl Welcome {
         cx.notify();
     }
 
-    /// The projects the desk lays out, in order: never the one launch could
-    /// not reopen.
+    /// The recent projects the screen offers, in order: never the one
+    /// launch could not reopen.
+    fn offered_projects(&self, cx: &App) -> Vec<RecentProject> {
+        RecentProjects::others(
+            self.unopened
+                .as_ref()
+                .map(|unopened| unopened.project.path.as_path()),
+            cx,
+        )
+    }
+
+    /// The projects the desk lays out, in order.
     fn desk_projects(&self, cx: &App) -> Vec<RecentProject> {
-        let unopened = self
-            .unopened
-            .as_ref()
-            .map(|unopened| &unopened.project.path);
-        RecentProjects::list(cx)
-            .iter()
-            .filter(|project| Some(&project.path) != unopened)
-            .take(desk::DESK_SIZE)
-            .cloned()
-            .collect()
+        let mut projects = self.offered_projects(cx);
+        projects.truncate(desk::DESK_SIZE);
+        projects
     }
 
     fn open_at(&mut self, ix: usize, cx: &mut Context<Self>) {
@@ -251,8 +259,33 @@ impl Render for Welcome {
         let column = px(520.).min(viewport.width - px(48.));
         let recents_width = px(720.).min(viewport.width - px(64.));
         let title_size = (f32::from(viewport.width) * 0.044).clamp(36., 48.);
-        let desk_projects = self.desk_projects(cx);
+        let offered = self.offered_projects(cx);
+        let desk_projects: Vec<RecentProject> =
+            offered.iter().take(desk::DESK_SIZE).cloned().collect();
         let show_desk = !desk_projects.is_empty() && viewport.height >= px(620.);
+        let listed = more_projects::listed(&offered);
+        let more_list = (show_desk && !listed.is_empty()).then(|| {
+            let open = cx.entity().downgrade();
+            let show_all = cx.entity().downgrade();
+            div().w(recents_width).child(more_projects::more_projects(
+                listed,
+                offered.len(),
+                self.now,
+                busy,
+                move |path: &Path, _, cx| {
+                    let path = path.to_path_buf();
+                    open.update(cx, |_, cx| cx.emit(WelcomeEvent::OpenRecent(path)))
+                        .ok();
+                },
+                move |_, cx| {
+                    show_all
+                        .update(cx, |_, cx| cx.emit(WelcomeEvent::ShowAllRecents))
+                        .ok();
+                },
+                window,
+                cx,
+            ))
+        });
         let weak = cx.entity().downgrade();
         let desk = show_desk.then(|| {
             desk::desk(
@@ -412,7 +445,8 @@ impl Render for Welcome {
                         .items_center()
                         .gap(px(8.))
                         .children(unopened.map(|message| div().w_full().child(message)))
-                        .children(desk),
+                        .children(desk)
+                        .children(more_list),
                     cx,
                 ))
             })
@@ -494,6 +528,7 @@ mod tests {
                 name: "Thesis draft".into(),
                 path: "/Users/writer/Moved/thesis-draft".into(),
                 opened_at: None,
+                ..Default::default()
             },
             reason: reason.into(),
         }

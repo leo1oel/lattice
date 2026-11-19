@@ -98,6 +98,7 @@ actions!(
         NextProject,
         PreviousProject,
         CloseProject,
+        OpenRecentFinder,
         Quit,
         Hide,
         HideOthers,
