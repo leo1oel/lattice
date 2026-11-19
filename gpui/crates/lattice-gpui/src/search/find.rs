@@ -26,7 +26,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::models::ProjectSearchResult;
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
-    components::Button,
+    components::{Button, TrapFocus as _},
     fluid_hover::FluidHover,
     icons::{ICON, file_glyph},
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
@@ -94,7 +94,8 @@ impl ProjectFind {
         cx: &mut Context<Self>,
     ) -> Self {
         let input = cx.new(|cx| {
-            let mut state = InputState::new(window, cx).placeholder("Search files and papers…");
+            let mut state = InputState::new(window, cx)
+                .placeholder(lattice_i18n::t!("Search files and papers…"));
             state.set_value(memory.query.clone(), window, cx);
             state
         });
@@ -427,7 +428,7 @@ impl ProjectFind {
                         .pb(px(6.))
                         .text_role(TextRole::Caption, cx)
                         .text_color(palette.text_secondary)
-                        .child("Papers")
+                        .child(lattice_i18n::t!("Papers"))
                         .into_any_element(),
                 );
             }
@@ -548,9 +549,9 @@ impl ProjectFind {
         let status = if query.is_empty() {
             None
         } else if self.error.is_some() {
-            Some("Search failed.".to_string())
+            Some(lattice_i18n::t!("Search failed.").to_string())
         } else if self.searching() {
-            Some("Searching…".to_string())
+            Some(lattice_i18n::t!("Searching…").to_string())
         } else {
             None
         };
@@ -570,11 +571,21 @@ impl ProjectFind {
                     .rounded(px(11.))
                     .border_1()
                     .border_color(palette.line)
-                    .child(tab("find-scope-all", "All", FindScope::All, files + papers))
-                    .child(tab("find-scope-files", "Files", FindScope::Files, files))
+                    .child(tab(
+                        "find-scope-all",
+                        lattice_i18n::t!("All"),
+                        FindScope::All,
+                        files + papers,
+                    ))
+                    .child(tab(
+                        "find-scope-files",
+                        lattice_i18n::t!("Files"),
+                        FindScope::Files,
+                        files,
+                    ))
                     .child(tab(
                         "find-scope-papers",
-                        "Papers",
+                        lattice_i18n::t!("Papers"),
                         FindScope::Papers,
                         papers,
                     )),
@@ -716,18 +727,18 @@ impl Render for ProjectFind {
             let (title, action, label): (String, FindScope, &str) = if found > 0 {
                 (
                     if self.scope == FindScope::Files {
-                        format!("No files match “{query}”")
+                        lattice_i18n::t!("No files match “{trimmedQuery}”", trimmedQuery = query)
                     } else {
-                        format!("No papers match “{query}”")
+                        lattice_i18n::t!("No papers match “{trimmedQuery}”", trimmedQuery = query)
                     },
                     FindScope::All,
-                    "Show all results",
+                    lattice_i18n::t!("Show all results"),
                 )
             } else {
                 (
-                    format!("No results for “{query}”"),
+                    lattice_i18n::t!("No results for “{trimmedQuery}”", trimmedQuery = query),
                     FindScope::All,
-                    "Clear search",
+                    lattice_i18n::t!("Clear search"),
                 )
             };
             let clears = found == 0;
@@ -763,7 +774,7 @@ impl Render for ProjectFind {
         let frame = SheetFrame {
             id: "project-find",
             icon: Icon::SEARCH,
-            title: "Find in project",
+            title: lattice_i18n::t!("Find in project"),
             body,
             actions: Vec::new(),
             scrim_closes: true,
@@ -778,7 +789,7 @@ impl Render for ProjectFind {
             .top_0()
             .left_0()
             .size_full()
-            .track_focus(&self.focus)
+            .trap_focus("project-find-keys", &self.focus)
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 let keystroke = &event.keystroke;
                 match keystroke.key.as_str() {

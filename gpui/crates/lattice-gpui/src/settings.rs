@@ -42,6 +42,7 @@ pub(crate) mod plugins_pane;
 mod providers_pane;
 pub(crate) mod search;
 mod theme_art;
+mod theme_browse;
 mod theme_files;
 
 use std::{
@@ -109,19 +110,72 @@ fn modified(path: &std::path::Path) -> Option<SystemTime> {
         .ok()
 }
 
+/// The Tauri app's WebKit storage, which the imports read only on an
+/// ordinary run; `LATTICE_GPUI_TAURI_STORAGE` points it elsewhere (a
+/// scenario's copy).
+fn tauri_storage(scripted: bool) -> Option<PathBuf> {
+    match std::env::var_os("LATTICE_GPUI_TAURI_STORAGE") {
+        Some(dir) if dir.is_empty() => None,
+        Some(dir) => Some(PathBuf::from(dir)),
+        None if scripted => None,
+        None => lattice_settings::import::website_data(lattice_settings::import::TAURI_BUNDLE_ID),
+    }
+}
+
+/// Carry the rest of the writer's state over from the Tauri app on the
+/// first launch (`lattice_settings::migrate`), before anything reads it:
+/// the recent projects, the Overleaf session and linked folders, the
+/// installed plugins, themes, project templates and Agent skills, and the
+/// smaller lists the Tauri app keeps in localStorage. The Tauri app's data
+/// folder (Tauri's `app_data_dir`, and `app_config_dir` for Overleaf) is
+/// read only on an ordinary run; `LATTICE_GPUI_TAURI_DATA` names a stand-in
+/// holding both, as a scenario's copy.
+pub fn migrate_from_tauri(scripted: bool) {
+    use lattice_settings::{import::TAURI_BUNDLE_ID, migrate};
+    let Some(state) = crate::shell::workspaces::state_dir(scripted) else {
+        return;
+    };
+    let (data, config) = match std::env::var_os("LATTICE_GPUI_TAURI_DATA") {
+        Some(dir) if dir.is_empty() => return,
+        Some(dir) => (PathBuf::from(&dir), PathBuf::from(dir)),
+        None if scripted => return,
+        None => match (dirs::data_dir(), dirs::config_dir()) {
+            (Some(data), Some(config)) => {
+                (data.join(TAURI_BUNDLE_ID), config.join(TAURI_BUNDLE_ID))
+            }
+            _ => return,
+        },
+    };
+    let tauri = migrate::Tauri {
+        data,
+        config,
+        website_data: tauri_storage(scripted),
+    };
+    let gpui = migrate::Gpui {
+        state,
+        data: crate::structured::resources::app_dirs().data,
+        overleaf: crate::overleaf::config_dir(),
+    };
+    if let Some(report) = migrate::migrate(&tauri, &gpui) {
+        log::info!(
+            "carried the Tauri app's state over from {}: {:?}{}",
+            tauri.data.display(),
+            report.carried,
+            if report.failed.is_empty() {
+                String::new()
+            } else {
+                format!("; will try again next launch: {:?}", report.failed)
+            }
+        );
+    }
+}
+
 /// Read (or import) the settings and apply them, before the first window
 /// opens; then keep watching the file.
 pub fn init(scripted: bool, cx: &mut App) {
     let path =
         crate::shell::workspaces::state_dir(scripted).map(|dir| lattice_settings::file_in(&dir));
-    // The import reads the Tauri app's storage only on an ordinary run;
-    // `LATTICE_GPUI_TAURI_STORAGE` points it elsewhere (a scenario's copy).
-    let tauri = match std::env::var_os("LATTICE_GPUI_TAURI_STORAGE") {
-        Some(dir) if dir.is_empty() => None,
-        Some(dir) => Some(PathBuf::from(dir)),
-        None if scripted => None,
-        None => lattice_settings::import::website_data(lattice_settings::import::TAURI_BUNDLE_ID),
-    };
+    let tauri = tauri_storage(scripted);
     let settings = match &path {
         Some(path) => lattice_settings::load(path, tauri.as_deref())
             .settings()
@@ -279,13 +333,20 @@ pub fn theme_store() -> lattice_core::themes::ThemeStore {
     lattice_core::themes::ThemeStore::new(&crate::structured::resources::app_dirs().data)
 }
 
+/// The theme marketplace's client, caching beside the installed themes.
+pub fn registry() -> lattice_core::registry::Registry {
+    lattice_core::registry::Registry::new(&crate::structured::resources::app_dirs().data)
+}
+
 /// Read the chosen theme again and apply it: after the choice changes, and
 /// after the chosen theme is reinstalled or removed. A theme that no longer
-/// exists applies as no theme.
+/// exists, or that the registry's kill switch turned off, applies as no
+/// theme.
 pub fn reload_theme(cx: &mut App) {
     let id = get(cx).appearance.theme.clone();
-    let file = (!id.is_empty())
-        .then(|| theme_store().get(&id))
+    let store = theme_store();
+    let file = (!id.is_empty() && !registry().turned_off(&store, &id))
+        .then(|| store.get(&id))
         .flatten()
         .map(std::sync::Arc::new);
     LatticeTheme::set_theme(file, cx);
@@ -360,7 +421,12 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
                 crate::shell::windows::for_shells(
                     cx,
                     |_| true,
-                    |shell, window, cx| shell.set_window_title(window, cx),
+                    |shell, window, cx| {
+                        shell.set_window_title(window, cx);
+                        // The tab strip names views by the titles the shell
+                        // last handed its engine.
+                        shell.titles_changed(cx);
+                    },
                 );
             });
             cx.refresh_windows();

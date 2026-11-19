@@ -274,7 +274,11 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     let not_yet = |id: &'static str, icon: Icon, name: &str| {
         IconButton::new(id, icon)
             .surface(Surface::Titlebar)
-            .tooltip(t!("{name} — not in the GPUI preview yet", name = name))
+            .tooltip(t!(
+                "{name} — not in {app} yet",
+                name = name,
+                app = crate::APP_NAME
+            ))
     };
     // Settings › Appearance › Title bar tools hides each of these.
     let tool = |tool: TitlebarTool, id: &'static str, icon: Icon, name: &str| {

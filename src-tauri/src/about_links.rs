@@ -12,6 +12,8 @@ const ABOUT: &str = "about";
 const OPEN_LINK_PREFIX: &str = "open-link:";
 const REPOSITORY_URL: &str = "https://github.com/leo1oel/lattice";
 const WEBSITE_URL: &str = "https://leo1oel.github.io/lattice/";
+/// The user guide's English contents (docs/guide/, published by user-guide.yml).
+const USER_GUIDE_URL: &str = "https://leo1oel.github.io/lattice/guide/";
 
 /// The attribution Trellis's license asks shipped apps to show.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -42,6 +44,25 @@ pub(crate) fn help_items<R: Runtime>(
         MenuItem::with_id(app, format!("{OPEN_LINK_PREFIX}{url}"), title, true, None::<&str>)
     };
     Ok([link(WEBSITE_URL, website)?, link(REPOSITORY_URL, github)?])
+}
+
+/// Help ▸ User Guide: the guide's pages on the website in the interface
+/// language, which the page names. Anything else the page might send opens
+/// the guide's English contents instead.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn user_guide_item<R: Runtime>(
+    app: &AppHandle<R>, title: &str, url: &str,
+) -> tauri::Result<MenuItem<R>> {
+    let url = user_guide_link(url);
+    MenuItem::with_id(app, format!("{OPEN_LINK_PREFIX}{url}"), title, true, None::<&str>)
+}
+
+fn user_guide_link(url: &str) -> &str {
+    if url.starts_with(USER_GUIDE_URL) {
+        url
+    } else {
+        USER_GUIDE_URL
+    }
 }
 
 /// Run the About or link item `id`; false when `id` is neither.
@@ -76,3 +97,16 @@ fn show_about<R: Runtime>(app: &AppHandle<R>) {
 
 #[cfg(not(target_os = "macos"))]
 fn show_about<R: Runtime>(_app: &AppHandle<R>) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn user_guide_opens_only_the_guide() {
+        let chinese = "https://leo1oel.github.io/lattice/guide/zh-CN/";
+        assert_eq!(user_guide_link(chinese), chinese);
+        assert_eq!(user_guide_link("https://example.com/guide/"), USER_GUIDE_URL);
+        assert_eq!(user_guide_link("file:///etc/passwd"), USER_GUIDE_URL);
+    }
+}

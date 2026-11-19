@@ -26,15 +26,33 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 static LOCK: Mutex<()> = Mutex::new(());
-const MAX_ARCHIVE: u64 = 50 << 20;
+pub(crate) const MAX_ARCHIVE: u64 = 50 << 20;
 const MAX_UNPACKED: u64 = 200 << 20;
 const MAX_FILES: usize = 10_000;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Source {
-    Folder { path: PathBuf },
-    Url { url: String, sha256: String },
+    Folder {
+        path: PathBuf,
+    },
+    Url {
+        url: String,
+        sha256: String,
+    },
+    /// From the signed registry index, which named this archive's SHA-256.
+    Registry {
+        url: String,
+        sha256: String,
+    },
+}
+
+impl Source {
+    /// Whether the registry's block list applies: to everything but a
+    /// folder, which is the writer's own code.
+    pub fn blockable(&self) -> bool {
+        !matches!(self, Source::Folder { .. })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -147,11 +165,23 @@ impl Store {
                 "The download's SHA-256 is {actual}, not the one given. Nothing was installed."
             ));
         }
+        let source = Source::Url { url: url.to_string(), sha256: expected };
+        self.install_archive(&bytes, source, |_| Ok(()))
+    }
+
+    /// Unpack an archive whose hash the caller has checked, let `check` see
+    /// its manifest before anything is installed, and install it as
+    /// `source`. An update keeps the plugin enabled only when it asks for
+    /// nothing it was not already granted.
+    pub(crate) fn install_archive(
+        &self, bytes: &[u8], source: Source, check: impl FnOnce(&Manifest) -> Result<(), String>,
+    ) -> Result<Record, String> {
         let staging = self.root.join("staging").join(uuid::Uuid::new_v4().to_string());
         let result = (|| {
-            unpack(&bytes, &staging)?;
+            unpack(bytes, &staging)?;
             let package = package_root(&staging)?;
             let manifest = manifest::read(&package)?;
+            check(&manifest)?;
             if !manifest::ACCEPTED_LICENSES.contains(&manifest.license.as_str()) {
                 return Err(format!(
                     "The plugin's licence ({}) is not one Lattice accepts for installed plugins.",
@@ -166,7 +196,6 @@ impl Store {
                 .map_err(|e| e.to_string())?;
             std::fs::rename(&package, &dir).map_err(|e| e.to_string())?;
             let dir = dir.canonicalize().map_err(|e| e.to_string())?;
-            let source = Source::Url { url: url.to_string(), sha256: expected.clone() };
             self.update(|plugins| Ok(upsert(plugins, manifest, source, dir)))
         })();
         let _ = std::fs::remove_dir_all(&staging);
@@ -199,7 +228,7 @@ impl Store {
                 plugins.iter().position(|r| r.id == id).ok_or("This plugin is not installed.")?;
             Ok(plugins.remove(index))
         })?;
-        if matches!(record.source, Source::Url { .. }) {
+        if !matches!(record.source, Source::Folder { .. }) {
             let _ = std::fs::remove_dir_all(self.root.join("packages").join(id));
         }
         let _ = std::fs::remove_dir_all(self.data_dir(id));

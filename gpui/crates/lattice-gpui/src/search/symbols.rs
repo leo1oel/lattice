@@ -38,10 +38,10 @@ pub enum SymbolGroup {
 impl SymbolGroup {
     pub fn label(self) -> &'static str {
         match self {
-            SymbolGroup::Section => "Section",
-            SymbolGroup::Label => "Label",
-            SymbolGroup::Citation => "Citation",
-            SymbolGroup::Reference => "Reference",
+            SymbolGroup::Section => lattice_i18n::n!("Section"),
+            SymbolGroup::Label => lattice_i18n::n!("Label"),
+            SymbolGroup::Citation => lattice_i18n::n!("Citation"),
+            SymbolGroup::Reference => lattice_i18n::n!("Reference"),
         }
     }
 }

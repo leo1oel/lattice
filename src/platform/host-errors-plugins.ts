@@ -41,6 +41,17 @@ export const PLUGINS_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["plugins/store.rs", "The plugin archive unpacks to more than 200 MiB.", () => t`The plugin archive unpacks to more than 200 MiB.`],
   ["plugins/store.rs", "The archive has no {} at its root.", ([file]) => t`The archive has no ${file} at its root.`],
 
+  // Installing from the plugin list in Settings › Plugins › Browse (registry.rs, plugins.rs)
+  ["plugins.rs", "The plugin list is not available.", () => t`The plugin list is not available.`],
+  ["plugins.rs", "Lattice turned this plugin off: {}", ([reason]) => t`Lattice turned this plugin off: ${reason}`],
+  ["registry.rs", "Load the plugin list before installing a plugin from it.", () => t`Load the plugin list before installing a plugin from it.`],
+  ["registry.rs", "\"{id}\" is not in the plugin list.", ([id]) => t`"${id}" is not in the plugin list.`],
+  ["registry.rs", "The downloaded plugin is not the size the plugin list gives.", () => t`The downloaded plugin is not the size the plugin list gives.`],
+  ["registry.rs", "The downloaded plugin does not match the plugin list's checksum.", () => t`The downloaded plugin does not match the plugin list's checksum.`],
+  ["registry.rs", "The downloaded plugin is not the \"{id}\" {} the plugin list describes.", ([id, version]) => t`The downloaded plugin is not the "${id}" ${version} the plugin list describes.`],
+  ["registry.rs", "The plugin list offers only node plugins.", () => t`The plugin list offers only node plugins.`],
+  ["registry.rs", "The plugin's id is not valid.", () => t`The plugin's id is not valid.`],
+
   // A run's detail (plugins/results.rs, plugins/sandbox.rs), inside the palette's error line
   ["plugins/results.rs", "The plugin's result has no kind.", () => t`The plugin's result has no kind.`],
   ["plugins/sandbox.rs", "Unsupported path {}", ([path]) => t`Unsupported path ${path}`],

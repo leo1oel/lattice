@@ -1,29 +1,47 @@
 name: CI
 
-# Pull requests and pushes to main do not run this workflow: pull requests run
-# no CI (an author may run the optional `pnpm signoff` locally,
-# docs/agent-validation.md). It runs in full for a release tag, on demand (Actions > CI > Run workflow,
-# or `gh workflow run ci.yml --ref <branch>`), and weekly on main. The weekly
-# run is what keeps the Rust caches warm: Actions evicts a cache untouched for
-# 7 days, and a cache written from a tag is visible only to that tag, so only
-# runs on main can leave one the next release restores.
+# Every push to a branch of this repository runs the jobs its change needs
+# (scripts/ci-tier.mjs decides, and pnpm ci:local runs the same tier on a
+# Mac): a documentation-only branch runs none, a Rust-only one the Rust jobs
+# and the tests that read Rust sources, a GPUI-only one only gpui.yml. A newer
+# push to a branch cancels the older run. Everything runs for a release tag,
+# weekly on main, for a dispatch on main or with `full`, and for a head commit
+# with a `CI: full` trailer or a pull request labelled `ci:full`. A push to
+# main runs what that merge changed and is never cancelled.
 #
-# A pull request also runs the workflow files of its own merge commit, so the
-# change that removed the pull_request trigger did not run this either.
+# Pull requests still have no trigger of their own: a branch in this
+# repository already ran on its push, and code from a fork runs nothing here.
+# A dispatch (`gh workflow run ci.yml --ref <branch>`) takes `base` to compare
+# with another ref than origin/main, such as the branch below it in a stack.
+#
+# Only runs on main write the Rust and Vitest caches: Actions evicts a cache
+# untouched for 7 days, and one written from a branch or tag is visible only
+# to that ref, so only main's runs leave caches every later run restores.
 on:
   push:
+    branches: ["**"]
     tags: ["v*"]
   schedule:
     # Monday 06:23 UTC, away from the top of the hour, when scheduled runs
     # queue, and after release-cache.yml's 05:00 warm.
     - cron: "23 6 * * 1"
   workflow_dispatch:
+    inputs:
+      full:
+        description: Run every job, whatever the branch changed
+        type: boolean
+        default: false
+      base:
+        description: Compare with this ref instead of the merge base with origin/main
+        type: string
+        default: ""
 
-# A second run for the same commit (a dispatch while the tag run is still
-# going) is moot, so it cancels nothing but queues behind the first.
+# One run per branch: a newer push or dispatch cancels the one in progress.
+# Main and tags group by commit instead, so every merge and release runs to
+# its end, and a dispatch for a commit already running queues behind it.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}-${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) && github.sha || 'branch' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
 # The work is split so the wall clock is the slowest single job rather than the
 # sum of every check. Vitest deliberately uses one worker per process to keep
@@ -32,82 +50,48 @@ concurrency:
 # runners too. Sharding skips nothing — it only stops the checks from queueing
 # behind each other.
 jobs:
-  # Pull requests that touch only documentation cannot change what any job
-  # below checks, so those jobs skip instead of spending ~10 minutes proving
-  # it. They are skipped job by job rather than with a workflow-level `paths:`
-  # filter so every check still reports under its own name — a required check
-  # that never reports blocks the merge, while a skipped one satisfies it.
-  #
-  # gpui/ is skipped the same way: the GPUI preview app is a Cargo workspace
-  # of its own that no job here builds, and gpui.yml checks it.
-  #
-  # The list is deliberately short: anything not named below is code. Some
-  # Markdown is not documentation — THIRD_PARTY_NOTICES.md is verified by
-  # `pnpm notices:check`, the skills under src-tauri/ are embedded and tested,
-  # and public/licenses/ ships in the app — so only top-level and .github/
-  # Markdown counts, never nested Markdown. Pushes to main always run
-  # everything, and so does a failure here: the jobs skip only on an explicit
-  # `false`.
+  # Which jobs this change needs (scripts/ci-tier.mjs, which lists each
+  # group's inputs). Jobs skip only on an explicit `false`, so a failure here
+  # runs everything. They are skipped job by job rather than with a
+  # workflow-level `paths:` filter so every check still reports under its own
+  # name, and so a tag, the schedule and a `full` dispatch can override it.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      code: ${{ steps.classify.outputs.code }}
-      synara-pin: ${{ steps.classify.outputs.synara-pin }}
-      research-env: ${{ steps.classify.outputs.research-env }}
+      vitest: ${{ steps.tier.outputs.vitest }}
+      vitest-files: ${{ steps.tier.outputs.vitest-files }}
+      lint-build: ${{ steps.tier.outputs.lint-build }}
+      perf-bench: ${{ steps.tier.outputs.perf-bench }}
+      rust: ${{ steps.tier.outputs.rust }}
+      macos-local: ${{ steps.tier.outputs.macos-local }}
+      literature-worker: ${{ steps.tier.outputs.literature-worker }}
+      open-slide-runtime: ${{ steps.tier.outputs.open-slide-runtime }}
+      research-env: ${{ steps.tier.outputs.research-env }}
+      synara-pin: ${{ steps.tier.outputs.synara-pin }}
     steps:
-      # A pull_request run checks out the PR merged into its base, so the merge
-      # commit's first parent is the base and the diff between them is exactly
-      # what the PR changes.
-      - if: github.event_name == 'pull_request'
-        uses: actions/checkout@v7
+      # The whole history without file contents, for the merge base with main.
+      - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
-      - id: classify
+          fetch-depth: 0
+          filter: blob:none
+      - id: tier
         env:
-          EVENT: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT" != pull_request ]; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            echo "synara-pin=true" >> "$GITHUB_OUTPUT"
-            echo "research-env=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # --no-renames lists a rename as its deletion plus its addition, so
-          # moving code into docs/ still counts as touching code.
-          changed=$(git -c core.quotePath=false diff --no-renames --name-only HEAD^1 HEAD)
-          code=false
-          synara_pin=false
-          research_env=false
-          [ -n "$changed" ] || code=true
-          while IFS= read -r path; do
-            [ -n "$path" ] || continue
-            [ "$path" != scripts/synara-runtime.json ] || synara_pin=true
-            # The environment's seeds include the bundled templates.
-            case "$path" in
-              research-env/* | src-tauri/templates/* | .github/workflows/ci.yml) research_env=true ;;
-            esac
-            case "$path" in
-              THIRD_PARTY_NOTICES.md) ;;
-              docs/* | gpui/* | .github/ISSUE_TEMPLATE/*) continue ;;
-              .github/*/*) ;;
-              .github/*.md) continue ;;
-              */*) ;;
-              *.md | LICENSE | NOTICE) continue ;;
-            esac
-            echo "code: $path"
-            code=true
-          done <<< "$changed"
-          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
-          echo "synara-pin=$synara_pin" | tee -a "$GITHUB_OUTPUT"
-          echo "research-env=$research_env" | tee -a "$GITHUB_OUTPUT"
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          INPUT_FULL: ${{ inputs.full }}
+          INPUT_BASE: ${{ inputs.base }}
+        run: node scripts/ci-tier.mjs --github
 
   # A Synara pin move must keep the fork's history linear: the pin reachable
   # from its declared branch, and the previous pin its ancestor, so a pin cut
   # from a side branch cannot drop another lane's Synara change. The previous
-  # pin is the base's (the merge commit's first parent on a pull request, the
-  # prior main commit on a push). It fetches only the fork's commits and needs
-  # no install. Pushes to main always start it; the script exits at once when
-  # the pin did not move.
+  # pin is the base's (the prior commit on a push to main, the merge base with
+  # main on a branch). It fetches only the fork's commits and needs no
+  # install; the script exits at once when the pin did not move.
   synara-pin:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.synara-pin != 'false' }}
@@ -115,8 +99,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
-      - run: node scripts/check-synara-pin.mjs HEAD^1
+          fetch-depth: 0
+          filter: blob:none
+      - run: |
+          if [ "$GITHUB_REF" = refs/heads/main ]; then base=HEAD^1; else base=$(git merge-base origin/main HEAD); fi
+          node scripts/check-synara-pin.mjs "$base"
 
   test:
     name: test (${{ matrix.shard }}/3)
@@ -131,10 +118,11 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     env:
-      CODE: ${{ needs.changes.outputs.code != 'false' }}
+      CODE: ${{ needs.changes.outputs.vitest != 'false' }}
+      FILES: ${{ needs.changes.outputs.vitest-files }}
     steps:
       - if: env.CODE == 'false'
-        run: echo "Documentation-only change; nothing to test."
+        run: echo "Nothing the Vitest suite reads changed."
       - if: env.CODE == 'true'
         uses: actions/checkout@v7
       - if: env.CODE == 'true'
@@ -160,7 +148,9 @@ jobs:
           key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ steps.day.outputs.value }}
           restore-keys: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - if: env.CODE == 'true'
-        run: pnpm vitest run --shard=${{ matrix.shard }}/3
+        # FILES, when set, is the few tests that read a changed file outside
+        # the suite's own inputs (a Rust source, a spec); the shards split them.
+        run: pnpm vitest run --shard=${{ matrix.shard }}/3 ${FILES:+--passWithNoTests $FILES}
       # Like the Rust cache below: only main writes (tags read), and a failed
       # test does not stop the save, since the transforms are still valid.
       - if: ${{ !cancelled() && env.CODE == 'true' && github.ref == 'refs/heads/main' }}
@@ -179,7 +169,7 @@ jobs:
   # shards already run it.
   new-tests:
     needs: changes
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.vitest != 'false' }}
     runs-on: ubuntu-latest
     steps:
       # The merge commit's first parent is the base, as in `changes`.
@@ -215,7 +205,7 @@ jobs:
   # deploy needs credentials, and that is not run here.
   literature-worker:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.literature-worker != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -230,7 +220,7 @@ jobs:
   # Locally this is the `open-slide-runtime` mise stage.
   open-slide-runtime:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.open-slide-runtime != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -244,7 +234,7 @@ jobs:
 
   lint-and-build:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.lint-build != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -291,7 +281,7 @@ jobs:
   # set up while it builds.
   bench-page:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -327,7 +317,7 @@ jobs:
   perf-bench-shard:
     name: perf-bench (${{ matrix.shard }}/2)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -356,7 +346,7 @@ jobs:
   # before it was sharded.
   perf-bench:
     needs: [changes, perf-bench-shard]
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - env:
@@ -380,7 +370,7 @@ jobs:
   perf-bench-webkit-shard:
     name: perf-bench-webkit (${{ matrix.shard }}/2)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' && needs.changes.outputs.macos-local != 'true' }}
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -407,7 +397,7 @@ jobs:
   # The one check that reports the WebKit benchmark, under its old name.
   perf-bench-webkit:
     needs: [changes, perf-bench-webkit-shard]
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' && needs.changes.outputs.macos-local != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - env:
@@ -418,7 +408,7 @@ jobs:
 
   rust:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.rust != 'false' && needs.changes.outputs.macos-local != 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -459,7 +449,7 @@ jobs:
   # shards above already run them on ubuntu-latest.
   rust-linux:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.rust != 'false' }}
     # GNU ld linking the test binary with full debug info was killed for
     # memory in an 8 GB Linux VM. src-tauri/Cargo.toml's [profile.dev] now
     # keeps line tables for this crate and none for dependencies, so this job
@@ -496,7 +486,7 @@ jobs:
   # Experimental Windows host support. This does not package or publish an app.
   rust-windows:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.rust != 'false' }}
     runs-on: windows-latest
     env:
       # Keep native linking and cached artifacts small on the experimental runner.

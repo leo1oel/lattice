@@ -11,6 +11,7 @@ mod chrome;
 mod color_picker;
 mod context_menu;
 mod field;
+mod focus_trap;
 mod form;
 mod icon_button;
 mod menu;
@@ -36,6 +37,7 @@ pub use chrome::{Keycap, SearchField, Segmented};
 pub use color_picker::{ColorPicker, ColorPickerEvent, PICKER_WIDTH, SwatchGrid};
 pub use context_menu::{ContextMenu, context_menu_trigger};
 pub use field::Field;
+pub use focus_trap::{TrapFocus, claim_focus_on_open, focus_trap_holding};
 pub use form::{CheckState, Checkbox, Switch};
 pub use icon_button::IconButton;
 pub use menu::{

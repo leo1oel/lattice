@@ -332,3 +332,211 @@ fn block_ranges_match_like_npm_and_fail_closed() {
     assert!(verify::newer("1.10.0", "1.9.0"));
     assert!(!verify::newer("1.0.0", "1.0.0"));
 }
+
+// Plugins in the same signed list (Captain plan P3).
+
+fn plugin_manifest(id: &str, version: &str, runtime: &str, permissions: &str) -> String {
+    format!(
+        "schema = 1\nid = \"{id}\"\nname = \"Test\"\nversion = \"{version}\"\napi = 1\nlicense = \"MIT\"\nruntime = \"{runtime}\"\nmain = \"main.js\"\n\n[permissions]\n{permissions}\n\n[[commands]]\nid = \"echo\"\ntitle = \"Echo\"\n"
+    )
+}
+
+fn plugin_zip(manifest: &str) -> Vec<u8> {
+    use std::io::Write;
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for (name, text) in [("lattice-plugin.toml", manifest), ("main.js", "// test\n")] {
+        writer.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
+        writer.write_all(text.as_bytes()).unwrap();
+    }
+    writer.finish().unwrap().into_inner()
+}
+
+/// A plugin the index lists: what the index says it asks (\`listed\`, JSON)
+/// and the archive the site serves for it.
+struct Listed<'a> {
+    id: &'a str,
+    version: &'a str,
+    runtime: &'a str,
+    listed: &'a str,
+    archive: Vec<u8>,
+}
+
+impl Listed<'_> {
+    fn node<'a>(id: &'a str, version: &'a str, toml: &str, listed: &'a str) -> Listed<'a> {
+        let archive = plugin_zip(&plugin_manifest(id, version, "node", toml));
+        Listed { id, version, runtime: "node", listed, archive }
+    }
+}
+
+impl Site {
+    fn publish_plugins(&self, key: &Key, serial: u64, plugins: &[Listed], blocked: &str) {
+        let entries: Vec<String> = plugins
+            .iter()
+            .map(|p| {
+                let path = format!("plugins/{}/{}.zip", p.id, p.version);
+                let entry = format!(
+                    r#"{{"id":"{}","name":"Test","version":"{}","api":1,"runtime":"{}","license":"MIT","repository":"https://github.com/example/plugin","commit":"0000000000000000000000000000000000000000","permissions":{},"commands":[{{"id":"echo","title":"Echo"}}],"url":"{}/{path}","sha256":"{:x}","size":{}}}"#,
+                    p.id,
+                    p.version,
+                    p.runtime,
+                    p.listed,
+                    self.url,
+                    Sha256::digest(&p.archive),
+                    p.archive.len()
+                );
+                self.put(&path, p.archive.clone());
+                entry
+            })
+            .collect();
+        let index = format!(
+            r#"{{"format":1,"serial":{serial},"generated":"2026-11-18T12:00:00.000Z","themes":[],"plugins":[{}]}}"#,
+            entries.join(",")
+        );
+        let blocked = format!(
+            r#"{{"format":1,"serial":{serial},"generated":"2026-11-18T12:00:00.000Z","blocked":{blocked}}}"#
+        );
+        self.put("index.json.minisig", key.sign(index.as_bytes(), &comment("index.json", serial)));
+        self.put(
+            "blocked.json.minisig",
+            key.sign(blocked.as_bytes(), &comment("blocked.json", serial)),
+        );
+        self.put("index.json", index);
+        self.put("blocked.json", blocked);
+    }
+}
+
+fn plugin_host(f: &Fixture) -> PluginHost {
+    let mut host = PluginHost::with(
+        f.dir.join("plugins"),
+        PathBuf::from("node"),
+        Vec::new(),
+        Box::new(crate::plugins::broker::tests::MemorySecrets::default()),
+    );
+    let keys = vec![f.key.public()];
+    host.set_registry(Arc::new(Registry::with(f.dir.join("registry"), &f.site.url, keys)));
+    host
+}
+
+const PLUGIN: &str = "dev.example.cite";
+const CROSSREF: &str = r#"network = ["https://api.crossref.org"]"#;
+const CROSSREF_LISTED: &str = r#"{"network":["https://api.crossref.org"]}"#;
+
+#[test]
+fn a_listed_plugin_installs_as_reviewed_and_offers_its_update_with_what_it_adds() {
+    let f = fixture();
+    let host = plugin_host(&f);
+    f.site.publish_plugins(&f.key, 2, &[Listed::node(PLUGIN, "1.0.0", "", "{}")], NO_BLOCKS);
+    let listing = f.registry.plugin_listing(&host, true);
+    assert_eq!(listing.status, Status::Fresh);
+    assert!(listing.verified);
+    assert_eq!(listing.plugins[0].id, PLUGIN);
+    assert_eq!(listing.plugins[0].commands[0].title, "Echo");
+    if !crate::plugins::AVAILABLE {
+        let refused = host.install_registry(PLUGIN).unwrap_err();
+        assert!(refused.contains("macOS"), "{refused}");
+        return;
+    }
+    let info = host.install_registry(PLUGIN).unwrap();
+    assert!(matches!(info.source, Source::Registry { .. }));
+    assert!(!info.enabled && info.blocked.is_none());
+    host.set_enabled(PLUGIN, true).unwrap();
+
+    f.site.publish_plugins(
+        &f.key,
+        3,
+        &[Listed::node(PLUGIN, "1.1.0", CROSSREF, CROSSREF_LISTED)],
+        NO_BLOCKS,
+    );
+    let listing = f.registry.plugin_listing(&host, true);
+    let installed = &listing.installed[0];
+    assert_eq!(installed.update.as_deref(), Some("1.1.0"));
+    assert_eq!(installed.update_asks.network, ["https://api.crossref.org"]);
+    // An update that asks for more installs turned off, until the writer
+    // grants what it adds.
+    let updated = host.install_registry(PLUGIN).unwrap();
+    assert_eq!(updated.version, "1.1.0");
+    assert!(!updated.enabled);
+    let listing = f.registry.plugin_listing(&host, false);
+    assert_eq!(listing.installed[0].update, None);
+}
+
+#[test]
+fn a_download_unlike_the_listing_installs_nothing() {
+    if !crate::plugins::AVAILABLE {
+        return;
+    }
+    let f = fixture();
+    let host = plugin_host(&f);
+    // The archive asks for the network, the index says it asks for nothing.
+    let mut quiet = Listed::node(PLUGIN, "1.0.0", CROSSREF, "{}");
+    f.site.publish_plugins(&f.key, 2, &[quiet], NO_BLOCKS);
+    f.registry.plugin_listing(&host, true);
+    let unlike = host.install_registry(PLUGIN).unwrap_err();
+    assert!(unlike.contains("plugin list describes"), "{unlike}");
+    // The bytes served are not the ones the index hashed.
+    quiet = Listed::node(PLUGIN, "1.0.0", "", "{}");
+    f.site.publish_plugins(&f.key, 3, &[quiet], NO_BLOCKS);
+    f.registry.plugin_listing(&host, true);
+    let path = format!("plugins/{PLUGIN}/1.0.0.zip");
+    f.site.put(&path, plugin_zip(&plugin_manifest(PLUGIN, "1.0.0", "node", "# edited")));
+    let swapped = host.install_registry(PLUGIN).unwrap_err();
+    let refusals = ["checksum", "size", "larger than expected"];
+    assert!(refusals.iter().any(|r| swapped.contains(r)), "{swapped}");
+    assert!(host.list().unwrap().is_empty());
+    // A native plugin is never offered for install from the list.
+    let native =
+        Listed { runtime: "exec", ..Listed::node("dev.example.native", "1.0.0", "", "{}") };
+    f.site.publish_plugins(&f.key, 4, &[native], NO_BLOCKS);
+    f.registry.plugin_listing(&host, true);
+    let exec = host.install_registry("dev.example.native").unwrap_err();
+    assert!(exec.contains("only node plugins"), "{exec}");
+}
+
+#[test]
+fn the_kill_switch_turns_off_listed_installs_but_leaves_folders_alone() {
+    if !crate::plugins::AVAILABLE {
+        return;
+    }
+    let f = fixture();
+    let host = plugin_host(&f);
+    f.site.publish_plugins(&f.key, 2, &[Listed::node(PLUGIN, "1.0.0", "", "{}")], NO_BLOCKS);
+    f.registry.plugin_listing(&host, true);
+    host.install_registry(PLUGIN).unwrap();
+    host.set_enabled(PLUGIN, true).unwrap();
+    let folder = f.dir.join("dev-folder");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("lattice-plugin.toml"),
+        plugin_manifest("dev.example.mine", "1.0.0", "node", ""),
+    )
+    .unwrap();
+    std::fs::write(folder.join("main.js"), "// mine\n").unwrap();
+    host.install_folder(&folder).unwrap();
+    host.set_enabled("dev.example.mine", true).unwrap();
+    assert_eq!(host.commands().len(), 2);
+
+    let blocked = format!(
+        r#"[{{"id":"{PLUGIN}","versions":"<=1.0.0","action":"disable","reason":"Sends text off the machine."}},{{"id":"dev.example.mine","versions":"*","action":"disable","reason":"Not yours to block."}}]"#
+    );
+    f.site.publish_plugins(&f.key, 3, &[Listed::node(PLUGIN, "1.0.0", "", "{}")], &blocked);
+    let listing = f.registry.plugin_listing(&host, true);
+    assert!(listing.blocked_offers.contains_key(PLUGIN));
+    assert_eq!(listing.installed.len(), 1, "a folder install is not the registry's");
+    let info = host.list().unwrap().into_iter().find(|p| p.id == PLUGIN).unwrap();
+    assert_eq!(info.blocked.unwrap().reason, "Sends text off the machine.");
+    let commands: Vec<_> = host.commands().into_iter().map(|c| c.plugin_id).collect();
+    assert_eq!(commands, ["dev.example.mine"]);
+    host.set_enabled(PLUGIN, false).unwrap();
+    let on = host.set_enabled(PLUGIN, true).unwrap_err();
+    assert!(on.contains("turned this plugin off"), "{on}");
+    let install = host.install_registry(PLUGIN).unwrap_err();
+    assert!(install.contains("is blocked"), "{install}");
+
+    // A warning leaves it running.
+    let warned =
+        format!(r#"[{{"id":"{PLUGIN}","versions":"*","action":"warn","reason":"Slow."}}]"#);
+    f.site.publish_plugins(&f.key, 4, &[Listed::node(PLUGIN, "1.0.0", "", "{}")], &warned);
+    f.registry.plugin_listing(&host, true);
+    host.set_enabled(PLUGIN, true).unwrap();
+    assert_eq!(host.commands().len(), 2);
+}

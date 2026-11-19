@@ -125,9 +125,10 @@ impl DeckSession {
             }
             _ => {
                 let Some(presentation) = self.presentation.clone() else {
-                    return Task::ready(Err(
-                        "Open Slide is not part of this build of the GPUI preview.".into(),
-                    ));
+                    return Task::ready(Err(format!(
+                        "Open Slide is not part of this build of {}.",
+                        crate::APP_NAME
+                    )));
                 };
                 // The page names the project; only this deck's may be asked for.
                 if text("projectRoot").is_some_and(|asked| !same_root(Path::new(&asked), &root)) {

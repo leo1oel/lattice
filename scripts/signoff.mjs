@@ -2,9 +2,9 @@
 /**
  * `pnpm signoff`: an optional local check of a branch's changes, recorded on
  * the pull request as an informational green `signoff` commit status on the
- * exact commit it checked (docs/agent-validation.md). Pull requests run no CI
- * and nothing requires this status; ci.yml and gpui.yml run for a release
- * tag, weekly on main, and by hand.
+ * exact commit it checked (docs/agent-validation.md). Nothing requires this
+ * status. CI runs the jobs a branch's change needs on each push
+ * (scripts/ci-tier.mjs); `pnpm ci:local` runs these stages by that tier.
  *
  * It runs `pnpm gate:changed`'s stages (lint, knip, tsc, i18n, perf evidence,
  * notices, rustfmt, `vitest related` plus the invariant tests), then, each
@@ -45,7 +45,9 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { BUNDLE_INPUTS, CODE_THEME_INPUTS, GPUI_INPUTS } from "./ci-tier.mjs";
 import { changedFiles, gateStages, runStages, rustIncludes } from "./gate-changed.mjs";
+import { isMain } from "./lib/util.mjs";
 import { harnessInputs } from "./perf-bench/harness-inputs.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -62,22 +64,12 @@ function parseArgs(argv) {
   return options;
 }
 
-// What `pnpm build` reads besides the sources tsc already checked: a change
-// to any of them can move the bundle the budgets measure.
-const BUNDLE_INPUTS = /^(src\/|public\/(?!pdfjs\/)|index\.html$|vite\.config\.ts$|package\.json$|pnpm-lock\.yaml$|tsconfig(\.node)?\.json$|scripts\/(app-size-report|app-size-report-selftest|check-webkit-compat|private-fonts|react-compiler-suppressions)\.)/;
-
-// What gpui.yml's path filter used to list: the GPUI workspace, the backend
-// crate it shares with the Tauri app, and the design-system exports it
-// generates tokens and editor themes from. Then the Tauri app's modules its
-// webview islands are built from (gpui/islands/vite.config.ts).
-const GPUI_INPUTS = /^(gpui\/|src-tauri\/lattice-core\/|design-system\/(tokens\.json|code-themes\.(json|mjs)|screens\/)|src\/settings\/(code-themes|theme-customization)\.ts$|src\/editor\/(spreadsheet|board|presentation|markdown)\/|src\/canvas\/markdown-preview-sync\.ts$|src\/editor\/latex\/latex-text\.ts$|src\/(index|App)\.css$|src\/app-utils\.ts$|src\/i18n\/|src\/agent\/|src\/app\/use-synara-host\.ts$|src\/settings\/synara-settings-pane\.tsx$|src\/trellis\/(trellis-agent-surface\.tsx|trellis\.css)$|src\/app\/(git-workspace-frames\.tsx|git-repository-url\.ts|use-app-commands\.ts|key-combos\.ts|app-synara-embed\.ts|annotation-rounds\.ts|use-agent-spreadsheet-resolver\.ts|use-editor-comments\.ts|notify\.ts)$|src\/hooks\/use-latest-ref\.ts$|src\/app-types\.ts$|src\/components\/icon-tip\.tsx$|src\/components\/ui\/(motion|scroll-area)\.(tsx|css)$)/;
-const CODE_THEME_INPUTS = /^(design-system\/code-themes\.(json|mjs)|src\/settings\/(code-themes|theme-customization)\.ts)$/;
-
-function extraStages(files, mergeBase, options) {
+/** The stages past the gate's, for these files; ci-local.mjs runs them by CI's tier. */
+export function extraStages(files, mergeBase, options) {
   const cargoEnv = { CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? "4" };
   const harness = new Set(harnessInputs());
   const included = rustIncludes().filter(({ target, prefix }) => files.some((file) => (prefix ? file.startsWith(target) : file === target)));
-  const tauri = files.some((file) => file.startsWith("src-tauri/")) || included.length > 0;
+  const tauri = options.tauri || files.some((file) => file.startsWith("src-tauri/")) || included.length > 0;
   const core = files.some((file) => file.startsWith("src-tauri/lattice-core/"));
   const gpui = options.gpui || files.some((file) => GPUI_INPUTS.test(file));
   const gpuiStage = (stage) => (gpui ? { cwd: "gpui", env: cargoEnv, ...stage } : { name: stage.name, skip: "nothing the GPUI app reads changed" });
@@ -144,7 +136,9 @@ function extraStages(files, mergeBase, options) {
       timeout: 1_800_000,
       needs: "gpui-build",
     }),
-    gpuiStage({ name: "gpui-e2e", why: "e2e scenario, scratch fixture and HOME", command: "script/e2e", args: [], timeout: 900_000, needs: "gpui-build" }),
+    // The whole scenario takes 15–20 min on the crew's Macs (the main baseline
+    // of da12332a2 took 20 min on the MacBook), so 15 min cut it short.
+    gpuiStage({ name: "gpui-e2e", why: "e2e scenario, scratch fixture and HOME", command: "script/e2e", args: [], timeout: 2_400_000, needs: "gpui-build" }),
   ];
 }
 
@@ -194,7 +188,9 @@ async function main() {
   if (options.status && !recordStatus(`${ran.length} local stages passed in ${minutes} min`)) process.exitCode = 1;
 }
 
-await main().catch((error) => {
-  console.error(`signoff: ${error.message}`);
-  process.exit(1);
-});
+if (isMain(import.meta.url)) {
+  await main().catch((error) => {
+    console.error(`signoff: ${error.message}`);
+    process.exit(1);
+  });
+}
