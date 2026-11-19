@@ -42,8 +42,10 @@ pub fn theme_payload(mode: IslandTheme, cx: &App) -> Value {
 
 /// The root element's attributes the Tauri app sets for this palette
 /// (`src/settings/use-appearance.ts`): its stylesheets resolve every token
-/// from them, so the page needs nothing else. A custom accent is the one
-/// colour the CSS cannot derive: it comes fitted, as `--accent`.
+/// from them. A custom accent is a colour the CSS cannot derive: it comes
+/// fitted, as `--accent`. So is a chosen theme (`docs/themes.md`): its base
+/// variables come as `vars`, set inline as the Tauri app sets them, or the
+/// page (the Agent's Synara host among them) would stay on the stock palette.
 fn document(palette: &Palette) -> Value {
     let theme = if palette.is_dark() { "dark" } else { "light" };
     let tint = match palette.tint {
@@ -65,11 +67,19 @@ fn document(palette: &Palette) -> Value {
         Accent::Theme if theme_accent(palette) => "custom",
         Accent::Theme => "graphite",
     };
+    let vars: serde_json::Map<String, Value> = palette
+        .themed
+        .iter()
+        .flat_map(|themed| themed.css_variables())
+        .filter(|(name, _)| name != "--accent")
+        .map(|(name, value)| (name, Value::String(value)))
+        .collect();
     json!({
         "appearance": theme,
         "dataset": { "theme": theme, "tint": tint, "accent": accent },
         "accent": (matches!(palette.accent_preset, Accent::Custom(_)) || theme_accent(palette))
             .then(|| css(palette.accent)),
+        "vars": vars,
     })
 }
 
@@ -127,11 +137,26 @@ mod tests {
                 "appearance": "dark",
                 "dataset": { "theme": "dark", "tint": "sage", "accent": "blue" },
                 "accent": null,
+                "vars": {},
             })
         );
         let custom = Palette::new(Appearance::Light, Tint::Graphite, Accent::Custom(0x3366cc));
         let payload = document(&custom);
         assert_eq!(payload["dataset"]["accent"], "custom");
         assert!(payload["accent"].as_str().unwrap().starts_with("rgba("));
+    }
+
+    #[test]
+    fn a_document_page_gets_a_chosen_themes_variables() {
+        let nord = lattice_theme::bundled()
+            .into_iter()
+            .find(|theme| theme.id == "app.lattice.nord")
+            .expect("Nord is bundled");
+        let palette = Palette::new(Appearance::Dark, Tint::Sage, Accent::Blue)
+            .with_theme(Some(std::sync::Arc::new(nord)));
+        let payload = document(&palette);
+        assert_eq!(payload["dataset"]["tint"], "graphite");
+        assert_eq!(payload["vars"]["--side-panel"], "#262c37");
+        assert!(payload["vars"].get("--accent").is_none());
     }
 }

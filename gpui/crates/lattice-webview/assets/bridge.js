@@ -67,6 +67,9 @@
     }
   };
 
+  // The variables the last theme set, so a variable the next one leaves out
+  // (a chosen theme's, after it is cleared) falls back to the stylesheet.
+  let themeVars = new Set();
   const applyTheme = (theme) => {
     if (!theme || typeof theme !== "object") return;
     const root = document.documentElement;
@@ -74,9 +77,14 @@
       root.dataset.theme = theme.appearance;
       root.style.colorScheme = theme.appearance;
     }
+    const vars = new Set();
     for (const [name, value] of Object.entries(theme.vars || {})) {
-      if (name.startsWith("--")) root.style.setProperty(name, String(value));
+      if (!name.startsWith("--")) continue;
+      root.style.setProperty(name, String(value));
+      vars.add(name);
     }
+    for (const name of themeVars) if (!vars.has(name)) root.style.removeProperty(name);
+    themeVars = vars;
     // A page that loads the Tauri app's own stylesheets takes the root
     // attributes the app sets (src/settings/use-appearance.ts), and a custom
     // accent's colour, which those stylesheets cannot derive.
