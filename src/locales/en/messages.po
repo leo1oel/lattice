@@ -52,6 +52,10 @@ msgstr "“{command}” in the terminal"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "“{destinationName}” already exists there. Choose another location"
 
+#: src/platform/host-errors-plugins.ts
+msgid "\"{id}\" is not in the plugin list."
+msgstr "\"{id}\" is not in the plugin list."
+
 #: src/platform/host-errors-themes.ts
 msgid "\"{id}\" is not in the theme list."
 msgstr "\"{id}\" is not in the theme list."
@@ -5910,6 +5914,10 @@ msgstr "Down arrow"
 msgid "Down double arrow"
 msgstr "Down double arrow"
 
+#: src/telemetry/saved-downloads.ts
+msgid "Download"
+msgstr "Download"
+
 #: src/project/paper-row.tsx
 msgid "Download {url}"
 msgstr "Download {url}"
@@ -9047,6 +9055,11 @@ msgstr "Lattice runs the one it finds on your PATH, the way Terminal does. Insta
 msgid "Lattice theme"
 msgstr "Lattice theme"
 
+#: src/platform/host-errors-plugins.ts
+#: src/plugins/plugin-text.ts
+msgid "Lattice turned this plugin off: {reason}"
+msgstr "Lattice turned this plugin off: {reason}"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice UI crashed"
@@ -9454,6 +9467,10 @@ msgstr "Load more"
 #: src/history/compare-versions.tsx
 msgid "Load older versions"
 msgstr "Load older versions"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Load the plugin list before installing a plugin from it."
+msgstr "Load the plugin list before installing a plugin from it."
 
 #: src/platform/host-errors-themes.ts
 msgid "Load the theme list before installing a theme from it."
@@ -14503,6 +14520,7 @@ msgstr "Saved on this Mac for your other papers: item names, files and sources, 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/telemetry/saved-downloads.ts
 msgid "Saved to {path}"
 msgstr "Saved to {path}"
 
@@ -16562,6 +16580,18 @@ msgstr "The downloaded {what} failed its security check."
 msgid "The downloaded {what} is larger than expected, so it was refused."
 msgstr "The downloaded {what} is larger than expected, so it was refused."
 
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin does not match the plugin list's checksum."
+msgstr "The downloaded plugin does not match the plugin list's checksum."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin is not the \"{id}\" {version} the plugin list describes."
+msgstr "The downloaded plugin is not the \"{id}\" {version} the plugin list describes."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin is not the size the plugin list gives."
+msgstr "The downloaded plugin is not the size the plugin list gives."
+
 #: src/platform/host-errors-themes.ts
 msgid "The downloaded theme does not match the theme list's checksum."
 msgstr "The downloaded theme does not match the theme list's checksum."
@@ -17000,6 +17030,14 @@ msgstr "The plugin id must be reverse-domain, like dev.example.my-plugin."
 msgid "The plugin is broken: {detail}"
 msgstr "The plugin is broken: {detail}"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin list is not available."
+msgstr "The plugin list is not available."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin list offers only node plugins."
+msgstr "The plugin list offers only node plugins."
+
 #: src/plugins/plugin-text.ts
 msgid "The plugin sent something Lattice couldn’t read: {detail}"
 msgstr "The plugin sent something Lattice couldn’t read: {detail}"
@@ -17011,6 +17049,10 @@ msgstr "The plugin stopped without an answer."
 #: src/platform/host-errors-plugins.ts
 msgid "The plugin's id changed. Remove it and install it again."
 msgstr "The plugin's id changed. Remove it and install it again."
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's id is not valid."
+msgstr "The plugin's id is not valid."
 
 #: src/platform/host-errors-plugins.ts
 msgid "The plugin's licence ({license}) is not one Lattice accepts for installed plugins."
@@ -18713,6 +18755,11 @@ msgstr "Use valid CSV or TSV with at most 20 rows and 20 columns."
 #: src/settings/model-endpoint-settings.tsx
 msgid "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
 msgstr "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "User Guide"
+msgstr "User Guide"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"

@@ -136,7 +136,9 @@ export function extraStages(files, mergeBase, options) {
       timeout: 1_800_000,
       needs: "gpui-build",
     }),
-    gpuiStage({ name: "gpui-e2e", why: "e2e scenario, scratch fixture and HOME", command: "script/e2e", args: [], timeout: 900_000, needs: "gpui-build" }),
+    // The whole scenario takes 15–20 min on the crew's Macs (the main baseline
+    // of da12332a2 took 20 min on the MacBook), so 15 min cut it short.
+    gpuiStage({ name: "gpui-e2e", why: "e2e scenario, scratch fixture and HOME", command: "script/e2e", args: [], timeout: 2_400_000, needs: "gpui-build" }),
   ];
 }
 

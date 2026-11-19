@@ -19,11 +19,25 @@ use lattice_i18n::tc;
 
 use super::{commands::*, windows};
 
-actions!(lattice, [OpenWebsite, OpenRepository, EnterFullScreen]);
+actions!(
+    lattice,
+    [OpenUserGuide, OpenWebsite, OpenRepository, EnterFullScreen]
+);
 
 /// The project's repository and website (`about_links.rs`).
 pub const REPOSITORY_URL: &str = "https://github.com/leo1oel/lattice";
 pub const WEBSITE_URL: &str = "https://leo1oel.github.io/lattice/";
+
+/// Help ▸ User Guide: the guide's pages on the website (docs/guide/), in the
+/// interface language, as the Tauri app opens them (`userGuideUrl` in
+/// src/app/native-locale.ts).
+fn user_guide_url(locale: lattice_i18n::Locale) -> &'static str {
+    if locale.is_chinese() {
+        "https://leo1oel.github.io/lattice/guide/zh-CN/"
+    } else {
+        "https://leo1oel.github.io/lattice/guide/"
+    }
+}
 
 /// The attribution Trellis's license asks a shipped app to show (NOTICE).
 pub const TRELLIS_ATTRIBUTION: &str = "Uses Trellis by DanFessler - github.com/DanFessler/trellis";
@@ -44,7 +58,7 @@ fn show_about(cx: &mut App) {
     {
         let _ = cx;
         crate::native::show_about_panel(
-            "Lattice",
+            crate::APP_NAME,
             lattice_core::VERSION,
             TRELLIS_ATTRIBUTION,
             &[(&website, WEBSITE_URL), (&github, REPOSITORY_URL)],
@@ -60,7 +74,7 @@ fn show_about(cx: &mut App) {
             .update(cx, |_, window, cx| {
                 let _ = window.prompt(
                     gpui::PromptLevel::Info,
-                    "Lattice",
+                    crate::APP_NAME,
                     Some(&detail),
                     &[tc!("dialog button", "OK")],
                     cx,
@@ -81,6 +95,7 @@ pub fn install(cx: &mut App) {
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
     cx.on_action(|_: &NewWindow, cx| windows::new_window(None, None, cx));
     cx.on_action(|_: &About, cx| show_about(cx));
+    cx.on_action(|_: &OpenUserGuide, cx| cx.open_url(user_guide_url(lattice_i18n::locale())));
     cx.on_action(|_: &OpenWebsite, cx| cx.open_url(WEBSITE_URL));
     cx.on_action(|_: &OpenRepository, cx| cx.open_url(REPOSITORY_URL));
     // View ▸ Enter Full Screen (Exit Full Screen in full screen): AppKit's
@@ -203,7 +218,7 @@ fn margin_review(mode: crate::editor_panel::MarginMode) -> MenuItem {
 }
 
 fn menus(front: Front, cx: &App) -> Vec<Menu> {
-    let name = "Lattice";
+    let name = crate::APP_NAME;
     let (website, github) = link_titles();
     let mut lattice = vec![MenuItem::action(
         tc!("macOS menu bar", "About {name}", name = name),
@@ -240,7 +255,7 @@ fn menus(front: Front, cx: &App) -> Vec<Menu> {
         view.extend([MenuItem::separator(), margin_review(mode)]);
     }
     vec![
-        Menu::new("Lattice").items(lattice),
+        Menu::new(name).items(lattice),
         Menu::new(tc!("macOS menu bar", "File")).items([
             MenuItem::action(tc!("macOS menu bar", "New Project…"), NewProject),
             MenuItem::action(tc!("macOS menu bar", "Open…"), OpenFolder),
@@ -308,8 +323,9 @@ fn menus(front: Front, cx: &App) -> Vec<Menu> {
             MenuItem::action(tc!("macOS menu bar", "Close Window"), CloseWindow),
         ]),
         Menu::new(tc!("macOS menu bar", "Help")).items([
+            MenuItem::action(tc!("macOS menu bar", "User Guide"), OpenUserGuide),
             MenuItem::action(
-                tc!("macOS menu bar", "What’s New in {name}", name = "Lattice"),
+                tc!("macOS menu bar", "What’s New in {name}", name = name),
                 super::WhatsNew,
             ),
             MenuItem::separator(),
@@ -342,5 +358,17 @@ mod tests {
         let (website, github) = link_titles();
         assert_eq!(website, "Lattice Website");
         assert_eq!(github, "Lattice on GitHub");
+    }
+
+    #[test]
+    fn user_guide_follows_the_interface_language() {
+        assert_eq!(
+            user_guide_url(lattice_i18n::Locale::En),
+            "https://leo1oel.github.io/lattice/guide/"
+        );
+        assert_eq!(
+            user_guide_url(lattice_i18n::Locale::ZhCn),
+            "https://leo1oel.github.io/lattice/guide/zh-CN/"
+        );
     }
 }

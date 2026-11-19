@@ -17,6 +17,8 @@
 
 use std::{collections::HashMap, ops::Range};
 
+use lattice_i18n::{n, t, tr};
+
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     HighlightStyle, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton,
@@ -163,7 +165,8 @@ impl QuickOpen {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let placeholder = picker.map_or_else(|| "Open file…".to_string(), PickerKind::placeholder);
+        let placeholder =
+            picker.map_or_else(|| t!("Open file…").to_string(), PickerKind::placeholder);
         let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
         let subscription =
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
@@ -382,13 +385,13 @@ impl QuickOpen {
                 .iter()
                 .map(|path| Row::File {
                     path: path.clone(),
-                    group: Some("Recent"),
+                    group: Some(n!("Recent")),
                     line: None,
                     current: false,
                 })
                 .chain(rest.into_iter().take(RESULT_LIMIT).map(|path| Row::File {
                     path: path.clone(),
-                    group: Some("All files"),
+                    group: Some(n!("All files")),
                     line: None,
                     current: Some(path.as_str()) == current,
                 }))
@@ -515,7 +518,7 @@ impl QuickOpen {
                         folder,
                         match line {
                             Some(line) => Some(format!(":{line}")),
-                            None => current.then(|| "Current".to_string()),
+                            None => current.then(|| t!("Current").to_string()),
                         },
                     )
                 }
@@ -541,7 +544,7 @@ impl QuickOpen {
                         .into_any_element(),
                     div()
                         .text_color(palette.text)
-                        .child(format!("Go to line {line}"))
+                        .child(t!("Go to line {0}", line))
                         .into_any_element(),
                     self.source.line_target.clone(),
                     None,
@@ -698,7 +701,7 @@ impl Render for QuickOpen {
                         .text_role(TextRole::Caption, cx)
                         .font_weight(FONT_WEIGHT_MEDIUM)
                         .text_color(palette.text_secondary)
-                        .children(group)
+                        .children(group.map(tr))
                         .into_any_element(),
                 );
             }
@@ -774,11 +777,11 @@ impl Render for QuickOpen {
                     .gap(px(16.))
                     .min_w_0()
                     .overflow_hidden()
-                    .child(scope("@", "Sections and labels"))
+                    .child(scope("@", t!("Sections and labels")))
                     // A narrow window drops the line prefix first: ⌘G reaches
                     // it too.
                     .when(viewport.width > px(480.), |this| {
-                        this.child(scope(":", "Line"))
+                        this.child(scope(":", t!("Line")))
                     }),
             );
         let card = div()
@@ -802,9 +805,9 @@ impl Render for QuickOpen {
                         .text_role(TextRole::Caption, cx)
                         .text_color(palette.text_secondary)
                         .child(if self.picker.is_some() {
-                            lattice_i18n::t!("No matches").to_string()
+                            t!("No matches").to_string()
                         } else {
-                            "No matching files".to_string()
+                            t!("No matching files").to_string()
                         }),
                 )
             })

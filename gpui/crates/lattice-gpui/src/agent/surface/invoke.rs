@@ -101,7 +101,7 @@ impl SynaraSurface {
                 log::warn!("{}: refused {command}", self.kind.name());
                 self.respond(
                     id,
-                    Err(format!("{command} is not available in the GPUI preview")),
+                    Err(format!("{} has no {command} yet", crate::APP_NAME)),
                     cx,
                 );
             }

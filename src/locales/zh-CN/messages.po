@@ -52,6 +52,10 @@ msgstr "终端中的“{command}”"
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
 
+#: src/platform/host-errors-plugins.ts
+msgid "\"{id}\" is not in the plugin list."
+msgstr "插件列表里没有“{id}”。"
+
 #: src/platform/host-errors-themes.ts
 msgid "\"{id}\" is not in the theme list."
 msgstr "“{id}” 不在主题列表中。"
@@ -5910,6 +5914,10 @@ msgstr "下箭头"
 msgid "Down double arrow"
 msgstr "下双线箭头"
 
+#: src/telemetry/saved-downloads.ts
+msgid "Download"
+msgstr "下载"
+
 #: src/project/paper-row.tsx
 msgid "Download {url}"
 msgstr "下载 {url}"
@@ -9047,6 +9055,11 @@ msgstr "Lattice 会像终端一样在 PATH 里找到它并运行。装在别处�
 msgid "Lattice theme"
 msgstr "Lattice 主题"
 
+#: src/platform/host-errors-plugins.ts
+#: src/plugins/plugin-text.ts
+msgid "Lattice turned this plugin off: {reason}"
+msgstr "Lattice 已停用此插件：{reason}"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice 出错了"
@@ -9454,6 +9467,10 @@ msgstr "加载更多"
 #: src/history/compare-versions.tsx
 msgid "Load older versions"
 msgstr "加载更早的版本"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Load the plugin list before installing a plugin from it."
+msgstr "请先载入插件列表，再从中安装插件。"
 
 #: src/platform/host-errors-themes.ts
 msgid "Load the theme list before installing a theme from it."
@@ -14503,6 +14520,7 @@ msgstr "保存在这台 Mac 上，供你的其他论文使用：只存事项名�
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/telemetry/saved-downloads.ts
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
 
@@ -16562,6 +16580,18 @@ msgstr "下载的 {what} 未通过安全校验"
 msgid "The downloaded {what} is larger than expected, so it was refused."
 msgstr "下载的 {what} 比预期大，已被拒绝。"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin does not match the plugin list's checksum."
+msgstr "下载的插件与插件列表中的校验和不符。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin is not the \"{id}\" {version} the plugin list describes."
+msgstr "下载的插件不是插件列表所描述的“{id}” {version}。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The downloaded plugin is not the size the plugin list gives."
+msgstr "下载的插件大小与插件列表给出的不符。"
+
 #: src/platform/host-errors-themes.ts
 msgid "The downloaded theme does not match the theme list's checksum."
 msgstr "下载的主题与主题列表中的校验和不符。"
@@ -17000,6 +17030,14 @@ msgstr "插件 ID 必须是反向域名格式，例如 dev.example.my-plugin。"
 msgid "The plugin is broken: {detail}"
 msgstr "插件已损坏：{detail}"
 
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin list is not available."
+msgstr "插件列表暂不可用。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin list offers only node plugins."
+msgstr "插件列表只提供 node 插件。"
+
 #: src/plugins/plugin-text.ts
 msgid "The plugin sent something Lattice couldn’t read: {detail}"
 msgstr "插件返回了 Lattice 无法读取的内容：{detail}"
@@ -17011,6 +17049,10 @@ msgstr "插件未作答便已停止。"
 #: src/platform/host-errors-plugins.ts
 msgid "The plugin's id changed. Remove it and install it again."
 msgstr "插件的 ID 已更改。请移除后重新安装。"
+
+#: src/platform/host-errors-plugins.ts
+msgid "The plugin's id is not valid."
+msgstr "插件的 id 无效。"
 
 #: src/platform/host-errors-plugins.ts
 msgid "The plugin's licence ({license}) is not one Lattice accepts for installed plugins."
@@ -18713,6 +18755,11 @@ msgstr "请使用有效的 CSV 或 TSV，最多支持 20 行、20 列。"
 #: src/settings/model-endpoint-settings.tsx
 msgid "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
 msgstr "填写地址、密钥和模型名称，使用你自己的兼容 OpenAI 或 Anthropic 的 API。AI 助手通过 Pi 运行它，无需安装命令行工具。"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "User Guide"
+msgstr "使用指南"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
