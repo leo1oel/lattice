@@ -181,6 +181,20 @@ describe("Overleaf sync", () => {
     await expectNotification(/已从 Overleaf 删除 1 个文件/);
   });
 
+  it("syncs a git-synced project straight away, with no Overleaf preview to review first", async () => {
+    renderOverleafPaper({
+      overleaf_link: () => overleafLink({ syncVia: "git" }),
+      overleaf_sync: () => overleafSyncResult({ pushed: ["main.tex"], uncommitted: ["notes.tex"] }),
+    }, { syncMode: "live" });
+    // Until the link is read the button opens the project picker instead.
+    fireEvent.click(await screen.findByRole("button", { name: "Sync with Overleaf" }));
+    await waitFor(() => expect(invokeCalls("overleaf_sync")).toHaveLength(1));
+    await expectNotification(/Not sent to Overleaf, because they are not committed: notes\.tex/);
+    expect(invokeCalls("overleaf_sync")).toHaveLength(1);
+    expect(invokeCalls("overleaf_preview")).toHaveLength(0);
+    expect(screen.queryByText("Review changes")).not.toBeInTheDocument();
+  });
+
   it("says which files a sync kept because Overleaf's download would have emptied them", async () => {
     renderOverleafPaper({
       overleaf_sync: () => overleafSyncResult({ refusedIncoming: ["notes.md", "figures/fig.png"] }),
