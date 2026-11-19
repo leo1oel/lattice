@@ -112,6 +112,7 @@ mod tests {
                 serial: 1,
                 generated: "2026-11-18T12:00:00Z".into(),
                 themes: vec![theme("dev.example.ink", "Ink", "墨色的深夜主题")],
+                plugins: Vec::new(),
             }),
             blocked: Vec::new(),
             blocked_offers: Default::default(),
