@@ -1,0 +1,68 @@
+{
+  "version": "0.18.0",
+  "date": "2026-11-19",
+  "highlights": [
+    {
+      "icon": "plug",
+      "title": {
+        "en": "Plugin market",
+        "zh": "插件市场"
+      },
+      "body": {
+        "en": "Settings › Plugins now has Installed and Browse. Browse lists plugins from the signed Lattice plugin list, with search and sorting. A plugin's details show what it can do before you install it, then Install and turn on or Install only. When an update asks for more than you allowed, Lattice lists only what is new and asks first; Update all applies the updates that ask for nothing new. If a plugin is withdrawn, Lattice turns it off and says why.",
+        "zh": "设置 › 插件现在分为已安装和浏览两个视图。浏览会列出签名的 Lattice 插件列表中的插件，可以搜索和排序。插件详情会在安装前说明它能做什么，然后可以选择安装并启用或仅安装。如果某个更新需要比你已允许的更多权限，Lattice 只列出新增的部分并先询问；全部更新只会应用不需要新权限的更新。如果某个插件被撤下，Lattice 会将其关闭并说明原因。"
+      }
+    },
+    {
+      "icon": "menu",
+      "title": {
+        "en": "User guide",
+        "zh": "使用指南"
+      },
+      "body": {
+        "en": "Help › User Guide opens a short guide to Lattice in English or Chinese, matching the interface language.",
+        "zh": "帮助 › 使用指南会打开一份简短的 Lattice 使用指南，语言与界面语言一致（英文或中文）。"
+      }
+    },
+    {
+      "icon": "bot",
+      "title": {
+        "en": "Agent on Synara 1.6.2",
+        "zh": "Agent 升级到 Synara 1.6.2"
+      },
+      "body": {
+        "en": "The Agent asks before resuming a long-idle Claude session, offers guided sign-in in the model picker, can continue a chat on another account or resume an interrupted task, and lets you copy tables from a chat.",
+        "zh": "Agent 在恢复长时间闲置的 Claude 会话前会先询问；模型选择器中提供引导式登录；可以换一个账号继续对话，或恢复被中断的任务；还可以复制对话中的表格。"
+      }
+    },
+    {
+      "icon": "gauge",
+      "title": {
+        "en": "The Agent uses less memory",
+        "zh": "Agent 占用更少内存"
+      },
+      "body": {
+        "en": "The Agent's background service now uses about a third less memory while idle, around 185 MB instead of 300 MB.",
+        "zh": "Agent 的后台服务在空闲时占用的内存减少了约三分之一，从约 300 MB 降到约 185 MB。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "The Agent can create boards again. A board it asks for as .tldr is created as .excalidraw, and a request Lattice refuses now fails at once instead of timing out.",
+      "zh": "Agent 又能创建白板了。它请求的 .tldr 白板会以 .excalidraw 创建；Lattice 拒绝的请求会立即返回错误，而不再超时。"
+    },
+    {
+      "en": "macOS no longer autocorrects what you type in find and replace fields, so a search with Match case on finds what you typed instead of a capitalized word.",
+      "zh": "macOS 不再自动更正查找和替换框中输入的内容，因此开启“区分大小写”时，搜索的就是你输入的内容，而不是被改成大写开头的词。"
+    },
+    {
+      "en": "Exporting a board as an image now says where the file was saved.",
+      "zh": "将白板导出为图片后，会提示文件保存的位置。"
+    },
+    {
+      "en": "A board's search and hints are in Chinese when Lattice is.",
+      "zh": "界面为中文时，白板的搜索和提示也显示为中文。"
+    }
+  ]
+}
