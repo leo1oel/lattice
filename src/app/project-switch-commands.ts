@@ -1,7 +1,7 @@
 /**
  * The command table's ways to another project: a folder or a recent project
  * (a window of its own once this one shows a project, or, asked for, this
- * window), the welcome desk's ⌘1 to ⌘3, and ⌃Tab and ⌃⇧Tab round the
+ * window), the finder over every recent project, the welcome desk's ⌘1 to ⌘3, and ⌃Tab and ⌃⇧Tab round the
  * projects in this window (window-projects.ts). ⌘1 to ⌘9 stay the layout
  * workspaces', so the projects in a window take keys of their own.
  */
@@ -16,7 +16,7 @@ import type { useProjectLifecycle } from "./use-project-lifecycle";
 
 type Lifecycle = Pick<
   ReturnType<typeof useProjectLifecycle>,
-  "recentProjects" | "unopenedProject" | "chooseExisting" | "chooseRecentProject" | "openInThisWindow"
+  "recentProjects" | "unopenedProject" | "chooseExisting" | "chooseRecentProject" | "openInThisWindow" | "recentFinder"
 >;
 
 export function projectSwitchCommands({ i18n, root, lifecycle, deskKeys }: {
@@ -27,7 +27,7 @@ export function projectSwitchCommands({ i18n, root, lifecycle, deskKeys }: {
   /** Nothing on the welcome screen takes its digits (a dialog, a busy open), so they open its projects. */
   deskKeys: boolean;
 }): AppCommand[] {
-  const { recentProjects, unopenedProject, chooseExisting, chooseRecentProject, openInThisWindow } = lifecycle;
+  const { recentProjects, unopenedProject, chooseExisting, chooseRecentProject, openInThisWindow, recentFinder } = lifecycle;
   const inProject = root !== null;
   const others = recentProjects.filter((recent) => recent.path !== root);
   // Read, not subscribed: App renders with each project it enters, which is
@@ -44,6 +44,11 @@ export function projectSwitchCommands({ i18n, root, lifecycle, deskKeys }: {
   };
   return [
     { id: "open-folder-here", when: inProject, label: i18n._(msg`Open a folder in this window`), group: "project", run: () => void chooseExisting(true) },
+    // The finder over every recent project; File ▸ Open Recent ▸ All Recent Projects… runs it too.
+    {
+      id: "open-recent-project", when: others.length > 0, label: i18n._(msg`Open recent project…`), group: "project",
+      run: recentFinder.show,
+    },
     ...others.map(({ name, path }, index): AppCommand => ({
       id: `recent-project-${index}`, label: spaceMixedScript(i18n._(msg`Open ${name}`)), detail: path, group: "project",
       // Ids by position, so no path is remembered; and never in Recent, where a position may name another project.

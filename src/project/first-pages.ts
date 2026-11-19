@@ -10,8 +10,8 @@ import { loadRecentProjects, type RecentProject } from "../settings/app-settings
  * Rendered once a burst of builds settles, never while the desk is drawn, so
  * the welcome screen only reads a few small images back. Kept in IndexedDB,
  * which every window of the app shares and which holds images without
- * inflating them to text, for the recent projects only: the list's newest
- * eight and the project that just built.
+ * inflating them to text, for the newest recent projects only (the list
+ * keeps a hundred, the desk shows three) and the project that just built.
  */
 export type FirstPage = {
   image: Blob;
@@ -35,19 +35,33 @@ export function welcomeDeskProjects(recents: readonly RecentProject[], unopenedP
   return recents.filter((item) => item.path !== unopenedPath).slice(0, WELCOME_DESK_SIZE);
 }
 
-/** How many other recent projects the title's switcher offers before it stops. */
-const MAX_SWITCHER_PROJECTS = 5;
+/** The recent projects whose first page is kept: the desk's three and a few it may reorder into. */
+const FIRST_PAGES_KEPT = 8;
+
+/** How many other recent projects the title's switcher lists before "All recent projects…". */
+const MAX_SWITCHER_PROJECTS = 8;
+/** How many File ▸ Open Recent lists before "All Recent Projects…". */
+const MAX_OPEN_RECENT_PROJECTS = 10;
+
+/** The recent projects other than the one in front, newest first: what the finder searches. */
+export function otherProjects(recents: readonly RecentProject[], currentPath: string | undefined) {
+  return recents.filter((item) => item.path !== currentPath);
+}
 
 /**
- * The other projects the title's switcher offers, which File ▸ Open Recent
- * lists too. The stored list runs deeper (share recovery resolves a prior
- * root against it), but a switcher is for the few projects you move between:
- * past five the menu turns into a scroll and "Open another folder" is the
- * better path.
+ * The other projects the title's switcher offers. The stored list runs to a
+ * hundred, but a menu is for the few projects you move between: past eight
+ * it ends in "All recent projects…", the finder that searches every one.
  */
 export function switcherProjects(recents: readonly RecentProject[], currentPath: string | undefined) {
-  return recents.filter((item) => item.path !== currentPath).slice(0, MAX_SWITCHER_PROJECTS);
+  return otherProjects(recents, currentPath).slice(0, MAX_SWITCHER_PROJECTS);
 }
+
+/** File ▸ Open Recent's entries, a few more than the switcher's, as a menu bar's list may run longer. */
+export function openRecentProjects(recents: readonly RecentProject[], currentPath: string | undefined) {
+  return otherProjects(recents, currentPath).slice(0, MAX_OPEN_RECENT_PROJECTS);
+}
+
 
 const DATABASE = "lattice.first-pages";
 const STORE = "pages";
@@ -123,8 +137,8 @@ export async function rememberFirstPage(root: string, pdf: ArrayBuffer, venue: s
   const writing = await openStore("readwrite");
   if (!writing) return;
   writing.store.put({ image, venue, editedAt, fingerprint } satisfies StoredFirstPage, root);
-  // Only the projects the welcome screen can show keep a page.
-  const keep = new Set([root, ...loadRecentProjects().map((item) => item.path)]);
+  // Only the projects the welcome screen's desk is likely to show keep a page.
+  const keep = new Set([root, ...loadRecentProjects().slice(0, FIRST_PAGES_KEPT).map((item) => item.path)]);
   const keys = writing.store.getAllKeys();
   // In the success handler itself, while the transaction is still open for more requests.
   keys.onsuccess = () => {

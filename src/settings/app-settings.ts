@@ -34,6 +34,10 @@ export type RecentProject = {
   path: string;
   /** When this window last opened it (ms since the epoch); absent from entries older than the field. */
   openedAt?: number;
+  /** Its folder holds an Overleaf link, as last checked: "Open from Overleaf" opens this folder rather than download again. */
+  overleaf?: boolean;
+  /** Its folder was not there when last checked; kept, so one on a drive that is not mounted comes back. */
+  missing?: boolean;
 };
 type AutoBuildMode = "manual" | "automatic";
 /**
@@ -68,7 +72,8 @@ const LIVE_PREVIEW_REMOVED_KEY = "lattice.live-preview-removed.v1";
 /** Per-project maps (last file, workspace layout, file views) keep this many projects. */
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
-const RECENT_PROJECTS_MAX = 8;
+/** Enough that an older project is still a search away, rather than a second download from Overleaf. */
+const RECENT_PROJECTS_MAX = 100;
 const RECENT_COMMANDS_MAX = 8;
 
 // Every preference here is a convenience: when storage is unavailable or holds
@@ -114,15 +119,22 @@ function writeProjectEntry(key: string, root: string, value: unknown, map = read
   localStorage.setItem(key, JSON.stringify(Object.fromEntries(entries)));
 }
 
+/** A folder's path as the list compares it: one folder written with a trailing slash is still one entry. */
+function recentKey(path: string) {
+  return path.replace(/(?<=.)[\\/]+$/, "");
+}
+
 export function loadRecentProjects(): RecentProject[] {
   return safely(() => {
     const value = JSON.parse(localStorage.getItem(RECENT_PROJECTS_KEY) ?? "[]") as unknown;
     if (!Array.isArray(value)) return [];
+    const seen = new Set<string>();
     return value
       .filter((item): item is RecentProject => Boolean(
         item && typeof item === "object" && "name" in item && typeof item.name === "string" &&
         "path" in item && typeof item.path === "string",
       ))
+      .filter((item) => !seen.has(recentKey(item.path)) && Boolean(seen.add(recentKey(item.path))))
       .slice(0, RECENT_PROJECTS_MAX);
   }, []);
 }
@@ -138,15 +150,14 @@ function persistRecentProjects(projects: RecentProject[]): RecentProject[] {
 
 /// Record a project as the most recently opened one.
 export function rememberRecentProject(entry: RecentProject): RecentProject[] {
+  const key = recentKey(entry.path);
+  const earlier = loadRecentProjects().find((item) => recentKey(item.path) === key);
+  // Opened, its folder is there; whether it is linked stays as last checked.
+  const { missing: _missing, ...kept } = { ...earlier, ...entry };
   return persistRecentProjects([
-    { ...entry, openedAt: Date.now() },
-    ...loadRecentProjects().filter((item) => item.path !== entry.path),
+    { ...kept, openedAt: Date.now() },
+    ...loadRecentProjects().filter((item) => recentKey(item.path) !== key),
   ].slice(0, RECENT_PROJECTS_MAX));
-}
-
-/// Drop a project from the list — it could not be opened.
-export function forgetRecentProject(path: string): RecentProject[] {
-  return persistRecentProjects(loadRecentProjects().filter((item) => item.path !== path));
 }
 
 /** The palette's recently run command ids, newest first. Only ids: never a query or anything from a document. */

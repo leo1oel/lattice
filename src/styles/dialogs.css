@@ -537,8 +537,39 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .welcome-desk-sheet[data-kind="loading"] { opacity: 0; }
 .welcome-desk-name { min-width: 0; overflow: hidden; color: var(--text-primary); font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); text-overflow: ellipsis; white-space: nowrap; }
 .welcome-desk-when { min-width: 0; min-height: var(--type-caption-line-height); overflow: hidden; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; white-space: nowrap; }
+/* The next projects after the desk, one compact row each: a long list is a
+   scroll away rather than pushing the other ways in off the window, and
+   "Show all" opens the finder that searches every recent project. */
+.welcome-recent-list-frame { margin-top: var(--space-8); display: grid; gap: var(--space-3); }
+.welcome-recent-list-viewport { max-height: min(240px, 26vh); }
+.welcome-recent-list { margin: 0; padding: 0; list-style: none; display: grid; }
+.welcome-recent-row {
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: start;
+  font-size: var(--type-caption-size);
+}
+.welcome-recent-row:hover:not(:disabled) { background: var(--border-subtle); color: var(--text-primary); }
+.welcome-recent-icon { flex: none; display: inline-flex; }
+.welcome-recent-name { flex: none; max-width: 45%; overflow: hidden; color: var(--text-primary); font-size: var(--type-body-size); font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
+.welcome-recent-folder { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.welcome-recent-when { flex: none; }
+.welcome-recent-row .ui-badge { flex: none; }
+.welcome-recent-row[data-missing] :is(.welcome-recent-name, .welcome-recent-folder, .welcome-recent-icon) { opacity: .55; }
+.welcome-recent-all { justify-self: start; }
+.recent-project-finder .picker-text[data-missing],
+[role="menuitem"] > [data-missing] { opacity: .55; }
+.recent-project-finder .ui-badge { flex: none; }
 /* A short window keeps the actions and drops the desk rather than clipping the title. */
 @media (max-height: 620px) { .welcome-desk-frame { display: none; } }
+@media (max-height: 760px) { .welcome-recent-list-viewport { max-height: 96px; } }
 .busy-label { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); }
 .modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal-backdrop); background: var(--scrim-dialog-surface); display: grid; place-items: center; }
 .modal-window-drag-strip { position: fixed; z-index: var(--z-modal); top: 0; left: 0; right: 0; height: var(--titlebar-height); pointer-events: auto; user-select: none; }
