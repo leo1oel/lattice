@@ -51,23 +51,23 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 </thead>
 <tbody><tr>
 <td>The registry repository</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins">leo1oel/lattice-plugins</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins">lattice-writer/lattice-plugins</a></td>
 </tr>
 <tr>
 <td>Its README: entry format and CI checks</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins#readme">README.md</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins#readme">README.md</a></td>
 </tr>
 <tr>
 <td>The review checklist</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a></td>
 </tr>
 <tr>
 <td>The pull request checklist</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/.github/pull_request_template.md">pull_request_template.md</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins/blob/main/.github/pull_request_template.md">pull_request_template.md</a></td>
 </tr>
 <tr>
 <td>The kill switch</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/blocked.json">blocked.json</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins/blob/main/blocked.json">blocked.json</a></td>
 </tr>
 <tr>
 <td>The signed index Lattice reads</td>
@@ -75,7 +75,7 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 </tr>
 <tr>
 <td>The public signing key</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/keys/primary.pub">keys/primary.pub</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins/blob/main/keys/primary.pub">keys/primary.pub</a></td>
 </tr>
 </tbody></table>
 <h2 id="before-you-publish">Before you publish</h2>
@@ -159,7 +159,7 @@ node scripts/validate.mjs --base origin/main
 <li>checks that <code>blocked.json</code> is well formed.</li>
 </ul>
 <h2 id="5-review">5. Review</h2>
-<p>CI does the mechanical half; a maintainer (today, Leo) does the rest with <a href="https://github.com/leo1oel/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a> and writes the answers in the pull request. A human reviews every first submission, and any update that changes the repository or owner, grows the permissions, or changes the runtime. Other updates merge after green CI and a 24-hour cooling period, during which any maintainer can hold them.</p>
+<p>CI does the mechanical half; a maintainer (today, Leo) does the rest with <a href="https://github.com/lattice-writer/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a> and writes the answers in the pull request. A human reviews every first submission, and any update that changes the repository or owner, grows the permissions, or changes the runtime. Other updates merge after green CI and a 24-hour cooling period, during which any maintainer can hold them.</p>
 <p>The reviewer reads your source at the pinned commit and asks:</p>
 <ol>
 <li>Is the id or name impersonating someone?</li>
@@ -174,7 +174,7 @@ node scripts/validate.mjs --base origin/main
 <p>Lattice checks both signatures against public keys built into the app, refuses an index older than the last one it verified, and checks every zip&#39;s SHA-256 and manifest against the index before installing it. So neither a compromised download server nor someone with access to your GitHub account can change what people install. To check the published index yourself:</p>
 <pre><code class="language-sh">curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
 curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
-curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice-plugins/main/keys/primary.pub
+curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice-plugins/main/keys/primary.pub
 minisign -V -p primary.pub -m index.json
 </code></pre>
 <p>It prints <code>Signature and comment signature verified</code> and a trusted comment like <code>lattice-plugins file:index.json serial:2</code>. (<code>brew install minisign</code> installs minisign.)</p>
@@ -199,7 +199,7 @@ minisign -V -p primary.pub -m index.json
 </ul>
 <p>So keep permissions stable, and when you need a new one, explain it in the README and in the pull request. A folder install behaves the same way while you develop: a new permission stops the plugin until you choose <strong>Review…</strong> and turn it on again.</p>
 <h2 id="the-kill-switch">The kill switch</h2>
-<p>If a published version turns out to be harmful or broken, the registry can turn it off on every Mac. <a href="https://github.com/leo1oel/lattice-plugins/blob/main/blocked.json">blocked.json</a> lists blocked versions and is signed and published with the index:</p>
+<p>If a published version turns out to be harmful or broken, the registry can turn it off on every Mac. <a href="https://github.com/lattice-writer/lattice-plugins/blob/main/blocked.json">blocked.json</a> lists blocked versions and is signed and published with the index:</p>
 <pre><code class="language-json">[
   {
     &quot;id&quot;: &quot;io.github.yourname.hello&quot;,

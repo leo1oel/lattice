@@ -51,23 +51,23 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 </thead>
 <tbody><tr>
 <td>注册表仓库</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins">leo1oel/lattice-plugins</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins">lattice-writer/lattice-plugins</a></td>
 </tr>
 <tr>
 <td>它的 README：条目格式和 CI 检查</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins#readme">README.md</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins#readme">README.md</a></td>
 </tr>
 <tr>
 <td>审核清单</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a></td>
 </tr>
 <tr>
 <td>pull request 检查清单</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/.github/pull_request_template.md">pull_request_template.md</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins/blob/main/.github/pull_request_template.md">pull_request_template.md</a></td>
 </tr>
 <tr>
 <td>紧急停用名单</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/blocked.json">blocked.json</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins/blob/main/blocked.json">blocked.json</a></td>
 </tr>
 <tr>
 <td>Lattice 读取的签名索引</td>
@@ -75,7 +75,7 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 </tr>
 <tr>
 <td>签名公钥</td>
-<td><a href="https://github.com/leo1oel/lattice-plugins/blob/main/keys/primary.pub">keys/primary.pub</a></td>
+<td><a href="https://github.com/lattice-writer/lattice-plugins/blob/main/keys/primary.pub">keys/primary.pub</a></td>
 </tr>
 </tbody></table>
 <h2 id="发布之前">发布之前</h2>
@@ -159,7 +159,7 @@ node scripts/validate.mjs --base origin/main
 <li>检查 <code>blocked.json</code> 格式是否正确。</li>
 </ul>
 <h2 id="5-人工审核">5. 人工审核</h2>
-<p>CI 做机械的那一半；另一半由维护者（目前是 Leo）按 <a href="https://github.com/leo1oel/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a> 审核，并把结论写在 pull request 里。每次首次提交、以及改变仓库或所有者、扩大权限或改变运行时的更新，都要人工审核。其他更新在 CI 通过并经过 24 小时冷静期后合并，期间任何维护者都可以叫停。</p>
+<p>CI 做机械的那一半；另一半由维护者（目前是 Leo）按 <a href="https://github.com/lattice-writer/lattice-plugins/blob/main/REVIEW.md">REVIEW.md</a> 审核，并把结论写在 pull request 里。每次首次提交、以及改变仓库或所有者、扩大权限或改变运行时的更新，都要人工审核。其他更新在 CI 通过并经过 24 小时冷静期后合并，期间任何维护者都可以叫停。</p>
 <p>审核者阅读你钉住的提交下的源码，并会问：</p>
 <ol>
 <li>id 或名称是否在冒充他人？</li>
@@ -174,7 +174,7 @@ node scripts/validate.mjs --base origin/main
 <p>Lattice 用内置在应用里的公钥验证这两个签名，拒绝比上次验证过的更旧的索引，并在安装前核对每个 zip 的 SHA-256 和清单是否与索引一致。所以无论是被攻破的下载服务器，还是拿到你 GitHub 账号的人，都改不了用户装到的内容。你也可以自己验证已发布的索引：</p>
 <pre><code class="language-sh">curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
 curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
-curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice-plugins/main/keys/primary.pub
+curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice-plugins/main/keys/primary.pub
 minisign -V -p primary.pub -m index.json
 </code></pre>
 <p>它会打印 <code>Signature and comment signature verified</code>，以及类似 <code>lattice-plugins file:index.json serial:2</code> 的可信注释。（用 <code>brew install minisign</code> 安装 minisign。）</p>
@@ -199,7 +199,7 @@ minisign -V -p primary.pub -m index.json
 </ul>
 <p>所以尽量保持权限稳定；确实需要新权限时，在 README 和 pull request 里说明原因。开发时从文件夹安装的插件也一样：新的权限会让插件停止运行，直到你选择 <strong>查看…</strong> 并重新开启。</p>
 <h2 id="紧急停用开关">紧急停用开关</h2>
-<p>如果某个已发布的版本被发现有害或有严重问题，注册表可以在所有 Mac 上把它停用。<a href="https://github.com/leo1oel/lattice-plugins/blob/main/blocked.json">blocked.json</a> 列出被停用的版本，和索引一起签名发布：</p>
+<p>如果某个已发布的版本被发现有害或有严重问题，注册表可以在所有 Mac 上把它停用。<a href="https://github.com/lattice-writer/lattice-plugins/blob/main/blocked.json">blocked.json</a> 列出被停用的版本，和索引一起签名发布：</p>
 <pre><code class="language-json">[
   {
     &quot;id&quot;: &quot;io.github.yourname.hello&quot;,
