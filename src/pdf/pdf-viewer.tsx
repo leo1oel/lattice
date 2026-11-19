@@ -274,7 +274,7 @@ export function PdfPreview({
     if (pdfError) onLoadError?.();
   }, [pdfError, onLoadError]);
   usePdfSelectionReport(recordRef, generation, callbacks);
-  const { zoomLabelRef, applyManualScale, stepZoom, toggleFit } = usePdfZoom(recordRef, generation, view);
+  const { zoomLabelRef, applyManualScale, stepZoom, applyFit } = usePdfZoom(recordRef, generation, view);
 
   const [annotating, setAnnotating] = useState(false);
   const annotationLayer = annotationRounds && (
@@ -548,10 +548,10 @@ export function PdfPreview({
             {/* Written out, not mapped: each button then re-renders only when its own state changes. */}
             <ToolbarButton label={fitWidth.label} icon={fitWidth.icon}
               className={`pdf-search-fold${fitMode === "width" ? " active" : ""}${shownFit === "width" ? "" : " pdf-overflow"}`}
-              aria-pressed={fitMode === "width"} disabled={!hasActiveViewer} onClick={() => toggleFit("width")} />
+              aria-pressed={fitMode === "width"} disabled={!hasActiveViewer} onClick={() => applyFit("width")} />
             <ToolbarButton label={fitHeight.label} icon={fitHeight.icon}
               className={`pdf-search-fold${fitMode === "height" ? " active" : ""}${shownFit === "height" ? "" : " pdf-overflow"}`}
-              aria-pressed={fitMode === "height"} disabled={!hasActiveViewer} onClick={() => toggleFit("height")} />
+              aria-pressed={fitMode === "height"} disabled={!hasActiveViewer} onClick={() => applyFit("height")} />
             <PdfDarkPagesButton label={darkPagesLabel} />
             {toolbarAction && (
               <ToolbarButton label={toolbarAction.label} icon={<toolbarAction.icon size={14} />}
@@ -577,9 +577,9 @@ export function PdfPreview({
                   : [],
                 searchFold
                   ? [fitWidth, fitHeight].map((fit) => ({
-                    label: fit.label, icon: fit.icon, checked: foldedFit === fit.mode, disabled: !hasActiveViewer, run: () => toggleFit(fit.mode),
+                    label: fit.label, icon: fit.icon, checked: foldedFit === fit.mode, disabled: !hasActiveViewer, run: () => applyFit(fit.mode),
                   }))
-                  : [{ label: otherFit.label, icon: otherFit.icon, disabled: !hasActiveViewer, run: () => toggleFit(otherFit.mode) }],
+                  : [{ label: otherFit.label, icon: otherFit.icon, disabled: !hasActiveViewer, run: () => applyFit(otherFit.mode) }],
                 [{ label: darkPagesLabel, icon: <Moon />, checked: overflowOpen && pdfDarkPagesSetting.get(), run: togglePdfDarkPages }],
                 [
                   { label: t`Previous PDF location`, icon: <CornerUpLeft />, disabled: !availability.back, run: () => navigate("back") },

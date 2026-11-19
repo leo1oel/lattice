@@ -498,7 +498,7 @@ impl PdfView {
                 fit != Some(mode),
                 tool(id, icon, label)
                     .on(fit == Some(mode))
-                    .on_click(cx.listener(move |this, _, _, cx| this.toggle_fit(mode, cx))),
+                    .on_click(cx.listener(move |this, _, _, cx| this.apply_fit(mode, cx))),
             )
         };
         div()

@@ -83,11 +83,11 @@ impl Run {
         });
         // A fit lands once the view lays out at its new scale, which a busy
         // machine can take longer than a fixed pause to do; wait for it.
-        self.with_view(cx, |view, _, cx| view.toggle_fit(FitMode::Height, cx))?;
+        self.with_view(cx, |view, _, cx| view.apply_fit(FitMode::Height, cx))?;
         let (height_fit, height_scale) = self
             .settled_fit(cx, |fit, scale| fit == Some(FitMode::Height) && scale <= fitted + 0.001)
             .await;
-        self.with_view(cx, |view, _, cx| view.toggle_fit(FitMode::Width, cx))?;
+        self.with_view(cx, |view, _, cx| view.apply_fit(FitMode::Width, cx))?;
         let (back_fit, back_scale) = self
             .settled_fit(cx, |fit, scale| fit == Some(FitMode::Width) && (scale - fitted).abs() < 0.01)
             .await;

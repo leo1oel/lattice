@@ -391,7 +391,7 @@ describe("builds and the PDF reader", () => {
     expect(fitHeight).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(localStorage.getItem("lattice.pdf-view-preference.v1")).toContain('"fitMode":"height"'));
     fireEvent.click(fitHeight);
-    expect(fitHeight).toHaveAttribute("aria-pressed", "false");
+    expect(fitHeight).toHaveAttribute("aria-pressed", "true");
     const pageInput = screen.getByLabelText("PDF page number");
     fireEvent.focus(pageInput);
     fireEvent.change(pageInput, { target: { value: "2" } });

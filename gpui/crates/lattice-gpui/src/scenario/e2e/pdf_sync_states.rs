@@ -208,7 +208,7 @@ impl Run {
                 let view = shell.read(cx).pdf().read(cx).live_view().clone();
                 view.update(cx, |view, cx| {
                     if view.fit() != Some(mode) {
-                        view.toggle_fit(mode, cx);
+                        view.apply_fit(mode, cx);
                     }
                 });
             })?;

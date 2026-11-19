@@ -653,14 +653,9 @@ impl PdfView {
         self.zoom_to(next, None, None, cx);
     }
 
-    /// A fit button: on, or off again (keeping the scale it gave).
-    pub fn toggle_fit(&mut self, mode: FitMode, cx: &mut Context<Self>) {
-        if self.fit == Some(mode) {
-            self.fit = None;
-            self.remember_view();
-            cx.notify();
-            return;
-        }
+    /// A fit button: fit the page in view to `mode`, again when it already
+    /// is, so a press always shows the fit. Only a zoom leaves it.
+    pub fn apply_fit(&mut self, mode: FitMode, cx: &mut Context<Self>) {
         let Some(page) = self.page_sizes().get(self.current_page).copied() else {
             self.fit = Some(mode);
             self.remember_view();
@@ -670,6 +665,14 @@ impl PdfView {
         let scale = layout::fit_scale(mode, page, self.viewport_size());
         // PDF.js keeps the point at the top left of the view through a fit.
         self.zoom_to(scale, Some((0., 0.)), Some(mode), cx);
+    }
+
+    /// Leave fit mode at the scale it gave, as a zoom does, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn clear_fit(&mut self, cx: &mut Context<Self>) {
+        self.fit = None;
+        self.remember_view();
+        cx.notify();
     }
 
     /// Scroll so page `page` (0-based) starts at the top of the view.
