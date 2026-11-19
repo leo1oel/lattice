@@ -17,13 +17,16 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { ChunkGate } from "../components/chunk-gate";
 import { chunk, lazyChunk } from "../lib/lazy-chunk";
 import { WelcomeLattice } from "./welcome-lattice";
-import { welcomeDeskProjects } from "./first-pages";
+import { welcomeDeskProjects, welcomeListProjects } from "./first-pages";
 import { WelcomeDesk } from "./welcome-desk";
 import { PROJECT_VENUES } from "./project-venues";
 
 // Loaded on demand: only the new-project dialog needs it, and the eager-JS budget is tight.
 const loadLocalTemplates = chunk(() => import("./local-templates"));
 const LocalTemplates = lazyChunk(loadLocalTemplates, (module) => module.LocalTemplates);
+// Only a writer with more than three recent projects sees the list under the desk.
+const loadWelcomeRecentList = chunk(() => import("./welcome-recent-list"));
+const WelcomeRecentList = lazyChunk(loadWelcomeRecentList, (module) => module.WelcomeRecentList);
 
 /** A recent project launch could not reopen, with the backend's reason. */
 export type UnopenedProject = RecentProject & { reason: string };
@@ -57,6 +60,8 @@ export function Welcome(props: {
   recentProjects: RecentProject[];
   unopenedProject: UnopenedProject | null;
   onRecent: (path: string) => void;
+  /** The finder over every recent project. */
+  onShowAllRecent: () => void;
   onSettings: () => void;
   onInstallTex: () => void;
   onOpenOverleaf?: () => void;
@@ -64,6 +69,8 @@ export function Welcome(props: {
   const { t } = useLingui();
   // The welcome screen lays out a few projects to reopen; the switcher in a project goes deeper.
   const recents = welcomeDeskProjects(props.recentProjects, props.unopenedProject?.path);
+  const listed = welcomeListProjects(props.recentProjects, props.unopenedProject?.path);
+  const unlisted = props.recentProjects.length - recents.length - listed.length - (props.unopenedProject ? 1 : 0);
   const unopened = props.unopenedProject;
   const unopenedName = unopened?.name;
   const unopenedReason = unopened?.reason ?? "";
@@ -111,6 +118,19 @@ export function Welcome(props: {
             )}
             {recents.length > 0 && (
               <WelcomeDesk projects={recents} disabled={Boolean(props.busyLabel)} onOpen={props.onRecent} />
+            )}
+            {listed.length > 0 && (
+              <Suspense fallback={null}>
+                <ChunkGate chunk={loadWelcomeRecentList}>
+                  <WelcomeRecentList
+                    projects={listed}
+                    total={props.recentProjects.length}
+                    disabled={Boolean(props.busyLabel)}
+                    onOpen={props.onRecent}
+                    onShowAll={unlisted > 0 ? props.onShowAllRecent : undefined}
+                  />
+                </ChunkGate>
+              </Suspense>
             )}
           </section>
         )}

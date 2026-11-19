@@ -981,6 +981,10 @@ msgstr "{paragraphs} changed paragraphs"
 msgid "{passing} of {0} checks pass"
 msgstr "{passing} of {0} checks pass"
 
+#: src/project/project-menu.tsx
+msgid "{path} (linked to Overleaf)"
+msgstr "{path} (linked to Overleaf)"
+
 #: src/app/format-document.ts
 msgid "{path} changed while it was being formatted, so the result was not applied. Run Format document again."
 msgstr "{path} changed while it was being formatted, so the result was not applied. Run Format document again."
@@ -2184,6 +2188,15 @@ msgstr "All levels"
 #: src/project/paper-list-toolbar.tsx
 msgid "All papers"
 msgstr "All papers"
+
+#: src/project/project-menu.tsx
+msgid "All recent projects…"
+msgstr "All recent projects…"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "All Recent Projects…"
+msgstr "All Recent Projects…"
 
 #: src/papers/bib-entry-detail.tsx
 msgid "All references"
@@ -8606,6 +8619,10 @@ msgstr "Item"
 msgid "Its commands leave the palette, and its data and saved secrets are deleted."
 msgstr "Its commands leave the palette, and its data and saved secrets are deleted."
 
+#: src/project/welcome-recent-list.tsx
+msgid "Its folder was not found"
+msgstr "Its folder was not found"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Its owner may have turned link sharing off or reset the link. Ask them for a new one."
 msgstr "Its owner may have turned link sharing off or reset the link. Ask them for a new one."
@@ -8644,6 +8661,7 @@ msgstr "Just added"
 
 #: src/app-utils.ts
 #: src/project/welcome-desk.tsx
+#: src/project/welcome-recent-list.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "just now"
 msgstr "just now"
@@ -9427,6 +9445,10 @@ msgstr "Linked library"
 msgid "Linked library…"
 msgstr "Linked library…"
 
+#: src/project/welcome-recent-list.tsx
+msgid "Linked to an Overleaf project"
+msgstr "Linked to an Overleaf project"
+
 #: src/project/submission-review.tsx
 msgid "Links to your accounts"
 msgstr "Links to your accounts"
@@ -10003,6 +10025,10 @@ msgstr "Minus-plus"
 msgid "Misc"
 msgstr "Misc"
 
+#: src/project/welcome-recent-list.tsx
+msgid "Missing"
+msgstr "Missing"
+
 #: src/papers/audit-messages.ts
 msgid "Missing {field} field for {type} entry."
 msgstr "Missing {field} field for {type} entry."
@@ -10103,6 +10129,10 @@ msgstr "More editor status"
 #: src/pdf/pdf-overflow-menu.tsx
 msgid "More PDF actions"
 msgstr "More PDF actions"
+
+#: src/project/welcome-recent-list.tsx
+msgid "More projects"
+msgstr "More projects"
 
 #: src/settings/model-endpoint-settings.tsx
 msgid "More protocols"
@@ -10807,6 +10837,14 @@ msgstr "No published version was found."
 msgid "No readable paper content is available."
 msgstr "No readable paper content is available."
 
+#: src/project/recent-project-finder.tsx
+msgid "No recent project matches “{query}”"
+msgstr "No recent project matches “{query}”"
+
+#: src/project/recent-project-finder.tsx
+msgid "No recent projects"
+msgstr "No recent projects"
+
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "No reference selected"
@@ -11443,9 +11481,17 @@ msgstr "Open a project to add terms"
 msgid "Open a project to ignore rules or sentences"
 msgstr "Open a project to ignore rules or sentences"
 
+#: src/project/recent-project-finder.tsx
+msgid "Open a recent project"
+msgstr "Open a recent project"
+
 #: src/app/project-switch-commands.ts
 msgid "Open a recent project by its place"
 msgstr "Open a recent project by its place"
+
+#: src/project/recent-project-finder.tsx
+msgid "Open a recent project…"
+msgstr "Open a recent project…"
 
 #: src/app/use-command-table.ts
 msgid "Open an Overleaf project"
@@ -11597,6 +11643,10 @@ msgstr "Open Providers"
 msgctxt "macOS menu bar"
 msgid "Open Recent"
 msgstr "Open Recent"
+
+#: src/app/project-switch-commands.ts
+msgid "Open recent project…"
+msgstr "Open recent project…"
 
 #: src/telemetry/update-recovery.ts
 msgid "Open releases page"
@@ -11818,6 +11868,7 @@ msgstr "Over arXiv’s size limit"
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
+#: src/project/welcome-recent-list.tsx
 #: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -14791,6 +14842,10 @@ msgstr "Search PDF"
 msgid "Search plugins"
 msgstr "Search plugins"
 
+#: src/project/recent-project-finder.tsx
+msgid "Search recent projects"
+msgstr "Search recent projects"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Search references"
 msgstr "Search references"
@@ -15100,6 +15155,10 @@ msgstr "Show {name} panel"
 msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "Show All"
+
+#: src/project/welcome-recent-list.tsx
+msgid "Show all {total} projects"
+msgstr "Show all {total} projects"
 
 #: src/editor/comments/highlight-kind-filter.tsx
 msgid "Show all colours"

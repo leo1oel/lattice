@@ -355,9 +355,39 @@ pub fn watch_project(
     Ok(())
 }
 
+/// What the recent-projects lists mark on an entry: a folder that is gone
+/// (kept and marked rather than dropped, so one on a drive that is not
+/// mounted comes back), and one linked to Overleaf, which "Open from
+/// Overleaf" would open from here rather than download again.
+#[derive(Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentProjectState {
+    missing: bool,
+    overleaf: bool,
+}
+
+fn recent_project_state(root: &Path) -> RecentProjectState {
+    let missing = !root.is_dir();
+    // The link file's presence alone (`STATE_DIR`/`STATE_FILE` in
+    // lattice-core's overleaf/link.rs): a hundred folders are asked each time
+    // a list opens, and what the link says only matters once one is open.
+    let linked = || root.join(".research").join("overleaf.json").is_file();
+    RecentProjectState { missing, overleaf: !missing && linked() }
+}
+
+/// Each of `paths`' state, in order (`markRecentProjects` in
+/// src/settings/app-settings.ts).
+#[tauri::command]
+pub async fn recent_project_states(paths: Vec<String>) -> Result<Vec<RecentProjectState>, String> {
+    run_blocking("Recent project states", move || {
+        Ok(paths.iter().map(|path| recent_project_state(Path::new(path))).collect())
+    })
+    .await
+}
+
 #[cfg(test)]
 mod tests {
-    use super::ensure_not_shown_elsewhere;
+    use super::{ensure_not_shown_elsewhere, recent_project_state, RecentProjectState};
     use crate::app_state::AppState;
     use std::path::PathBuf;
 
@@ -372,5 +402,16 @@ mod tests {
         assert!(refused.contains("already open in another Lattice window"), "got: {refused}");
         assert_eq!(ensure_not_shown_elsewhere(&state, "project-1", &paper), Ok(()));
         assert_eq!(ensure_not_shown_elsewhere(&state, "main", &notes), Ok(()));
+    }
+
+    #[test]
+    fn a_recent_project_is_marked_missing_or_linked_by_its_folder() {
+        let dir = lattice_core::test_support::TempDir::new("recent-project-state");
+        dir.write("plain/main.tex", "");
+        dir.write("linked/.research/overleaf.json", "{}");
+        let state = |missing, overleaf| RecentProjectState { missing, overleaf };
+        assert_eq!(recent_project_state(&dir.join("plain")), state(false, false));
+        assert_eq!(recent_project_state(&dir.join("linked")), state(false, true));
+        assert_eq!(recent_project_state(&dir.join("gone")), state(true, false));
     }
 }

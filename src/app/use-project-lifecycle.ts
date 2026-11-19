@@ -8,8 +8,9 @@ import { hostErrorMessage, toMessage } from "../app-utils";
 import { browserRuntimeDetached } from "../platform/browser-runtime";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import {
-  forgetRecentProject, hasSeenTutorial, loadRecentProjects, markTutorialSeen, rememberRecentProject, type RecentProject,
+  hasSeenTutorial, loadRecentProjects, markTutorialSeen, rememberRecentProject, type RecentProject,
 } from "../settings/app-settings";
+import { useRecentProjectMarks } from "./use-recent-project-marks";
 import type { CreateProjectForm } from "./app-project-dialogs";
 import type { UnopenedProject } from "../project/project-dialogs";
 import { showError, showNotice } from "./notify";
@@ -183,6 +184,12 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     setRecents((current) => ({ ...current, projects: rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }) }));
   }, []);
 
+  const { check: checkRecentProjects, finder: recentFinder } = useRecentProjectMarks({
+    listShown: projectMenuOpen || (!project && !launching),
+    closeProjectMenu: () => setProjectMenuOpen(false),
+    onMarked: (projects) => setRecents((current) => ({ ...current, projects })),
+  });
+
   const enterProject = useCallback(async (
     snapshot: ProjectSnapshot,
     options?: { deferInitialBuild?: boolean },
@@ -262,7 +269,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
 
   /// Hand a project to a window of its own, or raise the window already
   /// showing it. Returns the failure message so a caller that keeps a list of
-  /// projects can decide whether the project is worth forgetting.
+  /// projects can decide whether to look at the project's folder again.
   const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
     setBusyLabel(t`Opening window…`);
     return invoke("open_project_window", { path })
@@ -553,22 +560,22 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // editors, cancel a build and reset the agent for work the writer never
     // asked to put away. With nothing open yet the window is empty, so it
     // takes the project itself rather than leaving a blank window behind.
-    const forget = () => setRecents((current) => ({ ...current, projects: forgetRecentProject(path) }));
+    // One that would not open stays listed, its folder looked at again.
+    const markMissing = checkRecentProjects;
     if (inThisWindow) {
       setProjectMenuOpen(false);
-      await openInThisWindow(path, forget);
+      await openInThisWindow(path, markMissing);
       return;
     }
     if (project?.root) {
       setProjectMenuOpen(false);
       const failure = await openProjectWindow(path);
-      // Only the project itself failing means the entry is worth dropping; a
-      // window that could not be created says nothing about the project.
-      if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) forget();
+      // A window that could not be created says nothing about the folder.
+      if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) markMissing();
       return;
     }
-    await holdWindow(false, () => switchProject(t`Switching project…`, path, forget));
-  }, [holdWindow, openInThisWindow, openProjectWindow, project?.root, switchProject, t]);
+    await holdWindow(false, () => switchProject(t`Switching project…`, path, markMissing));
+  }, [checkRecentProjects, holdWindow, openInThisWindow, openProjectWindow, project?.root, switchProject, t]);
 
   // ---- Closing, quitting and reloading save first -----------------------------------------------------------------
   useSaveBeforeClose({ browserHosted, flush, save, hasUnsavedEdits });
@@ -617,7 +624,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   return {
     launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, openExistingProject, chooseExisting, createProject,
-    chooseRecentProject, openTutorialProject, importOverleafZip, clone, exportProjectZip, moveWorkspace,
+    chooseRecentProject, openTutorialProject, importOverleafZip, clone, recentFinder, exportProjectZip, moveWorkspace,
     movingWorkspace, openInThisWindow, openProjectWindow, moveProjectTab,
   };
 }

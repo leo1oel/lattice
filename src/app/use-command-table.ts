@@ -9,7 +9,7 @@ import { useLingui } from "@lingui/react/macro";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BROWSER_ENTRY_PORT } from "../platform/flavor";
 import { requestMarginReviewHere, setMarginReviewMode } from "../overleaf/margin-review-mode";
-import { switcherProjects } from "../project/first-pages";
+import { openRecentProjects, otherProjects } from "../project/first-pages";
 import type { NewEntryType } from "../project/project-new-entries";
 import { loadRecentCommands, rememberRecentCommand, type ThemePreference } from "../settings/app-settings";
 import type { SettingsSearchEntry } from "../settings/settings-search-index";
@@ -91,7 +91,7 @@ export type CommandTableDeps = {
     ReturnType<typeof useProjectLifecycle>,
     | "recentProjects" | "unopenedProject" | "createForm" | "updateCreateForm" | "busyLabel" | "chooseExisting"
     | "chooseRecentProject" | "exportProjectZip" | "importOverleafZip" | "openTutorialProject" | "moveWorkspace" | "clone"
-    | "openInThisWindow"
+    | "openInThisWindow" | "recentFinder"
   >;
   overleaf: Pick<
     ReturnType<typeof useOverleafWorkspace>,
@@ -376,7 +376,8 @@ export function useCommandTable({
   // Keyed by what the menu shows: the table is rebuilt at every render.
   const fileMenuKey = JSON.stringify({
     projectOpen: inProject,
-    recentProjects: switcherProjects(recentProjects, project?.root).map(({ name, path }) => ({ name, path })),
+    recentProjects: openRecentProjects(recentProjects, project?.root).map(({ name, path }) => ({ name, path })),
+    moreRecentProjects: otherProjects(recentProjects, project?.root).length > openRecentProjects(recentProjects, project?.root).length,
   });
   useEffect(() => setNativeFileMenu(JSON.parse(fileMenuKey) as NativeFileMenu), [fileMenuKey]);
   // The titlebar's search field is the palette's visible home. The titlebar
