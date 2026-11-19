@@ -44,18 +44,23 @@ fn commit(root: &TempDir, files: &[(&str, &str)], message: &str) {
 struct Overleaf {
     bare: TempDir,
     other: TempDir,
+    branch: &'static str,
 }
 
 impl Overleaf {
     fn new(files: &[(&str, &str)]) -> Option<Self> {
+        Self::on("master", files)
+    }
+
+    fn on(branch: &'static str, files: &[(&str, &str)]) -> Option<Self> {
         if !commands::available("git") {
             return None;
         }
         let bare = TempDir::new("bridge-remote");
-        run(&bare, &["init", "--quiet", "--bare", "--initial-branch=master"]);
+        run(&bare, &["init", "--quiet", "--bare", &format!("--initial-branch={branch}")]);
         let other = working("collaborator");
         commit(&other, files, "Initial version");
-        let overleaf = Overleaf { bare, other };
+        let overleaf = Overleaf { bare, other, branch };
         overleaf.publish();
         Some(overleaf)
     }
@@ -65,34 +70,55 @@ impl Overleaf {
     }
 
     fn publish(&self) {
-        run(&self.other, &["push", "--quiet", &self.url(), "HEAD:refs/heads/master"]);
+        run(
+            &self.other,
+            &["push", "--quiet", &self.url(), &format!("HEAD:refs/heads/{}", self.branch)],
+        );
     }
 
     /// An edit made on Overleaf's side, as another person's commit.
     fn edit(&self, path: &str, contents: &str) {
-        run(&self.other, &["pull", "--quiet", "--no-rebase", &self.url(), "master"]);
+        run(&self.other, &["pull", "--quiet", "--no-rebase", &self.url(), self.branch]);
         commit(&self.other, &[(path, contents)], &format!("Edit {path}"));
         self.publish();
     }
 
     fn head(&self) -> String {
-        run(&self.bare, &["rev-parse", "refs/heads/master"])
+        run(&self.bare, &["rev-parse", &format!("refs/heads/{}", self.branch)])
     }
 
     fn file(&self, path: &str) -> String {
-        run(&self.bare, &["show", &format!("refs/heads/master:{path}")])
+        run(&self.bare, &["show", &format!("refs/heads/{}:{path}", self.branch)])
     }
 }
 
 /// A folder cloned from the remote, as a writer's working copy would be.
 fn clone_of(overleaf: &Overleaf, label: &str) -> TempDir {
     let root = working(label);
-    run(&root, &["pull", "--quiet", &overleaf.url(), "master"]);
+    run(&root, &["pull", "--quiet", &overleaf.url(), overleaf.branch]);
     root
 }
 
 fn sync_with(overleaf: &Overleaf, root: &Path) -> Result<Outcome, String> {
     sync(root, &overleaf.url(), TOKEN)
+}
+
+/// Overleaf projects are not all on `master`: whichever branch the remote
+/// serves is the one synced, and pushed back to.
+#[test]
+fn a_remote_whose_branch_is_main_syncs_both_ways() {
+    let Some(overleaf) = Overleaf::on("main", &[("main.tex", "one\n")]) else { return };
+    let root = clone_of(&overleaf, "main-branch");
+    overleaf.edit("extra.tex", "from overleaf\n");
+    commit(&root, &[("main.tex", "two\n")], "Mine");
+
+    let outcome = sync_with(&overleaf, &root).unwrap();
+
+    assert_eq!(outcome.pulled, ["extra.tex"]);
+    assert_eq!(outcome.pushed, ["main.tex"]);
+    assert_eq!(overleaf.file("main.tex"), "two");
+    assert!(root.join("extra.tex").exists());
+    assert!(!remote_changed(&root, &overleaf.url(), TOKEN).unwrap());
 }
 
 #[test]

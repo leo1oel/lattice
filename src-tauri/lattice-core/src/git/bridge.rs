@@ -20,8 +20,6 @@ use std::process::{Command, Output};
 
 /// The remote this sync owns. Anything the writer set up as `origin` is theirs.
 const REMOTE: &str = "overleaf";
-/// The branch Overleaf's git bridge serves.
-const BRANCH: &str = "master";
 
 /// What one sync moved.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -37,8 +35,8 @@ pub struct Outcome {
     pub uncommitted: Vec<String>,
 }
 
-fn tracking_ref() -> String {
-    format!("refs/remotes/{REMOTE}/{BRANCH}")
+fn tracking_ref(branch: &str) -> String {
+    format!("refs/remotes/{REMOTE}/{branch}")
 }
 
 /// A git process for the remote, carrying `token` as HTTP basic credentials
@@ -108,8 +106,39 @@ fn point_remote_at(root: &Path, url: &str) -> Result<(), String> {
     }
 }
 
-fn fetch(root: &Path, url: &str, token: &str) -> Result<(), String> {
-    let spec = format!("+refs/heads/{BRANCH}:{}", tracking_ref());
+/// The branch Overleaf's git bridge serves for this project: the remote's own
+/// default when it names one, else `master`, else `main`, else the only branch
+/// it has. Older projects use `master`; assuming it failed on the others.
+fn remote_branch(root: &Path, url: &str, token: &str) -> Result<String, String> {
+    let output = remote_command(root, url, token)
+        .args(["ls-remote", "--symref", url, "HEAD", "refs/heads/*"])
+        .output()
+        .map_err(|error| format!("Could not run git: {error}"))?;
+    if !output.status.success() {
+        return Err(explain(&output));
+    }
+    let listed = String::from_utf8_lossy(&output.stdout);
+    // `ref: refs/heads/main<TAB>HEAD` names the default branch.
+    let default = listed.lines().find_map(|line| {
+        line.strip_prefix("ref: refs/heads/").and_then(|rest| rest.split_whitespace().next())
+    });
+    if let Some(name) = default {
+        return Ok(name.to_string());
+    }
+    let heads: Vec<&str> = listed
+        .lines()
+        .filter_map(|line| line.split_whitespace().nth(1)?.strip_prefix("refs/heads/"))
+        .collect();
+    ["master", "main"]
+        .into_iter()
+        .find(|preferred| heads.contains(preferred))
+        .or_else(|| heads.first().copied())
+        .map(str::to_string)
+        .ok_or_else(|| "Overleaf's git bridge has no branch for this project yet.".to_string())
+}
+
+fn fetch(root: &Path, url: &str, token: &str, branch: &str) -> Result<(), String> {
+    let spec = format!("+refs/heads/{branch}:{}", tracking_ref(branch));
     run_remote(remote_command(root, url, token).args([
         "fetch",
         "--quiet",
@@ -123,8 +152,9 @@ fn fetch(root: &Path, url: &str, token: &str) -> Result<(), String> {
 /// request, so a poll can badge incoming work without downloading it.
 pub fn remote_changed(root: &Path, url: &str, token: &str) -> Result<bool, String> {
     require_git()?;
+    let branch = remote_branch(root, url, token)?;
     let output = remote_command(root, url, token)
-        .args(["ls-remote", url, &format!("refs/heads/{BRANCH}")])
+        .args(["ls-remote", url, &format!("refs/heads/{branch}")])
         .output()
         .map_err(|error| format!("Could not run git: {error}"))?;
     if !output.status.success() {
@@ -132,7 +162,7 @@ pub fn remote_changed(root: &Path, url: &str, token: &str) -> Result<bool, Strin
     }
     let listed = String::from_utf8_lossy(&output.stdout);
     let Some(remote) = listed.split_whitespace().next() else { return Ok(false) };
-    Ok(rev_parse(root, &[&tracking_ref()]).map_or(true, |known| known != remote))
+    Ok(rev_parse(root, &[&tracking_ref(&branch)]).map_or(true, |known| known != remote))
 }
 
 /// Fetch, merge and push, in that order, and report what moved.
@@ -155,18 +185,19 @@ pub fn sync(root: &Path, url: &str, token: &str) -> Result<Outcome, String> {
     }
     ensure_internal_ignored(root);
     point_remote_at(root, url)?;
-    fetch(root, url, token)?;
-    let remote = tracking_ref();
+    let branch = remote_branch(root, url, token)?;
+    fetch(root, url, token, &branch)?;
+    let remote = tracking_ref(&branch);
     let mut outcome = Outcome::default();
 
     if !has_head(root) {
         // A folder with no commits yet takes Overleaf's. Checkout refuses to
         // overwrite a file of the same name that is not in the repository, so
         // nothing written here is lost.
-        let branch = git_output(root, &["symbolic-ref", "--short", "HEAD"])
+        let local = git_output(root, &["symbolic-ref", "--short", "HEAD"])
             .map(|name| name.trim().to_string())
-            .unwrap_or_else(|_| BRANCH.to_string());
-        git_run(root, &["checkout", "--quiet", "-B", &branch, &remote])?;
+            .unwrap_or_else(|_| branch.clone());
+        git_run(root, &["checkout", "--quiet", "-B", &local, &remote])?;
         outcome.pulled = names(root, &["ls-tree", "-r", "-z", "--name-only", &remote])?;
         return Ok(outcome);
     }
@@ -192,7 +223,7 @@ pub fn sync(root: &Path, url: &str, token: &str) -> Result<Outcome, String> {
             "push",
             "--quiet",
             REMOTE,
-            &format!("HEAD:refs/heads/{BRANCH}"),
+            &format!("HEAD:refs/heads/{branch}"),
         ]))?;
     }
 
