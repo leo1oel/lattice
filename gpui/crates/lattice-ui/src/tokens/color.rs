@@ -14,7 +14,7 @@ use crate::token_types::{ColorToken, hex, rgba8};
 ///
 /// App: `--surface-window`.
 pub const COLOR_WINDOW: ColorToken = ColorToken::new(hex(0xF7F7F6), hex(0x171718));
-/// Ground: titlebar gutters and the Project, Papers and Agent navigation
+/// Ground: the titlebar's gutters and the Settings sidebar
 ///
 /// App: `--surface-chrome`.
 pub const COLOR_CHROME: ColorToken = ColorToken::new(hex(0xEFEFF0), hex(0x131315));
@@ -242,6 +242,10 @@ pub const COLOR_MATCH: ColorToken = ColorToken::same(rgba8(255, 208, 0, 0.34));
 ///
 /// App: `--highlight-match-current-surface`.
 pub const COLOR_MATCH_CURRENT: ColorToken = ColorToken::same(rgba8(255, 142, 0, 0.48));
+/// Side panels and docks: Project, Papers, Literature and the Agent; one tone below the editor, opaque in a translucent window
+///
+/// App: `--surface-side-panel`.
+pub const COLOR_SIDE_PANEL: ColorToken = ColorToken::new(hex(0xEFEFF0), hex(0x131315));
 
 // Opacity
 

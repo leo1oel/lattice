@@ -113,10 +113,7 @@ impl Render for FileTreePanel {
         if frame.is_some() {
             window.request_animation_frame();
         }
-        let ground = match cx.palette().glass {
-            lattice_ui::palette::Glass::Off => cx.palette().navigator,
-            _ => gpui::transparent_black(),
-        };
+        let ground = cx.palette().side_panel;
         let (pinned, pinned_bottom) = self.pinned_layer(cx);
         let naming = self
             .naming

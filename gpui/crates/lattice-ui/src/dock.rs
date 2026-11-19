@@ -42,9 +42,6 @@ pub struct TabLook {
     /// A document's tab, which ellipsizes in a narrow strip; a named panel's
     /// (Project, PDF) shows its whole name or only its icon.
     pub document: bool,
-    /// A navigator (Project, Papers) whose card frosts over the window's
-    /// vibrancy when the window is translucent (trellis.css `data-glass`).
-    pub frosted: bool,
 }
 
 impl Default for TabLook {
@@ -54,7 +51,6 @@ impl Default for TabLook {
             dirty: false,
             surface: Surface::Sheet,
             document: false,
-            frosted: false,
         }
     }
 }

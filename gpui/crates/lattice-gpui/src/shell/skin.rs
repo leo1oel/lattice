@@ -1,6 +1,6 @@
 //! Lattice's look for the Trellis workspace (`src/trellis/trellis.css` and
 //! the panel menu of `trellis-panel-menu.tsx`): every panel a rounded card
-//! whose surface follows its selected view (the chrome for the navigators,
+//! whose surface follows its selected view (the side panels' for the navigators and the Agent,
 //! the sheet for documents, the PDF and tools), a 40px strip of 28px pill
 //! tabs with the panel's own tools and a ⋯ menu at its end, the divider's
 //! grip in the accent at 55%, and the drop slot's wash inside a 2px focus
@@ -106,7 +106,8 @@ impl LatticeSkin {
     ) -> (Surface, lattice_ui::token_types::Srgb) {
         let surface = self.look(view_id, cx).surface;
         let color = match surface {
-            Surface::Chrome | Surface::Titlebar => palette.chrome_srgb,
+            Surface::SidePanel => palette.side_panel_srgb,
+            Surface::Titlebar => palette.chrome_srgb,
             // The Terminal stands on the code theme's ground, as the source
             // editor does (trellis.css `[data-type="terminal"]`): a dark-only
             // theme keeps its own ground in a light app.

@@ -11,7 +11,7 @@
       "name": "--color-chrome",
       "type": "color",
       "value": "#EFEFF0",
-      "description": "Ground: titlebar gutters and the Project, Papers and Agent navigation · app: --surface-chrome (light)"
+      "description": "Ground: the titlebar's gutters and the Settings sidebar · app: --surface-chrome (light)"
     },
     {
       "name": "--color-titlebar",
@@ -299,7 +299,7 @@
       "name": "--color-dark-chrome",
       "type": "color",
       "value": "#131315",
-      "description": "Ground: titlebar gutters and the Project, Papers and Agent navigation · app: --surface-chrome (dark)"
+      "description": "Ground: the titlebar's gutters and the Settings sidebar · app: --surface-chrome (dark)"
     },
     {
       "name": "--color-dark-titlebar",
@@ -1362,6 +1362,18 @@
       "type": "color",
       "value": "#FFA657",
       "description": "GitHub code theme (the default): cross-references · app: code-theme github --syntax-reference (dark)"
+    },
+    {
+      "name": "--color-side-panel",
+      "type": "color",
+      "value": "#EFEFF0",
+      "description": "Side panels and docks: Project, Papers, Literature and the Agent; one tone below the editor, opaque in a translucent window · app: --surface-side-panel (light)"
+    },
+    {
+      "name": "--color-dark-side-panel",
+      "type": "color",
+      "value": "#131315",
+      "description": "Side panels and docks: Project, Papers, Literature and the Agent; one tone below the editor, opaque in a translucent window · app: --surface-side-panel (dark)"
     },
     {
       "name": "--font-ui",

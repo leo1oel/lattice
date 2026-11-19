@@ -1,5 +1,5 @@
 {
-  "$id": "https://leo1oel.github.io/lattice-plugins/schema/theme-1.json",
+  "$id": "https://lattice-writer.github.io/lattice-plugins/schema/theme-1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "$schema": {

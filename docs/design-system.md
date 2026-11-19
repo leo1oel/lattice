@@ -58,11 +58,23 @@ lands in the Paper file and in the app, through the review loop in
 - Embedded Agent thread titles use the caption role at regular weight, from
   the pinned Synara runtime's own copy of it; Project filenames use their own
   13/16px alias.
-- The top toolbar and left Project, Papers, and Agent navigation form the app
-  chrome. At the default Graphite tint they use `#EFEFF0` in the light theme
-  and `#131315` in the dark theme. The titlebar lifts a step off that ground
+- The top toolbar and its gutters form the app chrome. At the default
+  Graphite tint they use `#EFEFF0` in the light theme and `#131315` in the
+  dark theme. The titlebar lifts a step off that ground
   (`--surface-titlebar`, a white veil over the chrome, closed by a hairline),
   so it never reads as the same sheet as the gutters beneath it.
+- **One side-panel surface.** Every side panel and dock, Project, Papers,
+  Literature and the Agent, stands on `--surface-side-panel`
+  (`--color-side-panel`), one tone of OKLCH lightness below the editor.
+  Graphite and the tints take their chrome for it (`#EFEFF0`, dark
+  `#131315`). A theme takes its own chrome, unless that chrome sits within
+  half a tone of its editor (Nord's Polar Night paints both `#2E3440`); then
+  the panels are the editor a tone darker, with its hue
+  (`lattice_theme::color::side_panel`, which both apps resolve through). The
+  Agent's Synara page gets the same colour as its `chrome` over the theme
+  bridge, so its ground, its edges and its composer follow every theme, tint
+  and appearance with the panels beside it. GPUI paints the role as
+  `Palette::side_panel` (`Surface::SidePanel`).
 - Default navigation text on the chrome uses the secondary ink; selected and
   emphasized items use the primary text color.
 - Right-side feature drawers are a separate surface: `#FAFAFA` in the light
@@ -105,13 +117,13 @@ applied on `<html>` by `src/settings/use-appearance.ts`:
   surface, not the editor's.
 - **Translucency** (`data-glass`, only while the native window reports
   vibrancy behind it): the window clears its background, the gutters take
-  `--surface-shell`, the titlebar the same under its veil, and Project and
-  Papers `--surface-navigator` over macOS's under-window material, as
-  Synara's own window does, with their tab strip and body under one more coat
-  (`--surface-navigator-lift`), so the header and the body stay one surface.
-  The editors, PDFs, the agent, tool panels, menus and dialogs stay opaque, so
-  an editor stands on the same sheet as Git, History and Overleaf. Reduce transparency, a browser tab and every
-  other platform keep the opaque palette, which is also what Off gives.
+  `--surface-shell` and the titlebar the same under its veil, over macOS's
+  under-window material, as Synara's own window does. Every panel stays
+  opaque: the side panels keep their one surface, which the Agent's iframe
+  could not frost to match, and the editors, PDFs, tool panels, menus and
+  dialogs keep theirs, so an editor stands on the same sheet as Git, History
+  and Overleaf. Reduce transparency, a browser tab and every other platform
+  keep the opaque palette, which is also what Off gives.
 
 Presets live in `src/styles/theme.css` as attribute blocks that apply to any
 element, so a Settings swatch carrying `data-tint` or `data-accent` shows the
@@ -269,7 +281,7 @@ slab and fade to `--control-disabled-opacity`.
   sites and resolve to secondary; new code takes one of the two. A status
   colour is an icon's or a state's, never a third grey.
 - **Two neutrals and a lift (Graphite).** The ground is the chrome
-  (`#EFEFF0`, dark `#131315`); the panels, the editor and the fields share one
+  (`#EFEFF0`, dark `#131315`), which the side panels share; the panels, the editor and the fields share one
   sheet (`#FAFAFA`; in dark the panels `#1A1A1C`, and the editors, the tool
   panels (Git, History, Overleaf) and the fields `#1F1F22`); menus, popovers,
   toasts and dialogs stand on the lift (`--surface-elevated`: white, dark

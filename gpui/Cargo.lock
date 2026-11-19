@@ -6971,6 +6971,7 @@ dependencies = [
  "gpui",
  "gpui-kit",
  "gpui-webview",
+ "lattice-theme",
  "lattice-ui",
  "lb-wry",
  "log",

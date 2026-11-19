@@ -148,8 +148,8 @@ You don't sign anything. Once your pull request merges, the registry's publish w
 Lattice checks both signatures against public keys built into the app, refuses an index older than the last one it verified, and checks every zip's SHA-256 and manifest against the index before installing it. So neither a compromised download server nor someone with access to your GitHub account can change what people install. To check the published index yourself:
 
 ```sh
-curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
-curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
+curl -fsSLO https://lattice-writer.github.io/lattice-plugins/index.json
+curl -fsSLO https://lattice-writer.github.io/lattice-plugins/index.json.minisig
 curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice-plugins/main/keys/primary.pub
 minisign -V -p primary.pub -m index.json
 ```
@@ -210,6 +210,6 @@ To pull one of your own versions, open a pull request that adds an item to `bloc
 [review]: https://github.com/lattice-writer/lattice-plugins/blob/main/REVIEW.md
 [pr-template]: https://github.com/lattice-writer/lattice-plugins/blob/main/.github/pull_request_template.md
 [blocked]: https://github.com/lattice-writer/lattice-plugins/blob/main/blocked.json
-[index]: https://leo1oel.github.io/lattice-plugins/index.json
-[index-sig]: https://leo1oel.github.io/lattice-plugins/index.json.minisig
+[index]: https://lattice-writer.github.io/lattice-plugins/index.json
+[index-sig]: https://lattice-writer.github.io/lattice-plugins/index.json.minisig
 [primary-key]: https://github.com/lattice-writer/lattice-plugins/blob/main/keys/primary.pub

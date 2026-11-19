@@ -139,7 +139,7 @@ fn fixture() -> Fixture {
     let dir = std::env::temp_dir().join(format!("lattice-registry-{}", uuid::Uuid::new_v4()));
     let site = Site::start();
     let key = Key::new(7);
-    let registry = Registry::with(dir.join("registry"), &site.url, vec![key.public()]);
+    let registry = Registry::with(dir.join("registry"), &[&site.url], vec![key.public()]);
     let store = ThemeStore::new(&dir);
     Fixture { dir, site, key, registry, store }
 }
@@ -224,6 +224,48 @@ fn an_older_or_forged_list_is_refused_and_the_cache_kept() {
     let torn = f.registry.listing(&f.store, true);
     assert!(refused(&torn.status).contains("updating its list"));
     assert_eq!(torn.index.unwrap().serial, 3);
+}
+
+#[test]
+fn the_list_comes_from_the_new_home_first_and_the_old_address_after() {
+    let (f, old) = (fixture(), Site::start());
+    let keys = vec![f.key.public()];
+    let registry = Registry::with(f.dir.join("mirrored"), &[&f.site.url, &old.url], keys);
+    let first_theme = |listing: &Listing| listing.index.as_ref().unwrap().themes[0].id.clone();
+    // Before the move only the old address serves the list.
+    old.publish(&f.key, 2, &[("dev.example.old", "1.0.0")], NO_BLOCKS);
+    let before = registry.listing(&f.store, true);
+    assert_eq!(before.status, Status::Fresh);
+    assert_eq!(first_theme(&before), "dev.example.old");
+    // With both serving, the new home's list is the one taken.
+    f.site.publish(&f.key, 3, &[("dev.example.new", "1.0.0")], NO_BLOCKS);
+    old.publish(&f.key, 3, &[("dev.example.old", "1.0.0")], NO_BLOCKS);
+    let both = registry.listing(&f.store, true);
+    assert_eq!(both.status, Status::Fresh);
+    assert_eq!(first_theme(&both), "dev.example.new");
+    // The new home down: the old address still cannot roll the list back.
+    f.site.take_down();
+    old.publish(&f.key, 2, &[], NO_BLOCKS);
+    let rollback = registry.listing(&f.store, true);
+    assert!(refused(&rollback.status).contains("older list (serial 2 after 3)"));
+    assert_eq!(rollback.index.unwrap().serial, 3);
+    // A forged list at the new home does not hide the old address's good one.
+    f.site.publish(&Key::new(9), 4, &[], NO_BLOCKS);
+    old.publish(&f.key, 4, &[], NO_BLOCKS);
+    let mirrored = registry.listing(&f.store, true);
+    assert_eq!(mirrored.status, Status::Fresh);
+    assert_eq!(mirrored.index.unwrap().serial, 4);
+    // Neither reachable: offline, with the cache served.
+    f.site.take_down();
+    old.take_down();
+    let offline = registry.listing(&f.store, true);
+    assert!(matches!(&offline.status, Status::Offline { message } if message.contains("HTTP 404")));
+    assert_eq!(offline.index.unwrap().serial, 4);
+    // A bad list is reported over an unreachable address.
+    old.publish(&Key::new(9), 5, &[], NO_BLOCKS);
+    let forged = registry.listing(&f.store, true);
+    assert!(refused(&forged.status).contains("no valid signature"));
+    assert_eq!(forged.index.unwrap().serial, 4);
 }
 
 #[test]
@@ -413,7 +455,7 @@ fn plugin_host(f: &Fixture) -> PluginHost {
         Box::new(crate::plugins::broker::tests::MemorySecrets::default()),
     );
     let keys = vec![f.key.public()];
-    host.set_registry(Arc::new(Registry::with(f.dir.join("registry"), &f.site.url, keys)));
+    host.set_registry(Arc::new(Registry::with(f.dir.join("registry"), &[&f.site.url], keys)));
     host
 }
 

@@ -148,8 +148,8 @@ CI 做机械的那一半；另一半由维护者（目前是 Leo）按 [REVIEW.m
 Lattice 用内置在应用里的公钥验证这两个签名，拒绝比上次验证过的更旧的索引，并在安装前核对每个 zip 的 SHA-256 和清单是否与索引一致。所以无论是被攻破的下载服务器，还是拿到你 GitHub 账号的人，都改不了用户装到的内容。你也可以自己验证已发布的索引：
 
 ```sh
-curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
-curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
+curl -fsSLO https://lattice-writer.github.io/lattice-plugins/index.json
+curl -fsSLO https://lattice-writer.github.io/lattice-plugins/index.json.minisig
 curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice-plugins/main/keys/primary.pub
 minisign -V -p primary.pub -m index.json
 ```
@@ -210,6 +210,6 @@ ok   plugins/io.github.yourname.hello/entry.json
 [review]: https://github.com/lattice-writer/lattice-plugins/blob/main/REVIEW.md
 [pr-template]: https://github.com/lattice-writer/lattice-plugins/blob/main/.github/pull_request_template.md
 [blocked]: https://github.com/lattice-writer/lattice-plugins/blob/main/blocked.json
-[index]: https://leo1oel.github.io/lattice-plugins/index.json
-[index-sig]: https://leo1oel.github.io/lattice-plugins/index.json.minisig
+[index]: https://lattice-writer.github.io/lattice-plugins/index.json
+[index-sig]: https://lattice-writer.github.io/lattice-plugins/index.json.minisig
 [primary-key]: https://github.com/lattice-writer/lattice-plugins/blob/main/keys/primary.pub
