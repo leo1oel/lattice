@@ -30,7 +30,7 @@ use serde_json::{Value, json};
 
 use super::{Steps, drops::PointerStep};
 use crate::{
-    editor_panel::{EditorPanel, choose_latex_view},
+    editor_panel::{EditorPanel, choose_latex_view, views::DocumentView},
     papers::PapersPanel,
     scenario::Run,
 };
@@ -115,6 +115,17 @@ impl Run {
         visual?;
 
         let notes = self.open(cx, &root.join(NOTES_PATH), None)?;
+        // Split shows both drop targets. A Markdown file opens in the view
+        // the last one was left in, and a module before this one (Overleaf's
+        // Markdown review) leaves it in Source, where no page is drawn.
+        self.with_window(cx, {
+            let notes = notes.clone();
+            move |_, window, cx| {
+                notes.update(cx, |panel, cx| {
+                    panel.set_document_view(DocumentView::Split, window, cx)
+                })
+            }
+        })?;
         let drawn = self
             .wait_for(cx, Duration::from_secs(40), |_, cx| {
                 notes

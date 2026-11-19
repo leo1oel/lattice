@@ -570,7 +570,7 @@ impl PdfView {
     /// Bring the pages up to the view (`sync_pages`) once this update ends
     /// rather than at the next frame, which a window the platform is not
     /// drawing (covered, or its frames skipped) does not reach.
-    fn sync_pages_soon(&self, cx: &mut Context<Self>) {
+    pub(crate) fn sync_pages_soon(&self, cx: &mut Context<Self>) {
         let (view, window) = (cx.weak_entity(), self.window);
         cx.defer(move |cx| {
             window

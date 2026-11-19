@@ -13,7 +13,11 @@ use gpui::{AsyncApp, Entity, Keystroke};
 use serde_json::json;
 
 use super::Steps;
-use crate::{editor_panel::EditorPanel, scenario::Run};
+use crate::{
+    editor_panel::EditorPanel,
+    get_started::{Step, progress},
+    scenario::Run,
+};
 
 #[cfg(target_os = "macos")]
 const CITE: &str = "cmd-shift-k";
@@ -57,6 +61,7 @@ impl Run {
             let rows = self.picker_rows(cx).await;
             let listed = rows.iter().any(|row| row == wanted);
             if command == "cite" {
+                cx.update(|cx| progress::forget(Step::Cite, cx));
                 self.light_and_dark_shots(cx, "insert-citation").await;
             }
             // The key the scenario wants, typed so it ranks first.
@@ -77,6 +82,14 @@ impl Run {
                     && caret == end_of_line + written.len(),
                 json!({ "rows": rows, "closed": closed, "line": text.lines().nth(1), "caret": caret }),
             );
+            if command == "cite" {
+                let ticked = cx.update(|cx| progress::global(cx).read(cx).is_done(Step::Cite));
+                steps.check(
+                    "a citation picked with ⌘⇧K / Ctrl+Shift+K ticks Get started's Cite step",
+                    ticked,
+                    json!({ "ticked": ticked }),
+                );
+            }
             self.restore(cx, &editor, &original)?;
         }
 

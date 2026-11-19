@@ -15,7 +15,7 @@
 //! with Project as it was), and main.tex's tab asking for a build that Stop
 //! then drops. Building main.tex again trades the two tabs back.
 
-use std::{cell::Cell, path::Path, rc::Rc, time::Duration};
+use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result};
 use gpui::{App, AsyncApp, Entity, Focusable as _};
@@ -32,6 +32,7 @@ use crate::{
 
 mod colours;
 mod navigation;
+mod next_frame;
 mod page_draft;
 mod page_swap;
 mod selection;
@@ -79,23 +80,6 @@ impl Run {
         let front = self.focused(cx, what).await?;
         self.next_frame(cx).await;
         Ok(front)
-    }
-
-    /// Whether the main window draws a frame within a second.
-    async fn next_frame(&self, cx: &mut AsyncApp) -> bool {
-        let drew = Rc::new(Cell::new(false));
-        self.with_window(cx, {
-            let drew = drew.clone();
-            move |_, window, _| window.on_next_frame(move |_, _| drew.set(true))
-        })
-        .ok();
-        for _ in 0..20 {
-            if drew.get() {
-                break;
-            }
-            self.pause(cx, Duration::from_millis(50)).await;
-        }
-        drew.get()
     }
 
     /// Whether the main window is active, whether the platform reports it

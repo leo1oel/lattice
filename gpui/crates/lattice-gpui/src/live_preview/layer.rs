@@ -64,6 +64,11 @@ impl Layer {
                 if let Some(layer) = view.live_layer_mut() {
                     layer.invalidate(dirty);
                 }
+                // The pages ask for their layer again in `sync_pages`, which
+                // a frame runs only when the viewer is laid out anew: without
+                // it the typed paragraph's band was never drawn, and the
+                // edit the new base PDF holds stayed painted over it.
+                view.sync_pages_soon(cx);
                 cx.notify();
             }
             LivePreviewEvent::Changed => cx.notify(),
