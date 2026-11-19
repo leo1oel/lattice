@@ -80,7 +80,11 @@ impl Scene {
 
     pub fn push_layer(&mut self, bounds: Bounds<ScaledPixels>) {
         let bounds = crate::fast::scale::transform_layer(self, bounds);
-        let order = self.primitive_bounds.insert(bounds);
+        let order = if self.fast_rounded_clip.deferred {
+            0
+        } else {
+            self.primitive_bounds.insert(bounds)
+        };
         self.layer_stack.push(order);
         self.paint_operations
             .push(PaintOperation::StartLayer(bounds));
@@ -104,6 +108,11 @@ impl Scene {
             .intersect(&primitive.content_mask().bounds);
 
         if clipped_bounds.is_empty() {
+            return;
+        }
+        if self.fast_rounded_clip.deferred {
+            self.paint_operations
+                .push(PaintOperation::Primitive(primitive));
             return;
         }
 
