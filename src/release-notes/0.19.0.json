@@ -1,0 +1,29 @@
+{
+  "version": "0.19.0",
+  "date": "2026-11-19",
+  "highlights": [
+    {
+      "icon": "sparkles",
+      "title": {
+        "en": "A native Lattice on Apple silicon Macs",
+        "zh": "Apple 芯片 Mac 上的原生 Lattice"
+      },
+      "body": {
+        "en": "On a Mac with Apple silicon, this update replaces Lattice with its native version, drawn by the Mac's graphics hardware instead of a web page. It looks and works the way Lattice did. Your recent projects, settings, themes, plugins, project templates, Agent skills and Overleaf links come with it, and it keeps updating itself as before. The data of the previous version stays where it was, untouched. Intel Macs, Windows and Linux keep the current Lattice.",
+        "zh": "在搭载 Apple 芯片的 Mac 上，这次更新会把 Lattice 换成它的原生版本：界面由 Mac 的图形硬件直接绘制，而不再是网页。它的外观和用法与之前的 Lattice 一致。最近的项目、设置、主题、插件、项目模板、Agent 技能和 Overleaf 关联都会一并带过来，之后也会像以前一样自动更新。旧版本的数据原样保留在原处，不会被改动。Intel 芯片的 Mac、Windows 和 Linux 继续使用现在的 Lattice。"
+      }
+    },
+    {
+      "icon": "git",
+      "title": {
+        "en": "Lattice Beta is now Lattice",
+        "zh": "Lattice Beta 已并入 Lattice"
+      },
+      "body": {
+        "en": "If you tried Lattice Beta, you can delete it: Lattice is now the same app. Lattice Beta keeps its own data and gets no more updates.",
+        "zh": "如果你试用过 Lattice Beta，现在可以把它删掉了：Lattice 已经是同一个应用。Lattice Beta 保留它自己的数据，之后不再更新。"
+      }
+    }
+  ],
+  "fixes": []
+}
