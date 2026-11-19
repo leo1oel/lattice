@@ -14,7 +14,7 @@ describe("unsettledPaths", () => {
   it("lists every path a sync left for the writer, but not a refused download that went up", () => {
     expect(unsettledPaths(result({
       pushed: ["kept.tex"],
-      conflicts: [{ path: "a.tex", localCopy: "a (local conflict 20261108-0217).tex", markers: true }],
+      conflicts: [{ path: "a.tex", setAside: ".research/overleaf-conflicts/20261108-0217/a.tex", markers: true }],
       deletedLocal: ["b.tex"], skippedRemoteDeletes: ["c.tex"], skippedLarge: ["d.pdf"],
       heldRenames: ["f.tex"], refusedIncoming: ["kept.tex", "e.tex"],
     }))).toEqual(["a.tex", "b.tex", "c.tex", "d.pdf", "f.tex", "e.tex"]);

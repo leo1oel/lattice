@@ -53,6 +53,7 @@ mod buffer_counts;
 mod card_context;
 pub(crate) mod citation_card;
 mod citations;
+mod conflict_choices;
 pub(crate) mod definition;
 mod disk_sync;
 pub mod drops;
@@ -189,6 +190,9 @@ pub struct EditorPanel {
     review: Option<annotation_review::ReviewSession>,
     /// Track changes' base, marks and accepts (`review_marks.rs`).
     review_marks: review_marks::ReviewMarks,
+    /// The inline Keep mine / Keep theirs / Keep both on conflict markers
+    /// (`conflict_choices.rs`).
+    conflicts: conflict_choices::ConflictLayer,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -337,6 +341,7 @@ impl EditorPanel {
                     this.citations_edited(cx);
                     this.review_edited(cx);
                     this.highlights_edited(cx);
+                    this.paint_conflicts(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => {
                     crate::crash::note_editor(this, cx);
@@ -446,6 +451,7 @@ impl EditorPanel {
             proofread: Default::default(),
             review: None,
             review_marks: Default::default(),
+            conflicts: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -499,6 +505,7 @@ impl EditorPanel {
         this.attach_annotations(cx);
         this.attach_review_marks(cx);
         this.paint_highlights(cx);
+        this.paint_conflicts(cx);
         this
     }
 

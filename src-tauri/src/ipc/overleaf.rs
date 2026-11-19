@@ -4,6 +4,7 @@
 
 use super::overleaf_realtime::realtime_client;
 // lib.rs registers the history commands under this module's path.
+pub use super::overleaf_conflicts::*;
 pub use super::overleaf_history::*;
 use super::workspace::documents_folder;
 use super::{current_root, in_project, pinned_root, run_blocking, run_quietly, scoped_root};

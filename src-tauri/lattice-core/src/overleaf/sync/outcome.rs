@@ -6,20 +6,33 @@ use super::{CaseCollision, SyncState};
 use crate::wide_event;
 use serde::{Deserialize, Serialize};
 
+/// Whose copy of a binary file a conflict kept on its path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ConflictSide {
+    ThisMac,
+    Overleaf,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OverleafConflict {
     pub path: String,
-    pub local_copy: String,
-    /// Whether the file carries conflict markers to work through.
+    /// Where the copy taken off the path is kept, under
+    /// `.research/overleaf-conflicts/`: this Mac's text as it stood before
+    /// the markers went in, or the older copy of a binary file. It never
+    /// syncs and never joins the project, so restoring it is a choice.
+    pub set_aside: String,
+    /// Whether the file carries conflict markers to work through, each spot
+    /// resolved in the editor (keep mine, keep theirs, keep both).
     ///
-    /// False for one that could not be merged line by line at all — a figure,
-    /// a PDF — where the remote version simply takes the path and the local
-    /// one is kept beside it. Telling someone to resolve the spots in a file
-    /// that has none, and opening a marker resolver on it, is worse than
-    /// saying plainly that both versions are on disk.
+    /// False for a binary file (a figure), where one copy simply takes the
+    /// path: the newer one, by when each side last changed it.
     #[serde(default)]
     pub markers: bool,
+    /// For a binary file, whose copy is now on the path.
+    #[serde(default)]
+    pub kept: Option<ConflictSide>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

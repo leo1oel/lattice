@@ -34,6 +34,7 @@ import {
 } from "@codemirror/language";
 import { highlightSelectionMatches } from "@codemirror/search";
 import { closeBrackets } from "@codemirror/autocomplete";
+import { conflictChoices } from "./conflict-choices";
 import { dropCursor } from "./drop-cursor";
 import { baseEditorKeymap } from "./editor-keymap";
 import { nativeSelectAllSelectsDocument } from "./native-select-all";
@@ -252,7 +253,7 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
     baseSetup,
     documentLabel.of(labelExtension(propsRef.current.label)),
     hostPhrases(),
-    ...(editable ? [] : [EditorView.editable.of(false)]),
+    ...(editable ? [conflictChoices()] : [EditorView.editable.of(false)]),
     ...extensions,
   ];
 

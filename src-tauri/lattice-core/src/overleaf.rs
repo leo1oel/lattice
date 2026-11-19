@@ -50,6 +50,7 @@ mod doc_push;
 mod files;
 mod link;
 mod local_copies;
+mod merge;
 mod projects;
 mod review;
 mod root_document;
@@ -65,7 +66,9 @@ pub use account::{
 };
 pub use destination::{check_download_parent, download_parent, remember_download_parent};
 pub use doc_comment::{comment_in_document, CommentPlacement};
-pub use files::{agreed_text, checkpoint_realtime_text, is_conflict_copy, RealtimeCheckpoint};
+pub use files::{
+    agreed_text, checkpoint_realtime_text, is_conflict_copy, restore_set_aside, RealtimeCheckpoint,
+};
 pub use link::{
     adopt_project, clone_project, clone_target, download_folders, project_link, publish_project,
     realtime_config, record_relocation, reopen_local_copy, set_paused, set_permission,
@@ -87,6 +90,6 @@ pub use review::{
 pub use root_document::{record_root_document, reported_root_document};
 pub use sync::{
     classify_sync_error, delete_unchanged, prefetch, preview, probe, sync_prefetched,
-    sync_relocations, OverleafChange, OverleafConflict, OverleafPreview, OverleafProbe,
-    OverleafSyncResult, RemoteDelete, READ_AHEAD_ROUNDS,
+    sync_relocations, ConflictSide, OverleafChange, OverleafConflict, OverleafPreview,
+    OverleafProbe, OverleafSyncResult, RemoteDelete, READ_AHEAD_ROUNDS,
 };

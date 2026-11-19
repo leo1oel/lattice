@@ -18,6 +18,7 @@ pub(crate) mod literature_credentials;
 pub(crate) mod live_preview;
 pub(crate) mod overleaf;
 pub(crate) mod overleaf_comments;
+pub(crate) mod overleaf_conflicts;
 pub(crate) mod overleaf_destination;
 pub(crate) mod overleaf_history;
 pub(crate) mod overleaf_realtime;

@@ -499,6 +499,15 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
    (the agent's, another app's) come up on the success wash, hold it, and
    let it go, as a jump's target does. */
 .source-editor .cm-line.cm-landed-line { animation: change-wash var(--motion-linger); }
+/* A conflict a merge could not decide (conflict-choices.ts): the choices sit
+   above the spot, this side and the other tinted apart, the markers and the
+   last synced text quiet. */
+.cm-editor .cm-conflict-choices { display: flex; gap: var(--space-2); padding: var(--space-2) 0; font-family: var(--ui-font); }
+.cm-editor .cm-conflict-choices button { height: 22px; border: 1px solid var(--border-subtle); border-radius: var(--radius-compact); padding: 0 var(--pad-inline-control-tight); background: var(--surface-panel-raised); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; cursor: pointer; }
+.cm-editor .cm-conflict-choices button:hover { background: var(--control-active-soft); color: var(--control-active); }
+.cm-editor .cm-line.cm-conflict-ours { background-color: var(--status-success-soft); }
+.cm-editor .cm-line.cm-conflict-theirs { background-color: var(--accent-soft); }
+.cm-editor .cm-line.cm-conflict-base, .cm-editor .cm-line.cm-conflict-marker { color: var(--text-tertiary); }
 @keyframes change-wash {
   0% { background-color: transparent; }
   8%, 45% { background-color: var(--status-success-soft); }
