@@ -73,8 +73,15 @@ GPUI_LAB_IGNORE_OCCLUSION=1 GPUI_LAB_ASSUME_KEY=1 PATH="$PATH:/Library/TeX/texbi
 cat "$out"
 # LATTICE_E2E_VERDICT=1 (pnpm ci:local) judges the run as CI does: only a step
 # main passes fails it (../scripts/gpui-e2e-verdict.mjs), plus the save check.
+# A step that fails once is rerun with its module on a fresh copy of the
+# fixture first, under the same lab switches and a scratch HOME of its own,
+# and one that passes there is reported as flaky.
 if [ "${LATTICE_E2E_VERDICT:-}" = 1 ]; then
-  if node "$root/../scripts/gpui-e2e-verdict.mjs" --platform macos --check-quit ${LATTICE_E2E_BASELINE:+--baseline "$LATTICE_E2E_BASELINE"} "$out"; then
+  mkdir -p "$scratch/rerun-home"
+  if LATTICE_GPUI_E2E_LOCK_LABEL="${LATTICE_GPUI_E2E_LOCK_LABEL:-$(cd "$root/.." && pwd)}" \
+    GPUI_LAB_IGNORE_OCCLUSION=1 GPUI_LAB_ASSUME_KEY=1 PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/rerun-home" \
+    node "$root/../scripts/gpui-e2e-verdict.mjs" --platform macos --check-quit ${LATTICE_E2E_BASELINE:+--baseline "$LATTICE_E2E_BASELINE"} \
+    --rerun-app "$app" --fixture "$root/fixtures/e2e" "$out"; then
     echo "e2e: passed (known failures aside)"
     exit 0
   fi
