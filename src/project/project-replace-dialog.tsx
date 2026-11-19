@@ -96,6 +96,9 @@ export function ProjectReplaceDialog(props: {
           value={replacement}
           onChange={(event) => setReplacement(event.target.value)}
           placeholder={t`Replacement text`}
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
         />
       </label>
       <div className="project-replace-options">

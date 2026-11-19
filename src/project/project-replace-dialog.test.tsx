@@ -75,4 +75,13 @@ describe("ProjectReplaceDialog", () => {
     fireEvent.click(view.replaceButton());
     expect(view.props.onReplace).toHaveBeenCalledWith("token", "", { matchCase: true, useRegex: true });
   });
+
+  it("keeps the system from correcting or capitalizing what to find and the replacement", () => {
+    const view = renderReplace();
+    for (const field of [view.find(), screen.getByRole("textbox", { name: "Replace with" })]) {
+      expect(field).toHaveAttribute("autocorrect", "off");
+      expect(field).toHaveAttribute("autocapitalize", "off");
+      expect(field).toHaveAttribute("spellcheck", "false");
+    }
+  });
 });

@@ -68,4 +68,13 @@ describe("Markdown find and replace with an input method", () => {
     fireEvent.keyDown(find, { key: "Enter", keyCode: 13 });
     expect(within(bar()!).getByRole("status")).toHaveTextContent("2 of 2");
   });
+
+  it("keeps the system from correcting or capitalizing Find and Replace with", async () => {
+    const { find, replace } = await openReplace("one two one");
+    for (const field of [find, replace]) {
+      expect(field).toHaveAttribute("autocorrect", "off");
+      expect(field).toHaveAttribute("autocapitalize", "off");
+      expect(field).toHaveAttribute("spellcheck", "false");
+    }
+  });
 });
