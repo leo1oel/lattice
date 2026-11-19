@@ -50,7 +50,7 @@ impl PapersPanel {
             .min_w_0()
             .mt(px(2.))
             .pl(px(if table { 22. } else { 16. }));
-        let ring = lattice_ui::components::focus_ring(&palette, palette.chrome);
+        let ring = lattice_ui::components::focus_ring(&palette, palette.side_panel);
         for (ix, hit) in hits.into_iter().take(shown).enumerate() {
             let id: ElementId = SharedString::from(format!("paper-hit:{key}:{ix}")).into();
             let (interaction, pointer) = use_interaction(id.clone(), window, cx);

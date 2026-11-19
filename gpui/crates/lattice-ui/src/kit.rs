@@ -170,7 +170,7 @@ fn colors(p: &Palette) -> Value {
         "title_bar.border": hex(p.line),
         "status_bar.background": hex(p.panel),
         "status_bar.border": hex(p.line),
-        "sidebar.background": hex(p.chrome),
+        "sidebar.background": hex(p.side_panel),
         "sidebar.foreground": hex(p.text),
         "sidebar.border": hex(p.line),
         "sidebar.accent.background": hex(p.row_selected),

@@ -410,7 +410,7 @@ impl Panel for FileTreePanel {
                         "project-new-entry-menu",
                         IconButton::new("project-new-entry", Icon::PLUS)
                             .radius(TAB_RADIUS)
-                            .surface(Surface::Chrome)
+                            .surface(Surface::SidePanel)
                             .tooltip(t!("New…")),
                         move |menu, _, _| Self::new_entries_menu(&view, menu),
                     )
@@ -419,7 +419,7 @@ impl Panel for FileTreePanel {
                 .child(
                     IconButton::new("project-find", Icon::SEARCH)
                         .radius(TAB_RADIUS)
-                        .surface(Surface::Chrome)
+                        .surface(Surface::SidePanel)
                         .tooltip(t!("Find in project"))
                         .on_click(
                             cx.listener(|this, _, window, cx| this.find_in_project(window, cx)),

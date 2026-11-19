@@ -328,7 +328,7 @@
   --navigation-focus-ring: var(--focus-ring);
   /* The navigator's strongest text (the selected row, typed filters) sits a
      step below the document's, so the open file outranks its listing. */
-  --navigation-text-strong: color-mix(in srgb, var(--text-primary) 86%, var(--surface-sidebar));
+  --navigation-text-strong: color-mix(in srgb, var(--text-primary) 86%, var(--surface-side-panel));
 
   /* Focus mode's text column in the source editor, its gutter included:
      about eighty characters of source at any editor font size. */
@@ -489,16 +489,10 @@
      roles instead of reaching into the palette directly. */
   --surface-app: var(--bg);
   /* Window material (theme.css): what paints behind everything, the titlebar
-     and panel gutters, the Project and Papers panels, and a page that
-     fills the window. Each is the opaque surface it replaces until the window is
-     translucent. */
+     and panel gutters, and a page that fills the window. Each is the opaque
+     surface it replaces until the window is translucent. */
   --surface-window: var(--window);
   --surface-shell: color-mix(in srgb, var(--sidebar) var(--glass-shell), transparent);
-  --surface-navigator: color-mix(in srgb, var(--sidebar) var(--glass-panel), transparent);
-  /* A frosted panel's header and body, laid over its --surface-navigator
-     sheet (trellis.css): a white veil, transparent until the window is
-     translucent. */
-  --surface-navigator-lift: color-mix(in srgb, #fff var(--glass-lift), transparent);
   /* The titlebar: the shell lifted by theme.css's white veil, closed by
      --titlebar-rule, so it never melts into the gutters below it. */
   --surface-titlebar: color-mix(in srgb, #fff var(--titlebar-veil), var(--surface-shell));
@@ -543,7 +537,10 @@
   --elevation-floating: 0 0 0 1px var(--elevation-ring), var(--elevation-floating-shadow);
   --elevation-dialog: 0 0 0 1px var(--elevation-ring), var(--elevation-dialog-shadow);
   --surface-chrome: var(--chrome-surface);
-  --surface-sidebar: var(--sidebar);
+  /* Every side panel and dock: Project, Papers, Literature and the Agent,
+     whose Synara page takes it over the theme bridge (agent-host-theme.ts).
+     One tone below the editor, and opaque in a translucent window too. */
+  --surface-side-panel: var(--side-panel);
   --surface-input: var(--side-surface);
   --border-subtle: var(--line);
   --border-strong: var(--line-strong);

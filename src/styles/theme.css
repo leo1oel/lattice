@@ -61,6 +61,11 @@ textarea {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --sidebar: var(--chrome-surface);
+  /* The side panels and docks (Project, Papers, Literature, the Agent): one
+     tone below the editor. Graphite and the tints take their chrome; a theme
+     sets it on <html> as lattice-theme resolves it, a tone below its editor
+     whenever its own chrome is not. */
+  --side-panel: var(--chrome-surface);
   --line: rgba(28, 28, 31, 0.09);
   --line-strong: rgba(28, 28, 31, 0.14);
   /* Two inks: primary and secondary. Secondary clears 5.5:1 on the chrome,
@@ -381,24 +386,21 @@ textarea {
  * native side, which also answers for Reduce transparency), so a browser tab
  * never shows a see-through page. The window itself turns clear and the
  * titlebar and gutters take --glass-shell of the chrome color over the
- * material, as Synara's shell does; Project and Papers sit on top as a
- * --glass-panel sheet, and a page that fills the window (the welcome screen)
- * at --glass-page. On that sheet a frosted panel's header and body take one
- * more coat together, a white veil of --glass-lift. The editors, PDFs, the
- * agent, the tool panels and every dialog stay opaque.
+ * material, as Synara's shell does, and a page that fills the window (the
+ * welcome screen) --glass-page. Every panel stays opaque: the side panels
+ * share one surface with the Agent, an iframe that cannot frost, and the
+ * editors, PDFs, tool panels and dialogs stand on their own sheets.
  */
 :root, [data-theme-preview] {
   --window: var(--bg);
   --glass-shell: 100%;
-  --glass-panel: 100%;
   --glass-page: 100%;
-  --glass-lift: 0%;
 }
 :root[data-glass] { --window: transparent; }
-:root[data-glass="subtle"] { --glass-shell: 40%; --glass-panel: 45%; --glass-page: 72%; --glass-lift: 34%; }
-:root[data-glass="strong"] { --glass-shell: 0%; --glass-panel: 50%; --glass-page: 52%; --glass-lift: 30%; }
-:root[data-theme="dark"][data-glass="subtle"] { --glass-shell: 45%; --glass-panel: 45%; --glass-page: 74%; --glass-lift: 5%; }
-:root[data-theme="dark"][data-glass="strong"] { --glass-shell: 0%; --glass-panel: 60%; --glass-page: 62%; --glass-lift: 5%; }
+:root[data-glass="subtle"] { --glass-shell: 40%; --glass-page: 72%; }
+:root[data-glass="strong"] { --glass-shell: 0%; --glass-page: 52%; }
+:root[data-theme="dark"][data-glass="subtle"] { --glass-shell: 45%; --glass-page: 74%; }
+:root[data-theme="dark"][data-glass="strong"] { --glass-shell: 0%; --glass-page: 62%; }
 
 /*
  * The titlebar is the shell under a veil of white, so it reads as a sheet

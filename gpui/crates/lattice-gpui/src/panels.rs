@@ -3,8 +3,8 @@
 //! its tab is a document's (which ellipsizes in a narrow strip) or a named
 //! panel's.
 //!
-//! The Main window puts navigation (Project, Papers, Agent) on the chrome
-//! and the stage (editors, the PDF, tool panels) on the sheet. Tabs carry
+//! The Main window puts navigation (Project, Papers, Agent) on the side
+//! panels' surface and the stage (editors, the PDF, tool panels) on the sheet. Tabs carry
 //! Lucide icons for tools and a file's own glyph for a file.
 
 use gpui::App;
@@ -34,7 +34,6 @@ pub fn present_tabs(cx: &mut App) {
                     dirty: editor.is_dirty(cx),
                     surface: Surface::Sheet,
                     document: true,
-                    frosted: false,
                 };
             }
             Err(view) => view,
@@ -44,25 +43,18 @@ pub fn present_tabs(cx: &mut App) {
             dirty: false,
             surface,
             document: false,
-            frosted: false,
         };
-        // Project and Papers frost over a translucent window; the Agent
-        // stays on its opaque sidebar (trellis.css `data-glass`), below.
+        // Project, Papers and the Agent share the side panels' surface, opaque
+        // in a translucent window too (trellis.css).
         if view.clone().downcast::<FileTreePanel>().is_ok() {
-            TabLook {
-                frosted: true,
-                ..look(Icon::FOLDER_TREE, Surface::Chrome)
-            }
+            look(Icon::FOLDER_TREE, Surface::SidePanel)
         } else if view.clone().downcast::<PapersPanel>().is_ok() {
-            TabLook {
-                frosted: true,
-                ..look(Icon::LIBRARY, Surface::Chrome)
-            }
+            look(Icon::LIBRARY, Surface::SidePanel)
         } else if let Ok(synara) = view.clone().downcast::<crate::agent::SynaraPanel>() {
-            // The Agent stays on its opaque sidebar; the Git workspace is a
-            // tool among the documents (`PANEL_ICONS`: Bot, GitBranch).
+            // The Git workspace is a tool among the documents (`PANEL_ICONS`:
+            // Bot, GitBranch).
             match synara.read(cx).kind(cx) {
-                crate::agent::SurfaceKind::Agent => look(Icon::BOT, Surface::Chrome),
+                crate::agent::SurfaceKind::Agent => look(Icon::BOT, Surface::SidePanel),
                 crate::agent::SurfaceKind::Git => look(Icon::GIT_BRANCH, Surface::Sheet),
                 crate::agent::SurfaceKind::Settings => look(Icon::BOT, Surface::Sheet),
             }
@@ -75,7 +67,6 @@ pub fn present_tabs(cx: &mut App) {
                     dirty: false,
                     surface: Surface::Sheet,
                     document: true,
-                    frosted: false,
                 },
                 _ => look(Icon::FILE_TEXT, Surface::Sheet),
             }
@@ -91,7 +82,6 @@ pub fn present_tabs(cx: &mut App) {
                 dirty: false,
                 surface: Surface::Sheet,
                 document: true,
-                frosted: false,
             }
         } else if view.clone().downcast::<BuildPanel>().is_ok() {
             look(Icon::HAMMER, Surface::Sheet)

@@ -162,7 +162,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 /* Before the first search: the reading folio on the panel's own surface, a
    smaller one in a narrow or short panel, none in a very short one, so the
    form above always keeps its room. */
-.literature-empty { --art-paper: var(--surface-sidebar); }
+.literature-empty { --art-paper: var(--surface-side-panel); }
 .literature-empty .research-art { width: 104px; }
 .literature-empty .ui-empty-state-description { max-width: 28ch; text-wrap: balance; }
 @container literature (max-width: 300px) or (max-height: 540px) { .literature-empty .research-art { width: 80px; } }
@@ -206,7 +206,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 /* The actions wait out of sight but in the tab order; hovered or focused,
    they come in over the signal on a backing that matches the row. The box
    stands taller than its backing so the mask keeps their focus ring. */
-.literature-result-actions { position: absolute; inset-block: calc(-1 * var(--space-3)); inset-inline-end: calc(-1 * var(--space-2)); padding-inline-start: var(--space-8); display: flex; align-items: center; gap: var(--space-1); background-image: linear-gradient(var(--literature-row-surface), var(--literature-row-surface)), linear-gradient(var(--surface-sidebar), var(--surface-sidebar)); background-position: center; background-size: 100% 22px; background-repeat: no-repeat; -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); opacity: 0; pointer-events: none; transition: opacity var(--motion-fast-exit); }
+.literature-result-actions { position: absolute; inset-block: calc(-1 * var(--space-3)); inset-inline-end: calc(-1 * var(--space-2)); padding-inline-start: var(--space-8); display: flex; align-items: center; gap: var(--space-1); background-image: linear-gradient(var(--literature-row-surface), var(--literature-row-surface)), linear-gradient(var(--surface-side-panel), var(--surface-side-panel)); background-position: center; background-size: 100% 22px; background-repeat: no-repeat; -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); opacity: 0; pointer-events: none; transition: opacity var(--motion-fast-exit); }
 .literature-result:is(:hover, :focus-within) .literature-result-actions { opacity: 1; pointer-events: auto; transition-duration: var(--duration-fast); }
 .literature-result-actions > button { width: 24px; height: 22px; padding: 0; border-radius: var(--radius-compact); display: grid; place-items: center; background: transparent; color: var(--text-secondary); transition: background-color var(--motion-fast), color var(--motion-fast); }
 .literature-result-actions > button > svg { stroke-width: 1.5; }

@@ -160,7 +160,7 @@ pub fn picker(
     );
     let trigger = IconButton::new("agent-permission-trigger", permission.mode.icon())
         .radius(TAB_RADIUS)
-        .surface(Surface::Chrome)
+        .surface(Surface::SidePanel)
         .tooltip(label);
     let surface = surface.downgrade();
     Popover::new("agent-permission-picker", trigger, move |window, cx| {

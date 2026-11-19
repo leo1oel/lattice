@@ -189,17 +189,17 @@ impl Run {
                     palette.glass,
                     palette.window_material.a,
                     palette.shell.a,
-                    palette.navigator.a,
+                    palette.side_panel.a,
                 )
             });
-            let (backing, now, window_alpha, shell_alpha, navigator_alpha) = state;
+            let (backing, now, window_alpha, shell_alpha, side_panel_alpha) = state;
             let ok = match backing {
                 Backing::Translucent => {
                     now == glass
                         && shown
                         && window_alpha == 0.
                         && shell_alpha < 0.5
-                        && navigator_alpha < 1.
+                        && side_panel_alpha == 1.
                 }
                 // Off, Reduce transparency, or not on this platform: opaque.
                 Backing::Opaque | Backing::ReducedTransparency | Backing::Unsupported => {
@@ -213,11 +213,11 @@ impl Run {
             seen.push(json!({
                 "level": format!("{level:?}"), "backing": format!("{backing:?}"),
                 "glass": format!("{now:?}"), "material": shown, "window_alpha": window_alpha,
-                "shell_alpha": shell_alpha, "navigator_alpha": navigator_alpha,
+                "shell_alpha": shell_alpha, "side_panel_alpha": side_panel_alpha,
             }));
         }
         steps.check(
-            "Translucency puts the window's vibrancy behind a frosted shell at Subtle and Strong, and takes it away at Off",
+            "Translucency puts the window's vibrancy behind a frosted shell at Subtle and Strong, keeps the side panels opaque, and takes it away at Off",
             passed,
             json!(seen),
         );

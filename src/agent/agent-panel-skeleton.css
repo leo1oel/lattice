@@ -6,14 +6,14 @@
    composer and the model button under it. The odd sizes are the embed's,
    not the scale's. */
 .agent-skeleton {
-  --loading-sheen-surface: var(--surface-sidebar);
+  --loading-sheen-surface: var(--surface-side-panel);
   position: absolute;
   inset: 0;
   container: agent-skeleton / inline-size;
   display: flex;
   flex-direction: column;
   padding: var(--space-4) var(--space-6) var(--space-3);
-  background: var(--surface-sidebar);
+  background: var(--surface-side-panel);
 }
 .agent-skeleton span { display: block; flex: none; height: var(--space-4); border-radius: var(--radius-pill); background: var(--border-subtle); }
 .agent-skeleton [data-end] { margin-left: auto; }

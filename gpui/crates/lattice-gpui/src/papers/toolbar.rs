@@ -128,7 +128,7 @@ impl RenderOnce for ListTool {
                         .rounded_full()
                         .bg(palette.brand_weft)
                         .border_2()
-                        .border_color(palette.chrome),
+                        .border_color(palette.side_panel),
                 )
             })
     }

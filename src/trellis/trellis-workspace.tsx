@@ -140,7 +140,7 @@ const TOKENS: Record<string, string> = {
   "--trellis-bg": "transparent",
   "--trellis-stage": "transparent",
   "--trellis-panel": "var(--surface-app)",
-  "--trellis-tabbar": "var(--surface-sidebar)",
+  "--trellis-tabbar": "var(--surface-side-panel)",
   "--trellis-tab-hover": "var(--chrome-hover-surface)",
   "--trellis-text": "var(--text-primary)",
   "--trellis-text-muted": "var(--text-secondary)",

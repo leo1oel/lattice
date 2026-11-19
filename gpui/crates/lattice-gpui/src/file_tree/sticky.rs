@@ -119,10 +119,7 @@ impl FileTreePanel {
         }
         let bottom = pinned.iter().map(|pin| pin.top + ROW).fold(0., f32::max);
         let palette = cx.palette().clone();
-        let ground = match palette.glass {
-            lattice_ui::palette::Glass::Off => palette.navigator,
-            _ => gpui::transparent_black(),
-        };
+        let ground = palette.side_panel;
         let selected = self.selected_paths(cx);
         let state = self.state.read(cx);
         let rows: Vec<AnyElement> = pinned

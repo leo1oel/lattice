@@ -74,6 +74,13 @@ the titlebar veil, the status washes, the selection surface. Each app derives
 them from the base roles. That keeps every interaction state consistent with
 the theme, including states added later.
 
+The side panels' surface (Project, Papers, Literature, the Agent) is derived
+too, once, by `lattice-theme` for both apps: the theme's `chrome`, unless it
+sits within half a tone of OKLCH lightness of the `editor`, in which case it
+is the editor a tone darker (`color::side_panel`). The Tauri app gets it as
+`--side-panel` among the theme's variables; the GPUI app as
+`Resolved::side_panel`.
+
 ## Choosing a theme and an accent
 
 - A theme replaces the tint: while one is in effect the app stands on
