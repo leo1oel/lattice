@@ -4,12 +4,14 @@ name: Release
 # Release for Apple silicon macOS. tauri-action also generates latest.json,
 # which the in-app updater reads to offer updates to installed copies.
 #
-# From 0.19.0 the Apple silicon app is the GPUI app, as Lattice in the Tauri
-# app's place (scripts/release-apps.json, gpui/docs/updater.md): the Tauri
-# app is still built and checked here, then `publish` replaces its dmg and
-# updater archive with the GPUI app's (same names) and points latest.json's
-# darwin-aarch64 entries at it. Intel Macs, Windows and Linux stay on the
-# Tauri app (macos-intel.yml and the others add their entries afterwards).
+# Every release also carries the native app for Apple silicon (the GPUI app
+# as Lattice, gpui/docs/updater.md) beside the Tauri app, under its own names:
+# Lattice-native_<version>_aarch64.dmg, .app.tar.gz and .sig, and its own feed,
+# latest-native.json. latest.json stays the Tauri app's on every platform;
+# moving to the native app is the writer's choice, which the Tauri app offers
+# from latest-native.json on Apple silicon. Intel Macs, Windows and Linux
+# never see it (macos-intel.yml and the others add their entries to
+# latest.json afterwards and leave the native files alone).
 on:
   push:
     tags:
@@ -20,26 +22,6 @@ permissions:
   contents: write
 
 jobs:
-  # Which app Apple silicon Macs get: "gpui" or "tauri"
-  # (scripts/release-apps.json). Rolling back to the Tauri app is "tauri"
-  # there and a higher version.
-  plan:
-    runs-on: ubuntu-latest
-    outputs:
-      apple-silicon: ${{ steps.read.outputs.app }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          sparse-checkout: scripts/release-apps.json
-          sparse-checkout-cone-mode: false
-      - id: read
-        run: |
-          app="$(jq -r '."darwin-aarch64"' scripts/release-apps.json)"
-          case "$app" in
-            gpui|tauri) echo "app=$app" >> "$GITHUB_OUTPUT" ;;
-            *) echo "::error file=scripts/release-apps.json::darwin-aarch64 is gpui or tauri, not $app"; exit 1 ;;
-          esac
-
   release:
     # macos-latest is Apple silicon (arm64), which is all we target.
     runs-on: macos-latest
@@ -365,28 +347,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
 
-  # Lattice for Apple silicon: the GPUI app under the Tauri app's identity,
-  # built, signed and notarized as gpui-package.yml builds it.
+  # The native app for Apple silicon: the GPUI app under the Tauri app's
+  # identity, built, signed and notarized as gpui-package.yml builds it, with
+  # its updater archive and latest-native.json.
   gpui:
-    needs: plan
-    if: needs.plan.outputs.apple-silicon == 'gpui'
     uses: ./.github/workflows/gpui-package.yml
     with:
       flavor: main
     secrets: inherit
 
   # The release is still a draft here; nothing reaches users until the last
-  # step. A failure in the GPUI build skips this job and leaves the draft.
+  # step. A failure in either build skips this job and leaves the draft: a
+  # release without the native app would leave its feed on the previous
+  # version while the Tauri app moves on, so it does not ship half.
   publish:
-    needs: [plan, release, gpui]
-    if: >-
-      ${{ !cancelled() && needs.release.result == 'success' &&
-      (needs.gpui.result == 'success' ||
-      (needs.gpui.result == 'skipped' && needs.plan.outputs.apple-silicon == 'tauri')) }}
+    needs: [release, gpui]
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GPUI: ${{ needs.plan.outputs.apple-silicon == 'gpui' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -395,7 +373,6 @@ jobs:
           node-version: 22
 
       - uses: actions/download-artifact@v8
-        if: env.GPUI == 'true'
         with:
           name: lattice-gpui-macos-aarch64-main
           path: ${{ runner.temp }}/gpui
@@ -404,8 +381,6 @@ jobs:
         run: |
           # tauri-action can emit REST asset URLs, which consume the user's
           # anonymous API quota and return 403 when their IP is rate-limited.
-          # They name the Tauri app's assets, so this runs before the GPUI
-          # app's files replace them.
           manifest_dir="$(mktemp -d "$RUNNER_TEMP/lattice-updater.XXXXXX")"
           gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir "$manifest_dir"
           # The REST tag lookup returns 404 for drafts; resolve the release ID
@@ -414,31 +389,25 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > "$manifest_dir/release.json"
           node scripts/normalize-updater-manifest.mjs "$manifest_dir/latest.json" "$manifest_dir/release.json"
           echo "MANIFEST_DIR=$manifest_dir" >> "$GITHUB_ENV"
-          echo "RELEASE_ID=$release_id" >> "$GITHUB_ENV"
-
-      # gpui-package.yml checked the dmg (stapled, notarized, Developer ID)
-      # and the app inside it. Its files carry tauri-action's names, so these
-      # uploads replace the Tauri app's Apple silicon files, and latest.json's
-      # darwin-aarch64 entries, which name that archive, take its signature,
-      # checked against the updater key first.
-      - name: Put the GPUI app in the Tauri app's place on Apple silicon
-        if: env.GPUI == 'true'
-        run: |
-          set -euo pipefail
-          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
-          archive="Lattice_${version}_aarch64.app.tar.gz"
-          base="$RUNNER_TEMP/gpui/Lattice_${version}_aarch64"
-          for file in "$base.dmg" "$base.app.tar.gz" "$base.app.tar.gz.sig"; do
-            test -s "$file"
-          done
-          gh release upload "$GITHUB_REF_NAME" "$base.dmg" "$base.app.tar.gz" "$base.app.tar.gz.sig" --clobber
-          gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" > "$MANIFEST_DIR/release.json"
-          node scripts/replace-updater-archive.mjs "$MANIFEST_DIR/latest.json" "$MANIFEST_DIR/release.json" \
-            "$RUNNER_TEMP/gpui/$archive" "$RUNNER_TEMP/gpui/$archive.sig" "$archive" \
-            darwin-aarch64 darwin-aarch64-app
 
       - name: Upload the updater manifest
         run: gh release upload "$GITHUB_REF_NAME" "$MANIFEST_DIR/latest.json" --clobber
+
+      # gpui-package.yml checked the dmg (stapled, notarized, Developer ID)
+      # and the app inside it. check-native-feed.mjs fails the release when a
+      # native file is missing, the archive's signature does not verify
+      # against the updater key (tauri.conf.json), or latest-native.json does
+      # not name this tag's Lattice-native archive with that signature; it
+      # prints the files to upload, latest-native.json last. Their names are
+      # the native app's own, so nothing of the Tauri app's is replaced.
+      - name: Upload the native app beside the Tauri app
+        run: |
+          set -euo pipefail
+          native="$(node scripts/check-native-feed.mjs "$GITHUB_REF_NAME" "$RUNNER_TEMP/gpui")"
+          mapfile -t files <<< "$native"
+          test "${#files[@]}" -eq 4
+          gh release upload "$GITHUB_REF_NAME" "${files[@]:0:3}" --clobber
+          gh release upload "$GITHUB_REF_NAME" "${files[3]}" --clobber
 
       # Check what the release actually offers for download: only the signed
       # artifacts, none of them a font. Failing here leaves the release a draft.
@@ -451,7 +420,8 @@ jobs:
 
       # A tag with a suffix (v0.19.0-rc.1) rehearses this workflow: everything
       # above runs against its own draft, which stays a draft, so the feed
-      # installed copies poll (the latest release's latest.json) never sees it.
+      # installed copies poll (the latest release's latest.json and
+      # latest-native.json) never sees it.
       # Delete the draft and the tag afterwards.
       - name: Publish verified release
         run: |

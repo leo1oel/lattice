@@ -17,8 +17,8 @@
  *   3. an Info.plist with the Tauri bundle's keys (src-tauri/Info.plist, the
  *      version and minimum macOS from tauri.conf.json) under the flavor's
  *      name and identifier (FLAVORS below): Lattice Beta, which installs
- *      beside Lattice.app, or Lattice, the Tauri app's own identity, which
- *      the Tauri updater installs in its place;
+ *      beside Lattice.app, or Lattice, the Tauri app's own identity, which a
+ *      writer who chooses the native app installs in its place;
  *   4. signatures, inside out, with the hardened runtime and
  *      src-tauri/Entitlements.plist: the Developer ID in
  *      APPLE_SIGNING_IDENTITY (as release.yml exports it), else ad hoc;
@@ -28,11 +28,12 @@
  *   6. the outputs in --out: the .dmg (hdiutil, which opens no Finder
  *      window, unlike Tauri's dmg bundler), a .zip, and the updater archive
  *      (.app.tar.gz) with its minisign .sig (TAURI_SIGNING_PRIVATE_KEY and
- *      _PASSWORD, the Tauri updater's key, through `tauri signer sign`) and a
- *      latest.json for it (crates/lattice-gpui/src/updater.rs).
+ *      _PASSWORD, the Tauri updater's key, through `tauri signer sign`) and the
+ *      flavor's manifest for it (latest.json or latest-native.json, read by
+ *      crates/lattice-gpui/src/updater.rs).
  *
  * Without keys every step still runs: the app is signed ad hoc, nothing is
- * notarized, and the archive has no .sig (so no latest.json). It publishes
+ * notarized, and the archive has no .sig (so no manifest). It publishes
  * nothing; gpui/docs/updater.md says how the channel is published.
  *
  * Usage:
@@ -42,7 +43,7 @@
  *     --skip-islands   reuse gpui/islands/dist
  *     --skip-runtimes  reuse the staged src-tauri/synara-runtime and
  *                      presentation-runtime as they are
- *     --feed URL       where latest.json and the archive are published
+ *     --feed URL       where the manifest and the archive are published
  *                      (default: the flavor's, FLAVORS below)
  */
 import { execFileSync } from "node:child_process";
@@ -55,7 +56,10 @@ import { codesign, signMachOTree } from "./lib/codesign.mjs";
 
 /**
  * The apps the GPUI binary ships as; it reads which one it is from the
- * bundle's identifier (gpui/crates/lattice-gpui/src/flavor.rs).
+ * bundle's identifier (gpui/crates/lattice-gpui/src/flavor.rs). `artifact`
+ * names the files (<artifact>_<version>_aarch64.*), `manifest` the updater
+ * manifest written beside them, and `feed` the folder the archive is
+ * downloaded from, which the manifest's URL names.
  */
 export const FLAVORS = {
   // Installed beside the Tauri Lattice, with its own data and its own
@@ -64,17 +68,22 @@ export const FLAVORS = {
     product: "Lattice Beta",
     identifier: "app.leo1oel.lattice-beta",
     artifact: "Lattice-Beta",
+    manifest: "latest.json",
     feed: () => "https://github.com/leo1oel/lattice/releases/download/lattice-beta",
   },
-  // The Tauri app's name and identifier, so the Tauri updater puts it in
-  // place of Lattice.app on Apple silicon Macs and it keeps the app's
-  // privacy grants, Keychain items and Dock place. Its files carry
-  // tauri-action's names, so the release workflow's upload replaces the
-  // Tauri app's (.github/workflows/release.yml).
+  // The native app: the Tauri app's name and identifier, so whichever
+  // updater installs it puts it in place of Lattice.app and it keeps the
+  // app's privacy grants, Keychain items and Dock place. Every release
+  // carries it beside the Tauri app, under names of its own so it never
+  // replaces a Tauri asset, with its own manifest (latest-native.json): the
+  // Tauri app offers the switch from it and the native app updates from it
+  // (.github/workflows/release.yml, gpui/docs/updater.md). The bundle in the
+  // dmg and the archive is still Lattice.app.
   main: {
     product: "Lattice",
     identifier: "app.leo1oel.researchwriter",
-    artifact: "Lattice",
+    artifact: "Lattice-native",
+    manifest: "latest-native.json",
     feed: (version) => `https://github.com/leo1oel/lattice/releases/download/v${version}`,
   },
 };
@@ -113,9 +122,16 @@ export function infoPlist({ flavor, version, minimumSystemVersion, extra }) {
   };
 }
 
-/** The flavor's manifest, in the shape tauri-action writes latest.json (crates/lattice-gpui/src/updater/manifest.rs reads it). */
+/**
+ * The flavor's manifest, in the shape tauri-action writes latest.json
+ * (crates/lattice-gpui/src/updater/manifest.rs reads it). It lists the
+ * archive under both keys tauri-action writes, since the Tauri app's updater
+ * looks for darwin-aarch64-app before darwin-aarch64 when it reads the
+ * native feed to offer the switch.
+ */
 export function updaterManifest({ version, signature, url, pubDate = new Date().toISOString(), notes = "" }) {
-  return { version, notes, pub_date: pubDate, platforms: { "darwin-aarch64": { signature, url } } };
+  const entry = { signature, url };
+  return { version, notes, pub_date: pubDate, platforms: { "darwin-aarch64": entry, "darwin-aarch64-app": { ...entry } } };
 }
 
 function notarize(file, key) {
@@ -266,12 +282,12 @@ async function main() {
     rmSync(`${archive}.sig`, { force: true });
     run(path.join(repo, "node_modules", ".bin", "tauri"), ["signer", "sign", archive]);
     const signature = readFileSync(`${archive}.sig`, "utf8").trim();
-    const manifest = path.join(out, "latest.json");
+    const manifest = path.join(out, flavor.manifest);
     const url = `${feed.replace(/\/$/, "")}/${path.basename(archive)}`;
     writeFileSync(manifest, `${JSON.stringify(updaterManifest({ version, signature, url }), null, 2)}\n`);
     outputs.push(`${archive}.sig`, manifest);
   } else {
-    console.log("gpui-bundle: no TAURI_SIGNING_PRIVATE_KEY: the updater archive is unsigned and no latest.json is written");
+    console.log(`gpui-bundle: no TAURI_SIGNING_PRIVATE_KEY: the updater archive is unsigned and no ${flavor.manifest} is written`);
   }
 
   console.log(`gpui-bundle: ${app}`);

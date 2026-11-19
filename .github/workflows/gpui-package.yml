@@ -2,18 +2,19 @@ name: GPUI package
 
 # Builds, signs and notarizes the GPUI app for Apple silicon macOS and keeps
 # the result as this run's artifact: the .dmg, the .zip, and the updater's
-# .app.tar.gz with its .sig and a latest.json for it
+# .app.tar.gz with its .sig and the flavor's manifest for it
 # (scripts/gpui-bundle.mjs, gpui/docs/updater.md). The flavor is Lattice Beta
-# or Lattice, the Tauri app's identity (scripts/gpui-bundle.mjs FLAVORS). It
-# runs on demand (Actions > GPUI package > Run workflow) or from release.yml,
-# which publishes Lattice in the Tauri app's place on Apple silicon; this
-# workflow itself publishes nothing: no release, no tag, no upload. It reads
-# the release secrets the way release.yml does.
+# (Lattice-Beta_* files, latest.json) or Lattice, the native app under the
+# Tauri app's identity (Lattice-native_* files, latest-native.json;
+# scripts/gpui-bundle.mjs FLAVORS). It runs on demand (Actions > GPUI package
+# > Run workflow) or from release.yml, which publishes the native app beside
+# the Tauri app; this workflow itself publishes nothing: no release, no tag,
+# no upload. It reads the release secrets the way release.yml does.
 on:
   workflow_dispatch:
     inputs:
       flavor:
-        description: "beta (Lattice Beta) or main (Lattice, in the Tauri app's place)"
+        description: "beta (Lattice Beta) or main (Lattice, the native app release.yml publishes)"
         type: choice
         options: [beta, main]
         default: beta
@@ -192,6 +193,8 @@ jobs:
 
       # release.yml's checks of the signed and notarized disk image.
       - name: Verify signed and notarized artifacts
+        env:
+          FLAVOR: ${{ inputs.flavor }}
         run: |
           dmg="$(find "$RUNNER_TEMP/gpui-bundle" -maxdepth 1 -name '*.dmg' -print -quit)"
           test -n "$dmg"
@@ -208,7 +211,8 @@ jobs:
           spctl --assess --type execute --verbose=4 "$app_path"
           xcrun stapler validate "$app_path"
 
-          test -s "$RUNNER_TEMP/gpui-bundle/latest.json"
+          manifest="$(node --input-type=module -e 'const { FLAVORS } = await import("./scripts/gpui-bundle.mjs"); console.log(FLAVORS[process.env.FLAVOR].manifest)')"
+          test -s "$RUNNER_TEMP/gpui-bundle/$manifest"
           for archive in "$RUNNER_TEMP"/gpui-bundle/*.app.tar.gz; do
             test -s "$archive.sig"
           done
@@ -221,6 +225,6 @@ jobs:
             ${{ runner.temp }}/gpui-bundle/*.zip
             ${{ runner.temp }}/gpui-bundle/*.app.tar.gz
             ${{ runner.temp }}/gpui-bundle/*.app.tar.gz.sig
-            ${{ runner.temp }}/gpui-bundle/latest.json
+            ${{ runner.temp }}/gpui-bundle/latest*.json
           if-no-files-found: error
           retention-days: 14

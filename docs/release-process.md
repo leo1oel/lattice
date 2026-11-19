@@ -104,8 +104,12 @@ guide from the release's commit.
 
 ## What `release.yml` does
 
-One job on `macos-latest` (Apple silicon), with `contents: write` so it can
-create the Release and upload assets.
+Three jobs, with `contents: write` so they can create the Release and upload
+assets: **release** builds the Tauri app on `macos-latest` (Apple silicon)
+and creates the draft (steps 1 to 15 below); **gpui** builds the native app
+(the GPUI app as Lattice) through `.github/workflows/gpui-package.yml` with
+`flavor: main`, beside it; **publish** runs only when both succeeded and
+adds the native app to the draft before publishing it (steps 16 to 19).
 
 1. **Checkout** with `fetch-depth: 0` — the release notes need the full tag
    history.
@@ -156,13 +160,48 @@ create the Release and upload assets.
     execute`, `xcrun stapler validate`.
 15. **Upload the stapled DMG** with `gh release upload --clobber` (the stapled
     ticket is added after tauri-action's own upload, so the asset is replaced).
-16. **Check the release assets for font files.** Downloads the draft's assets
+16. **Use public download URLs in `latest.json`**
+    (`scripts/normalize-updater-manifest.mjs`) and upload it again.
+    `latest.json` stays the Tauri app's on every platform.
+17. **Upload the native app beside the Tauri app.**
+    `scripts/check-native-feed.mjs` checks the `gpui` job's artifact: the
+    files are all there, the archive's signature verifies against
+    `plugins.updater.pubkey`, and `latest-native.json` names this tag's
+    archive (under `darwin-aarch64` and `darwin-aarch64-app`) with that
+    signature. Then `Lattice-native_<version>_aarch64.dmg`, `.app.tar.gz`
+    and `.app.tar.gz.sig` go up with `--clobber`, and `latest-native.json`
+    last. A missing or failing native file fails the job, so the release
+    stays a draft rather than shipping without the native app.
+18. **Check the release assets for font files.** Downloads the draft's assets
     and runs `node scripts/check-font-leaks.mjs assets <dir>`: only the signed
-    artifacts and `latest.json`, none of them a font.
-17. **Publish** with `gh release edit "$GITHUB_REF_NAME" --draft=false`.
+    artifacts, `latest.json` and `latest-native.json`, none of them a font.
+19. **Publish** with `gh release edit "$GITHUB_REF_NAME" --draft=false`. A tag
+    with a suffix (`v0.19.0-rc.1`) rehearses the workflow: it uses its
+    version's release lead and its draft stays a draft. Delete the draft and
+    the tag afterwards.
 
 If any verification step fails, the Release simply stays a draft and nothing
 reaches users.
+
+#### Two feeds: the classic app and the native app
+
+Every release carries two updater feeds:
+
+- `https://github.com/leo1oel/lattice/releases/latest/download/latest.json`,
+  the Tauri app's (`plugins.updater.endpoints` in `tauri.conf.json`), on
+  every platform, which `macos-intel.yml` extends with its Intel entries.
+- `https://github.com/leo1oel/lattice/releases/latest/download/latest-native.json`,
+  the native app's, Apple silicon only.
+
+Moving to the native app is the writer's choice. On Apple silicon the Tauri
+app offers it when the native feed answers with a `darwin-aarch64` entry,
+and installs the native archive in place through the signed updater (same
+bundle name and identifier, the same version accepted); the native app
+updates from its own feed and offers "Switch back to the classic version",
+which installs the Tauri archive from `latest.json` the same way. Intel
+Macs, Windows and Linux never see the offer, and the downstream workflows
+below never touch the native files. See
+[`gpui/docs/updater.md`](../gpui/docs/updater.md).
 
 ### `linux-appimage.yml`
 
