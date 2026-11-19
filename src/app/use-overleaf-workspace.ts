@@ -776,7 +776,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     overleafSyncRef, overleafSyncingRef,
     refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync, settleRemoteDeletes,
     openCurrentOverleafProject, jumpToOverleafPeer,
-    overleafRealtime, overleafPresence, overleafChat, overleafComments,
+    // The editor is writable only while the channel says so, and a git-synced
+    // project has none: nothing on Overleaf's side decides what is editable.
+    overleafRealtime: overleafGitSync ? { ...overleafRealtime, canWrite: true } : overleafRealtime,
+    overleafPresence, overleafChat, overleafComments,
     /** The comment handlers in App reach the newest actions through this ref. */
     overleafCommentsRef,
     overleafTrackChanges, overleafDocPaths, overleafEditorComments, overleafActiveCursors,
