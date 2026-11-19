@@ -83,7 +83,8 @@ jobs:
           # without one, so a tag without its lead slipped past it: stop
           # before the release ships with only its commit subjects.
           : > "$notes_path"
-          highlights_path=".github/release-notes/${GITHUB_REF_NAME}.md"
+          # A rehearsal tag (v0.19.0-rc.1) uses its version's lead.
+          highlights_path=".github/release-notes/${GITHUB_REF_NAME%%-*}.md"
           if [[ ! -f "$highlights_path" ]]; then
             echo "::error file=$highlights_path::No release lead for $GITHUB_REF_NAME. Commit $highlights_path (and its src/release-notes JSON) and tag again."
             exit 1
@@ -448,5 +449,14 @@ jobs:
           gh release download "$GITHUB_REF_NAME" --dir "$assets_dir"
           node scripts/check-font-leaks.mjs assets "$assets_dir"
 
+      # A tag with a suffix (v0.19.0-rc.1) rehearses this workflow: everything
+      # above runs against its own draft, which stays a draft, so the feed
+      # installed copies poll (the latest release's latest.json) never sees it.
+      # Delete the draft and the tag afterwards.
       - name: Publish verified release
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false
+        run: |
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            echo "::notice::$GITHUB_REF_NAME is a rehearsal tag: the release stays a draft."
+            exit 0
+          fi
+          gh release edit "$GITHUB_REF_NAME" --draft=false
