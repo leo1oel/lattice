@@ -16,6 +16,10 @@
 //! offering it asks `restart_impact` first and warns about what is running.
 //! Terminals and builds are the backend's own; an agent turn runs in a
 //! window's agent panel, which reports it (`set_agent_turn_running`).
+//!
+//! Switching to the native app (`native_app.rs`) installs through this same
+//! claim, under "native <version>": the two apps share version numbers, and
+//! a classic release of the same version must never read as that install.
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};

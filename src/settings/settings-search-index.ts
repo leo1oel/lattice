@@ -30,7 +30,7 @@ export type SettingsSearchEntry = {
  * they are found by their page name (and, for Providers, its Default provider
  * row) and open as they always do.
  */
-export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: string | null, livePreview = false): SettingsSearchEntry[] {
+export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: string | null, livePreview = false, nativeApp = false): SettingsSearchEntry[] {
   const { t } = useLingui();
   const appearance = t`Appearance`;
   const editor = t`Editor & builds`;
@@ -92,6 +92,10 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
       { tab: "editor", place: editor, id: "auto-updates", label: t`Automatic updates` },
     ] satisfies SettingsSearchEntry[] : []),
     { tab: "editor", place: editor, id: "version", label: t`Version`, terms: t`Check for updates` },
+    // Apple silicon only (useNativeAppSupported), beside Version (settings-dialog.tsx).
+    ...(updatesItself() && nativeApp ? [
+      { tab: "editor", place: editor, id: "native-app", label: t`Switch to the new Lattice`, terms: `GPUI ${t({ message: "native app faster", comment: "Search words for the Switch to the new Lattice setting, space-separated" })}`, description: t`The native Mac app: faster and lighter, with the same look.` },
+    ] satisfies SettingsSearchEntry[] : []),
     // The Providers page also holds Default provider, the provider new chats start on.
     { tab: "agent", label: t`Providers`, place: t`Agent`, terms: t`Default provider` },
     { tab: "mcp", label: t`MCP`, place: t`Agent` },

@@ -331,7 +331,7 @@ msgstr "{added} 条批注已加到 {path}"
 msgid "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
 msgstr "{advice}还没有安装 ctex：点“安装”会连同中文字体一起装上，约 90 MB。"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "{agentTurns} Agent tasks"
 msgstr "{agentTurns} 个 Agent 任务"
 
@@ -355,7 +355,7 @@ msgstr "{author} 建议插入文字"
 msgid "{begin} is closed by {end}"
 msgstr "{begin} 被 {end} 关闭"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "{builds} compiles"
 msgstr "{builds} 次编译"
 
@@ -1131,7 +1131,7 @@ msgstr "还剩 {span}"
 msgid "{target} has not been changed."
 msgstr "{target} 未作任何改动。"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "{terminalCommands} terminal commands"
 msgstr "{terminalCommands} 个终端命令"
 
@@ -1459,7 +1459,7 @@ msgstr "仍有命令在运行，关闭会将其停止。"
 msgid "A comment cannot be empty. Delete it instead."
 msgstr "评论不能为空，不需要可以直接删除"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "a compile"
 msgstr "1 次编译"
 
@@ -1644,7 +1644,7 @@ msgstr "至少要有一张工作表"
 msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "工作表数量须在 1–200 之间"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "a terminal command"
 msgstr "1 个终端命令"
 
@@ -2264,7 +2264,7 @@ msgstr "美式英语"
 msgid "An & outside a table"
 msgstr "表格外出现了 &"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "an Agent task"
 msgstr "1 个 Agent 任务"
 
@@ -2422,6 +2422,10 @@ msgstr "已经在修复了，请等它完成"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "项目里另一个文件"
+
+#: src/app/native-app-dialog.tsx
+msgid "Another Lattice window is installing an update. Try again when it finishes."
+msgstr "另一个 Lattice 窗口正在安装更新。等它完成后再试。"
 
 #: src/telemetry/app-updater.tsx
 #: src/telemetry/update-recovery.ts
@@ -5905,6 +5909,10 @@ msgstr "DOI 信息可修正"
 msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 
+#: src/app/native-app-dialog.tsx
+msgid "Don’t ask again"
+msgstr "不再询问"
+
 #: src/app/whats-new-dialog.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
@@ -6062,6 +6070,14 @@ msgstr "正在下载 TeX Live…"
 msgid "Downloading the {name} spelling dictionary"
 msgstr "正在下载{name}拼写词典"
 
+#: src/app/native-app-dialog.tsx
+msgid "Downloading the native Lattice…"
+msgstr "正在下载原生 Lattice…"
+
+#: src/app/native-app-dialog.tsx
+msgid "Downloading the native Lattice… {percent}%"
+msgstr "正在下载原生 Lattice… {percent}%"
+
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Downloading update…"
@@ -6079,6 +6095,10 @@ msgstr "DPI 未知"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "draft pass {run}"
 msgstr "草稿第 {run} 遍"
+
+#: src/app/native-app-dialog.tsx
+msgid "Drawn natively by your Mac instead of as a web page: faster and lighter, with the same look and the same ways of working."
+msgstr "由 Mac 原生绘制，而不是网页：更快、更轻，外观和用法都不变。"
 
 #: src/app/use-project-tree.ts
 msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
@@ -8407,6 +8427,7 @@ msgstr "正在安装 TeX Live…"
 msgid "Installing update…"
 msgstr "正在安装更新…"
 
+#: src/app/native-app-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Installing…"
 msgstr "正在安装…"
@@ -9714,6 +9735,10 @@ msgstr "长引文"
 msgid "Look up and add"
 msgstr "查找并添加"
 
+#: src/app/native-app-dialog.tsx
+msgid "Looking for the native Lattice…"
+msgstr "正在查找原生 Lattice…"
+
 #: src/papers/bib-entry-detail.tsx
 msgid "Looking through the manuscript…"
 msgstr "正在查找稿件中的引用…"
@@ -10256,6 +10281,11 @@ msgstr "按接口中的写法填写名称。测试连接会使用第一个。"
 msgid "Native app"
 msgstr "原生应用"
 
+#. Search words for the Switch to the new Lattice setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "native app faster"
+msgstr "原生 应用 更快"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Natural"
 msgstr "还原号"
@@ -10602,6 +10632,10 @@ msgstr "找不到可用于该图形的文件名。"
 #: src/papers/bib-entry-detail.tsx
 msgid "No full text to download"
 msgstr "没有可下载的全文"
+
+#: src/app/native-app-dialog.tsx
+msgid "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Past Agent threads don’t show. Apple silicon Macs only."
+msgstr "没有语法检查，也没有其他语言的词典：拼写检查使用 macOS 自带的检查器。以前的 Agent 对话不会显示。仅支持 Apple 芯片的 Mac。"
 
 #: src/project/paper-list-toolbar.tsx
 msgid "No grouping"
@@ -11074,6 +11108,10 @@ msgstr "未安装，显示默认字体"
 msgid "Not needed here"
 msgstr "演示中无需安装"
 
+#: src/app/native-app-dialog.tsx
+msgid "Not now"
+msgstr "以后再说"
+
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Not on this PDF"
 msgstr "不在此 PDF 中"
@@ -11094,6 +11132,10 @@ msgstr "未保存"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "还没同步"
+
+#: src/app/native-app-dialog.tsx
+msgid "Not there yet"
+msgstr "暂时还没有"
 
 #: src/app/project-index-load.ts
 msgid "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
@@ -14012,6 +14054,7 @@ msgstr "重启 Lattice"
 msgid "Restart Lattice now?"
 msgstr "现在重启 Lattice？"
 
+#: src/app/native-app-dialog.tsx
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Restart now"
@@ -14038,6 +14081,7 @@ msgstr "现在重启会中断 {running}。"
 msgid "Restarting the agent stops any running turns."
 msgstr "重启 AI 助手会中断正在进行的对话。"
 
+#: src/app/native-app-dialog.tsx
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Restarting…"
@@ -15911,9 +15955,21 @@ msgstr "曲面 / 面积积分"
 msgid "SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice."
 msgstr "插入 SVG 需要 rsvg-convert 或 ImageMagick；在 Lattice 中仍可预览这张图"
 
+#: src/app/native-app-dialog.tsx
+msgid "Switch anyway"
+msgstr "仍然切换"
+
 #: src/app/leave-project.ts
 msgid "Switch away from “{name}”?"
 msgstr "离开“{name}”？"
+
+#: src/app/native-app-dialog.tsx
+msgid "Switch now"
+msgstr "立即切换"
+
+#: src/app/native-app-dialog.tsx
+msgid "Switch progress"
+msgstr "切换进度"
 
 #: src/app/app-titlebar.tsx
 #: src/app/leave-project.ts
@@ -15940,6 +15996,11 @@ msgstr "切换到那个窗口"
 msgid "Switch to the Bibliography layout"
 msgstr "参考文献布局"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Switch to the new Lattice"
+msgstr "切换到新的 Lattice"
+
 #: src/app/use-command-table.ts
 msgid "Switch to the Reading layout"
 msgstr "阅读布局"
@@ -15947,6 +16008,10 @@ msgstr "阅读布局"
 #: src/app/use-command-table.ts
 msgid "Switch to the Writing layout"
 msgstr "写作布局"
+
+#: src/settings/settings-dialog.tsx
+msgid "Switch…"
+msgstr "切换…"
 
 #: src/build/build-log-messages.ts
 msgid "Switched this project from {from} to pdfLaTeX: the document uses `{command}`, which only works in pdfLaTeX, and loads nothing that needs {from}."
@@ -15959,6 +16024,10 @@ msgstr "切换会中断其中仍在运行的{list}。"
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
 msgstr "正在切换项目…"
+
+#: src/app/native-app-dialog.tsx
+msgid "Switching restarts Lattice and stops {running}."
+msgstr "切换会重启 Lattice，并中断 {running}。"
 
 #: src/project/references-panel.tsx
 msgid "Symbol references"
@@ -17048,6 +17117,19 @@ msgstr "模型 {model} 重复了。"
 #: src/settings/model-endpoint-probe.ts
 msgid "The model answered but didn’t call the test tool. The agent may not manage to edit files with it."
 msgstr "模型回复了，但没有调用测试工具。AI 助手可能无法用它修改文件。"
+
+#: src/app/native-app-dialog.tsx
+msgid "The native Lattice is installed and opens the next time Lattice starts."
+msgstr "原生 Lattice 已安装，下次启动 Lattice 时打开。"
+
+#: src/app/native-app-dialog.tsx
+msgid "The native Lattice isn’t available right now. Check your connection and try again."
+msgstr "暂时无法获取原生 Lattice。请检查网络连接后重试。"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "The native Mac app: faster and lighter, with the same look."
+msgstr "原生 Mac 应用：更快、更轻，外观不变。"
 
 #: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "the network became available"
@@ -18157,6 +18239,10 @@ msgstr "请更新 Lattice 后使用校对"
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
 
+#: src/app/native-app-dialog.tsx
+msgid "This version’s data stays as it is, and changes you make in the native app don’t come back here. If you switch back and later switch again, the native app keeps its own settings, themes, plugins and Overleaf session, and adds the recent projects you opened here."
+msgstr "这个版本的数据保持原样，在原生应用里做的更改不会同步回这里。如果你切换回来、之后再次切换，原生应用会保留它自己的设置、主题、插件和 Overleaf 登录，并加入你在这里打开过的最近项目。"
+
 #: src/agent/synara-unsupported-notice.tsx
 msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
 msgstr "此 Windows 版本暂时无法防止AI 助手直接修改 .bib 文件。可在终端面板中使用 Claude Code 或 Codex。依赖内置AI 助手的功能暂不可用。"
@@ -18387,6 +18473,7 @@ msgstr "右三角形"
 msgid "Try"
 msgstr "试试"
 
+#: src/app/native-app-dialog.tsx
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
@@ -18421,6 +18508,10 @@ msgstr "立即重试"
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "现在可以再试一次了"
+
+#: src/app/native-app-dialog.tsx
+msgid "Try the new native Lattice"
+msgstr "试用新的原生 Lattice"
 
 #: src/telemetry/update-recovery.ts
 msgid "Trying again ({next} of 3)…"
@@ -19347,6 +19438,7 @@ msgstr "要 AI 助手做什么"
 msgid "What you leave unticked is not offered again."
 msgstr "未勾选的更改以后不会再次提示。"
 
+#: src/app/native-app-dialog.tsx
 #: src/app/whats-new-dialog.tsx
 msgid "What’s new"
 msgstr "新功能"
@@ -19586,6 +19678,10 @@ msgstr "你仍处于登录状态。请确认在 Overleaf 上还能打开这个�
 msgid "You can close this once the transfer finishes"
 msgstr "传完即可关闭"
 
+#: src/app/native-app-dialog.tsx
+msgid "You can switch back any time from the native app’s Settings."
+msgstr "随时可以在原生应用的设置里切换回来。"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "You have read-only access to this Overleaf project, so edits stay on this machine."
 msgstr "你对这个 Overleaf 项目只有只读权限，修改只保留在本机"
@@ -19638,6 +19734,10 @@ msgstr "你在 {name} 上的评论没有发到 Overleaf：{message}"
 #: src/app/use-editor-comments.ts
 msgid "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
 msgstr "你在 {name} 上的评论没有发到 Overleaf：所选文字在上次同步后改过，Overleaf 上的这份文件这里和本地不一样。等文件同步后再试。"
+
+#: src/app/native-app-dialog.tsx
+msgid "Your data"
+msgstr "你的数据"
 
 #: src/history/review-mode-store.ts
 msgid "Your edits stay in the files. The changes waiting for review are no longer marked."
@@ -19700,6 +19800,10 @@ msgstr "登录已过期，请重新登录"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"
 msgstr "你的文件都在，没有丢失"
+
+#: src/app/native-app-dialog.tsx
+msgid "Your recent projects, settings, themes, plugins, templates, Agent skills and Overleaf links come along the first time you switch."
+msgstr "第一次切换时，最近项目、设置、主题、插件、模板、Agent 技能和 Overleaf 关联都会一起带过去。"
 
 #: src/app/use-tex-update-reminder.ts
 msgid "Your TeX packages are out of date"

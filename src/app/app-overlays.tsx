@@ -1,6 +1,7 @@
 /**
  * What App shows over the welcome screen and a project alike: the interface
- * size HUD, What's new, Clone repository and the recent-project finder.
+ * size HUD, What's new, the native app's offer, Clone repository and the
+ * recent-project finder.
  */
 import { lazy, memo, Suspense } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -14,6 +15,7 @@ import type { useWhatsNew } from "./use-whats-new";
 // Memoized: its props are stable, and App re-renders on every keystroke.
 const InterfaceZoomHud = memo(InterfaceZoomPill);
 const WhatsNewDialog = lazy(() => import("./whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
+const NativeAppOffer = lazy(() => import("./native-app-offer").then((module) => ({ default: module.NativeAppOffer })));
 const CloneRepositoryDialog = lazy(() => import("../project/clone-repository-dialog").then((module) => ({ default: module.CloneRepositoryDialog })));
 const RecentProjectFinder = lazy(() => import("../project/recent-project-finder").then((module) => ({ default: module.RecentProjectFinder })));
 
@@ -38,6 +40,10 @@ export function AppOverlays({ interfaceScale, interfaceZoom, whatsNew, lifecycle
           />
         </Suspense>
       )}
+      {/* Waits for What's new to close: one sheet at a time after an update. */}
+      <Suspense fallback={null}>
+        <NativeAppOffer whatsNewOpen={whatsNew.open} />
+      </Suspense>
       {clone.open && (
         <Suspense fallback={null}>
           <CloneRepositoryDialog recentProjectPath={clone.recentProjectPath} onClose={clone.close} onCloned={clone.opened} />
