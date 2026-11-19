@@ -7,7 +7,7 @@
 //! `tauri build --config` override — never reads or writes the shipped app's
 //! tools, caches or keychain item.
 //!
-//! Lattice Beta is the same pairing on purpose: `LATTICE_FLAVOR=beta` for the
+//! Lattice Tauri Beta is the same pairing on purpose: `LATTICE_FLAVOR=beta` for the
 //! code (its own browser port) and `--config tauri.beta.conf.json` for the
 //! identity. `init` refuses a build that has one without the other.
 

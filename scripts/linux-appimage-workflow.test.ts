@@ -99,7 +99,7 @@ describe("the Linux AppImage workflow", () => {
     // tauri-action is what writes latest.json and uploads updater archives.
     const actions = Object.values(linux.jobs).flatMap((job) => job.steps ?? []).map((step) => step.uses ?? "");
     expect(actions.filter((uses) => uses.startsWith("tauri-apps/tauri-action"))).toEqual([]);
-    // Lattice Beta is LATTICE_FLAVOR=beta (build.rs) over tauri.beta.conf.json.
+    // Lattice Tauri Beta is LATTICE_FLAVOR=beta (build.rs) over tauri.beta.conf.json.
     const envs = [linux.env, ...Object.values(linux.jobs).flatMap((job) => [job.env, ...(job.steps ?? []).map((step) => step.env)])];
     expect(envs.flatMap((env) => Object.keys(env ?? {}))).not.toContain("LATTICE_FLAVOR");
   });

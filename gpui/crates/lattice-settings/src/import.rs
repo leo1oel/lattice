@@ -119,6 +119,9 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         },
         // Stored as "true" or "false" (`save-full-text-setting.ts`).
         save_full_text: item("lattice.papers.save-full-text.v1") == Some("true"),
+        // The Tauri app's updates are its own channel's; the GPUI channel
+        // starts off whatever the Tauri app does.
+        app_updates: false,
         // Stored as "true" or "false" (`diff-wrap-setting.ts`).
         history_diff_wrap: item("lattice.history.diff-wrap.v1") == Some("true"),
     }

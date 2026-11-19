@@ -17,7 +17,7 @@ interface ImportMetaEnv {
   readonly VITE_SYNARA_EMBED_URL?: string;
   /** "1" only in perf-lab builds (scripts/perf-lab.mjs). */
   readonly VITE_PERF_LAB?: string;
-  /** "beta" in Lattice Beta builds, else empty (vite.config.ts). */
+  /** "beta" in Lattice Tauri Beta builds, else empty (vite.config.ts). */
   readonly LATTICE_FLAVOR: string;
   /** True only in the website's demo build (vite.config.ts, src/web-demo/). */
   readonly LATTICE_WEB_DEMO: boolean;

@@ -1,6 +1,6 @@
 //! Loopback browser host: serves the app to a browser on a fixed local port.
 //!
-//! `http://127.0.0.1:18452` (18472 in Lattice Beta) is the fixed, bookmarkable
+//! `http://127.0.0.1:18452` (18472 in Lattice Tauri Beta) is the fixed, bookmarkable
 //! entry point. Every workspace opened there is backed by a hidden native
 //! *host* WebView that owns the project and relays IPC to the browser tab over
 //! a WebSocket bridge (`session`). "Open in browser" hands a native window's
@@ -34,7 +34,7 @@ use std::{
 use tauri::{Manager, WebviewUrl};
 use tauri_plugin_opener::OpenerExt;
 
-/// Lattice Beta never takes the release app's port (nor the Trellis
+/// Lattice Tauri Beta never takes the release app's port (nor the Trellis
 /// prototype's 18462), so they run side by side without one tab attaching to
 /// another's host. src/platform/flavor.ts mirrors it.
 const PREFERRED_PORT: u16 = if cfg!(lattice_beta) { 18472 } else { 18452 };

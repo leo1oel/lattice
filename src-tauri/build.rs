@@ -1,5 +1,5 @@
 fn main() {
-    // `LATTICE_FLAVOR=beta` builds Lattice Beta (docs/release-process.md):
+    // `LATTICE_FLAVOR=beta` builds Lattice Tauri Beta (docs/release-process.md):
     // `cfg(lattice_beta)` moves the browser port off the release app's. Any
     // other value is a typo that would silently build the release flavor.
     println!("cargo:rerun-if-env-changed=LATTICE_FLAVOR");
