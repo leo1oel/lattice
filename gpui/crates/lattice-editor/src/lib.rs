@@ -18,7 +18,8 @@
 //! - [`hover`]: a card for what the pointer rests on;
 //! - [`caret_card`]: a card for what the caret is in;
 //! - [`completion`]: sources for Zed's completion menu;
-//! - [`remote_cursors`]: other people's carets, named as they move.
+//! - [`remote_cursors`]: other people's carets, named as they move;
+//! - [`spelling`]: the system's spell check, as marks over the prose.
 //!
 //! Each but gutter marks (whose first use will be the annotation pins) is
 //! proved by a real Lattice use in [`latex`]: TexLab's diagnostics as marks
@@ -45,6 +46,7 @@ pub mod markdown;
 pub mod markdown_format;
 pub mod proofread;
 pub mod remote_cursors;
+pub mod spelling;
 pub mod texlab;
 pub mod text_edit;
 

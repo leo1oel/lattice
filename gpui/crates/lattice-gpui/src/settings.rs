@@ -16,7 +16,8 @@
 //! position moves the stack; the title bar's tools hide and show; the
 //! interface size zooms every window (`interface_zoom`), translucency puts
 //! the window's vibrancy behind its frosted surfaces (`window_material`),
-//! and interface sounds decide whether a cue plays (`sounds`). Choices the
+//! interface sounds decide whether a cue plays (`sounds`) and spell
+//! checking whether editors check (`editor_panel/spelling.rs`). Choices the
 //! GPUI app has no surface for yet (the visual Markdown editor's type) are
 //! kept, so they carry over unchanged.
 //!

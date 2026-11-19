@@ -10,6 +10,9 @@ license.workspace = true
 # The interface languages (English, Simplified Chinese).
 lattice-i18n.workspace = true
 anyhow.workspace = true
+# The buffer version a spell check pass read; already in the graph through
+# the editor.
+clock.workspace = true
 codebook-tree-sitter-latex.workspace = true
 tree-sitter-md.workspace = true
 tree-sitter-bibtex.workspace = true
