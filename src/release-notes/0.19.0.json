@@ -25,6 +25,17 @@
       }
     },
     {
+      "icon": "menu",
+      "title": {
+        "en": "More recent projects",
+        "zh": "更多最近项目"
+      },
+      "body": {
+        "en": "Lattice now keeps your last 100 projects instead of 8. Below the three cards on the welcome screen, More projects lists the next 20, and Open a recent project… searches all of them by name and folder; the project switcher, File › Open Recent and the command palette open it too. Folders linked to Overleaf are marked, and a folder that has gone missing stays in the list, marked, instead of being dropped.",
+        "zh": "Lattice 现在会保留最近的 100 个项目，而不是 8 个。欢迎页三张卡片下方的「更多项目」列出接下来的 20 个，「打开最近项目…」可以按名称和文件夹搜索全部项目；项目切换器、文件 › 打开最近使用和命令面板也都能打开它。关联了 Overleaf 的文件夹会有标记，找不到的文件夹会留在列表里并标出，而不是被删掉。"
+      }
+    },
+    {
       "icon": "git",
       "title": {
         "en": "Lattice Beta is now Lattice",

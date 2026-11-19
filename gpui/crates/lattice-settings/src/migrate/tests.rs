@@ -406,12 +406,12 @@ fn what_the_gpui_app_already_has_wins() {
 }
 
 #[test]
-fn recent_projects_stop_at_eight() {
-    let profile = profile("eight");
-    let tauri: Vec<Value> = (0..8)
+fn recent_projects_stop_at_the_cap() {
+    let profile = profile("cap");
+    let tauri: Vec<Value> = (0..RECENT_PROJECTS_KEPT)
         .map(|n| json!({ "name": format!("T{n}"), "path": format!("/t/{n}") }))
         .collect();
-    let own: Vec<Value> = (0..6)
+    let own: Vec<Value> = (0..RECENT_PROJECTS_KEPT - 2)
         .map(|n| json!({ "name": format!("G{n}"), "path": format!("/g/{n}") }))
         .collect();
     let target = profile.gpui.state.join("recent-projects.json");
@@ -422,7 +422,7 @@ fn recent_projects_stop_at_eight() {
     );
     let list = read_json(&target);
     assert_eq!(list.as_array().unwrap().len(), RECENT_PROJECTS_KEPT);
-    assert_eq!(list[7]["path"], "/t/1");
+    assert_eq!(list[RECENT_PROJECTS_KEPT - 1]["path"], "/t/1");
     let _ = std::fs::remove_dir_all(&profile.root);
 }
 
@@ -526,21 +526,25 @@ fn a_folder_in_both_lists_keeps_the_newer_opening() {
 }
 
 #[test]
-fn the_union_keeps_eight_and_never_drops_the_gpui_apps_own() {
-    let own: Vec<Value> = (0..6).map(|n| project(&format!("g{n}"), Some(n))).collect();
+fn the_union_stops_at_the_cap_and_never_drops_the_gpui_apps_own() {
+    let own: Vec<Value> = (0..RECENT_PROJECTS_KEPT as u64 - 2)
+        .map(|n| project(&format!("g{n}"), Some(n)))
+        .collect();
     let tauri: Vec<Value> = (0..5)
         .map(|n| project(&format!("t{n}"), Some(100 + n)))
         .collect();
     let (_, list) = union(&own, &tauri);
     assert_eq!(list.len(), RECENT_PROJECTS_KEPT);
-    // The two newest of the Tauri app's, then all six of the GPUI app's.
+    // The two newest of the Tauri app's, then all of the GPUI app's.
     assert_eq!(list[0], project("t4", Some(104)));
     assert_eq!(list[1], project("t3", Some(103)));
     for entry in &own {
         assert!(list.contains(entry), "{entry} was dropped");
     }
     // A full list takes none of the Tauri app's in, however new.
-    let full: Vec<Value> = (0..8).map(|n| project(&format!("g{n}"), Some(n))).collect();
+    let full: Vec<Value> = (0..RECENT_PROJECTS_KEPT as u64)
+        .map(|n| project(&format!("g{n}"), Some(n)))
+        .collect();
     let (changed, list) = union(&full, &tauri);
     assert_eq!(changed, 0);
     assert_eq!(list.len(), RECENT_PROJECTS_KEPT);

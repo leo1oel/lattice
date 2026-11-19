@@ -46,8 +46,9 @@ const STORAGE_KEYS: &[&str] = &[
     GET_STARTED,
 ];
 
-/// The most recent projects either app keeps (`RECENT_PROJECTS_MAX`).
-const RECENT_PROJECTS_KEPT: usize = 8;
+/// The most recent projects either app keeps (`RECENT_PROJECTS_MAX` in the
+/// Tauri app, `recents::KEPT` in the GPUI app).
+const RECENT_PROJECTS_KEPT: usize = 100;
 /// The most linked Overleaf folders lattice-core remembers (`MAX_FOLDERS`).
 const LINKED_FOLDERS_KEPT: usize = 200;
 
