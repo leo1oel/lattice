@@ -1,0 +1,1 @@
+import{t as e}from"./app-OxVOev-T.js";await e();
