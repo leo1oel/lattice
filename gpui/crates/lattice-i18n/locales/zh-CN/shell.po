@@ -1,3 +1,8 @@
+#: lattice-gpui/src/shell/menus.rs
+msgctxt "macOS menu bar"
+msgid "All Recent Projects…"
+msgstr "全部最近项目…"
+
 #: lattice-gpui/src/shell/commands/projects.rs
 msgid "Annotate selection"
 msgstr "评论所选内容"
@@ -92,6 +97,10 @@ msgstr "从项目中打开一个文件，开始写作"
 #: lattice-gpui/src/shell.rs
 msgid "Open a project"
 msgstr "打开项目"
+
+#: lattice-gpui/src/shell/commands/projects.rs
+msgid "Open recent project…"
+msgstr "打开最近项目…"
 
 #: lattice-gpui/src/shell/commands.rs
 msgid "Open this project in a new window"

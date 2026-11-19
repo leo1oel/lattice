@@ -1,3 +1,7 @@
+#: lattice-gpui/src/titlebar/project_menu.rs
+msgid "All recent projects…"
+msgstr "全部最近项目…"
+
 #: lattice-gpui/src/titlebar.rs
 msgid "{name} — not in {app} yet"
 msgstr "{name} — {app} 暂未提供"

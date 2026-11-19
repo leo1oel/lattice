@@ -1,3 +1,19 @@
 #: lattice-gpui/src/project.rs
 msgid "Could not set the main document"
 msgstr "无法设为主文档"
+
+#: lattice-gpui/src/search/insert_pickers.rs
+msgid "Missing"
+msgstr "已丢失"
+
+#: lattice-gpui/src/welcome/more_projects.rs
+msgid "More projects"
+msgstr "更多项目"
+
+#: lattice-gpui/src/search/insert_pickers.rs
+msgid "Open a recent project…"
+msgstr "打开最近的项目…"
+
+#: lattice-gpui/src/welcome/more_projects.rs
+msgid "Show all {count} projects"
+msgstr "显示全部 {count} 个项目"
