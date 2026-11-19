@@ -64,11 +64,13 @@ const CI_JOBS = JOBS.filter((job) => job !== "gpui");
 // to any of them can move the bundle the budgets measure.
 export const BUNDLE_INPUTS = /^(src\/|public\/(?!pdfjs\/)|index\.html$|vite\.config\.ts$|package\.json$|pnpm-lock\.yaml$|tsconfig(\.node)?\.json$|scripts\/(app-size-report|app-size-report-selftest|check-webkit-compat|private-fonts|react-compiler-suppressions)\.)/;
 
-// What gpui.yml's path filter used to list: the GPUI workspace, the backend
-// crate it shares with the Tauri app, and the design-system exports it
+// What gpui.yml's path filter used to list: the GPUI workspace, the crates
+// it shares with the Tauri app (lattice-core and the lattice-theme it pulls
+// in; ci-tier.test.mjs checks every path dependency is here), and the
+// design-system exports it
 // generates tokens and editor themes from. Then the Tauri app's modules its
 // webview islands are built from (gpui/islands/vite.config.ts).
-export const GPUI_INPUTS = /^(gpui\/|src-tauri\/lattice-core\/|design-system\/(tokens\.json|code-themes\.(json|mjs)|screens\/)|src\/settings\/(code-themes|theme-customization)\.ts$|src\/editor\/(spreadsheet|board|presentation|markdown)\/|src\/canvas\/markdown-preview-sync\.ts$|src\/editor\/latex\/latex-text\.ts$|src\/(index|App)\.css$|src\/app-utils\.ts$|src\/i18n\/|src\/agent\/|src\/app\/use-synara-host\.ts$|src\/settings\/synara-settings-pane\.tsx$|src\/trellis\/(trellis-agent-surface\.tsx|trellis\.css)$|src\/app\/(git-workspace-frames\.tsx|git-repository-url\.ts|use-app-commands\.ts|key-combos\.ts|app-synara-embed\.ts|annotation-rounds\.ts|use-agent-spreadsheet-resolver\.ts|use-editor-comments\.ts|notify\.ts)$|src\/hooks\/use-latest-ref\.ts$|src\/app-types\.ts$|src\/components\/icon-tip\.tsx$|src\/components\/ui\/(motion|scroll-area)\.(tsx|css)$)/;
+export const GPUI_INPUTS = /^(gpui\/|src-tauri\/lattice-(core|theme)\/|design-system\/(tokens\.json|code-themes\.(json|mjs)|screens\/)|src\/settings\/(code-themes|theme-customization)\.ts$|src\/editor\/(spreadsheet|board|presentation|markdown)\/|src\/canvas\/markdown-preview-sync\.ts$|src\/editor\/latex\/latex-text\.ts$|src\/(index|App)\.css$|src\/app-utils\.ts$|src\/i18n\/|src\/agent\/|src\/app\/use-synara-host\.ts$|src\/settings\/synara-settings-pane\.tsx$|src\/trellis\/(trellis-agent-surface\.tsx|trellis\.css)$|src\/app\/(git-workspace-frames\.tsx|git-repository-url\.ts|use-app-commands\.ts|key-combos\.ts|app-synara-embed\.ts|annotation-rounds\.ts|use-agent-spreadsheet-resolver\.ts|use-editor-comments\.ts|notify\.ts)$|src\/hooks\/use-latest-ref\.ts$|src\/app-types\.ts$|src\/components\/icon-tip\.tsx$|src\/components\/ui\/(motion|scroll-area)\.(tsx|css)$)/;
 export const CODE_THEME_INPUTS = /^(design-system\/code-themes\.(json|mjs)|src\/settings\/(code-themes|theme-customization)\.ts)$/;
 
 // Read by nothing that builds or tests. THIRD_PARTY_NOTICES.md is not here:

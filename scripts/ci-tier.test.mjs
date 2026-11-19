@@ -1,6 +1,10 @@
 // @vitest-environment node
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { JOBS, ciTier, localMacosPass, wantsFull } from "./ci-tier.mjs";
+import { GPUI_INPUTS, JOBS, ciTier, localMacosPass, wantsFull } from "./ci-tier.mjs";
+
+const repo = path.resolve(import.meta.dirname, "..");
 
 const scan = {
   testReads: [
@@ -33,6 +37,23 @@ describe("ci-tier", () => {
   it("runs only gpui.yml for a GPUI change, and both apps for lattice-core", () => {
     expect(running(["gpui/crates/lattice-gpui/src/main.rs"]).on).toEqual(["gpui"]);
     expect(running(["src-tauri/lattice-core/src/lib.rs"]).on).toEqual(["rust", "gpui"]);
+  });
+
+  it("runs gpui.yml for every crate outside gpui/ the GPUI workspace builds", () => {
+    const crates = new Set();
+    const visit = (dir) => {
+      const manifest = path.join(repo, dir, "Cargo.toml");
+      if (crates.has(dir) || !existsSync(manifest)) return;
+      crates.add(dir);
+      for (const [, dependency] of readFileSync(manifest, "utf8").matchAll(/path\s*=\s*"([^"]+)"/g)) {
+        visit(path.relative(repo, path.join(repo, dir, dependency)));
+      }
+    };
+    visit("gpui");
+    for (const crate of readdirSync(path.join(repo, "gpui", "crates"))) visit(path.join("gpui", "crates", crate));
+    const outside = [...crates].filter((dir) => !dir.startsWith("gpui"));
+    expect(outside).toContain("src-tauri/lattice-core");
+    expect(outside.filter((dir) => !GPUI_INPUTS.test(`${dir}/src/lib.rs`))).toEqual([]);
   });
 
   it("runs the frontend jobs for anything else, and every test file", () => {
