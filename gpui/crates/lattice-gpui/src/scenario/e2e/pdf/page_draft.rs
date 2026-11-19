@@ -100,7 +100,7 @@ impl Run {
         );
         // Back to how the checks after found it.
         if let Some(fit) = fit {
-            self.with_view(cx, move |view, _, cx| view.toggle_fit(fit, cx))?;
+            self.with_view(cx, move |view, _, cx| view.apply_fit(fit, cx))?;
         }
         self.with_view(cx, |view, _, cx| view.go_to_page(6, cx))?;
         self.pause(cx, Duration::from_millis(300)).await;

@@ -208,7 +208,7 @@ impl PdfView {
                         icon,
                         checked,
                         false,
-                        Box::new(move |view, _, cx| view.toggle_fit(mode, cx)),
+                        Box::new(move |view, _, cx| view.apply_fit(mode, cx)),
                     )
                 };
                 let mut menu = MenuSurface::new()

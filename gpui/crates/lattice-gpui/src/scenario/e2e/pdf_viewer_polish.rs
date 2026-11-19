@@ -179,7 +179,7 @@ impl Run {
         );
         // The fit it had, for the modules after this one.
         if let Some(mode) = fit {
-            self.with_window(cx, move |_, _, cx| view.update(cx, |view, cx| view.toggle_fit(mode, cx)))?;
+            self.with_window(cx, move |_, _, cx| view.update(cx, |view, cx| view.apply_fit(mode, cx)))?;
             self.pause(cx, Duration::from_millis(300)).await;
         }
         Ok(())

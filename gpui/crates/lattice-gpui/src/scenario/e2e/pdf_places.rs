@@ -109,7 +109,7 @@ impl Run {
             self.with_window(cx, move |_, _, cx| {
                 live.update(cx, |view, cx| {
                     if view.fit() != Some(mode) {
-                        view.toggle_fit(mode, cx);
+                        view.apply_fit(mode, cx);
                     }
                 })
             })?;

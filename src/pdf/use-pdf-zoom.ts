@@ -244,17 +244,14 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
     };
   }, [currentScale, previewZoom, recordRef]);
 
-  const toggleFit = useCallback((mode: "width" | "height") => {
+  const applyFit = useCallback((mode: "width" | "height") => {
     const slick = recordRef.current?.slick;
     if (!slick) return;
     cancelPreview();
-    if (viewRef.current.fitMode === mode) {
-      setFitMode(null);
-      return;
-    }
+    // Pressed while already fitted, it fits again and stays on: only a zoom leaves the fit.
     setFitMode(mode);
     applyPdfZoom(slick, mode);
-  }, [cancelPreview, recordRef, setFitMode, viewRef]);
+  }, [cancelPreview, recordRef, setFitMode]);
 
   // A fitted page follows the pane size; settle resizes so a split drag does not rescale every frame.
   useEffect(() => {
@@ -275,5 +272,5 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
     };
   }, [fitMode, generation, recordRef]);
 
-  return { zoomLabelRef, applyManualScale, stepZoom, toggleFit };
+  return { zoomLabelRef, applyManualScale, stepZoom, applyFit };
 }
