@@ -54,6 +54,7 @@ export function VersionRow(props: {
         <>
           <HistoryPerson name={entry.authorName || t`Unknown`} />
           <span className="history-row-count">{count === 1 ? t`1 file` : t`${formatCount(count)} files`}</span>
+          {entry.remoteOnly && <span className="history-row-count">{t`On Overleaf, not merged yet`}</span>}
         </>
       )}
       time={clockTime(at, i18n.locale)}

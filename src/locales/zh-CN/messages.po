@@ -11439,6 +11439,10 @@ msgstr "针对“{0}”"
 msgid "on line"
 msgstr "位于行"
 
+#: src/history/versions-timeline.tsx
+msgid "On Overleaf, not merged yet"
+msgstr "在 Overleaf 上，尚未合并"
+
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
 msgstr "这台 Mac"

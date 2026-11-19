@@ -159,6 +159,34 @@ fn what_the_writer_committed_goes_up_and_the_rest_does_not() {
         .all(|path| path != "notes.tex"));
 }
 
+/// The app's version timeline reads `git::log`: what Overleaf has and this
+/// folder has not merged yet must be listed too, and told apart.
+#[test]
+fn the_version_log_lists_overleafs_unmerged_commits_and_marks_them() {
+    let Some(overleaf) = Overleaf::new(&[("main.tex", "one\n")]) else { return };
+    let root = clone_of(&overleaf, "log");
+    commit(&root, &[("main.tex", "two\n")], "Mine");
+    overleaf.edit("intro.tex", "from a co-author\n");
+    // Fetched, not merged: what a probe or a failed merge leaves behind.
+    let branch = remote_branch(&root, &overleaf.url(), TOKEN).unwrap();
+    point_remote_at(&root, &overleaf.url()).unwrap();
+    fetch(&root, &overleaf.url(), TOKEN, &branch).unwrap();
+
+    let entries = crate::git::log(&root, 50).unwrap();
+
+    let messages =
+        entries.iter().map(|entry| (entry.message.as_str(), entry.remote_only)).collect::<Vec<_>>();
+    assert!(messages.contains(&("Edit intro.tex", true)), "{messages:?}");
+    assert!(messages.contains(&("Mine", false)), "{messages:?}");
+    assert!(messages.contains(&("Initial version", false)), "{messages:?}");
+
+    // Once merged in, it is the branch's own history and no longer marked.
+    sync_with(&overleaf, &root).unwrap();
+    let merged = crate::git::log(&root, 50).unwrap();
+    assert!(merged.iter().all(|entry| !entry.remote_only));
+    assert!(merged.iter().any(|entry| entry.message == "Edit intro.tex"));
+}
+
 #[test]
 fn edits_on_both_sides_in_different_files_merge_and_go_up() {
     let Some(overleaf) = Overleaf::new(&[("a.tex", "a\n"), ("b.tex", "b\n")]) else { return };

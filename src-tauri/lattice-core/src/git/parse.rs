@@ -117,7 +117,15 @@ pub(super) fn parse_log(raw: &str) -> Vec<GitLogEntry> {
         if had_files && files.is_empty() {
             return None;
         }
-        Some(GitLogEntry { hash, short_hash, author_name, timestamp, message, files })
+        Some(GitLogEntry {
+            hash,
+            short_hash,
+            author_name,
+            timestamp,
+            message,
+            files,
+            remote_only: false,
+        })
     };
     raw.split('\u{1e}').filter_map(entry).collect()
 }

@@ -644,6 +644,8 @@ export type GitLogEntry = {
   timestamp: string;
   message: string;
   files: GitLogFile[];
+  /** On Overleaf's branch (fetched by a git sync) but not merged into this one yet. */
+  remoteOnly?: boolean;
 };
 export type GitFileDiff = {
   before: string | null;

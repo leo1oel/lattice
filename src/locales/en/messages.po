@@ -11439,6 +11439,10 @@ msgstr "On “{0}”"
 msgid "on line"
 msgstr "on line"
 
+#: src/history/versions-timeline.tsx
+msgid "On Overleaf, not merged yet"
+msgstr "On Overleaf, not merged yet"
+
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
 msgstr "On this Mac"

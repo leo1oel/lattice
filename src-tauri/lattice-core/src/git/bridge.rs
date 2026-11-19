@@ -39,6 +39,21 @@ fn tracking_ref(branch: &str) -> String {
     format!("refs/remotes/{REMOTE}/{branch}")
 }
 
+/// Where the last sync left Overleaf's branch, when there has been one. Only
+/// a ref that exists is returned, so the log never names a missing revision.
+pub(super) fn remote_tip(root: &Path) -> Option<String> {
+    let listed = git_output(
+        root,
+        &["for-each-ref", "--format=%(refname)", &format!("refs/remotes/{REMOTE}")],
+    )
+    .ok()?;
+    listed
+        .lines()
+        .map(str::trim)
+        .find(|name| !name.is_empty() && !name.ends_with("/HEAD"))
+        .map(str::to_string)
+}
+
 /// A git process for the remote, carrying `token` as HTTP basic credentials
 /// (the user name is not checked by Overleaf) and no credential helper, so a
 /// stale saved credential cannot answer in its place.
