@@ -42,4 +42,4 @@
 - **从 URL 安装…**：通过 `https` 下载插件的 `.zip` 发布包，并核对作者公布的 SHA-256。
 - **从文件夹安装…**：用于开发插件；Lattice 直接运行这个文件夹，你的修改在下次运行时生效。
 
-想写插件？见 [插件开发文档](https://github.com/leo1oel/lattice/blob/main/docs/plugins.md)（英文）。
+想写插件或主题？从 [第一个插件](plugin-development.md) 或 [制作主题](theme-development.md) 开始。

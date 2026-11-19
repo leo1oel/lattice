@@ -10,7 +10,14 @@ use crate::scenario::Run;
 /// Each step's name, whether it passed, and what it saw; and the last step's
 /// name, for the input lock to name where the app became active outside a
 /// foreground section.
-pub(super) struct Steps(pub(super) Vec<Value>, Rc<RefCell<String>>);
+pub(super) struct Steps(
+    pub(super) Vec<Value>,
+    Rc<RefCell<String>>,
+    /// The feature module whose steps these are, none in the smoke flow: the
+    /// verdict reruns a failed step's module once (`--only`) before it calls
+    /// the step new (scripts/gpui-e2e-verdict.mjs).
+    Option<&'static str>,
+);
 
 /// The feature module `name` (`registry.rs`: the files under `scenario/e2e/`
 /// that register themselves; `dock` runs `../shell_steps.rs`), each with the
@@ -84,12 +91,19 @@ pub(super) fn selected(name: &str) -> bool {
 
 impl Steps {
     pub(super) fn new(run: &Run) -> Self {
-        Self(Vec::new(), run.input.last_step())
+        Self(Vec::new(), run.input.last_step(), None)
+    }
+
+    /// Marks the steps that follow as the module `name`'s, or the smoke
+    /// flow's for none.
+    pub(super) fn set_module(&mut self, name: Option<&'static str>) {
+        self.2 = name;
     }
 
     pub(super) fn check(&mut self, name: &str, passed: bool, detail: Value) -> bool {
-        self.0
-            .push(json!({ "step": name, "passed": passed, "detail": detail }));
+        self.0.push(
+            json!({ "step": name, "passed": passed, "detail": detail, "module": self.2 }),
+        );
         *self.1.borrow_mut() = name.to_string();
         passed
     }
