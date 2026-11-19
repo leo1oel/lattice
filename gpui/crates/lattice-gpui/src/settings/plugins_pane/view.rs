@@ -1,21 +1,22 @@
 //! Settings › Plugins drawn as the Tauri app's (`plugin-settings.tsx`,
-//! `plugins.css`): the intro, the Install group and its URL form, then per
-//! plugin its name and version over a frameless card (`super` holds the
-//! state and the host calls).
+//! `plugins.css`): the intro, Installed · Browse and the search field, then
+//! Browse (`browse.rs`) or the Install group and its URL form and per plugin
+//! its name, version and where it came from over a frameless card (`super`
+//! holds the state and the host calls).
 
 use gpui::{
     AnyElement, Context, ElementId, IntoElement as _, ParentElement as _, SharedString,
-    Styled as _, div, prelude::FluentBuilder as _, px,
+    Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_core::plugins::{AVAILABLE, PluginInfo, Source};
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, TextRole, TextRoleStyle as _, TypeScale,
-    components::{Button, Field},
-    tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
+    components::{Button, Field, Segmented},
+    tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_REGULAR, FONT_WEIGHT_SEMIBOLD},
 };
 
-use super::{PluginsPane, Target};
+use super::{PluginsPane, Target, View, model};
 use crate::{
     plugins::text,
     settings::controls::{self, Level, Marks, PageWidth, Row},
@@ -40,6 +41,7 @@ impl PluginsPane {
         &mut self,
         width: PageWidth,
         marks: &Marks,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let palette = cx.palette().clone();
@@ -60,6 +62,70 @@ impl PluginsPane {
                 t!("Plugins run only on macOS for now. They are listed here, but can’t be turned on."),
                 cx,
             ));
+        }
+        // `.plugin-settings-bar`: the segmented control, then the search
+        // field filling the rest, 8px apart, 12px under the intro.
+        let mut views = Segmented::new("plugins-view").filled();
+        for (view, label) in [
+            (View::Installed, t!("Installed")),
+            (View::Browse, t!("Browse")),
+        ] {
+            let this = this.clone();
+            views = views.label(label, self.view == view, move |_, window, cx| {
+                this.update(cx, |pane, cx| pane.set_view(view, window, cx))
+            });
+        }
+        let bar = div().flex().items_center().gap(px(8.)).child(views).child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .child(Field::new(&self.search).search().compact()),
+        );
+        // Browse's status line and rows follow the bar as closely as the
+        // Tauri app's, inside the intro's group rather than a page gap below.
+        let browse = (self.view == View::Browse).then(|| self.browse(window, cx));
+        if let Some(intro) = groups.first_mut() {
+            let first = std::mem::replace(intro, div().into_any_element());
+            *intro = div()
+                .flex()
+                .flex_col()
+                .gap(px(12.))
+                .child(first)
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(4.))
+                        .child(bar)
+                        .children(browse),
+                )
+                .into_any_element();
+        }
+        if self.view == View::Browse {
+            let this = this.clone();
+            let refresh = Button::new("plugins-refresh", t!("Refresh"))
+                .compact()
+                .disabled(self.refreshing)
+                .on_click(move |_, window, cx| {
+                    this.update(cx, |pane, cx| pane.load_listing(true, window, cx))
+                })
+                .into_any_element();
+            return controls::page_with_action(t!("Plugins"), Some(refresh), width, groups, cx);
+        }
+        let update_all = (!model::quiet_updates(self.listing.as_ref(), &self.listed()).is_empty())
+            .then(|| {
+                let this = this.clone();
+                Button::new("plugins-update-all", t!("Update all"))
+                    .compact()
+                    .tinted()
+                    .disabled(busy || !AVAILABLE)
+                    .on_click(move |_, window, cx| {
+                        this.update(cx, |pane, cx| pane.update_all(window, cx))
+                    })
+                    .into_any_element()
+            });
+        if let Some(error) = self.errors.get(&Target::Updates) {
+            groups.push(controls::inline_message(Level::Error, error.clone(), cx));
         }
         let toggle_url = {
             let this = this.clone();
@@ -140,6 +206,7 @@ impl PluginsPane {
         if let Some(error) = self.errors.get(&Target::Install) {
             groups.push(controls::inline_message(Level::Error, error.clone(), cx));
         }
+        let query = self.search.read(cx).value().trim().to_string();
         match self.plugins.clone() {
             None => {}
             Some(list) if list.is_empty() => groups.push(
@@ -152,12 +219,27 @@ impl PluginsPane {
                 .into_any_element(),
             ),
             Some(list) => {
-                for plugin in list {
+                let shown: Vec<_> = list
+                    .into_iter()
+                    .filter(|plugin| query.is_empty() || model::installed_matches(plugin, &query))
+                    .collect();
+                if shown.is_empty() {
+                    groups.push(
+                        words(
+                            t!("No installed plugins match"),
+                            TextRole::Body,
+                            palette.text_secondary,
+                            cx,
+                        )
+                        .into_any_element(),
+                    );
+                }
+                for plugin in shown {
                     groups.push(self.card(&plugin, cx));
                 }
             }
         }
-        controls::page(t!("Plugins"), width, groups, cx)
+        controls::page_with_action(t!("Plugins"), update_all, width, groups, cx)
     }
 
     /// A plugin's card (`PluginCard`): no frame, its name and version as
@@ -168,13 +250,14 @@ impl PluginsPane {
         let busy = self.busy.is_some();
         let id = plugin.id.clone();
         let row_id = controls::row_id("plugin", &id);
+        let turned_off = plugin.blocked.as_ref().is_some_and(model::turns_off);
         let switch = {
             let this = this.clone();
             let shown = plugin.clone();
             controls::switch(
                 row_id,
                 plugin.enabled,
-                busy || !AVAILABLE,
+                busy || !AVAILABLE || (turned_off && !plugin.enabled),
                 move |on, window, cx| {
                     this.update(cx, |pane, cx| pane.set_enabled(&shown, on, window, cx))
                 },
@@ -202,7 +285,17 @@ impl PluginsPane {
                 div()
                     .text_color(palette.text_secondary)
                     .child(SharedString::from(plugin.version.clone())),
-            );
+            )
+            .child({
+                // `.plugin-card-tier`: the caption in the tertiary ink, a
+                // reviewed plugin's in the success colour.
+                let (tier, ink) = match plugin.source {
+                    Source::Registry { .. } => (t!("Reviewed"), palette.success),
+                    Source::Url { .. } => (t!("Not reviewed"), palette.text_secondary),
+                    Source::Folder { .. } => (t!("Developer"), palette.text_secondary),
+                };
+                words(tier, TextRole::Caption, ink, cx).font_weight(FONT_WEIGHT_REGULAR)
+            });
         let head = div()
             .px(px(12.))
             .py(px(10.))
@@ -251,6 +344,69 @@ impl PluginsPane {
                     ),
             )
             .child(switch);
+        let blocked = plugin.blocked.clone().map(|entry| {
+            let reason = entry.reason.clone();
+            let message = if turned_off {
+                controls::inline_message(
+                    Level::Error,
+                    t!("Lattice turned this plugin off: {reason}", reason = reason),
+                    cx,
+                )
+            } else {
+                controls::inline_message(
+                    Level::Warning,
+                    t!("This plugin has a warning: {reason}", reason = reason),
+                    cx,
+                )
+            };
+            div()
+                .px(px(12.))
+                .pb(px(8.))
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap(px(4.))
+                .child(div().w_full().child(message))
+                .when_some(entry.url, |this, url| {
+                    // Under the message's text, past its 13px icon and 6px gap.
+                    this.child(
+                        super::browse::link(
+                            format!("plugin-learn-more-{id}"),
+                            t!("Learn more"),
+                            url,
+                            cx,
+                        )
+                        .ml(px(19.)),
+                    )
+                })
+        });
+        let update = model::update_of(self.listing.as_ref(), &id).map(|(version, _)| {
+            let this = this.clone();
+            let open = id.clone();
+            div()
+                .px(px(12.))
+                .pb(px(8.))
+                .flex()
+                .items_center()
+                .gap(px(8.))
+                .child(controls::inline_message(
+                    Level::Info,
+                    t!("Version {next} is available", next = version),
+                    cx,
+                ))
+                .child(
+                    Button::new(
+                        ElementId::Name(format!("plugin-update-{id}").into()),
+                        t!("Update…"),
+                    )
+                    .compact()
+                    .tinted()
+                    .disabled(busy)
+                    .on_click(move |_, _, cx| {
+                        this.update(cx, |pane, cx| pane.open_details(open.clone(), cx))
+                    }),
+                )
+        });
         let review = plugin.needs_review.then(|| {
             let shown = plugin.clone();
             let this = this.clone();
@@ -303,6 +459,12 @@ impl PluginsPane {
             );
         let mut parts = vec![
             head.into_any_element(),
+            blocked
+                .map(|blocked| blocked.into_any_element())
+                .unwrap_or_else(|| div().into_any_element()),
+            update
+                .map(|update| update.into_any_element())
+                .unwrap_or_else(|| div().into_any_element()),
             review
                 .map(|review| review.into_any_element())
                 .unwrap_or_else(|| div().into_any_element()),
