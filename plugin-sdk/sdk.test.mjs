@@ -98,6 +98,8 @@ describe("plugin SDK", () => {
     expect(packFiles([...files].reverse()).equals(zip)).toBe(true);
     expect(zip.readUInt32LE(0)).toBe(0x04034b50);
     expect(zip.readUInt16LE(12)).toBe(33);
+    expect(zip.readUInt16LE(8)).toBe(0);
+    expect(zip.subarray(30 + "LICENSE".length, 30 + "LICENSE".length + files[0].data.length).equals(files[0].data)).toBe(true);
     expect(zip.readUInt16LE(zip.length - 22 + 8)).toBe(files.length);
   });
 

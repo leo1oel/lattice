@@ -11,13 +11,17 @@
 // together: any difference here changes every registry hash.
 //
 // Entries are the regular files under the folder, sorted by path, minus tests
-// (*.test.mjs) and anything under a dot-named file or folder. Each is deflated
-// at level 9 with a fixed 1980-01-01 timestamp, Unix permissions 0644 (0755
-// when the source is executable), and no extra fields.
+// (*.test.mjs) and anything under a dot-named file or folder. Each is stored
+// uncompressed with a fixed 1980-01-01 timestamp, Unix permissions 0644 (0755
+// when the source is executable), and no extra fields. Stored, because
+// deflate's bytes depend on the zlib build (Node 24 and 26 differ), so a
+// compressed pack would hash differently on the author's machine and in the
+// registry's CI.
 import { createHash } from "node:crypto";
-import { lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { constants, crc32, deflateRawSync } from "node:zlib";
+import { pathToFileURL } from "node:url";
+import { crc32 } from "node:zlib";
 
 /** Whether `path` (relative, `/`-separated) goes into the pack. */
 export function packed(path) {
@@ -54,13 +58,13 @@ export function packFiles(files) {
   const sorted = sortFiles(files);
   for (const file of sorted) {
     const name = Buffer.from(file.path, "utf8");
-    const data = deflateRawSync(file.data, { level: constants.Z_BEST_COMPRESSION });
+    const data = file.data;
     const crc = crc32(file.data);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4); // version needed: deflate
+    local.writeUInt16LE(10, 4); // version needed: stored
     local.writeUInt16LE(0x0800, 6); // UTF-8 names
-    local.writeUInt16LE(8, 8); // deflate
+    local.writeUInt16LE(0, 8); // stored
     local.writeUInt16LE(0, 10); // 00:00:00
     local.writeUInt16LE(DOS_DATE, 12);
     local.writeUInt32LE(crc, 14);
@@ -70,9 +74,9 @@ export function packFiles(files) {
     const central = Buffer.alloc(46);
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE((3 << 8) | 20, 4); // made by Unix, zip 2.0
-    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(10, 6);
     central.writeUInt16LE(0x0800, 8);
-    central.writeUInt16LE(8, 10);
+    central.writeUInt16LE(0, 10);
     central.writeUInt16LE(DOS_DATE, 14);
     central.writeUInt32LE(crc, 16);
     central.writeUInt32LE(data.length, 20);
@@ -94,7 +98,8 @@ export function packFiles(files) {
   return Buffer.concat([...locals, directory, end]);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// realpath: on macOS /tmp is a link to /private/tmp, and import.meta.url is the resolved path.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const [folder, out] = process.argv.slice(2);
   if (!folder || !out) {
     console.error("usage: pack-plugin.mjs <plugin folder> <out.zip>");
