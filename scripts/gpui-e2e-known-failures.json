@@ -118,9 +118,10 @@
     {
       "step": "PDF: resting on a citation link opens its entry's card after a moment, and leaving it closes the card",
       "platforms": [
-        "macos"
+        "macos",
+        "windows"
       ],
-      "reason": "macOS: failed in 2 of 3 main runs (44173099111, 44154544765), so intermittent; observed {\"built\":true,\"shown\":true,\"link\":\"Point { x: 806.9747px, y: 192.46867px }\",\"early\":null,\"opened\":null,\"closed\":null}",
+      "reason": "macOS: failed in 2 of 3 main runs (44173099111, 44154544765), so intermittent; observed {\"built\":true,\"shown\":true,\"link\":\"Point { x: 806.9747px, y: 192.46867px }\",\"early\":null,\"opened\":null,\"closed\":null} | Windows: failed in main run 44454326816 on the hosted runner; observed {\"built\":true,\"shown\":true,\"link\":\"Point { x: 806.9747px, y: 192.46867px }\",\"early\":null,\"opened\":null,\"closed\":null}",
       "followup": "LEO-14"
     },
     {
@@ -1059,9 +1060,10 @@
     {
       "step": "closing a window within the autosave pause saves what was typed, then closes it",
       "platforms": [
-        "windows"
+        "windows",
+        "macos"
       ],
-      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"unsaved_before\":false,\"disk\":\"draft\\n\"}",
+      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"unsaved_before\":false,\"disk\":\"draft\\n\"} | macOS: failed in main run 44455883121 on the hosted runner; observed {\"unsaved_before\":false,\"disk\":\"draft\\n\"}",
       "followup": "LEO-15"
     },
     {
@@ -1318,6 +1320,62 @@
         "windows"
       ],
       "reason": "Windows: failed in 1 of 4 main runs since #1103 (44409549661), so intermittent; observed {\"file\":\"\\\\\\\\?\\\\D:\\\\a\\\\_temp\\\\e2e-project\\\\quit-check.txt\"}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "PDF: a ⌘-double-click on a figure drawn in an SVG asks before opening plot.svg",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44454343186 on the hosted runner; observed {\"built\":true,\"shown\":true,\"found\":true,\"question\":\"Open plot.svg in its default app? An SVG file often opens in a web browser, which runs any script it holds.\",\"dismissed\":false}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "A applies the open fix into the .bib and moves on to the next finding",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"applied\":false,\"open\":\"knuth1984\",\"written\":false}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "narrower than 800px, Check references drops the side pane and keeps the open finding under its row; wide again, the queue returns",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"narrow\":{\"width\":720,\"queue\":false,\"open\":\"knuth1984\"},\"wide\":{\"width\":1024,\"queue\":true,\"open\":\"knuth1984\"}}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "applying the last fix settles the report: the queue opens nothing and shows the reading glass",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"last\":\"knuth1984\",\"settled\":false,\"queue\":true,\"open\":\"knuth1984\"}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a field typed in the .bib form lands in the source, and ⌘Z steps it back",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"typed\":true,\"landed\":true,\"undone\":false}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a field typed back to its first value in the .bib form is written back",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"retyped\":true,\"changed\":true,\"back\":false}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a .bib reference renamed after a delete before it was undone stays in front under its new key",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"listed\":false,\"deleted\":false,\"back\":false,\"keyBox\":true,\"inFront\":\"second2\"}",
       "followup": "LEO-15"
     }
   ]
