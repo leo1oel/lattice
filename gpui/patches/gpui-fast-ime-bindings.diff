@@ -1,24 +1,23 @@
 diff --git a/gpui-fast/crates/gpui/src/fast/ime_bindings.rs b/gpui-fast/crates/gpui/src/fast/ime_bindings.rs
 new file mode 100644
-index 000000000..746c7f7a6
+index 000000000..9e342ad85
 --- /dev/null
 +++ b/gpui-fast/crates/gpui/src/fast/ime_bindings.rs
-@@ -0,0 +1,97 @@
-+//! A printable key bound in the focused context reaches its binding before the
-+//! input method.
+@@ -0,0 +1,96 @@
++//! Whether a printable key typed while an input method is selected is one a
++//! key binding takes by itself.
 +//!
 +//! While a composition-based input method is selected (Pinyin, Japanese
 +//! kana, Korean), upstream hands every printable key to it first, so that
 +//! a key it composes is not taken by the prefix of a multi-stroke binding
-+//! (`j j` in Vim's insert mode). But a key the input method does not compose
-+//! is then never seen by the keymap: Pinyin turns `$` into `￥` and `:`
-+//! into `：` and inserts them, so a LaTeX file's `$` pairing or Vim's `:`
-+//! did nothing for anyone typing Chinese. A browser sends a key to the page
-+//! before the input method takes it unless it is composing, which is what
-+//! the Tauri app's bindings rely on. Here a key that completes a binding on
-+//! its own goes to the keymap first, as it does without an input method; a
-+//! key that is only a binding's prefix, or bound nowhere, still goes to the
-+//! input method, and so does every key while text is marked.
++//! (`j j` in Vim's insert mode). But a key it does not compose then never
++//! reached the keymap: Pinyin inserts its own `￥` for `$` and `：` for
++//! `:`, so a LaTeX file's `$` pairing and Vim's `:` did nothing for anyone
++//! typing Chinese. The macOS platform still hands the key to the input method
++//! (`gpui_macos`'s `fast::ime_keys`), but when this says a binding takes it,
++//! what the method inserts for it goes to the binding instead, as a browser's
++//! page takes a key it handles from the text the input method would insert.
++//! A binding's prefix and an unbound key are the input method's alone.
 +
 +use crate::{App, Keystroke, Window};
 +
@@ -114,7 +113,7 @@ index a50582bde..db3ffe86e 100644
  pub(crate) mod interface_zoom;
  pub(crate) mod interactivity;
 diff --git a/gpui-fast/crates/gpui/src/platform.rs b/gpui-fast/crates/gpui/src/platform.rs
-index c2a6497bc..3b9631c31 100644
+index c2a6497bc..facd132cf 100644
 --- a/gpui-fast/crates/gpui/src/platform.rs
 +++ b/gpui-fast/crates/gpui/src/platform.rs
 @@ -2339,6 +2339,15 @@ impl PlatformInputHandler {
@@ -122,7 +121,7 @@ index c2a6497bc..3b9631c31 100644
      }
  
 +    /// Whether a key binding of the focused context takes `keystroke` by
-+    /// itself, so it goes to the keymap before an input method
++    /// itself, so what an input method inserts for it goes to the binding
 +    /// (`fast::ime_bindings`).
 +    pub fn query_binds_printable_key(&mut self, keystroke: &crate::Keystroke) -> bool {
 +        self.cx
@@ -157,12 +156,25 @@ index 89ae1117b..133429b37 100644
      }
 diff --git a/gpui-fast/crates/gpui_macos/src/fast/ime_keys.rs b/gpui-fast/crates/gpui_macos/src/fast/ime_keys.rs
 new file mode 100644
-index 000000000..26e84fc5d
+index 000000000..3087b7382
 --- /dev/null
 +++ b/gpui-fast/crates/gpui_macos/src/fast/ime_keys.rs
-@@ -0,0 +1,66 @@
-+//! Keys typed while an input method is selected are read on the ASCII layout
-+//! under it.
+@@ -0,0 +1,79 @@
++//! Keys typed while an input method is selected: read on the ASCII layout
++//! under it, and a key a binding takes given to the binding rather than to
++//! the text the input method inserts for it.
++//!
++//! While a composition-based input method is selected and nothing is
++//! marked, `window.rs` hands a printable key to the input method first, as
++//! upstream does, so the method sees every key: it composes letters, and it
++//! sees Shift used with a key rather than tapped alone, which it takes as a
++//! switch between Chinese and English (zed#21042, where a binding took
++//! Vim's ⇧; from it). When gpui's `fast::ime_bindings` says a binding takes
++//! the key by itself and the method inserts text for it rather than
++//! composing (Pinyin inserts `￥` for `$` and `：` for `:`), the binding
++//! runs instead of the insertion, as a browser's page takes a key it handles
++//! from the text the input method would insert. A key the binding lets
++//! through is inserted as the method gave it.
 +//!
 +//! A key's name comes from the keyboard layout in use (`chars_for_modified_key`
 +//! in `events.rs`). A composition-based input method brings a layout of its
@@ -237,21 +249,97 @@ index d1616daf2..326eeda17 100644
  pub(crate) mod composition;
 +pub(crate) mod ime_keys;
 diff --git a/gpui-fast/crates/gpui_macos/src/window.rs b/gpui-fast/crates/gpui_macos/src/window.rs
-index 0dc1fc4cf..9bf9aa8ae 100644
+index 0dc1fc4cf..90eb52c7a 100644
 --- a/gpui-fast/crates/gpui_macos/src/window.rs
 +++ b/gpui-fast/crates/gpui_macos/src/window.rs
-@@ -2797,6 +2797,14 @@ extern "C" fn handle_key_event(
-                 && with_input_handler(this, |input_handler| {
+@@ -686,6 +686,9 @@ pub(crate) struct MacWindowState {
+     previous_modifiers_changed_event: Option<PlatformInput>,
+     keystroke_for_do_command: Option<Keystroke>,
+     do_command_handled: Option<bool>,
++    // A key the input method is handed although a binding takes it
++    // (`fast::ime_keys`): what it inserts for the key goes to the binding.
++    binding_for_ime_insert: Option<Keystroke>,
+     external_files_dragged: bool,
+     // Whether the next left-mouse click is also the focusing click.
+     first_mouse: bool,
+@@ -1161,6 +1164,7 @@ impl MacWindow {
+                 previous_modifiers_changed_event: None,
+                 keystroke_for_do_command: None,
+                 do_command_handled: None,
++                binding_for_ime_insert: None,
+                 external_files_dragged: false,
+                 first_mouse: false,
+                 app_owns_titlebar_drag,
+@@ -2798,6 +2802,11 @@ extern "C" fn handle_key_event(
                      input_handler.query_prefers_ime_for_printable_keys()
                  })
-+                .unwrap_or(false)
-+                // A key bound on its own (`$`, Vim's `:`) reaches its binding
-+                // first, as a browser's page sees a key the input method is
-+                // not composing before it is inserted (gpui's
-+                // `fast::ime_bindings`).
-+                && !with_input_handler(this, |input_handler| {
+                 .unwrap_or(false);
++            let binding_takes_key = is_ime_printable_key
++                && with_input_handler(this, |input_handler| {
 +                    input_handler.query_binds_printable_key(&key_down_event.keystroke)
 +                })
-                 .unwrap_or(false);
++                .unwrap_or(false);
  
              if is_composing
+                 || is_ime_printable_key
+@@ -2810,6 +2819,8 @@ extern "C" fn handle_key_event(
+                     let mut lock = window_state.as_ref().lock();
+                     lock.keystroke_for_do_command = Some(key_down_event.keystroke.clone());
+                     lock.do_command_handled.take();
++                    lock.binding_for_ime_insert =
++                        binding_takes_key.then(|| key_down_event.keystroke.clone());
+                     drop(lock);
+                 }
+ 
+@@ -2822,6 +2833,7 @@ extern "C" fn handle_key_event(
+                     }
+                 };
+                 window_state.as_ref().lock().keystroke_for_do_command.take();
++                window_state.as_ref().lock().binding_for_ime_insert.take();
+                 if let Some(handled) = window_state.as_ref().lock().do_command_handled.take() {
+                     return handled.to_objc();
+                 } else if handled == Bool::YES {
+@@ -3605,6 +3617,9 @@ extern "C" fn insert_text(
+     text: *mut AnyObject,
+     replacement_range: NSRange,
+ ) {
++    if binding_takes_ime_insert(this) {
++        return;
++    }
+     unsafe {
+         let is_attributed_string: Bool = msg_send![text, isKindOfClass: class!(NSAttributedString)];
+         let text: *mut AnyObject = if is_attributed_string == Bool::YES {
+@@ -3677,6 +3692,33 @@ extern "C" fn attributed_substring_for_proposed_range(
+     .unwrap_or(ptr::null_mut::<AnyObject>())
+ }
+ 
++/// What the input method inserts for a key a binding takes (`$` that Pinyin
++/// makes `￥`, Vim's `:`) goes to the binding instead, while nothing was
++/// marked (`fast::ime_keys`); returns whether the binding handled it.
++fn binding_takes_ime_insert(this: &AnyObject) -> bool {
++    let state = unsafe { get_window_state(this) };
++    let mut lock = state.as_ref().lock();
++    let Some(keystroke) = lock.binding_for_ime_insert.take() else {
++        return false;
++    };
++    let mut event_callback = lock.event_callback.take();
++    drop(lock);
++    let handled = event_callback.as_mut().is_some_and(|callback| {
++        !callback(PlatformInput::KeyDown(KeyDownEvent {
++            keystroke,
++            is_held: false,
++            prefer_character_input: false,
++        }))
++        .propagate
++    });
++    let mut lock = state.as_ref().lock();
++    lock.event_callback = event_callback;
++    if handled {
++        lock.do_command_handled = Some(true);
++    }
++    handled
++}
++
+ // We ignore which selector it asks us to do because the user may have
+ // bound the shortcut to something else.
+ extern "C" fn do_command_by_selector(this: &AnyObject, _: Sel, _: Sel) {

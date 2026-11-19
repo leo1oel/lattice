@@ -2340,7 +2340,7 @@ impl PlatformInputHandler {
     }
 
     /// Whether a key binding of the focused context takes `keystroke` by
-    /// itself, so it goes to the keymap before an input method
+    /// itself, so what an input method inserts for it goes to the binding
     /// (`fast::ime_bindings`).
     pub fn query_binds_printable_key(&mut self, keystroke: &crate::Keystroke) -> bool {
         self.cx

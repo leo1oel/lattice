@@ -1,5 +1,18 @@
-//! Keys typed while an input method is selected are read on the ASCII layout
-//! under it.
+//! Keys typed while an input method is selected: read on the ASCII layout
+//! under it, and a key a binding takes given to the binding rather than to
+//! the text the input method inserts for it.
+//!
+//! While a composition-based input method is selected and nothing is
+//! marked, `window.rs` hands a printable key to the input method first, as
+//! upstream does, so the method sees every key: it composes letters, and it
+//! sees Shift used with a key rather than tapped alone, which it takes as a
+//! switch between Chinese and English (zed#21042, where a binding took
+//! Vim's ⇧; from it). When gpui's `fast::ime_bindings` says a binding takes
+//! the key by itself and the method inserts text for it rather than
+//! composing (Pinyin inserts `￥` for `$` and `：` for `:`), the binding
+//! runs instead of the insertion, as a browser's page takes a key it handles
+//! from the text the input method would insert. A key the binding lets
+//! through is inserted as the method gave it.
 //!
 //! A key's name comes from the keyboard layout in use (`chars_for_modified_key`
 //! in `events.rs`). A composition-based input method brings a layout of its

@@ -1,18 +1,17 @@
-//! A printable key bound in the focused context reaches its binding before the
-//! input method.
+//! Whether a printable key typed while an input method is selected is one a
+//! key binding takes by itself.
 //!
 //! While a composition-based input method is selected (Pinyin, Japanese
 //! kana, Korean), upstream hands every printable key to it first, so that
 //! a key it composes is not taken by the prefix of a multi-stroke binding
-//! (`j j` in Vim's insert mode). But a key the input method does not compose
-//! is then never seen by the keymap: Pinyin turns `$` into `￥` and `:`
-//! into `：` and inserts them, so a LaTeX file's `$` pairing or Vim's `:`
-//! did nothing for anyone typing Chinese. A browser sends a key to the page
-//! before the input method takes it unless it is composing, which is what
-//! the Tauri app's bindings rely on. Here a key that completes a binding on
-//! its own goes to the keymap first, as it does without an input method; a
-//! key that is only a binding's prefix, or bound nowhere, still goes to the
-//! input method, and so does every key while text is marked.
+//! (`j j` in Vim's insert mode). But a key it does not compose then never
+//! reached the keymap: Pinyin inserts its own `￥` for `$` and `：` for
+//! `:`, so a LaTeX file's `$` pairing and Vim's `:` did nothing for anyone
+//! typing Chinese. The macOS platform still hands the key to the input method
+//! (`gpui_macos`'s `fast::ime_keys`), but when this says a binding takes it,
+//! what the method inserts for it goes to the binding instead, as a browser's
+//! page takes a key it handles from the text the input method would insert.
+//! A binding's prefix and an unbound key are the input method's alone.
 
 use crate::{App, Keystroke, Window};
 
