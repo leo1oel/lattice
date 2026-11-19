@@ -236,7 +236,10 @@ mod tests {
         let [editor, chroma, hue] = to_oklch(parse(0x2e3440));
         let [lightness, panel_chroma, panel_hue] = to_oklch(parse(nord));
         assert!((editor - lightness - SIDE_PANEL_TONE).abs() < 0.003, "{nord:06x}");
-        assert!((chroma - panel_chroma).abs() < 0.005 && (hue - panel_hue).abs() < 0.05, "{nord:06x}");
+        assert!(
+            (chroma - panel_chroma).abs() < 0.005 && (hue - panel_hue).abs() < 0.05,
+            "{nord:06x}"
+        );
     }
 
     /// Golden vectors for the Tauri app's copy of `fitContrast` and
