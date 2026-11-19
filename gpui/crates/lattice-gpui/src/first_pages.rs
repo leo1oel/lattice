@@ -8,7 +8,7 @@
 //! project, in `first-pages.json` in the app's state directory: an
 //! up-to-date rebuild hands back the same bytes and changes nothing; other
 //! bytes are an edit, dated now (the first PDF seen is not dated, as the
-//! app's is not). Only the recent projects keep one. The page itself is
+//! app's is not). Only the newest recent projects keep one. The page itself is
 //! drawn when the desk shows, small, by the PDF worker every viewer shares.
 
 use std::{
@@ -29,6 +29,10 @@ use crate::{
 const FILE: &str = "first-pages.json";
 /// Twice the desk card's width, so the page stays sharp on a Retina screen.
 const RENDER_WIDTH: u32 = 480;
+/// The newest recent projects whose page is kept: the desk's three and a
+/// few more, so a project that drops off the desk and comes back still
+/// shows its page. Not every recent project, now that a hundred are kept.
+const KEPT_PAGES: usize = 8;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,6 +98,7 @@ impl FirstPages {
             cx.update(|cx| {
                 let keep: Vec<PathBuf> = RecentProjects::list(cx)
                     .iter()
+                    .take(KEPT_PAGES)
                     .map(|recent| recent.path.clone())
                     .collect();
                 let store = cx.global_mut::<Self>();

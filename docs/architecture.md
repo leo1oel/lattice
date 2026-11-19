@@ -235,7 +235,7 @@ invocation (only the macOS process-inspector hook runs before it). `run_cli()`
 any Tauri or AppKit initialisation. Two more modes return early the same way:
 `research_env::run_cli()` (`env`) and `model_endpoint::run_cli()`
 (`agent-endpoint-key`, which Pi runs to read the model endpoint's key from the
-keychain; see the module doc of `src-tauri/lattice-core/src/model_endpoint.rs`). The rest of
+keychain, or on Linux from the sidecar's environment; see the module doc of `src-tauri/lattice-core/src/model_endpoint.rs`). The rest of
 this section is the literature mode.
 
 It handles exactly one argv subcommand — `literature` — and takes its real

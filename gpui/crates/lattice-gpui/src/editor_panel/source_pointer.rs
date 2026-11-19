@@ -9,7 +9,10 @@
 //! Copy and Paste, which the GPUI app draws as its own menu with Select All,
 //! the editing items of that menu, in the macOS menu bar's words (Zed's
 //! menu needs a Zed project, so it never opens here). A right-click outside the selection puts the caret at
-//! the pointer first, as WebKit's does.
+//! the pointer first, as WebKit's does. On a word the spell check marks, the
+//! menu opens with what a macOS text view offers there: the checker's
+//! guesses (or No Guesses Found), Ignore Spelling and Learn Spelling, above
+//! the editing items.
 
 use editor::{
     MultiBufferOffset, SelectionEffects, ToOffset as _,
@@ -19,8 +22,9 @@ use gpui::{
     Context, Div, Focusable as _, InteractiveElement as _, MouseButton, MouseDownEvent,
     ParentElement as _, Stateful, Window,
 };
+use lattice_editor::spelling::Misspelling;
 use lattice_i18n::tc;
-use lattice_ui::components::{ContextMenu, MenuAction};
+use lattice_ui::components::{ContextMenu, Menu, MenuAction};
 
 use super::{EditorPanel, definition::Definition};
 
@@ -32,7 +36,7 @@ impl EditorPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let menu = ContextMenu::<()>::keyed("editor-source-menu", window, cx);
+        let menu = ContextMenu::<Option<SpellingMenu>>::keyed("editor-source-menu", window, cx);
         let opener = menu.clone();
         let editor = self.editor().clone();
         element
@@ -58,7 +62,8 @@ impl EditorPanel {
                         MouseButton::Right => {
                             cx.stop_propagation();
                             this.caret_to_pointer(at, window, cx);
-                            opener.update(cx, |menu, cx| menu.open(at, (), window, cx));
+                            let spelling = this.spelling_menu_at(at, window, cx);
+                            opener.update(cx, |menu, cx| menu.open(at, spelling, window, cx));
                         }
                         _ => {}
                     }
@@ -68,7 +73,11 @@ impl EditorPanel {
                 &menu,
                 window,
                 cx,
-                move |menu, _, _, cx| {
+                move |menu, spelling, _, cx| {
+                    let menu = match spelling {
+                        Some(spelling) => spelling.items(menu),
+                        None => menu,
+                    };
                     let focus = editor.focus_handle(cx);
                     let text = editor.read(cx);
                     let snapshot = text.buffer().read(cx).snapshot(cx);
@@ -149,5 +158,73 @@ impl EditorPanel {
         });
         let focus = self.editor().focus_handle(cx);
         window.focus(&focus, cx);
+    }
+
+    /// The spelling items for a right-click at `at`: the misspelling there
+    /// and the checker's guesses, asked once as the menu opens.
+    fn spelling_menu_at(
+        &self,
+        at: gpui::Point<gpui::Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<SpellingMenu> {
+        let spelling = self.spelling.clone()?;
+        let offset = self
+            .lattice
+            .update(cx, |lattice, cx| lattice.character_at(at, window, cx))?;
+        let misspelling = spelling.read(cx).misspelling_at(offset, cx)?;
+        let mut guesses = spelling.read(cx).guesses(&misspelling.word);
+        guesses.truncate(MAX_GUESSES);
+        Some(SpellingMenu {
+            spelling,
+            misspelling,
+            guesses,
+        })
+    }
+}
+
+/// As many guesses as a macOS text view's menu lists.
+const MAX_GUESSES: usize = 6;
+
+/// What the right-click menu offers on a misspelled word.
+#[derive(Clone)]
+pub(super) struct SpellingMenu {
+    spelling: gpui::Entity<lattice_editor::spelling::Spelling>,
+    misspelling: Misspelling,
+    guesses: Vec<String>,
+}
+
+impl SpellingMenu {
+    fn items(&self, mut menu: Menu) -> Menu {
+        if self.guesses.is_empty() {
+            menu = menu.item(
+                MenuAction::new(tc!("macOS menu bar", "No Guesses Found"), |_, _| {})
+                    .disabled(true),
+            );
+        }
+        for guess in &self.guesses {
+            let (spelling, misspelling, guess) = (
+                self.spelling.clone(),
+                self.misspelling.clone(),
+                guess.clone(),
+            );
+            menu = menu.item(MenuAction::new(guess.clone(), move |_, cx| {
+                spelling.update(cx, |spelling, cx| {
+                    spelling.correct(&misspelling, &guess, cx)
+                })
+            }));
+        }
+        let (ignore, learn) = (self.spelling.clone(), self.spelling.clone());
+        let (ignored, learned) = (self.misspelling.word.clone(), self.misspelling.word.clone());
+        menu.separator()
+            .item(MenuAction::new(
+                tc!("macOS menu bar", "Ignore Spelling"),
+                move |_, cx| ignore.update(cx, |spelling, cx| spelling.ignore(&ignored, cx)),
+            ))
+            .item(MenuAction::new(
+                tc!("macOS menu bar", "Learn Spelling"),
+                move |_, cx| learn.update(cx, |spelling, cx| spelling.learn(&learned, cx)),
+            ))
+            .separator()
     }
 }

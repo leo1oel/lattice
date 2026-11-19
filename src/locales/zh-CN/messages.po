@@ -993,6 +993,10 @@ msgstr "{paragraphs} 个段落有改动"
 msgid "{passing} of {0} checks pass"
 msgstr "{0} 项中 {passing} 项通过"
 
+#: src/project/project-menu.tsx
+msgid "{path} (linked to Overleaf)"
+msgstr "{path}（已关联 Overleaf）"
+
 #: src/app/format-document.ts
 msgid "{path} changed while it was being formatted, so the result was not applied. Run Format document again."
 msgstr "整理排版期间 {path} 被改过，所以没有应用结果。请重新运行“整理排版”。"
@@ -2077,11 +2081,11 @@ msgstr "AI 助手"
 msgid "Agent is revising, {0} of {1} answered"
 msgstr "AI 助手正在修改，已答复 {0}/{1}"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Agent isn’t available here"
 msgstr "此处无法使用 AI 助手"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Agent isn’t available on Windows yet"
 msgstr "Windows 暂不支持AI 助手"
 
@@ -2192,6 +2196,15 @@ msgstr "全部级别"
 #: src/project/paper-list-toolbar.tsx
 msgid "All papers"
 msgstr "全部论文"
+
+#: src/project/project-menu.tsx
+msgid "All recent projects…"
+msgstr "所有最近项目…"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "All Recent Projects…"
+msgstr "所有最近使用的项目…"
 
 #: src/papers/bib-entry-detail.tsx
 msgid "All references"
@@ -8614,6 +8627,10 @@ msgstr "事项"
 msgid "Its commands leave the palette, and its data and saved secrets are deleted."
 msgstr "它的命令会从命令面板中移除，其数据和已保存的密钥也会被删除。"
 
+#: src/project/welcome-recent-list.tsx
+msgid "Its folder was not found"
+msgstr "找不到它的文件夹"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Its owner may have turned link sharing off or reset the link. Ask them for a new one."
 msgstr "项目所有者可能关闭了链接分享或重置了链接，请向对方要一个新链接。"
@@ -8652,6 +8669,7 @@ msgstr "刚添加"
 
 #: src/app-utils.ts
 #: src/project/welcome-desk.tsx
+#: src/project/welcome-recent-list.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "just now"
 msgstr "刚刚"
@@ -9026,7 +9044,7 @@ msgstr "Lattice 用这台电脑上的 TeX Live 编译 PDF，请从发行版的�
 msgid "Lattice can't save files in that folder. Choose another one."
 msgstr "Lattice 无法在该文件夹中保存文件，请选择其他文件夹。"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection."
 msgstr "Lattice 在这里无法阻止 AI 助手直接编辑 .bib 文件，因此它会保持关闭，而不是在没有这项保护的情况下运行。"
 
@@ -9440,6 +9458,10 @@ msgstr "关联的文献库"
 #: src/papers/add-papers-sheet.tsx
 msgid "Linked library…"
 msgstr "关联的文献库…"
+
+#: src/project/welcome-recent-list.tsx
+msgid "Linked to an Overleaf project"
+msgstr "已关联 Overleaf 项目"
 
 #: src/project/submission-review.tsx
 msgid "Links to your accounts"
@@ -10017,6 +10039,10 @@ msgstr "负正号"
 msgid "Misc"
 msgstr "其他"
 
+#: src/project/welcome-recent-list.tsx
+msgid "Missing"
+msgstr "找不到"
+
 #: src/papers/audit-messages.ts
 msgid "Missing {field} field for {type} entry."
 msgstr "{type} 缺少 {field}"
@@ -10117,6 +10143,10 @@ msgstr "更多状态"
 #: src/pdf/pdf-overflow-menu.tsx
 msgid "More PDF actions"
 msgstr "更多"
+
+#: src/project/welcome-recent-list.tsx
+msgid "More projects"
+msgstr "更多项目"
 
 #: src/settings/model-endpoint-settings.tsx
 msgid "More protocols"
@@ -10821,6 +10851,14 @@ msgstr "没有正式发表版"
 msgid "No readable paper content is available."
 msgstr "这篇论文没有可读内容"
 
+#: src/project/recent-project-finder.tsx
+msgid "No recent project matches “{query}”"
+msgstr "没有与“{query}”匹配的最近项目"
+
+#: src/project/recent-project-finder.tsx
+msgid "No recent projects"
+msgstr "没有最近项目"
+
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "No reference selected"
@@ -11457,9 +11495,17 @@ msgstr "打开项目后可添加"
 msgid "Open a project to ignore rules or sentences"
 msgstr "打开项目后才能忽略规则或句子"
 
+#: src/project/recent-project-finder.tsx
+msgid "Open a recent project"
+msgstr "打开最近项目"
+
 #: src/app/project-switch-commands.ts
 msgid "Open a recent project by its place"
 msgstr "打开最近项目"
+
+#: src/project/recent-project-finder.tsx
+msgid "Open a recent project…"
+msgstr "打开最近项目…"
 
 #: src/app/use-command-table.ts
 msgid "Open an Overleaf project"
@@ -11611,6 +11657,10 @@ msgstr "打开模型设置"
 msgctxt "macOS menu bar"
 msgid "Open Recent"
 msgstr "打开最近使用"
+
+#: src/app/project-switch-commands.ts
+msgid "Open recent project…"
+msgstr "打开最近项目…"
 
 #: src/telemetry/update-recovery.ts
 msgid "Open releases page"
@@ -11832,6 +11882,7 @@ msgstr "超出 arXiv 的大小限制"
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
+#: src/project/welcome-recent-list.tsx
 #: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -14805,6 +14856,10 @@ msgstr "搜索 PDF"
 msgid "Search plugins"
 msgstr "搜索插件"
 
+#: src/project/recent-project-finder.tsx
+msgid "Search recent projects"
+msgstr "搜索最近项目"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Search references"
 msgstr "搜索文献"
@@ -15114,6 +15169,10 @@ msgstr "显示{name}"
 msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "全部显示"
+
+#: src/project/welcome-recent-list.tsx
+msgid "Show all {total} projects"
+msgstr "显示全部 {total} 个项目"
 
 #: src/editor/comments/highlight-kind-filter.tsx
 msgid "Show all colours"
@@ -18112,7 +18171,7 @@ msgstr "请更新 Lattice 后使用校对"
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
 msgstr "此 Windows 版本暂时无法防止AI 助手直接修改 .bib 文件。可在终端面板中使用 Claude Code 或 Codex。依赖内置AI 助手的功能暂不可用。"
 

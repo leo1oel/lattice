@@ -119,12 +119,15 @@ describe("native locale", () => {
     mockInvoke({ set_native_locale: null });
     const stop = installNativeLocaleSync();
     const paper = { name: "Paper", path: "/tmp/paper" };
-    setNativeFileMenu({ projectOpen: true, recentProjects: [paper] });
-    setNativeFileMenu({ projectOpen: true, recentProjects: [{ ...paper }] });
+    setNativeFileMenu({ projectOpen: true, recentProjects: [paper], moreRecentProjects: true });
+    setNativeFileMenu({ projectOpen: true, recentProjects: [{ ...paper }], moreRecentProjects: true });
     const calls = invokeCalls("set_native_locale");
     expect(calls).toHaveLength(2);
-    expect(calls[1].menu).toMatchObject({ projectOpen: true, recentProjects: [paper], newProject: "New Project…" });
+    expect(calls[1].menu).toMatchObject({
+      projectOpen: true, recentProjects: [paper], moreRecentProjects: true, allRecentProjects: "All Recent Projects…",
+      newProject: "New Project…",
+    });
     stop();
-    setNativeFileMenu({ projectOpen: false, recentProjects: [] });
+    setNativeFileMenu({ projectOpen: false, recentProjects: [], moreRecentProjects: false });
   });
 });

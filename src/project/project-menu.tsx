@@ -6,11 +6,12 @@
  */
 import { useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { AppWindowMac, Cloud, FileArchive, Folder, FolderOpen, GitBranch, PackageCheck, Plus, Settings, Sparkles } from "lucide-react";
+import { AppWindowMac, Cloud, FileArchive, FolderOpen, GitBranch, PackageCheck, Plus, Search, Settings, Sparkles } from "lucide-react";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
 import type { RecentProject } from "../settings/app-settings";
-import { switcherProjects } from "./first-pages";
+import { otherProjects, switcherProjects } from "./first-pages";
+import { RecentProjectIcon } from "./welcome-recent-list";
 
 /**
  * A menu row's own action, opening it in this window: the row itself opens a
@@ -31,6 +32,8 @@ export function ProjectMenu(props: {
   busyLabel: string | null;
   /** Open a recent project in a window of its own, or with `inThisWindow` in this one. */
   onRecent: (path: string, inThisWindow?: boolean) => void;
+  /** The finder over every recent project, past the few the menu lists. */
+  onShowAllRecent: () => void;
   onOpen: (inThisWindow?: boolean) => void;
   onNew: () => void;
   onClone: () => void;
@@ -42,6 +45,7 @@ export function ProjectMenu(props: {
 }) {
   const { t } = useLingui();
   const alternatives = switcherProjects(props.recentProjects, props.currentPath);
+  const unlisted = otherProjects(props.recentProjects, props.currentPath).length > alternatives.length;
   const busy = Boolean(props.busyLabel);
   // Settings opens as a transition and puts focus in its search field, which
   // can land before the closing menu returns focus to its trigger.
@@ -61,15 +65,28 @@ export function ProjectMenu(props: {
       {alternatives.length > 0 && (
         <>
           <DropdownMenuLabel>{t`Recent projects`}</DropdownMenuLabel>
-          {alternatives.map(({ path, name }) => (
+          {alternatives.map((recent) => {
+            const { path, name } = recent;
+            return (
             <div key={path} className="flex">
-              <DropdownMenuItem className="min-w-0 flex-1" title={path} disabled={busy} onSelect={() => props.onRecent(path)}>
-                <Folder />
-                <span className="truncate font-medium">{name}</span>
+              <DropdownMenuItem
+                className="min-w-0 flex-1"
+                title={recent.overleaf ? t`${path} (linked to Overleaf)` : path}
+                disabled={busy}
+                onSelect={() => props.onRecent(path)}
+              >
+                <RecentProjectIcon project={recent} size={16} />
+                <span className="truncate font-medium" data-missing={recent.missing || undefined}>{name}</span>
               </DropdownMenuItem>
               <InThisWindow label={t`Open ${name} in this window`} disabled={busy} onSelect={() => props.onRecent(path, true)} />
             </div>
-          ))}
+            );
+          })}
+          {unlisted && (
+            <DropdownMenuItem disabled={busy} onSelect={props.onShowAllRecent}>
+              <Search /> {t`All recent projects…`}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
         </>
       )}

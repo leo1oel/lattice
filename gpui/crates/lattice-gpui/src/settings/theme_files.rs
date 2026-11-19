@@ -197,7 +197,8 @@ pub fn rows(
             t!("Install a .lattice-theme.json file. Lattice keeps its own copy."),
             cx,
         )
-        .control(actions);
+        .control(actions)
+        .shrinks();
 
     vec![palette, files]
 }

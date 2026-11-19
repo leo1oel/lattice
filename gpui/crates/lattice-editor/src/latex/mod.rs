@@ -49,6 +49,7 @@ pub mod math_preview;
 pub mod preview_cards;
 pub mod previews;
 pub mod project_completions;
+pub mod prose;
 pub mod protected;
 pub mod reference_card;
 pub mod region_edits;

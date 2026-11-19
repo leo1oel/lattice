@@ -103,6 +103,7 @@ impl Shell {
     /// Build and the build chip: save, then build, bringing the problems up if
     /// it fails.
     pub fn build(&mut self, _: &Build, window: &mut Window, cx: &mut Context<Self>) {
+        self.show_project_pdf(window, cx);
         self.run_build(BuildRequest::requested(), window, cx);
     }
 

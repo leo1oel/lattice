@@ -196,7 +196,25 @@ impl Run {
             counted && count.as_ref().is_some_and(|(total, _)| *total > 0),
             json!({ "count": count }),
         );
-        self.snapshot_build_card(cx).await
+        self.snapshot_build_card(cx).await?;
+        // Build brings a closed PDF panel back, as the Tauri app's
+        // `showProjectPdf` does.
+        let closed = self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.engine_do(cx, |engine| {
+                    engine.close("pdf");
+                });
+                !shell.view_on_screen("pdf", cx)
+            })
+        })?;
+        self.build(cx).await?;
+        let shown = cx.update(|cx| self.shell.read(cx).view_on_screen("pdf", cx));
+        steps.check(
+            "Build brings the PDF panel back after it was closed",
+            closed && shown,
+            json!({ "closed": closed, "shown": shown }),
+        );
+        Ok(())
     }
 
     /// After the broken build: the card floats over the PDF with the error

@@ -118,6 +118,7 @@ impl Shell {
             self.save_in_background(cx);
         }
         if build {
+            self.show_project_pdf(window, cx);
             self.run_build(BuildRequest::requested(), window, cx);
         }
         // A board, sheet or deck held back from Overleaf goes up with ⌘S.

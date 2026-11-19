@@ -691,6 +691,9 @@ impl Shell {
             Err(error) => {
                 log::error!("could not open {}: {error}", root.display());
                 cx.update(|_, cx| {
+                    // A folder gone since is marked missing in the recent
+                    // projects, never dropped from them.
+                    crate::recents::RecentProjects::check(cx);
                     crate::notices::error(t!("Could not open the project"), error, cx)
                 })
                 .ok();

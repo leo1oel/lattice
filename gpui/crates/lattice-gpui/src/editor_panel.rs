@@ -90,6 +90,7 @@ mod save_slot;
 mod selection_toolbar;
 mod source_chrome;
 mod source_pointer;
+mod spelling;
 mod strip;
 mod structured_view;
 pub(crate) mod symbol_palette;
@@ -156,6 +157,8 @@ pub struct EditorPanel {
     diagnostics: Option<Entity<TexlabDiagnostics>>,
     /// The source's own lint, for a `.tex` file (`index_lint`).
     index_lint: Option<Entity<index_lint::IndexLint>>,
+    /// The spell check, for a `.tex`, `.md` or `.txt` file (`spelling`).
+    spelling: Option<Entity<lattice_editor::spelling::Spelling>>,
     /// Builds seen finishing; each one has TexLab read the new log.
     builds_seen: usize,
     find_bar: Entity<find_bar::FindBar>,
@@ -403,7 +406,13 @@ impl EditorPanel {
                         this.views_assets_changed(cx);
                     }
                 }
+                // The project's dictionary may have changed.
+                if matches!(event, crate::project::ProjectEvent::ManifestChanged) {
+                    this.refresh_spelling(cx);
+                }
             }),
+            // Check spelling turned on or off.
+            cx.observe_global::<crate::settings::AppSettings>(|this, cx| this.refresh_spelling(cx)),
             // Source or Visual chosen, here or in another window.
             cx.observe_global_in::<crate::settings::AppSettings>(window, |this, window, cx| {
                 this.sync_latex_view(window, cx)
@@ -433,6 +442,7 @@ impl EditorPanel {
             editor,
             diagnostics: None,
             index_lint: None,
+            spelling: None,
             builds_seen,
             find_bar,
             drop_hover: Default::default(),
@@ -499,6 +509,7 @@ impl EditorPanel {
         this.ensure_bib_for_view(window, cx);
         this.attach_structured(window, cx);
         let facts = this.attach_tex(cx);
+        this.attach_spelling(cx);
         if let Some(facts) = facts {
             this.attach_index_lint(facts, cx);
         }

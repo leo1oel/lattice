@@ -29,8 +29,10 @@ export type NativeMenuLabels = {
   importZip: string;
   exportZip: string;
   exportArxiv: string;
-  /** File ▸ Open Recent: the other projects this window's switcher offers. */
+  /** File ▸ Open Recent: the newest other projects, then (when it leaves some out) "All Recent Projects…". */
   recentProjects: { name: string; path: string }[];
+  moreRecentProjects: boolean;
+  allRecentProjects: string;
   /** Whether this window has a project, which the exports need. */
   projectOpen: boolean;
   edit: string;
@@ -66,9 +68,9 @@ export type NativeMenuLabels = {
 };
 
 /** What File's project items depend on in this window. */
-export type NativeFileMenu = Pick<NativeMenuLabels, "recentProjects" | "projectOpen">;
+export type NativeFileMenu = Pick<NativeMenuLabels, "recentProjects" | "moreRecentProjects" | "projectOpen">;
 
-let fileMenu: NativeFileMenu = { recentProjects: [], projectOpen: false };
+let fileMenu: NativeFileMenu = { recentProjects: [], moreRecentProjects: false, projectOpen: false };
 
 /** What Lattice ▸ Check for Updates… does in this window: check, restart into an installed update, or nothing. */
 export type NativeUpdateMenu = "check" | "restart" | null;
@@ -118,6 +120,8 @@ export function nativeMenuLabels(): NativeMenuLabels {
     exportZip: i18n._(msg({ context: "macOS menu bar", message: "Export ZIP…" })),
     exportArxiv: i18n._(msg({ context: "macOS menu bar", message: "Export for arXiv…" })),
     recentProjects: fileMenu.recentProjects,
+    moreRecentProjects: fileMenu.moreRecentProjects,
+    allRecentProjects: i18n._(msg({ context: "macOS menu bar", message: "All Recent Projects…" })),
     projectOpen: fileMenu.projectOpen,
     edit: i18n._(msg({ context: "macOS menu bar", message: "Edit" })),
     undo: i18n._(msg({ context: "macOS menu bar", message: "Undo" })),

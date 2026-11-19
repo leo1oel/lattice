@@ -79,8 +79,12 @@ impl Run {
                 appearance.translucency = lattice_settings::Translucency::Off
             })
         });
-        if std::env::var("LATTICE_PARITY_SCREEN").as_deref() == Ok("welcome") {
+        let screen = std::env::var("LATTICE_PARITY_SCREEN").unwrap_or_default();
+        if screen == "welcome" {
             return self.parity_welcome(cx).await;
+        }
+        if screen.starts_with("recents") {
+            return self.parity_recents(cx, &screen).await;
         }
         native::order_front(self.native(cx)?);
         // The project opens on its own task and lays the window out as its

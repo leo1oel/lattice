@@ -17,6 +17,15 @@ This guide covers the main tasks, one page each. Lattice ships often, so the gui
 11. [Settings and shortcuts](settings-and-shortcuts.md): where each setting lives, the keys worth learning.
 12. [Troubleshooting](troubleshooting.md): what to try when something goes wrong, and how to report it.
 
+## Developing plugins
+
+For people who want to write a plugin or a theme and list it in the Lattice market.
+
+13. [Your first plugin](plugin-development.md): build a hello-world plugin, run it from its folder, read its logs.
+14. [Plugin manifest and API](plugin-reference.md): permissions, calling Lattice, results and actions.
+15. [Publishing a plugin](plugin-publishing.md): reproducible packs, the registry pull request, review, signing, updates and the kill switch.
+16. [Making a theme](theme-development.md): write a `lattice-theme.json`, try it, publish it.
+
 Lattice's own menu opens this guide from **Help › User Guide**. 中文版：[Lattice 使用指南](zh-CN/README.md)。
 
 > Screenshots show Lattice with the bundled tutorial paper open. Your window may differ slightly by version and theme.

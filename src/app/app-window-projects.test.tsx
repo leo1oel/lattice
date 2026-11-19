@@ -194,17 +194,19 @@ describe("projects in this window", () => {
     expect(invokeCalls("open_project")).toHaveLength(0);
   });
 
-  it("leaves the project here untouched when the folder asked for is gone, and forgets it", async () => {
+  it("leaves the project here untouched when the folder asked for is gone, and keeps it listed, marked missing", async () => {
     setAutoBuildMode("manual");
     rememberRecents();
     renderApp({
       ...projectCommands(snapshots[ROOT]), open_project: openProject,
       project_shown_elsewhere: () => { throw new Error("No such file or directory (os error 2)"); },
+      recent_project_states: (args) => (args as { paths: string[] }).paths.map((path) => ({ missing: path === NOTES, overleaf: false })),
     });
     await openNotesHere();
     await expectNotification(/No such file or directory/);
     expect(invokeCalls("open_project")).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Switch project" })).toHaveTextContent("Paper");
-    expect(JSON.parse(localStorage.getItem("lattice.recent-projects.v1") ?? "[]")).not.toContainEqual(expect.objectContaining({ path: NOTES }));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("lattice.recent-projects.v1") ?? "[]"))
+      .toContainEqual(expect.objectContaining({ path: NOTES, missing: true })));
   });
 });

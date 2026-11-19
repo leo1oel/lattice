@@ -17,6 +17,15 @@ Lattice 是一款 Mac 上的 LaTeX 写作应用。论文始终是磁盘上的普
 11. [设置与快捷键](settings-and-shortcuts.md)：每项设置在哪里、值得先记住的快捷键。
 12. [常见问题](troubleshooting.md)：出问题时先试什么，以及如何报告。
 
+## 开发插件
+
+写给想制作插件或主题、并上架到 Lattice 市场的人。
+
+13. [第一个插件](plugin-development.md)：做一个 hello-world 插件，从文件夹运行它，查看它的日志。
+14. [插件清单与 API](plugin-reference.md)：权限、调用 Lattice、返回结果和操作。
+15. [发布插件](plugin-publishing.md)：可复现的打包、向注册表提交 pull request、审核、签名、更新和紧急停用。
+16. [制作主题](theme-development.md)：编写 `lattice-theme.json`，试用并发布。
+
 在 Lattice 中可以从 **帮助 › 使用指南** 打开本指南。English: [Lattice User Guide](../README.md).
 
 > 截图中打开的是 Lattice 自带的教程论文。不同版本和主题下，你的窗口可能略有差别。

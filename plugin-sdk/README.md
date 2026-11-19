@@ -2,7 +2,9 @@
 
 Types and a one-file runtime for writing [Lattice](https://github.com/leo1oel/lattice)
 plugins. MIT licensed. The contract is [`docs/plugins.md`](../docs/plugins.md).
-It is not on npm yet; copy the files from here.
+It is not on npm yet; copy the files from here. For a step-by-step walkthrough, from
+a hello-world plugin to the plugin market, read
+[Developing plugins](../docs/guide/plugin-development.md) in the user guide.
 
 - `lattice-plugin.mjs`: the JSON-RPC loop over stdio. No dependencies; copy it
   into your plugin folder (a sandboxed plugin can read only its own folder).
@@ -94,7 +96,7 @@ the same files give the same bytes on any machine. Attach the zip to a GitHub
 release and put the SHA-256 beside its link.
 
 To list a plugin in Settings › Plugins › Browse, add an entry to
-[leo1oel/lattice-plugins](https://github.com/leo1oel/lattice-plugins) that
+[lattice-writer/lattice-plugins](https://github.com/lattice-writer/lattice-plugins) that
 pins a tag of its source and this sha256. The registry packs the tagged folder
 the same way and publishes the zip only when the hashes match. Name every
 `network` origin and `network-local` port in the plugin's README, with the

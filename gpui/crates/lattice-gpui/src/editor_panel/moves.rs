@@ -48,6 +48,7 @@ impl EditorPanel {
         if let Some(papers) = self.bib.papers.clone() {
             self.attach_citations(&papers, cx);
         }
+        self.spelling_moved(cx);
         self.disk = DiskVersion::Unread;
         let language = latex::language_for_path(&self.path, cx);
         self.buffer

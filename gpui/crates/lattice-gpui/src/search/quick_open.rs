@@ -36,11 +36,11 @@ use lattice_ui::{
 };
 
 use super::{
-    insert_pickers::PickerKind,
+    insert_pickers::{MISSING_OPACITY, PickerKind, project_badge, rank_projects},
     ranking::{RankedRow, match_ranges, rank, score_item, score_path},
     symbols::{Symbol, project_symbols},
 };
-use crate::shell::Shell;
+use crate::{recents::RecentProject, shell::Shell, welcome::parent_folder_label};
 
 const WIDTH: f32 = 560.;
 const LIST_HEIGHT: f32 = 360.;
@@ -68,6 +68,10 @@ enum Row {
         ix: usize,
     },
     Line(u32),
+    /// The recent project finder's row: a project, by its place in the list.
+    Project {
+        ix: usize,
+    },
 }
 
 /// What quick open opens with, read from the window when it opens.
@@ -101,6 +105,9 @@ pub enum QuickOpenPick {
         command: &'static str,
         key: String,
     },
+    /// The recent project finder's pick: open the project, as Open Recent
+    /// does.
+    OpenProject(std::path::PathBuf),
 }
 
 pub enum QuickOpenEvent {
@@ -129,6 +136,8 @@ pub struct QuickOpen {
     /// One of the pickers over a fixed list (`insert_pickers.rs`), not
     /// quick open over files.
     picker: Option<PickerKind>,
+    /// The recent project finder's projects, newest first.
+    projects: Vec<RecentProject>,
     _subscription: Subscription,
 }
 
@@ -141,7 +150,35 @@ impl QuickOpen {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        Self::build(shell, source, None, None, window, cx)
+        Self::build(shell, source, None, None, Vec::new(), window, cx)
+    }
+
+    /// The recent project finder: `projects` (every recent one but the
+    /// project in front), newest first, searched by name and place.
+    pub fn recent_projects(
+        shell: WeakEntity<Shell>,
+        projects: Vec<RecentProject>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let source = QuickOpenSource {
+            paths: Vec::new(),
+            recent: Vec::new(),
+            current: None,
+            line_target: None,
+            root: std::path::PathBuf::new(),
+            main: None,
+            live: None,
+        };
+        Self::build(
+            shell,
+            source,
+            Some(PickerKind::RecentProject),
+            Some(Vec::new()),
+            projects,
+            window,
+            cx,
+        )
     }
 
     /// A picker over `items`; Go to symbol's are read from `source`'s main
@@ -154,7 +191,7 @@ impl QuickOpen {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        Self::build(shell, source, Some(kind), items, window, cx)
+        Self::build(shell, source, Some(kind), items, Vec::new(), window, cx)
     }
 
     fn build(
@@ -162,6 +199,7 @@ impl QuickOpen {
         source: QuickOpenSource,
         picker: Option<PickerKind>,
         items: Option<Vec<Symbol>>,
+        projects: Vec<RecentProject>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -205,6 +243,7 @@ impl QuickOpen {
             scroll: ScrollHandle::new(),
             adopted: None,
             picker,
+            projects,
             _subscription: subscription,
         };
         this.search(cx);
@@ -233,8 +272,21 @@ impl QuickOpen {
                     .map(|symbol| format!("@{}", symbol.label))
                     .unwrap_or_default(),
                 Row::Line(line) => format!(":{line}"),
+                Row::Project { ix } => self
+                    .projects
+                    .get(*ix)
+                    .map(|project| project.name.clone())
+                    .unwrap_or_default(),
             })
             .collect()
+    }
+
+    /// Type `query` in the field, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn set_query(&mut self, query: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.input
+            .update(cx, |input, cx| input.set_value(query, window, cx));
+        self.search(cx);
     }
 
     /// Pick the current row, as ↩ does, for a scenario.
@@ -306,13 +358,19 @@ impl QuickOpen {
                 .as_ref()
                 .and_then(|symbols| symbols.get(*ix))
                 .map(|symbol| symbol.group.label()),
-            Row::Line(_) => None,
+            Row::Line(_) | Row::Project { .. } => None,
         }
     }
 
     fn rank(&self) -> Vec<Row> {
         let query = self.query.as_str();
         let current = self.source.current.as_deref();
+        if self.picker == Some(PickerKind::RecentProject) {
+            return rank_projects(&self.projects, query)
+                .into_iter()
+                .map(|ix| Row::Project { ix })
+                .collect();
+        }
         if self.picker.is_some() {
             let Some(symbols) = &self.symbols else {
                 return Vec::new();
@@ -471,6 +529,12 @@ impl QuickOpen {
                 }
             }
             Row::Line(line) => QuickOpenPick::Line(line),
+            Row::Project { ix } => {
+                let Some(project) = self.projects.get(ix) else {
+                    return;
+                };
+                QuickOpenPick::OpenProject(project.path.clone())
+            }
         };
         cx.emit(QuickOpenEvent::Dismiss);
         let shell = self.shell.clone();
@@ -500,56 +564,80 @@ impl QuickOpen {
         } else {
             matched_query(&self.query)
         };
-        let (icon, name, folder, tag): (AnyElement, AnyElement, Option<String>, Option<String>) =
-            match row {
-                Row::File {
-                    path,
-                    line,
-                    current,
-                    ..
-                } => {
-                    let (folder, file) = match path.rsplit_once('/') {
-                        Some((folder, file)) => (Some(folder.to_string()), file.to_string()),
-                        None => (None, path.clone()),
-                    };
-                    (
-                        file_glyph(GlyphKind::for_name(&file), ICON, &palette),
-                        marked(file, query, cx),
-                        folder,
-                        match line {
-                            Some(line) => Some(format!(":{line}")),
-                            None => current.then(|| t!("Current").to_string()),
-                        },
-                    )
-                }
-                Row::Symbol { ix } => {
-                    let symbol = self
-                        .symbols
-                        .as_ref()
-                        .and_then(|symbols| symbols.get(*ix))
-                        .cloned();
-                    let (label, detail) = symbol
-                        .map(|symbol| (symbol.label, symbol.detail))
-                        .unwrap_or_default();
-                    (
-                        Icon::HASH.element(ICON, ink).into_any_element(),
-                        marked(label, query, cx),
-                        Some(detail),
-                        None,
-                    )
-                }
-                Row::Line(line) => (
-                    Icon::TEXT_CURSOR_INPUT
-                        .element(ICON, ink)
-                        .into_any_element(),
-                    div()
-                        .text_color(palette.text)
-                        .child(t!("Go to line {0}", line))
-                        .into_any_element(),
-                    self.source.line_target.clone(),
+        let mut muted = false;
+        let (icon, name, folder, tag): (
+            AnyElement,
+            AnyElement,
+            Option<String>,
+            Option<AnyElement>,
+        ) = match row {
+            Row::File {
+                path,
+                line,
+                current,
+                ..
+            } => {
+                let (folder, file) = match path.rsplit_once('/') {
+                    Some((folder, file)) => (Some(folder.to_string()), file.to_string()),
+                    None => (None, path.clone()),
+                };
+                (
+                    file_glyph(GlyphKind::for_name(&file), ICON, &palette),
+                    marked(file, query, cx),
+                    folder,
+                    match line {
+                        Some(line) => Some(format!(":{line}")),
+                        None => current.then(|| t!("Current").to_string()),
+                    }
+                    .map(|tag| div().child(tag).into_any_element()),
+                )
+            }
+            Row::Symbol { ix } => {
+                let symbol = self
+                    .symbols
+                    .as_ref()
+                    .and_then(|symbols| symbols.get(*ix))
+                    .cloned();
+                let (label, detail) = symbol
+                    .map(|symbol| (symbol.label, symbol.detail))
+                    .unwrap_or_default();
+                (
+                    Icon::HASH.element(ICON, ink).into_any_element(),
+                    marked(label, query, cx),
+                    Some(detail),
                     None,
-                ),
-            };
+                )
+            }
+            Row::Line(line) => (
+                Icon::TEXT_CURSOR_INPUT
+                    .element(ICON, ink)
+                    .into_any_element(),
+                div()
+                    .text_color(palette.text)
+                    .child(t!("Go to line {0}", line))
+                    .into_any_element(),
+                self.source.line_target.clone(),
+                None,
+            ),
+            Row::Project { ix } => {
+                let project = self.projects.get(*ix).cloned().unwrap_or_default();
+                muted = project.missing;
+                let icon = if project.overleaf {
+                    Icon::CLOUD
+                } else {
+                    Icon::FOLDER
+                };
+                (
+                    icon.element(ICON, ink).into_any_element(),
+                    marked(project.name.clone(), query, cx),
+                    Some(parent_folder_label(&project.path)),
+                    project_badge(&project).map(|badge| badge.into_any_element()),
+                )
+            }
+        };
+        // A missing project's row reads as gone: its glyph, name and
+        // folder at 55%, its badge as it is.
+        let dim = if muted { MISSING_OPACITY } else { 1. };
         div()
             .id(("quick-open-row", ix))
             .relative()
@@ -569,17 +657,19 @@ impl QuickOpen {
                 row.rounded(px(ROW_RADIUS)).bg(palette.accent_soft)
             })
             .on_click(cx.listener(move |this, _, window, cx| this.select(ix, window, cx)))
-            .child(div().flex_none().flex().child(icon))
+            .child(div().flex_none().flex().opacity(dim).child(icon))
             .child(
                 div()
                     .flex_none()
                     .max_w(gpui::relative(0.7))
                     .min_w_0()
                     .truncate()
+                    .opacity(dim)
                     .child(name),
             )
             .children(folder.filter(|folder| !folder.is_empty()).map(|folder| {
                 div()
+                    .opacity(dim)
                     .min_w_0()
                     .truncate()
                     .text_role(TextRole::Caption, cx)

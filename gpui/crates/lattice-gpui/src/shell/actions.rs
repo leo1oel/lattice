@@ -264,6 +264,9 @@ impl Shell {
             .on_action(cx.listener(|this, action: &OpenRecentProject, window, cx| {
                 this.reveal_project(action.path.clone(), action.here, window, cx)
             }))
+            .on_action(cx.listener(|this, _: &OpenRecentFinder, window, cx| {
+                this.open_recent_finder(window, cx)
+            }))
             .on_action(
                 cx.listener(|this, _: &CloneRepository, window, cx| this.open_clone(window, cx)),
             )

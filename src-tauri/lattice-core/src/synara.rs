@@ -323,6 +323,8 @@ impl SynaraRuntime {
         environment.apply(&mut command);
         // After the shell's variables, so Lattice's Pi configuration wins.
         crate::model_endpoint::configure_sidecar(&mut command, &self.home_dir, &executable);
+        #[cfg(target_os = "linux")]
+        crate::literature_credentials::configure_sidecar(&mut command);
         let child = command
             .spawn()
             .map_err(|error| format!("Could not start the built-in agent service: {error}"))?;

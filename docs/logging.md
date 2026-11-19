@@ -57,7 +57,7 @@ Set `LATTICE_LOG` (`error`, `warn`, `info`, `debug` or `trace`) to change it,
 for example:
 
 ```bash
-LATTICE_LOG=debug /Applications/Lattice.app/Contents/MacOS/Lattice
+LATTICE_LOG=debug /Applications/Lattice.app/Contents/MacOS/research-writer
 ```
 
 `debug` adds Lattice's own detail; only `trace` lets the window, network and

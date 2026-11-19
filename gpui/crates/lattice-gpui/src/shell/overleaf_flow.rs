@@ -104,6 +104,7 @@ impl Shell {
                 this.show_editable(cx);
                 this.note_repair_writable(cx);
                 this.follow_overleaf_for_pdf_notes(cx);
+                this.follow_overleaf_for_recents(&bridge, cx);
                 super::menus::follow_front(cx);
                 cx.notify()
             }),
@@ -156,6 +157,23 @@ impl Shell {
                 self.open_settings(Some(SettingsTab::Overleaf), window, cx)
             }
             OverleafBridgeEvent::PresenceChanged => self.show_overleaf_carets(cx),
+        }
+    }
+
+    /// The project shown was linked to Overleaf, published or unlinked
+    /// since its recent entry was read: the folders are read again, the
+    /// link being the folder's own state file.
+    fn follow_overleaf_for_recents(&self, bridge: &Entity<OverleafBridge>, cx: &mut Context<Self>) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        let linked = bridge.read(cx).link().is_some();
+        let known = crate::recents::RecentProjects::list(cx)
+            .iter()
+            .find(|recent| crate::recents::same_path(&recent.path, &root))
+            .map(|recent| recent.overleaf);
+        if known.is_some_and(|known| known != linked) {
+            crate::recents::RecentProjects::refresh(cx);
         }
     }
 
