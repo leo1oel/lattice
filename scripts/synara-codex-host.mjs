@@ -18,8 +18,8 @@ export function patchCodexHostProcess(source) {
       '\t\tcontext.child.stderr.on("data", (chunk) => {\n\t\t\tconst lines = chunk.toString().split(/\\r?\\n/g);',
     ],
     [
-      '\t\t\t\tif (!classified) continue;\n\t\t\t\tthis.emitErrorEvent(context, "process/stderr", classified.message);',
-      '\t\t\t\tif (!classified) continue;\n\t\t\t\tlog$2.warn("codex app-server stderr", { threadId: context.session.threadId, message: classified.message });\n\t\t\t\tif (!context.stopping) this.emitErrorEvent(context, "process/stderr", classified.message);',
+      '\t\t\t\tif (!classified) continue;\n\t\t\t\tif (classified.configWarning) {',
+      '\t\t\t\tif (!classified) continue;\n\t\t\t\tlog$2.warn("codex app-server stderr", { threadId: context.session.threadId, message: classified.message });\n\t\t\t\tif (context.stopping) continue;\n\t\t\t\tif (classified.configWarning) {',
     ],
     [
       '\t\tcontext.child.on("exit", (code, signal) => {\n\t\t\tif (context.stopping && context.failureStopping !== true) return;\n\t\t\tconst message = `codex app-server exited (code=${code ?? "null"}, signal=${signal ?? "null"}).`;',

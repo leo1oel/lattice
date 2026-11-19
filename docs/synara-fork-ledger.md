@@ -8,19 +8,19 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-18 against upstream
-`v1.5.2` (`83e0533b23099908ee14e4fecacd5ed702f4d453`), the current integration changes
-**874 files, +90,466 / −9,317 lines** (about 6,700 of the added lines are the zh-CN catalogs,
+The fork as a whole is **not** small. Measured on 2026-11-19 against upstream
+`v1.6.2` (`47f8f39979a61fc16e86b214c65bf56c46284061`), the current integration changes
+**903 files, +92,018 / −7,836 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.5.2 HEAD
+git diff --shortstat v1.6.2 HEAD
 ```
 
-The current pin is the upstream **1.5.2 stable release** (see [its entry](#synara-152-compatibility)), merged with the complete previous
-`amp/lattice-v1.5.1-sync` history (which carries the earlier `amp/lattice-v1.1.0-sync`, `amp/lattice-v1.0.9-sync`, `amp/lattice-v1.0.8-sync`, `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.6.2 stable release** (see [its entry](#synara-162-compatibility)), merged with the complete previous
+`amp/lattice-v1.5.2-sync` history (which carries the earlier `amp/lattice-v1.5.1-sync`, `amp/lattice-v1.1.0-sync`, `amp/lattice-v1.0.9-sync`, `amp/lattice-v1.0.8-sync`, `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -456,3 +456,33 @@ Three upstream behaviours are kept as they are, on the captain's call:
 The server adds migration 143 (usage analytics deleted tokens), which runs once after the pre-migration backup on a 1.5.1-era database; a Lattice that pins 1.5.1 again would meet the newer database. Upstream's macOS update and shutdown, Linux ARM64 and CI changes have no embedded surface. Its simulator control reached the embed's device dock until the current pin, which stops Lattice granting it (see [the current pin](#the-current-pin)). Pi stays at 1.4.0.
 
 The staged runtime is 175.2 MB (1.5.1: 175.0 MB); the lab bundle installs at 342.3 MiB (342.1 MiB with the 1.5.1 runtime) against the 400 MiB ceiling.
+
+## Synara 1.6.2 compatibility
+
+The pin is upstream 1.6.2 (`47f8f3997`) merged with the whole `amp/lattice-v1.5.2-sync` history through fork PR 36 ([fork PR 37](https://github.com/leo1oel/synara/pull/37)). That history includes PR 35, which creates Agent boards as `.excalidraw`, PR 34, which reports project Agent activity, and PR 36, which adds link destinations; none of the three had been pinned before. `amp/lattice-v1.6.2-sync` started as upstream's 1.6.2 commit, and the Lattice integration reaches it through that one pull request with a merge commit. 1.5.3, 1.5.4, 1.6.0 and 1.6.1 come in with it.
+
+**Settings.** Upstream split Settings into Providers, Accounts and views (#2123). The fork keeps those files for standalone Synara, and the embed's Agent page is `settings/providers/LatticeProvidersSettingsPanel.tsx`. That page shows the same rows, order and Chinese text as before, accounts stay inside each agent's row, and there are no on/off switches; upstream's `disabledProviders` reads go to the server-side switches (`lib/serverDisabledProviders.ts`).
+
+**Pi.** Upstream now loads Pi from a separately installed `pi` CLI (#2160). The fork keeps installing Pi and OpenCode on demand, and passes that runtime to upstream's new `importPackage` seam. Pi stays at 1.4.0, so writers do not install it again.
+
+**Chat.** Each item below stays visible in the embed, which has no Environment panel:
+
+- The approaching-limit warning is now upstream's composer capsule (#2174, which replaced `RateLimitBanner`), still at the composer in the embed.
+- A background task still running after its turn (#2150 moved these into the Environment panel) stays pinned under that answer, with Stop.
+- Chat tables use upstream's table, which can be copied (#2161). The embed keeps the 8rem minimum width for text columns and fork PR 17's scroll fix.
+
+**New in the panel.** These are upstream behaviours:
+
+- Asking before resuming a long-idle Claude session of 100k or more tokens is now **on by default** (`confirmColdCacheResume`, #2121). It offers a summary instead of re-caching the whole session.
+- Guided provider sign-in appears in the model picker and the provider banner (1.6.1). It starts only when the writer clicks it, so Cursor still never signs in on its own.
+- Writers can continue a chat on another account of the same provider, resume an interrupted task from the empty composer, use Codex Ultrafast and play local videos. The fork still refuses every Synara account RPC except the signed-out status read; provider-account switching is a different thing and works.
+
+**Kept out.** Upstream's composer follow-up suggestions (1.6.0) would ask the chat's model for a suggestion after every reply. Under the Lattice profile the server reports `composerPredictions: false` and refuses `server.generateComposerPrediction`, and the embed hides "Show suggestions".
+
+**Protocol.** Nothing changes between Lattice and the fork. The new WebSocket method is `server.generateComposerPrediction`, which is refused here. Migration 144 (thread pull-request links) runs once after the pre-migration backup.
+
+**Environment and keys.** The sidecar inherits environment variables and API keys as before; no new variable carries a credential. The new variables are `SYNARA_BACKEND_COMPILE_CACHE` (set only by Synara's desktop app, so it is off in Lattice), `OPENCODE_CONFIG` (OpenCode model discovery now notices changes to it) and `CLAUDE_CONFIG_DIR` (the skill-folder lookup now follows it). None of this reaches Lattice plugins, which never get the sidecar's environment.
+
+**Bundle patches.** 1.6 bundles Effect functions under their own names, so the staging-time patch that hid the launch-token probe's "Rejected authenticated session credential." warning no longer matched. The fork now skips that warning in source (`ServerAuth.ts`), and `prepare-synara-sidecar.mjs` no longer patches it. The Codex host patch moved its stderr anchor to the new configuration-warning branch (`scripts/synara-codex-host.mjs`).
+
+The staged runtime is 178.9 MB (1.5.2: 175.3 MB).
