@@ -100,7 +100,7 @@ function main() {
   const fixture = value("--fixture");
   const file = argv.filter((arg, index) => !arg.startsWith("--") && !["--platform", "--baseline", "--rerun-app", "--fixture"].includes(argv[index - 1])).at(-1);
   if (Boolean(app) !== Boolean(fixture)) throw new Error("--rerun-app and --fixture go together");
-  if (!PLATFORMS.includes(platform) || !file) throw new Error("usage: gpui-e2e-verdict.mjs --platform macos|windows [--check-quit] [--baseline FILE] RESULT.json");
+  if (!PLATFORMS.includes(platform) || !file) throw new Error("usage: gpui-e2e-verdict.mjs --platform macos|windows [--check-quit] [--baseline FILE] [--rerun-app BIN --fixture DIR] RESULT.json");
   let result = null;
   try {
     result = JSON.parse(readFileSync(file, "utf8"));
