@@ -10,7 +10,7 @@ This table and the commands under [Signing](#6-signing) are the only places in t
 
 | What | Where |
 |---|---|
-| The registry repository | [leo1oel/lattice-plugins][registry] |
+| The registry repository | [lattice-writer/lattice-plugins][registry] |
 | Its README: entry format and CI checks | [README.md][registry-readme] |
 | The review checklist | [REVIEW.md][review] |
 | The pull request checklist | [pull_request_template.md][pr-template] |
@@ -150,7 +150,7 @@ Lattice checks both signatures against public keys built into the app, refuses a
 ```sh
 curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
 curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
-curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice-plugins/main/keys/primary.pub
+curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice-plugins/main/keys/primary.pub
 minisign -V -p primary.pub -m index.json
 ```
 
@@ -205,11 +205,11 @@ If a published version turns out to be harmful or broken, the registry can turn 
 
 To pull one of your own versions, open a pull request that adds an item to `blocked.json` and publish a fixed version beside it; anyone who finds a harmful plugin can open an issue or pull request the same way. It takes effect on the next signed publish.
 
-[registry]: https://github.com/leo1oel/lattice-plugins
-[registry-readme]: https://github.com/leo1oel/lattice-plugins#readme
-[review]: https://github.com/leo1oel/lattice-plugins/blob/main/REVIEW.md
-[pr-template]: https://github.com/leo1oel/lattice-plugins/blob/main/.github/pull_request_template.md
-[blocked]: https://github.com/leo1oel/lattice-plugins/blob/main/blocked.json
+[registry]: https://github.com/lattice-writer/lattice-plugins
+[registry-readme]: https://github.com/lattice-writer/lattice-plugins#readme
+[review]: https://github.com/lattice-writer/lattice-plugins/blob/main/REVIEW.md
+[pr-template]: https://github.com/lattice-writer/lattice-plugins/blob/main/.github/pull_request_template.md
+[blocked]: https://github.com/lattice-writer/lattice-plugins/blob/main/blocked.json
 [index]: https://leo1oel.github.io/lattice-plugins/index.json
 [index-sig]: https://leo1oel.github.io/lattice-plugins/index.json.minisig
-[primary-key]: https://github.com/leo1oel/lattice-plugins/blob/main/keys/primary.pub
+[primary-key]: https://github.com/lattice-writer/lattice-plugins/blob/main/keys/primary.pub

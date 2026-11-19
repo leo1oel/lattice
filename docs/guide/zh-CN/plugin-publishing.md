@@ -10,7 +10,7 @@
 
 | 内容 | 位置 |
 |---|---|
-| 注册表仓库 | [leo1oel/lattice-plugins][registry] |
+| 注册表仓库 | [lattice-writer/lattice-plugins][registry] |
 | 它的 README：条目格式和 CI 检查 | [README.md][registry-readme] |
 | 审核清单 | [REVIEW.md][review] |
 | pull request 检查清单 | [pull_request_template.md][pr-template] |
@@ -150,7 +150,7 @@ Lattice 用内置在应用里的公钥验证这两个签名，拒绝比上次验
 ```sh
 curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
 curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
-curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice-plugins/main/keys/primary.pub
+curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice-plugins/main/keys/primary.pub
 minisign -V -p primary.pub -m index.json
 ```
 
@@ -205,11 +205,11 @@ ok   plugins/io.github.yourname.hello/entry.json
 
 要撤回你自己的某个版本，开一个 pull request 往 `blocked.json` 里加一项，同时发布修复后的版本；任何人发现有害插件，都可以用同样的方式开 issue 或 pull request。它在下一次签名发布时生效。
 
-[registry]: https://github.com/leo1oel/lattice-plugins
-[registry-readme]: https://github.com/leo1oel/lattice-plugins#readme
-[review]: https://github.com/leo1oel/lattice-plugins/blob/main/REVIEW.md
-[pr-template]: https://github.com/leo1oel/lattice-plugins/blob/main/.github/pull_request_template.md
-[blocked]: https://github.com/leo1oel/lattice-plugins/blob/main/blocked.json
+[registry]: https://github.com/lattice-writer/lattice-plugins
+[registry-readme]: https://github.com/lattice-writer/lattice-plugins#readme
+[review]: https://github.com/lattice-writer/lattice-plugins/blob/main/REVIEW.md
+[pr-template]: https://github.com/lattice-writer/lattice-plugins/blob/main/.github/pull_request_template.md
+[blocked]: https://github.com/lattice-writer/lattice-plugins/blob/main/blocked.json
 [index]: https://leo1oel.github.io/lattice-plugins/index.json
 [index-sig]: https://leo1oel.github.io/lattice-plugins/index.json.minisig
-[primary-key]: https://github.com/leo1oel/lattice-plugins/blob/main/keys/primary.pub
+[primary-key]: https://github.com/lattice-writer/lattice-plugins/blob/main/keys/primary.pub

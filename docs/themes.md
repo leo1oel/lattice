@@ -98,7 +98,7 @@ folder installs or selects a theme.
 ## The theme marketplace
 
 `lattice-core::registry::Registry` reads the signed list that
-[leo1oel/lattice-plugins](https://github.com/leo1oel/lattice-plugins) publishes
+[lattice-writer/lattice-plugins](https://github.com/lattice-writer/lattice-plugins) publishes
 to GitHub Pages (`index.json`, `blocked.json` and their `.minisig` files).
 
 - **Signatures.** Each file must verify against one of the two minisign keys
