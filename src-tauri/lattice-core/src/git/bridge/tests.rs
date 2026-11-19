@@ -168,7 +168,7 @@ fn the_version_log_lists_overleafs_unmerged_commits_and_marks_them() {
     commit(&root, &[("main.tex", "two\n")], "Mine");
     overleaf.edit("intro.tex", "from a co-author\n");
     // Fetched, not merged: what a probe or a failed merge leaves behind.
-    let branch = remote_branch(&root, &overleaf.url(), TOKEN).unwrap();
+    let (branch, _) = remote_branch(&root, &overleaf.url(), TOKEN).unwrap();
     point_remote_at(&root, &overleaf.url()).unwrap();
     fetch(&root, &overleaf.url(), TOKEN, &branch).unwrap();
 
@@ -273,7 +273,7 @@ fn the_token_is_never_written_into_the_repository() {
 
     let config = fs::read_to_string(root.join(".git/config")).unwrap();
     assert!(!config.contains(TOKEN) && !config.contains("olp_"));
-    assert!(config.contains("[remote \"overleaf\"]"));
+    assert!(config.contains("[remote \"overleaf-git\"]"));
 }
 
 #[test]
@@ -288,4 +288,43 @@ fn a_folder_inside_another_repository_is_refused() {
 
     assert!(error.contains("its own git repository"), "{error}");
     assert!(run(&outer, &["remote"]).is_empty());
+}
+
+/// Git leaves a binary file in conflict with no markers written into it, so
+/// there is nothing in the file for a writer to work through.
+#[test]
+fn a_binary_conflict_is_listed_without_markers_in_the_file() {
+    let Some(overleaf) = Overleaf::new(&[("fig.bin", "base\0\n")]) else { return };
+    let root = clone_of(&overleaf, "binary");
+    commit(&root, &[("fig.bin", "mine\0\n")], "Mine");
+    overleaf.edit("fig.bin", "theirs\0\n");
+
+    let outcome = sync_with(&overleaf, &root).unwrap();
+
+    assert_eq!(outcome.conflicts, ["fig.bin"]);
+    assert!(!String::from_utf8_lossy(&fs::read(root.join("fig.bin")).unwrap()).contains("<<<<<<<"));
+}
+
+/// Switching a project back to the web sync must not leave Overleaf's commits
+/// in the timeline as "not merged yet".
+#[test]
+fn forgetting_the_remote_drops_what_a_sync_fetched() {
+    let Some(overleaf) = Overleaf::new(&[("main.tex", "one\n")]) else { return };
+    let root = clone_of(&overleaf, "forget");
+    commit(&root, &[("main.tex", "two\n")], "Mine");
+    overleaf.edit("intro.tex", "from a co-author\n");
+    let (branch, _) = remote_branch(&root, &overleaf.url(), TOKEN).unwrap();
+    point_remote_at(&root, &overleaf.url()).unwrap();
+    fetch(&root, &overleaf.url(), TOKEN, &branch).unwrap();
+    assert!(remote_tip(&root).is_some());
+    assert!(crate::git::log(&root, 50).unwrap().iter().any(|entry| entry.remote_only));
+
+    forget(&root);
+
+    assert!(remote_tip(&root).is_none());
+    let entries = crate::git::log(&root, 50).unwrap();
+    assert!(entries.iter().all(|entry| !entry.remote_only));
+    assert!(entries.iter().all(|entry| entry.message != "Edit intro.tex"));
+    // Nothing to forget is not an error.
+    forget(&root);
 }

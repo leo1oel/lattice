@@ -1797,6 +1797,11 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "git/bridge.rs",
+        literal: "Overleaf's git bridge has no branch for this project yet.",
+        text: Text::Message("Overleaf's git bridge has no branch for this project yet.", &[]),
+    },
+    Entry {
+        file: "git/bridge.rs",
         literal: "Overleaf changed while this was syncing. Sync again to merge those changes.",
         text: Text::Message("Overleaf changed while this was syncing. Sync again to merge those changes.", &[]),
     },

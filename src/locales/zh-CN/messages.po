@@ -12302,6 +12302,10 @@ msgid "Overleaf's full history needs a paid plan on this project."
 msgstr "这个项目需要 Overleaf 付费方案才能查看完整历史"
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's git bridge has no branch for this project yet."
+msgstr "Overleaf 的 Git 桥里这个项目还没有分支。"
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's git bridge has no such project. It may not be available for this account or host."
 msgstr "Overleaf 的 Git 桥里没有这个项目。该账户或主机可能不支持。"
 

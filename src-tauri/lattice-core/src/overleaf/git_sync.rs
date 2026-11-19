@@ -8,6 +8,7 @@
 //! git token is the credential.
 
 use super::account::normalize_host;
+use super::files::has_conflict_markers;
 use super::link::{load_state, now_iso, save_state, SyncState, SyncVia, PAUSED};
 use super::sync::{OverleafConflict, OverleafProbe, OverleafSyncResult};
 use crate::git::bridge;
@@ -55,14 +56,17 @@ pub fn git_sync(root: &Path, token: Option<String>) -> Result<OverleafSyncResult
     Ok(OverleafSyncResult {
         pulled: outcome.pulled,
         pushed: outcome.pushed,
-        conflicts: outcome
-            .conflicts
-            .into_iter()
-            .map(|path| OverleafConflict { local_copy: path.clone(), path, markers: true })
-            .collect(),
+        conflicts: outcome.conflicts.into_iter().map(|path| conflict(root, path)).collect(),
         uncommitted: outcome.uncommitted,
         ..Default::default()
     })
+}
+
+/// A file the merge left in conflict. Git writes markers into text only: a
+/// binary file stays as it was, with nothing in it to work through.
+fn conflict(root: &Path, path: String) -> OverleafConflict {
+    let markers = std::fs::read(root.join(&path)).is_ok_and(|bytes| has_conflict_markers(&bytes));
+    OverleafConflict { local_copy: path.clone(), path, markers }
 }
 
 /// Whether Overleaf has commits this folder has not fetched.
@@ -105,5 +109,19 @@ mod tests {
         for id in ["", "../x", "a/b", "a b", "a?b", "a#b"] {
             assert!(bridge_url(&state("", id)).is_err(), "{id:?} should be refused");
         }
+    }
+
+    #[test]
+    fn only_a_file_git_wrote_markers_into_offers_to_resolve_them() {
+        let root = crate::test_support::TempDir::new("git-sync-conflict");
+        root.write("main.tex", "<<<<<<< HEAD\nmine\n=======\ntheirs\n>>>>>>> overleaf\n");
+        std::fs::write(root.join("fig.png"), b"\x89PNG\0binary").unwrap();
+
+        assert!(conflict(&root, "main.tex".into()).markers);
+        let binary = conflict(&root, "fig.png".into());
+        assert!(!binary.markers);
+        assert_eq!(binary.path, "fig.png");
+        // A file that cannot be read has nothing to work through either.
+        assert!(!conflict(&root, "gone.tex".into()).markers);
     }
 }

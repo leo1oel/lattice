@@ -121,6 +121,7 @@ export const OVERLEAF_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["git/bridge.rs", "A merge with Overleaf is unfinished. Resolve the conflicts, commit, then sync again.", () => t`A merge with Overleaf is unfinished. Resolve the conflicts, commit, then sync again.`],
   ["git/bridge.rs", "Overleaf did not accept the git token. Check it in Settings → Overleaf. Git access needs an Overleaf plan that includes the git integration.", () => t`Overleaf did not accept the git token. Check it in Settings → Overleaf. Git access needs an Overleaf plan that includes the git integration.`],
   ["git/bridge.rs", "Overleaf's git bridge has no such project. It may not be available for this account or host.", () => t`Overleaf's git bridge has no such project. It may not be available for this account or host.`],
+  ["git/bridge.rs", "Overleaf's git bridge has no branch for this project yet.", () => t`Overleaf's git bridge has no branch for this project yet.`],
   ["git/bridge.rs", "Overleaf changed while this was syncing. Sync again to merge those changes.", () => t`Overleaf changed while this was syncing. Sync again to merge those changes.`],
   ["overleaf_git_token.rs", "The git token is empty.", () => t`The git token is empty.`],
   ["overleaf_git_token.rs", "That does not look like an Overleaf git token.", () => t`That does not look like an Overleaf git token.`],

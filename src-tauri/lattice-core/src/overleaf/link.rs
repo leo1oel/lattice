@@ -317,7 +317,12 @@ pub fn set_sync_via(root: &Path, via: SyncVia) -> Result<(), String> {
         return Ok(());
     }
     state.sync_via = via;
-    save_state(root, &state)
+    save_state(root, &state)?;
+    if via == SyncVia::Rest {
+        // What a git sync fetched no longer describes this project's history.
+        crate::git::bridge::forget(root);
+    }
+    Ok(())
 }
 
 /// Record what Overleaf says this account may do, so syncing can respect it

@@ -7,7 +7,9 @@
 //!
 //! The token never reaches a file, the remote's URL or a command line: it
 //! travels in the environment of the one git process that needs it, scoped to
-//! the remote's own URL so a redirect cannot carry it elsewhere.
+//! the remote's own URL so the header is not offered to any other host. A
+//! stalled connection is cut off by git's low-speed limits rather than left to
+//! hold the project's lease.
 
 use super::{
     ensure_internal_ignored, git_command, git_output, git_run, has_head, is_repository,
@@ -18,8 +20,9 @@ use base64::Engine;
 use std::path::Path;
 use std::process::{Command, Output};
 
-/// The remote this sync owns. Anything the writer set up as `origin` is theirs.
-const REMOTE: &str = "overleaf";
+/// The remote this sync owns. Named for what it is, so it cannot collide with
+/// a remote the writer set up themselves (`origin`, or `overleaf`).
+const REMOTE: &str = "overleaf-git";
 
 /// What one sync moved.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -61,11 +64,16 @@ fn remote_command(root: &Path, url: &str, token: &str) -> Command {
     let encoded = base64::engine::general_purpose::STANDARD.encode(format!("git:{token}"));
     let mut command = git_command(root);
     command
-        .env("GIT_CONFIG_COUNT", "2")
+        .env("GIT_CONFIG_COUNT", "4")
         .env("GIT_CONFIG_KEY_0", format!("http.{url}.extraHeader"))
         .env("GIT_CONFIG_VALUE_0", format!("Authorization: Basic {encoded}"))
         .env("GIT_CONFIG_KEY_1", "credential.helper")
-        .env("GIT_CONFIG_VALUE_1", "");
+        .env("GIT_CONFIG_VALUE_1", "")
+        // Below 1 kB/s for a minute is a hung connection, not a slow one.
+        .env("GIT_CONFIG_KEY_2", "http.lowSpeedLimit")
+        .env("GIT_CONFIG_VALUE_2", "1000")
+        .env("GIT_CONFIG_KEY_3", "http.lowSpeedTime")
+        .env("GIT_CONFIG_VALUE_3", "60");
     command
 }
 
@@ -121,10 +129,11 @@ fn point_remote_at(root: &Path, url: &str) -> Result<(), String> {
     }
 }
 
-/// The branch Overleaf's git bridge serves for this project: the remote's own
-/// default when it names one, else `master`, else `main`, else the only branch
-/// it has. Older projects use `master`; assuming it failed on the others.
-fn remote_branch(root: &Path, url: &str, token: &str) -> Result<String, String> {
+/// The branch Overleaf's git bridge serves for this project, and where it is:
+/// the remote's own default when it names one, else `master`, else `main`,
+/// else the only branch it has. Older projects use `master`; assuming it
+/// failed on the others. One request, so a poll can use it as its whole check.
+fn remote_branch(root: &Path, url: &str, token: &str) -> Result<(String, String), String> {
     let output = remote_command(root, url, token)
         .args(["ls-remote", "--symref", url, "HEAD", "refs/heads/*"])
         .output()
@@ -137,18 +146,25 @@ fn remote_branch(root: &Path, url: &str, token: &str) -> Result<String, String> 
     let default = listed.lines().find_map(|line| {
         line.strip_prefix("ref: refs/heads/").and_then(|rest| rest.split_whitespace().next())
     });
-    if let Some(name) = default {
-        return Ok(name.to_string());
-    }
-    let heads: Vec<&str> = listed
+    // `<sha><TAB>refs/heads/<name>`: only branches that have a commit are listed.
+    let heads: Vec<(&str, &str)> = listed
         .lines()
-        .filter_map(|line| line.split_whitespace().nth(1)?.strip_prefix("refs/heads/"))
+        .filter(|line| !line.starts_with("ref:"))
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let (sha, name) = (parts.next()?, parts.next()?);
+            Some((sha, name.strip_prefix("refs/heads/")?))
+        })
         .collect();
-    ["master", "main"]
-        .into_iter()
-        .find(|preferred| heads.contains(preferred))
-        .or_else(|| heads.first().copied())
-        .map(str::to_string)
+    let has = |name: &&str| heads.iter().any(|(_, head)| head == name);
+    default
+        .filter(has)
+        .or_else(|| ["master", "main"].into_iter().find(has))
+        .or_else(|| heads.first().map(|(_, name)| *name))
+        .and_then(|name| {
+            let (sha, _) = heads.iter().find(|(_, head)| *head == name)?;
+            Some((name.to_string(), sha.to_string()))
+        })
         .ok_or_else(|| "Overleaf's git bridge has no branch for this project yet.".to_string())
 }
 
@@ -167,17 +183,17 @@ fn fetch(root: &Path, url: &str, token: &str, branch: &str) -> Result<(), String
 /// request, so a poll can badge incoming work without downloading it.
 pub fn remote_changed(root: &Path, url: &str, token: &str) -> Result<bool, String> {
     require_git()?;
-    let branch = remote_branch(root, url, token)?;
-    let output = remote_command(root, url, token)
-        .args(["ls-remote", url, &format!("refs/heads/{branch}")])
-        .output()
-        .map_err(|error| format!("Could not run git: {error}"))?;
-    if !output.status.success() {
-        return Err(explain(&output));
-    }
-    let listed = String::from_utf8_lossy(&output.stdout);
-    let Some(remote) = listed.split_whitespace().next() else { return Ok(false) };
+    let (branch, remote) = remote_branch(root, url, token)?;
     Ok(rev_parse(root, &[&tracking_ref(&branch)]).map_or(true, |known| known != remote))
+}
+
+/// Forget what a git sync fetched, once the project syncs another way: the
+/// remote and its tracking refs would otherwise keep marking Overleaf's
+/// commits as not merged yet.
+pub fn forget(root: &Path) {
+    if is_repository(root) {
+        let _ = git_run(root, &["remote", "remove", REMOTE]);
+    }
 }
 
 /// Fetch, merge and push, in that order, and report what moved.
@@ -200,7 +216,7 @@ pub fn sync(root: &Path, url: &str, token: &str) -> Result<Outcome, String> {
     }
     ensure_internal_ignored(root);
     point_remote_at(root, url)?;
-    let branch = remote_branch(root, url, token)?;
+    let (branch, _) = remote_branch(root, url, token)?;
     fetch(root, url, token, &branch)?;
     let remote = tracking_ref(&branch);
     let mut outcome = Outcome::default();

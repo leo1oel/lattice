@@ -12302,6 +12302,10 @@ msgid "Overleaf's full history needs a paid plan on this project."
 msgstr "Overleaf's full history needs a paid plan on this project."
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's git bridge has no branch for this project yet."
+msgstr "Overleaf's git bridge has no branch for this project yet."
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's git bridge has no such project. It may not be available for this account or host."
 msgstr "Overleaf's git bridge has no such project. It may not be available for this account or host."
 
