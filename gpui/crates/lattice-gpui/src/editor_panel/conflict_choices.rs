@@ -171,6 +171,19 @@ impl EditorPanel {
         });
     }
 
+    /// Whether any spot shows its choices, for a scenario.
+    pub fn conflict_choices_shown(&self) -> bool {
+        self.conflicts.painted
+    }
+
+    /// Keep mine on the first spot, as its button does, for a scenario.
+    pub fn keep_mine_for_scenario(&mut self, cx: &mut Context<Self>) {
+        let text = self.buffer.read(cx).text();
+        if let Some(hunk) = conflict_hunks(&text).first() {
+            self.choose_conflict((hunk.line - 1) as u32, ConflictChoice::Ours, cx);
+        }
+    }
+
     /// Resolve the spot starting on `row` with `choice`; nothing when no
     /// spot starts there any more.
     pub(super) fn choose_conflict(

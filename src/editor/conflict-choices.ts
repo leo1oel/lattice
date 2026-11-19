@@ -17,12 +17,11 @@ import { parseConflictBlocks, type ConflictChoice } from "../history/conflict-ma
 import { i18n } from "../i18n";
 
 /** One spot in the document: where it starts and ends, and each side's lines. */
-type Spot = { from: number; to: number; ours: string[]; theirs: string[]; oursLabel: string; theirsLabel: string };
+type Spot = { from: number; to: number; ours: string[]; theirs: string[] };
 
 /** The spots in `doc`, with the document range each covers (the trailing line break included). */
 export function conflictSpots(doc: Text): Spot[] {
   const spots: Spot[] = [];
-  const label = (line: string) => line.slice(7).trim();
   for (const block of parseConflictBlocks(doc.toString())) {
     if (block.kind !== "conflict") continue;
     const first = doc.line(block.line);
@@ -32,15 +31,13 @@ export function conflictSpots(doc: Text): Spot[] {
       to: last.number < doc.lines ? last.to + 1 : last.to,
       ours: block.ours,
       theirs: block.theirs,
-      oursLabel: label(block.raw[0] ?? ""),
-      theirsLabel: label(block.raw.at(-1) ?? ""),
     });
   }
   return spots;
 }
 
 /** The text a choice leaves in place of `spot` in `doc`. */
-export function choiceText(doc: Text, spot: Spot, choice: ConflictChoice): string {
+function choiceText(doc: Text, spot: Spot, choice: ConflictChoice): string {
   const lines = choice === "ours" ? spot.ours : choice === "theirs" ? spot.theirs : [...spot.ours, ...spot.theirs];
   if (!lines.length) return "";
   const endsLine = doc.sliceString(spot.to - 1, spot.to) === "\n";
@@ -56,20 +53,19 @@ export function chooseSide(view: EditorView, from: number, choice: ConflictChoic
 }
 
 class ChoiceBar extends WidgetType {
-  constructor(readonly from: number, readonly oursLabel: string, readonly theirsLabel: string) {
+  constructor(readonly from: number) {
     super();
   }
 
   eq(other: ChoiceBar) {
-    return other.from === this.from && other.oursLabel === this.oursLabel && other.theirsLabel === this.theirsLabel;
+    return other.from === this.from;
   }
 
   toDOM(view: EditorView) {
     const bar = document.createElement("div");
     bar.className = "cm-conflict-choices";
     bar.setAttribute("role", "group");
-    const sides = this.oursLabel && this.theirsLabel ? `${this.oursLabel} / ${this.theirsLabel}` : "";
-    bar.setAttribute("aria-label", i18n._(msg`Conflict: choose what to keep`) + (sides ? ` (${sides})` : ""));
+    bar.setAttribute("aria-label", i18n._(msg`Conflict: choose what to keep`));
     const choices: [ConflictChoice, string][] = [
       ["ours", i18n._(msg`Keep mine`)],
       ["theirs", i18n._(msg`Keep theirs`)],
@@ -98,7 +94,7 @@ function decorations(state: EditorState): DecorationSet {
   const ranges: Range<Decoration>[] = [];
   const doc = state.doc;
   for (const spot of conflictSpots(doc)) {
-    ranges.push(Decoration.widget({ widget: new ChoiceBar(spot.from, spot.oursLabel, spot.theirsLabel), block: true, side: -1 }).range(spot.from));
+    ranges.push(Decoration.widget({ widget: new ChoiceBar(spot.from), block: true, side: -1 }).range(spot.from));
     let section: "marker" | "ours" | "base" | "theirs" = "ours";
     for (let at = spot.from; at < spot.to;) {
       const line = doc.lineAt(at);
