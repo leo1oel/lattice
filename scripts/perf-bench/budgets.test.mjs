@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applyBudgets, bestOf, ceilingFor, COUNTS, gatedCounts } from "./budgets.mjs";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { applyBudgets, bestOf, ceilingFor, COUNTS, gatedCounts, machineAllowance } from "./budgets.mjs";
 
 const counts = (value) => Object.fromEntries(COUNTS.map((key) => [key, value]));
 const ceilings = (value, scenario = "typing") => Object.fromEntries(gatedCounts(scenario).map((key) => [key, value]));
@@ -133,5 +135,44 @@ describe("perf bench budgets", () => {
     expect(failures).toEqual([]);
     expect(changed).toBe(true);
     expect(next.scenarios.typing).toEqual(ceilings(120));
+  });
+
+  it("lets a machine's allowance stretch only its count, leaving the ceilings CI's", () => {
+    const allowances = { machines: { mini: { webkit: { startup: { hooks: { github: 13612, local: 14361 } } } } } };
+    const allowance = machineAllowance(allowances, "mini", "webkit");
+    expect(allowance.startup.hooks).toBeCloseTo(1.055, 3);
+    expect(machineAllowance(allowances, "mini", "chromium")).toEqual({});
+    expect(machineAllowance(allowances, "elsewhere", "webkit")).toEqual({});
+
+    const budgets = { scenarios: { startup: { updates: 168, renders: 2102, hooks: 13798 } } };
+    const result = (hooks) => [{ name: "startup", result: { ...counts(100), hooks } }];
+    const strict = applyBudgets(budgets, result(14361), "check", "webkit");
+    expect(strict.failures).toEqual([{ scenario: "startup", key: "hooks", value: 14361, ceiling: 13798 }]);
+    const allowed = applyBudgets(budgets, result(14361), "check", "webkit", allowance);
+    expect(allowed.failures).toEqual([]);
+    expect(allowed.budgets.scenarios.startup.hooks).toBe(13798);
+    // A regression still fails, reported against the stretched limit.
+    const over = applyBudgets(budgets, result(15000), "check", "webkit", allowance);
+    expect(over.failures).toEqual([{ scenario: "startup", key: "hooks", value: 15000, ceiling: 13798, limit: 14558 }]);
+    // Other counts get no allowance.
+    const renders = applyBudgets(budgets, [{ name: "startup", result: { ...counts(100), renders: 2103, hooks: 1 } }], "check", "webkit", allowance);
+    expect(renders.failures.map(({ key }) => key)).toEqual(["renders"]);
+  });
+
+  it("records each allowance as a same-commit pair the machine measured higher", () => {
+    const file = JSON.parse(readFileSync(path.join(import.meta.dirname, "machine-allowances.json"), "utf8"));
+    for (const [host, entry] of Object.entries(file.machines)) {
+      expect(entry.machine, host).toEqual(expect.any(String));
+      for (const engine of ["chromium", "webkit"]) {
+        for (const [scenario, counts] of Object.entries(entry[engine] ?? {})) {
+          for (const [key, { github, local, evidence }] of Object.entries(counts)) {
+            expect(gatedCounts(scenario, engine), `${host} ${scenario}`).toContain(key);
+            expect(local, `${host} ${scenario} ${key}`).toBeGreaterThan(github);
+            expect(local / github, `${host} ${scenario} ${key}`).toBeLessThan(1.2);
+            expect(evidence).toMatch(/run \d+/);
+          }
+        }
+      }
+    }
   });
 });

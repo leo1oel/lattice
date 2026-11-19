@@ -170,6 +170,15 @@ The gated counts repeat exactly or move by a commit or two when an async load
 lands before or after a step, well inside the headroom. A regression worth
 catching multiplies a count.
 
+A count can also depend on the machine. The Mac mini counts about 5.5% more
+WebKit `startup` hooks than GitHub's macOS runner on the same build, which put
+it over the ceiling on every branch. `scripts/perf-bench/machine-allowances.json`
+records such a count per machine (keyed on its host name) with what both
+measured on one commit, and `--check --machine-allowance` lets the count reach
+its ceiling times that ratio there. Only `pnpm ci:local` passes the flag, so
+CI holds the ceilings as they are and the ratchet never sees the allowance.
+Add an entry only from such a same-commit pair, never to let a change through.
+
 - `pnpm perf:bench --ratchet` lowers every ceiling the counts now beat, and
   never raises one. Run it after a speedup lands and commit the new
   `budgets.json`. `--check` lists the ceilings that have room to ratchet.

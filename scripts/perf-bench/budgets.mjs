@@ -134,8 +134,12 @@ export const ceilingFor = (value) => Math.ceil(value + Math.max(HEADROOM_MIN, va
  * @param {{ name: string, result: Record<string, number> }[]} results
  * @param {"check" | "ratchet" | "update"} mode
  * @param {"chromium" | "webkit"} engine whose runs these are
+ * @param {Record<string, Record<string, number>>} allowance per scenario and
+ *   count, the factor this machine measures above the CI runner on the same
+ *   build (machineAllowance). A count fails only past its ceiling times that
+ *   factor; the ceilings themselves, and the ratchet, stay CI's.
  */
-export function applyBudgets(budgets, results, mode, engine = "chromium") {
+export function applyBudgets(budgets, results, mode, engine = "chromium", allowance = {}) {
   const next = { ...budgets, scenarios: { ...budgets.scenarios } };
   const failures = [];
   const slack = [];
@@ -149,11 +153,12 @@ export function applyBudgets(budgets, results, mode, engine = "chromium") {
       const value = result[key];
       const ceiling = ceilings[key];
       const proposed = ceilingFor(value);
+      const limit = Math.ceil(ceiling * (allowance[name]?.[key] ?? 1));
       if (ceiling === undefined || mode === "update") {
         if (ceiling !== proposed) changed = true;
         ceilings[key] = proposed;
-      } else if (value > ceiling) {
-        failures.push({ scenario: name, key, value, ceiling });
+      } else if (value > limit) {
+        failures.push({ scenario: name, key, value, ceiling, ...(limit === ceiling ? {} : { limit }) });
       } else if (proposed < ceiling) {
         if (mode === "ratchet") {
           ceilings[key] = proposed;
@@ -166,4 +171,25 @@ export function applyBudgets(budgets, results, mode, engine = "chromium") {
     next.scenarios[name] = ceilings;
   }
   return { budgets: next, failures, slack, changed };
+}
+
+/**
+ * This machine's allowance from scripts/perf-bench/machine-allowances.json, in
+ * applyBudgets' shape. Some counts depend on the machine as well as the code:
+ * the Mac mini counts about 5.5% more WebKit startup hooks than GitHub's macOS
+ * runner on the same build, so pnpm ci:local failed there on every branch.
+ * Each entry records what both measured on one commit, and the factor is their
+ * ratio, so an entry is its own evidence. Only ci:local passes
+ * --machine-allowance; CI holds the ceilings as they are.
+ *
+ * @param {{ machines: Record<string, Record<string, unknown>> }} allowances
+ * @param {string} host os.hostname() without its ".local"
+ * @param {"chromium" | "webkit"} engine
+ */
+export function machineAllowance(allowances, host, engine) {
+  const scenarios = allowances.machines[host]?.[engine] ?? {};
+  return Object.fromEntries(Object.entries(scenarios).map(([scenario, counts]) => [
+    scenario,
+    Object.fromEntries(Object.entries(counts).map(([key, { github, local }]) => [key, local / github])),
+  ]));
 }
