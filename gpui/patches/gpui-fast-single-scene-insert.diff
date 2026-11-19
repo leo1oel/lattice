@@ -1,0 +1,155 @@
+diff --git a/gpui-fast/crates/gpui/src/fast/rounded_clip.rs b/gpui-fast/crates/gpui/src/fast/rounded_clip.rs
+--- a/gpui-fast/crates/gpui/src/fast/rounded_clip.rs
++++ b/gpui-fast/crates/gpui/src/fast/rounded_clip.rs
+@@ -144,6 +144,10 @@ pub(crate) struct SceneClips {
+     pub(crate) scopes: Vec<Scope>,
+     active: Vec<usize>,
+     pub(crate) compiled: bool,
++    /// Primitives are only recorded until the scene finishes: it is
++    /// compiled then, which inserts every one of them into a new scene.
++    /// See [`clear_frame_scene`].
++    pub(crate) deferred: bool,
+ }
+ 
+ impl SceneClips {
+@@ -169,6 +173,19 @@ pub(crate) fn clear(scene: &mut Scene) {
+     scene.fast_rounded_clip.scopes.clear();
+     scene.fast_rounded_clip.active.clear();
+     scene.fast_rounded_clip.compiled = false;
++    scene.fast_rounded_clip.deferred = false;
++}
++
++/// Clears a window frame's scene for the frame after next. A scene holding
++/// rounded clips is compiled into a new scene when it finishes, inserting
++/// every primitive a second time, the first insertion's ordering and
++/// storage thrown away. A frame drawn where the last one held rounded clips
++/// (a window's clips rarely come and go) only records its primitives, which
++/// the compile inserts once; should it hold none, the compile still runs.
++pub(crate) fn clear_frame_scene(scene: &mut Scene) {
++    let deferred = !scene.fast_rounded_clip.scopes.is_empty();
++    scene.clear();
++    scene.fast_rounded_clip.deferred = deferred;
+ }
+ 
+ /// The continuation paints descendants; the element's own border and drop
+@@ -241,7 +258,7 @@ impl Window {
+ 
+ #[cfg(test)]
+ mod tests {
+-    use super::{ClipOperation, SceneClips, Shape, record};
++    use super::{ClipOperation, SceneClips, Shape, clear_frame_scene, record};
+     use crate::{
+         Bounds, Corners, Edges, Overflow, Quad, ScaledPixels, Scene, Style, point, px, size,
+     };
+@@ -339,6 +356,58 @@ mod tests {
+         assert!(Shape::for_style(&style, bounds, px(16.), 1.).is_none());
+     }
+ 
++    #[test]
++    fn a_frame_after_rounded_clips_only_records_until_it_finishes() {
++        let mut scene = Scene::default();
++        record(&mut scene, ClipOperation::Begin(shape()));
++        scene.insert_primitive(quad());
++        record(&mut scene, ClipOperation::End);
++        clear_frame_scene(&mut scene);
++        assert!(scene.fast_rounded_clip.deferred);
++        clear_frame_scene(&mut scene);
++        assert!(!scene.fast_rounded_clip.deferred);
++        scene.fast_rounded_clip.deferred = true;
++        scene.clear();
++        assert!(!scene.fast_rounded_clip.deferred);
++    }
++
++    #[test]
++    fn a_deferred_scene_finishes_as_one_that_inserted_as_it_went() {
++        let quad_at = |x: f32| {
++            let mut quad = quad();
++            quad.bounds.origin.x = ScaledPixels(x);
++            quad.content_mask.bounds = quad.bounds;
++            quad
++        };
++        let draw = |scene: &mut Scene, clips: bool| {
++            scene.insert_primitive(quad_at(0.));
++            scene.push_layer(shape().bounds);
++            scene.insert_primitive(quad_at(8.));
++            scene.pop_layer();
++            if clips {
++                record(scene, ClipOperation::Begin(shape()));
++            }
++            scene.insert_primitive(quad_at(4.));
++            scene.insert_primitive(quad_at(100.));
++            if clips {
++                record(scene, ClipOperation::End);
++            }
++            scene.insert_primitive(quad_at(2.));
++        };
++        for clips in [true, false] {
++            let mut inserted = Scene::default();
++            draw(&mut inserted, clips);
++            inserted.finish();
++            let mut deferred = Scene::default();
++            deferred.fast_rounded_clip.deferred = true;
++            draw(&mut deferred, clips);
++            assert!(deferred.quads.is_empty());
++            assert_eq!(deferred.len(), inserted.len());
++            deferred.finish();
++            assert_eq!(deferred.describe(), inserted.describe(), "clips: {clips}");
++        }
++    }
++
+     #[test]
+     fn replay_reparents_only_scopes_owned_by_the_replayed_view() {
+         let mut source = Scene::default();
+diff --git a/gpui-fast/crates/gpui/src/fast/rounded_clip_scene.rs b/gpui-fast/crates/gpui/src/fast/rounded_clip_scene.rs
+--- a/gpui-fast/crates/gpui/src/fast/rounded_clip_scene.rs
++++ b/gpui-fast/crates/gpui/src/fast/rounded_clip_scene.rs
+@@ -22,7 +22,8 @@ const GEOMETRY_KEY: LayerKey = LayerKey(u32::MAX);
+ /// Materialize private paint scopes as existing, renderer-readable layer
+ /// objects. Preserve the original operation stream for retained paint ranges.
+ pub(crate) fn compile(scene: &mut Scene) {
+-    if scene.fast_rounded_clip.scopes.is_empty() || scene.fast_rounded_clip.compiled {
++    let clips = &scene.fast_rounded_clip;
++    if (clips.scopes.is_empty() && !clips.deferred) || clips.compiled {
+         return;
+     }
+     let operations = mem::take(&mut scene.paint_operations);
+diff --git a/gpui-fast/crates/gpui/src/scene.rs b/gpui-fast/crates/gpui/src/scene.rs
+--- a/gpui-fast/crates/gpui/src/scene.rs
++++ b/gpui-fast/crates/gpui/src/scene.rs
+@@ -80,7 +80,11 @@ impl Scene {
+ 
+     pub fn push_layer(&mut self, bounds: Bounds<ScaledPixels>) {
+         let bounds = crate::fast::scale::transform_layer(self, bounds);
+-        let order = self.primitive_bounds.insert(bounds);
++        let order = if self.fast_rounded_clip.deferred {
++            0
++        } else {
++            self.primitive_bounds.insert(bounds)
++        };
+         self.layer_stack.push(order);
+         self.paint_operations
+             .push(PaintOperation::StartLayer(bounds));
+@@ -106,6 +110,11 @@ impl Scene {
+         if clipped_bounds.is_empty() {
+             return;
+         }
++        if self.fast_rounded_clip.deferred {
++            self.paint_operations
++                .push(PaintOperation::Primitive(primitive));
++            return;
++        }
+ 
+         let order = self
+             .layer_stack
+diff --git a/gpui-fast/crates/gpui/src/window.rs b/gpui-fast/crates/gpui/src/window.rs
+--- a/gpui-fast/crates/gpui/src/window.rs
++++ b/gpui-fast/crates/gpui/src/window.rs
+@@ -1139,7 +1139,7 @@ impl Frame {
+         self.accessed_element_states.clear();
+         self.mouse_listeners.clear();
+         self.dispatch_tree.clear();
+-        self.scene.clear();
++        crate::fast::rounded_clip::clear_frame_scene(&mut self.scene);
+         crate::fast::composition::SurfaceStarts::clear(&mut self.fast_composition_starts);
+         self.input_handlers.clear();
+         self.tooltip_requests.clear();

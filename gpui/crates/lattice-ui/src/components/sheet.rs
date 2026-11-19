@@ -27,13 +27,14 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Instant};
 
 use gpui::{
     AnimationExt as _, AnyElement, App, ElementId, FocusHandle, Hsla, InteractiveElement as _,
-    IntoElement, ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
-    Styled as _, WeakEntity, Window, deferred, div, hsla, prelude::FluentBuilder as _, px,
+    IntoElement, ParentElement, Pixels, Rems, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled as _, WeakEntity, Window, deferred, div, hsla,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::Sheet as SheetHost;
 
 use crate::{
-    ActiveLattice as _, Elevation,
+    ActiveLattice as _, Elevation, Icon,
     components::{PanelHeader, rise_in, sink_out},
     motion::{Exit, Motion},
     tokens::CONTAINER_DIALOG_LARGE,
@@ -77,6 +78,9 @@ pub struct Sheet {
     id: ElementId,
     title: SharedString,
     size: Option<(Pixels, Pixels)>,
+    width: Option<Rems>,
+    icon: Option<Icon>,
+    header_actions: Vec<AnyElement>,
     children: Vec<AnyElement>,
     actions: Vec<AnyElement>,
     on_close: Option<CloseHandler>,
@@ -88,6 +92,9 @@ impl Sheet {
             id: id.into(),
             title: title.into(),
             size: None,
+            width: None,
+            icon: None,
+            header_actions: Vec::new(),
             children: Vec::new(),
             actions: Vec::new(),
             on_close: None,
@@ -97,6 +104,25 @@ impl Sheet {
     /// A size other than Settings' (the gallery draws a smaller one).
     pub fn size(mut self, width: Pixels, height: Pixels) -> Self {
         self.size = Some((width, height));
+        self
+    }
+
+    /// A width other than the large dialog's, still kept 20px inside the
+    /// window (a `.modal.sheet-dialog` given its own width).
+    pub fn width(mut self, width: Rems) -> Self {
+        self.width = Some(width);
+        self
+    }
+
+    /// A mark before the title.
+    pub fn icon(mut self, icon: Icon) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// A control in the header, before the X.
+    pub fn header_action(mut self, action: impl IntoElement) -> Self {
+        self.header_actions.push(action.into_any_element());
         self
     }
 
@@ -124,7 +150,8 @@ impl RenderOnce for Sheet {
         let viewport = window.viewport_size();
         let (width, height) = self.size.unwrap_or_else(|| {
             (
-                CONTAINER_DIALOG_LARGE
+                self.width
+                    .unwrap_or(CONTAINER_DIALOG_LARGE)
                     .to_pixels(window.rem_size())
                     .min(viewport.width - px(40.)),
                 SHEET_HEIGHT.min(viewport.height - px(40.)),
@@ -134,6 +161,8 @@ impl RenderOnce for Sheet {
             ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), name.into())
         };
         let header = PanelHeader::new(child("close"), self.title)
+            .icon(self.icon)
+            .actions(self.header_actions)
             .when_some(self.on_close, |this, on_close| {
                 this.on_close(move |_, window, cx| on_close(window, cx))
             });

@@ -1,0 +1,177 @@
+name: GPUI package
+
+# Builds, signs and notarizes the GPUI app for Apple silicon macOS and keeps
+# the result as this run's artifact: the .dmg, the .zip, and the updater's
+# .app.tar.gz with its .sig and the GPUI channel's latest.json
+# (scripts/gpui-bundle.mjs, gpui/docs/updater.md). It runs only on demand
+# (Actions > GPUI package > Run workflow) and publishes nothing: no release,
+# no tag, no upload to the lattice-beta prerelease. The Tauri release path
+# (release.yml) is untouched; this reads the same secrets the same way.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: gpui-package-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+  # Named `macos`, with gpui.yml's environment, so rust-cache's key is the
+  # one gpui.yml's macos job saves from main: this restores that warm release
+  # build (about two minutes instead of a cold 30) and never writes a cache.
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the GPUI toolchain
+        working-directory: gpui
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: gpui
+          save-if: false
+
+      - name: Set up pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      # The workspace build gpui.yml makes, without the offscreen-shots test
+      # feature: the binary users run.
+      - name: Build the GPUI app
+        working-directory: gpui
+        run: cargo build --release --locked
+
+      - name: Prepare pinned Synara source
+        run: |
+          synara_repository="$(node -p "require('./scripts/synara-runtime.json').repository")"
+          synara_revision="$(node -p "require('./scripts/synara-runtime.json').revision")"
+          synara_source="$RUNNER_TEMP/lattice-synara"
+          git init "$synara_source"
+          git -C "$synara_source" remote add origin "$synara_repository"
+          git -C "$synara_source" fetch --depth=1 origin "$synara_revision"
+          git -C "$synara_source" checkout --detach FETCH_HEAD
+          test "$(git -C "$synara_source" rev-parse HEAD)" = "$synara_revision"
+          echo "SYNARA_SOURCE_DIR=$synara_source" >> "$GITHUB_ENV"
+
+      # The unsigned runtime release-cache.yml saves from main, as release.yml
+      # restores it; gpui-bundle.mjs signs it inside the bundle.
+      - name: Restore prepared Synara runtime
+        id: synara-runtime-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: src-tauri/synara-runtime
+          key: synara-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/synara-runtime.json', 'scripts/synara-runtime-inputs.mjs', 'scripts/prepare-synara-sidecar.mjs', 'scripts/synara-codex-host.mjs', 'scripts/lib/*.mjs') }}
+
+      - name: Install pinned Synara dependencies after a cache miss
+        if: steps.synara-runtime-cache.outputs.cache-hit != 'true'
+        run: bun install --cwd "$SYNARA_SOURCE_DIR" --frozen-lockfile
+
+      # As release.yml imports it.
+      - name: Import Apple Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          certificate_path="$RUNNER_TEMP/apple-developer-certificate.p12"
+          keychain_path="$RUNNER_TEMP/lattice-signing.keychain-db"
+
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          signing_identity="$(
+            security find-identity -v -p codesigning "$keychain_path" |
+              awk -F '"' '/Developer ID Application/ { print $2; exit }'
+          )"
+          test -n "$signing_identity"
+          echo "APPLE_SIGNING_IDENTITY=$signing_identity" >> "$GITHUB_ENV"
+
+      - name: Prepare App Store Connect API key
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$api_key_path"
+          echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
+
+      - name: Bundle, sign and notarize
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          node scripts/gpui-bundle.mjs \
+            --binary gpui/target/release/lattice-gpui \
+            --out "$RUNNER_TEMP/gpui-bundle"
+          rm -rf "$RUNNER_TEMP/gpui-bundle/Lattice Beta.app"
+
+      - name: Check the installed app size
+        run: |
+          dmg="$(find "$RUNNER_TEMP/gpui-bundle" -maxdepth 1 -name '*.dmg' -print -quit)"
+          mount_path="$(mktemp -d "$RUNNER_TEMP/gpui-size.XXXXXX")"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_path"
+          trap 'hdiutil detach "$mount_path"' EXIT
+          du -sh "$mount_path/Lattice Beta.app"/Contents/* "$mount_path/Lattice Beta.app"/Contents/Resources/* | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # release.yml's checks of the signed and notarized disk image.
+      - name: Verify signed and notarized artifacts
+        run: |
+          dmg="$(find "$RUNNER_TEMP/gpui-bundle" -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$dmg"
+          codesign --verify --strict --verbose=2 "$dmg"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg"
+          xcrun stapler validate "$dmg"
+
+          mount_path="$(mktemp -d "$RUNNER_TEMP/gpui-dmg.XXXXXX")"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_path"
+          trap 'hdiutil detach "$mount_path"' EXIT
+          app_path="$mount_path/Lattice Beta.app"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          spctl --assess --type execute --verbose=4 "$app_path"
+          xcrun stapler validate "$app_path"
+
+          test -s "$RUNNER_TEMP/gpui-bundle/latest.json"
+          for archive in "$RUNNER_TEMP"/gpui-bundle/*.app.tar.gz; do
+            test -s "$archive.sig"
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lattice-gpui-macos-aarch64
+          path: |
+            ${{ runner.temp }}/gpui-bundle/*.dmg
+            ${{ runner.temp }}/gpui-bundle/*.zip
+            ${{ runner.temp }}/gpui-bundle/*.app.tar.gz
+            ${{ runner.temp }}/gpui-bundle/*.app.tar.gz.sig
+            ${{ runner.temp }}/gpui-bundle/latest.json
+          if-no-files-found: error
+          retention-days: 14

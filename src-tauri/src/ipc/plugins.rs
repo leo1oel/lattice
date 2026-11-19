@@ -102,6 +102,41 @@ pub async fn plugins_install_url<R: Runtime>(
     Ok(info)
 }
 
+/// The registry's plugin list for Settings › Plugins › Browse, refreshed from
+/// the registry first when `refresh`.
+#[tauri::command]
+pub async fn plugins_registry<R: Runtime>(
+    app: AppHandle<R>, plugins: State<'_, Plugins>, webview: Webview<R>, request: Request<'_>,
+    refresh: bool,
+) -> Result<lattice_core::registry::PluginListing, String> {
+    checked(&webview, &request)?;
+    let host = plugins.host.clone();
+    let listing = run_blocking("Plugin list", move || {
+        host.registry_listing(refresh)
+            .ok_or_else(|| "The plugin list is not available.".to_string())
+    })
+    .await?;
+    // A fetched list can bring a new block list, which turns installed
+    // plugins off: every window's Settings and palette read them again.
+    if refresh {
+        changed(&app);
+    }
+    Ok(listing)
+}
+
+/// Install (or update to) a plugin from the registry's verified list.
+#[tauri::command]
+pub async fn plugins_install_registry<R: Runtime>(
+    app: AppHandle<R>, plugins: State<'_, Plugins>, webview: Webview<R>, request: Request<'_>,
+    id: String,
+) -> Result<PluginInfo, String> {
+    checked(&webview, &request)?;
+    let host = plugins.host.clone();
+    let info = run_blocking("Plugin install", move || host.install_registry(&id)).await?;
+    changed(&app);
+    Ok(info)
+}
+
 /// Turning a plugin on grants what its manifest asks for now; the page shows
 /// those permissions and asks first.
 #[tauri::command]

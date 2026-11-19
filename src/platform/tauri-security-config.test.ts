@@ -166,14 +166,14 @@ describe("Tauri security boundary", () => {
     ]);
   });
 
-  it("keeps Lattice Beta's identity in its own config, out of release builds", () => {
+  it("keeps Lattice Tauri Beta's identity in its own config, out of release builds", () => {
     // Merged over tauri.conf.json by `pnpm build:beta`; the identifier is what
     // separates Beta's data, caches, managed tools and keychain item.
     const beta = readJson<Record<string, unknown>>("src-tauri/tauri.beta.conf.json");
     expect(beta).toEqual({
       $schema: "https://schema.tauri.app/config/2",
-      productName: "Lattice Beta",
-      mainBinaryName: "Lattice Beta",
+      productName: "Lattice Tauri Beta",
+      mainBinaryName: "Lattice Tauri Beta",
       identifier: `${config.identifier}.beta`,
       plugins: { updater: { endpoints: [] } },
       bundle: { createUpdaterArtifacts: false },

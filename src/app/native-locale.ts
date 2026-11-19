@@ -52,6 +52,9 @@ export type NativeMenuLabels = {
   closeTab: string;
   closeWindow: string;
   help: string;
+  /** Help ▸ User Guide, which opens the guide on the website in the interface language (docs/guide/). */
+  userGuide: string;
+  userGuideUrl: string;
   whatsNew: string;
   /** Help ▸ Report a Problem…, the command table's `report-problem`. */
   reportProblem: string;
@@ -134,6 +137,8 @@ export function nativeMenuLabels(): NativeMenuLabels {
     closeTab: i18n._(msg({ context: "macOS menu bar", message: "Close Tab" })),
     closeWindow: i18n._(msg({ context: "macOS menu bar", message: "Close Window" })),
     help: i18n._(msg({ context: "macOS menu bar", message: "Help" })),
+    userGuide: i18n._(msg({ context: "macOS menu bar", message: "User Guide" })),
+    userGuideUrl: userGuideUrl(i18n.locale),
     whatsNew: i18n._(msg({ context: "macOS menu bar", message: `What’s New in ${name}` })),
     reportProblem: i18n._(msg({ context: "macOS menu bar", message: "Report a Problem…" })),
     website: i18n._(msg({ context: "macOS menu bar", message: `${name} Website` })),
@@ -148,6 +153,11 @@ export function nativeMenuLabels(): NativeMenuLabels {
       },
     } : {},
   };
+}
+
+/** The user guide's pages on the website (scripts/user-guide.mjs): the Chinese under zh-CN/, the English for every other language. */
+function userGuideUrl(locale: string): string {
+  return locale === "zh-CN" ? "https://leo1oel.github.io/lattice/guide/zh-CN/" : "https://leo1oel.github.io/lattice/guide/";
 }
 
 /**

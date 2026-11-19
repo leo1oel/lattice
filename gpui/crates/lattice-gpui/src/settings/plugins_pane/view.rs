@@ -181,7 +181,9 @@ impl PluginsPane {
             )
         };
         let source = match &plugin.source {
-            Source::Url { url, .. } => t!("From {source}", source = url),
+            Source::Url { url, .. } | Source::Registry { url, .. } => {
+                t!("From {source}", source = url)
+            }
             Source::Folder { path } => t!("Folder {source}", source = path.display()),
         };
         let heading = div()

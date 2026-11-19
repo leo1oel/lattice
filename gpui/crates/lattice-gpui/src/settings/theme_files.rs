@@ -7,8 +7,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use gpui::{
-    ClickEvent, Context, ElementId, IntoElement as _, ParentElement as _, SharedString,
-    Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    AppContext as _, ClickEvent, Context, ElementId, IntoElement as _, ParentElement as _,
+    SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_core::themes::{ThemeInfo, ThemeSource, format::ThemeFile};
 use lattice_i18n::t;
@@ -34,8 +34,8 @@ pub struct ThemeEntry {
 /// opens and again after an install or a removal.
 pub fn load() -> Vec<ThemeEntry> {
     let store = super::theme_store();
-    store
-        .list()
+    super::registry()
+        .list_themes(&store)
         .into_iter()
         .filter_map(|info| {
             let file = Arc::new(store.get(&info.id)?);
@@ -117,7 +117,12 @@ pub fn rows(
         .control(tiles)
         .wrap(Wrap::Line)
         .roomy();
-    if let Some(description) = chosen
+    let blocked = chosen
+        .as_ref()
+        .and_then(|entry| Some((entry.info.name.clone(), entry.info.blocked.clone()?)));
+    if let Some((name, entry)) = blocked {
+        palette = palette.description_element(super::theme_browse::block_notice(&name, &entry, cx));
+    } else if let Some(description) = chosen
         .as_ref()
         .map(|entry| entry.info.description.clone())
         .filter(|text| !text.is_empty())
@@ -127,6 +132,17 @@ pub fn rows(
 
     let this = cx.entity();
     let mut buttons = Vec::new();
+    {
+        let this = this.clone();
+        buttons.push(
+            Button::new("theme-browse", t!("Browse themes…"))
+                .compact()
+                .on_click(move |_, window, cx| {
+                    this.update(cx, |dialog, cx| dialog.open_theme_browse(window, cx))
+                })
+                .into_any_element(),
+        );
+    }
     if let Some(entry) = chosen.filter(|entry| entry.info.source == ThemeSource::Installed) {
         let this = this.clone();
         buttons.push(
@@ -212,6 +228,32 @@ fn ask_remove(this: gpui::Entity<SettingsDialog>, theme: ThemeInfo, cx: &mut gpu
 }
 
 impl SettingsDialog {
+    /// Open Browse themes over Settings.
+    pub fn open_theme_browse(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let dialog = cx.entity().downgrade();
+        self.pages.theme_browse =
+            Some(cx.new(|cx| super::theme_browse::ThemeBrowse::new(dialog, window, cx)));
+        cx.notify();
+    }
+
+    pub fn close_theme_browse(&mut self, cx: &mut Context<Self>) {
+        self.pages.theme_browse = None;
+        cx.notify();
+    }
+
+    /// The installed themes or the block list changed: list them again,
+    /// apply the choice again (the kill switch may have turned it off or
+    /// on), and choose `choose` when an install asks for it.
+    pub fn themes_changed(&mut self, choose: Option<String>, cx: &mut Context<Self>) {
+        self.fields.theme_error = None;
+        self.fields.themes = load();
+        super::reload_theme(cx);
+        if let Some(id) = choose {
+            self::choose(id, cx);
+        }
+        cx.notify();
+    }
+
     fn theme_failed(&mut self, error: String, cx: &mut Context<Self>) {
         self.fields.theme_error = Some(SharedString::from(crate::host_errors::text(&error)));
         cx.notify();

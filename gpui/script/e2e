@@ -71,6 +71,15 @@ cp -R "$root/fixtures/e2e" "$project"
 LATTICE_GPUI_E2E_LOCK_LABEL="${LATTICE_GPUI_E2E_LOCK_LABEL:-$(cd "$root/.." && pwd)}" \
 GPUI_LAB_IGNORE_OCCLUSION=1 GPUI_LAB_ASSUME_KEY=1 PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/home" "$app" "$project" --scenario e2e --out "$out" ${only[@]+"${only[@]}"}
 cat "$out"
+# LATTICE_E2E_VERDICT=1 (pnpm ci:local) judges the run as CI does: only a step
+# main passes fails it (../scripts/gpui-e2e-verdict.mjs), plus the save check.
+if [ "${LATTICE_E2E_VERDICT:-}" = 1 ]; then
+  if node "$root/../scripts/gpui-e2e-verdict.mjs" --platform macos --check-quit ${LATTICE_E2E_BASELINE:+--baseline "$LATTICE_E2E_BASELINE"} "$out"; then
+    echo "e2e: passed (known failures aside)"
+    exit 0
+  fi
+  exit 1
+fi
 jq -e '.passed == true' "$out" >/dev/null || { echo "e2e: the scenario failed" >&2; exit 1; }
 file="$(jq -r '.after_quit.file' "$out")"
 grep -qF "$(jq -r '.after_quit.text' "$out")" "$file" || { echo "e2e: quitting did not save $file" >&2; exit 1; }

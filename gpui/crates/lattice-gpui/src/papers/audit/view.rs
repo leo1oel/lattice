@@ -14,8 +14,11 @@ use gpui::{
 };
 use lattice_i18n::{comma, join_list, t};
 use lattice_ui::{
-    ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _, components::Button,
-    icons::ICON, interaction::mix, tokens::FONT_WEIGHT_MEDIUM,
+    ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _,
+    components::{Button, TrapFocus as _},
+    icons::ICON,
+    interaction::mix,
+    tokens::FONT_WEIGHT_MEDIUM,
 };
 
 use super::{Audit, Bucket, queue::Listing};
@@ -474,7 +477,7 @@ impl Render for Audit {
         div()
             .absolute()
             .inset_0()
-            .track_focus(&self.focus)
+            .trap_focus("check-references-keys", &self.focus)
             .key_context(super::KEY_CONTEXT)
             .on_action(cx.listener(Self::next_reference))
             .on_action(cx.listener(Self::previous_reference))

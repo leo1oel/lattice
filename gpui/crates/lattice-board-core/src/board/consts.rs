@@ -123,8 +123,10 @@ pub const ROUGHNESS_CARTOONIST: f64 = 2.;
 
 /// `STROKE_WIDTH` thin / medium / bold / extraBold.
 pub const STROKE_WIDTH: [f64; 4] = [1., 2., 4., 8.];
-/// `FREEDRAW_STROKE_WIDTH`.
-pub const FREEDRAW_STROKE_WIDTH: [f64; 4] = [0.5, 1., 2., 4.];
+/// `FREEDRAW_STROKE_WIDTH`, at the shapes' widths as Excalidraw 0.18 (the
+/// Tauri board's) draws the pen: upstream @ 3a317b5 halves them, which puts
+/// a new stroke at width 1, a hairline that breaks up when zoomed out.
+pub const FREEDRAW_STROKE_WIDTH: [f64; 4] = STROKE_WIDTH;
 
 /// `DEFAULT_ELEMENT_PROPS`.
 pub const DEFAULT_STROKE_COLOR: &str = COLOR_CHARCOAL_BLACK;

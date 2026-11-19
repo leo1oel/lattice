@@ -23,7 +23,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::project::{ReplacePreview, ReplaceResult};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, CheckState, Checkbox, Field},
+    components::{Button, CheckState, Checkbox, Field, TrapFocus as _},
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -506,7 +506,7 @@ impl Render for ProjectReplace {
             .top_0()
             .left_0()
             .size_full()
-            .track_focus(&self.focus)
+            .trap_focus("project-replace-keys", &self.focus)
             .child(frame)
     }
 }

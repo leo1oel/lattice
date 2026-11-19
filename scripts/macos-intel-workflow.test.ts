@@ -89,10 +89,10 @@ describe("the macOS Intel workflow", () => {
     expect(intel.jobs.attach.needs).toEqual(["build", "smoke"]);
   });
 
-  it("never runs tauri-action or builds Lattice Beta", () => {
+  it("never runs tauri-action or builds Lattice Tauri Beta", () => {
     const actions = Object.values(intel.jobs).flatMap((job) => job.steps ?? []).map((step) => step.uses ?? "");
     expect(actions.filter((uses) => uses.startsWith("tauri-apps/tauri-action"))).toEqual([]);
-    // Lattice Beta is LATTICE_FLAVOR=beta (build.rs) over tauri.beta.conf.json.
+    // Lattice Tauri Beta is LATTICE_FLAVOR=beta (build.rs) over tauri.beta.conf.json.
     const envs = [intel.env, ...Object.values(intel.jobs).flatMap((job) => [job.env, ...(job.steps ?? []).map((step) => step.env)])];
     expect(envs.flatMap((env) => Object.keys(env ?? {}))).not.toContain("LATTICE_FLAVOR");
   });

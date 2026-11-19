@@ -654,9 +654,10 @@ impl Shell {
     /// The window's title, in the interface language: the project's folder.
     pub(crate) fn set_window_title(&self, window: &mut Window, cx: &App) {
         if let Some(root) = self.root(cx) {
-            window.set_window_title(&t!(
-                "{0} — Lattice (GPUI preview)",
-                root.file_name().unwrap_or_default().to_string_lossy()
+            window.set_window_title(&format!(
+                "{} — {}",
+                root.file_name().unwrap_or_default().to_string_lossy(),
+                crate::APP_NAME
             ));
         }
     }

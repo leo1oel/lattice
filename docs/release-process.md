@@ -92,6 +92,16 @@ empty; fill in every `zh` before the release commit
 purpose; such a release keeps showing the last What's new that had one, and its
 tag still needs the lead file before `release.yml` will publish it.
 
+The release notes say what changed; the [user guide](guide/README.md) says how
+to use it, so it is updated with them. Before the release commit, update the
+guide for every user-visible change in the release: a new feature or workflow,
+a renamed menu, button or setting, a changed shortcut or default. Change the
+English page and its Chinese page under `docs/guide/zh-CN/` together, and
+retake a screenshot when the window it shows has changed (the guide's README
+says how). `scripts/user-guide.test.ts` fails when a page has no translation
+or a link or image is missing, and `user-guide.yml` (below) publishes the
+guide from the release's commit.
+
 ## What `release.yml` does
 
 One job on `macos-latest` (Apple silicon), with `contents: write` so it can
@@ -286,6 +296,12 @@ Once the Release workflow succeeds, `web-demo.yml` builds the website's interact
 It writes nothing outside `demo/`: the rest of `gh-pages` is the website.
 The build is checked before anything is published (no Timeless font, by name or by bytes; no bench code; the startup download within its budget; the app opens in headless Chrome), and a failed check leaves the previous demo up.
 
+### `user-guide.yml`
+
+Once the Release workflow succeeds, `user-guide.yml` renders the user guide (`docs/guide/`, `node scripts/user-guide.mjs --out DIR`) from the release's commit and publishes it to the `gh-pages` branch under `guide/`, so <https://leo1oel.github.io/lattice/guide/>, which Help ▸ User Guide opens in both apps, describes the version people download.
+It writes nothing outside `guide/`, and shares `web-demo.yml`'s publish group so the two never push to `gh-pages` at once.
+Run it by hand (`gh workflow run user-guide.yml --ref main`) to publish a guide fix without waiting for a release.
+
 ### `release-cache.yml`
 
 A separate workflow on `main` warms two caches in parallel.
@@ -337,9 +353,9 @@ What a fork can do instead:
 - Set your own `LATTICE_FIRECRAWL_KEY`, or ship without one — webpage import
   then asks the user for a key.
 
-## Build Lattice Beta
+## Build Lattice Tauri Beta
 
-Lattice Beta is the same source built as a second app that installs and runs
+Lattice Tauri Beta is the same source built as a second app that installs and runs
 beside the release one. It is never published; `release.yml` builds only the
 release flavor, which `tauri-security-config.test.ts` checks.
 
@@ -352,7 +368,7 @@ and it needs both halves:
 
 - `src-tauri/tauri.beta.conf.json`, merged over `tauri.conf.json`, gives the
   identity: identifier `app.leo1oel.researchwriter.beta`, product and binary
-  name `Lattice Beta`, and no updater endpoint or artifacts. App data, caches,
+  name `Lattice Tauri Beta`, and no updater endpoint or artifacts. App data, caches,
   logs, WebKit data, managed tools and the literature keychain item all derive
   from the identifier (`src-tauri/lattice-core/src/app_identity.rs`), so Beta never touches
   the release app's.
@@ -364,7 +380,7 @@ and it needs both halves:
 A build with one half and not the other exits at launch, since it would share
 the release app's data or contend for its port. Any other `LATTICE_FLAVOR`
 value fails the build. The app lands in
-`src-tauri/target/release/bundle/macos/Lattice Beta.app`, ad-hoc signed like a
+`src-tauri/target/release/bundle/macos/Lattice Tauri Beta.app`, ad-hoc signed like a
 fork's build (above).
 
 ## Rotating the updater signing key

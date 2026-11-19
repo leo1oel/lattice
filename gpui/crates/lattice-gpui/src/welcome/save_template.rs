@@ -25,7 +25,7 @@ use lattice_core::project::templates::{self, LocalTemplate};
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
-    components::{Button, CheckState, Checkbox, Field, Select, rise_in},
+    components::{Button, CheckState, Checkbox, Field, Select, TrapFocus as _, rise_in},
     tokens::{CONTAINER_DIALOG_CONFIRM_WIDE, FONT_WEIGHT_MEDIUM},
 };
 
@@ -558,7 +558,7 @@ impl Render for SaveTemplateDialog {
             .items_center()
             .bg(palette.scrim)
             .occlude()
-            .track_focus(&self.focus)
+            .trap_focus("save-template-trap", &self.focus)
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                 if event.keystroke.key == "escape" {

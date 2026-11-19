@@ -119,6 +119,9 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         },
         // Stored as "true" or "false" (`save-full-text-setting.ts`).
         save_full_text: item("lattice.papers.save-full-text.v1") == Some("true"),
+        // The Tauri app's updates are its own channel's; the GPUI channel
+        // starts off whatever the Tauri app does.
+        app_updates: false,
         // Stored as "true" or "false" (`diff-wrap-setting.ts`).
         history_diff_wrap: item("lattice.history.diff-wrap.v1") == Some("true"),
     }
@@ -172,6 +175,11 @@ fn utf16(bytes: &[u8]) -> String {
 
 /// The values the import reads from one database, read from a copy.
 pub fn read_items(database: &Path) -> anyhow::Result<BTreeMap<String, String>> {
+    read_keys(database, KEYS)
+}
+
+/// The values of `keys` in one database, read from a copy.
+pub fn read_keys(database: &Path, keys: &[&str]) -> anyhow::Result<BTreeMap<String, String>> {
     let scratch = std::env::temp_dir().join(format!(
         "lattice-gpui-import-{}-{}",
         std::process::id(),
@@ -211,7 +219,7 @@ pub fn read_items(database: &Path) -> anyhow::Result<BTreeMap<String, String>> {
         let mut items = BTreeMap::new();
         for row in rows {
             let (key, value) = row?;
-            if KEYS.contains(&key.as_str()) {
+            if keys.contains(&key.as_str()) {
                 items.insert(key, value);
             }
         }
@@ -225,6 +233,21 @@ pub fn read_items(database: &Path) -> anyhow::Result<BTreeMap<String, String>> {
 /// databases (the release origin, and a development one beside it), the one
 /// with the most of these keys, the most recently written on a tie.
 pub fn import_from(website_data: &Path) -> Option<Imported> {
+    read_storage(website_data, KEYS).map(|(source, items)| Imported {
+        settings: settings_from_items(&items),
+        keys: items.keys().cloned().collect(),
+        source,
+    })
+}
+
+/// The values of `keys` in the Tauri app's storage under `website_data`,
+/// and the database they came from: of its databases, the one with the most
+/// of these keys, the most recently written on a tie. A database that does
+/// not read is passed over.
+pub fn read_storage(
+    website_data: &Path,
+    keys: &[&str],
+) -> Option<(PathBuf, BTreeMap<String, String>)> {
     let modified = |path: &Path| {
         std::fs::metadata(path)
             .and_then(|meta| meta.modified())
@@ -232,7 +255,7 @@ pub fn import_from(website_data: &Path) -> Option<Imported> {
     };
     databases(website_data)
         .into_iter()
-        .filter_map(|database| match read_items(&database) {
+        .filter_map(|database| match read_keys(&database, keys) {
             Ok(items) if !items.is_empty() => Some((database, items)),
             Ok(_) => None,
             Err(error) => {
@@ -241,11 +264,6 @@ pub fn import_from(website_data: &Path) -> Option<Imported> {
             }
         })
         .max_by_key(|(database, items)| (items.len(), modified(database)))
-        .map(|(source, items)| Imported {
-            settings: settings_from_items(&items),
-            keys: items.keys().cloned().collect(),
-            source,
-        })
 }
 
 #[cfg(test)]

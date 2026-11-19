@@ -1542,7 +1542,7 @@ mod board {
                 r.version,
                 r.index.as_deref()
             ),
-            (1., 100., 100., 2, Some("a0"))
+            (2., 100., 100., 2, Some("a0"))
         );
         // only valid points, pressures kept aligned (JSON turns Infinity / NaN into null)
         let f = create(ElementType::FreeDraw, |s| {
