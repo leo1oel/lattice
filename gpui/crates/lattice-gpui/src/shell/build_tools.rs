@@ -93,6 +93,7 @@ impl Shell {
         if self.cleaning {
             return;
         }
+        self.show_project_pdf(window, cx);
         self.run_build(BuildRequest::clean_rebuild(), window, cx);
     }
 
