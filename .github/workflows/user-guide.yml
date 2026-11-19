@@ -39,6 +39,9 @@ jobs:
 
   publish:
     needs: build
+    # A rehearsal tag (v0.19.0-rc.1, whose release release.yml keeps a draft)
+    # publishes nothing to the website.
+    if: ${{ !contains(github.event.workflow_run.head_branch, '-') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
