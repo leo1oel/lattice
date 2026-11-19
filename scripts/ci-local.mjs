@@ -31,7 +31,10 @@
  *
  * Every Rust and GPUI stage waits while a perf measurement holds
  * /tmp/lattice-inapp-test.lock, and compiles in the machine's shared build
- * tree under its build lock (scripts/gpui-build.mjs).
+ * tree under its build lock (scripts/gpui-build.mjs). The stages that open
+ * windows (gpui-main, gpui-e2e, webkit-bench) hold that lock for their whole
+ * run through scripts/inapp-lock, so no hand test or other run drives the
+ * screen under them.
  *
  * When every stage passes and the change needed the macOS Rust or GPUI jobs,
  * it prints a `CI-local: macos <tree>` trailer for the commit. Pushed on a
@@ -63,6 +66,23 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
 const PERF_LOCK = "/tmp/lattice-inapp-test.lock";
 const WINDOWED = new Set(["gpui-main", "gpui-e2e", "webkit-bench"]);
+// How long a windowed stage waits for the in-app lock before it gives up.
+const INAPP_WAIT_S = 3600;
+
+/**
+ * Runs a windowed stage under the in-app lock. Waiting for the lock to be free
+ * was not enough: a hand test took it while an e2e was running and sent its
+ * keys into that run's window (LATA-37 into LATA-16's, 2026-11-19).
+ */
+export function holdingInappLock(stage) {
+  const branch = git("rev-parse", "--abbrev-ref", "HEAD");
+  return {
+    ...stage,
+    command: path.join(repo, "scripts", "inapp-lock"),
+    args: ["--thread", `ci:local ${branch} ${stage.name}`, "--wait", String(INAPP_WAIT_S), "--", stage.command, ...(stage.args ?? [])],
+    timeout: stage.timeout + INAPP_WAIT_S * 1000,
+  };
+}
 
 const LOCAL = {
   vitest: "gate (vitest related + invariants)",
@@ -182,9 +202,10 @@ async function main() {
   // installs from the lockfile first; so does this, which is quick when
   // nothing changed.
   const install = { name: "install", why: "pnpm install --frozen-lockfile, as CI's setup does", command: "pnpm", args: ["install", "--frozen-lockfile", "--prefer-offline"], timeout: 600_000 };
-  const stages = [install, ...localStages(tier, files, mergeBase)].map((stage) =>
-    options.headless && WINDOWED.has(stage.name) && !stage.skip ? { name: stage.name, skip: "opens windows; --headless" } : stage,
-  );
+  const stages = [install, ...localStages(tier, files, mergeBase)].map((stage) => {
+    if (!WINDOWED.has(stage.name) || stage.skip) return stage;
+    return options.headless ? { name: stage.name, skip: "opens windows; --headless" } : holdingInappLock(stage);
+  });
   if (options.plan) {
     for (const stage of stages) console.log(`  ${stage.name.padEnd(12)} ${stage.skip ? `skip (${stage.skip})` : stage.why}`);
     return;
