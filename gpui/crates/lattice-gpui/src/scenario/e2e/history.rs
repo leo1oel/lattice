@@ -239,6 +239,36 @@ impl Run {
             self.close_tab(cx, editor)?;
         }
         std::fs::remove_file(&conflicted).ok();
+
+        // Opened in the editor, a marked file carries Keep mine / Keep
+        // theirs / Keep both on each spot (an Overleaf sync opens its
+        // conflicts this way); Keep mine leaves that side alone.
+        let inline = root.join("conflict-inline.tex");
+        std::fs::write(
+            &inline,
+            "Intro.\n<<<<<<< This Mac\nOur sentence.\n||||||| Last sync\nOld sentence.\n=======\nTheir sentence.\n>>>>>>> Overleaf\nOutro.\n",
+        )?;
+        let editor = self.open(cx, &inline, Some(2))?;
+        let shown = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                editor.read(cx).conflict_choices_shown()
+            })
+            .await;
+        cx.update(|cx| editor.update(cx, |editor, cx| editor.keep_mine_for_scenario(cx)));
+        let kept = self
+            .wait_for(cx, Duration::from_secs(10), |_, _| {
+                std::fs::read_to_string(&inline)
+                    .is_ok_and(|text| text == "Intro.\nOur sentence.\nOutro.\n")
+            })
+            .await;
+        let cleared = cx.update(|cx| !editor.read(cx).conflict_choices_shown());
+        steps.check(
+            "a marked file opens with the choices on its spot, and Keep mine saves that side, never the last synced text",
+            shown && kept && cleared,
+            json!({ "shown": shown, "kept": kept, "cleared": cleared, "text": std::fs::read_to_string(&inline).ok() }),
+        );
+        self.close_tab(cx, editor)?;
+        std::fs::remove_file(&inline).ok();
         std::fs::write(&chapter, &original)?;
         if let Some(front) = front {
             self.open(cx, &front, None)?;

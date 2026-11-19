@@ -70,7 +70,7 @@ fn marker(line: &str) -> Option<Section> {
 impl EditorPanel {
     /// Put the choices and tints on the buffer's spots, or take them down
     /// when none is left. Read-only editors get neither.
-    pub(super) fn paint_conflicts(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn paint_conflicts(&mut self, cx: &mut Context<Self>) {
         let text = self.buffer.read(cx).text();
         let editable = !self.editor.read(cx).read_only(cx);
         let hunks = if editable && text.contains(START) {
@@ -174,6 +174,11 @@ impl EditorPanel {
     /// Whether any spot shows its choices, for a scenario.
     pub fn conflict_choices_shown(&self) -> bool {
         self.conflicts.painted
+    }
+
+    /// Whether the buffer holds a conflict start, for a scenario.
+    pub fn buffer_has_markers_for_scenario(&self, cx: &App) -> bool {
+        self.buffer.read(cx).text().contains(START)
     }
 
     /// Keep mine on the first spot, as its button does, for a scenario.
