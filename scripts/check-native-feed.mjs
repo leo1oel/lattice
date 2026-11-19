@@ -25,7 +25,11 @@ export function nativeFiles(version) {
  */
 export function checkNativeManifest(manifest, { tag, version, signature }) {
   const name = FLAVORS.main.manifest;
-  if (tag !== `v${version}` || manifest.version !== version) throw new Error(`${name} is for ${manifest.version}, not ${tag}`);
+  // A rehearsal tag (v1.2.3-rc.1) checks its version's files; the manifest
+  // names the archive under the version's own tag either way.
+  if ((tag !== `v${version}` && !tag.startsWith(`v${version}-`)) || manifest.version !== version) {
+    throw new Error(`${name} is for ${manifest.version}, not ${tag}`);
+  }
   const { archive } = nativeFiles(version);
   const trimmed = signature.trim();
   if (!trimmed) throw new Error("Empty updater signature");
@@ -33,8 +37,8 @@ export function checkNativeManifest(manifest, { tag, version, signature }) {
     const entry = manifest.platforms?.[platform];
     if (!entry) throw new Error(`${name} lists no ${platform}`);
     const url = new URL(entry.url);
-    if (url.origin !== "https://github.com" || !url.pathname.endsWith(`/releases/download/${tag}/${archive}`)) {
-      throw new Error(`${name}'s ${platform} is not ${tag}'s ${archive}`);
+    if (url.origin !== "https://github.com" || !url.pathname.endsWith(`/releases/download/v${version}/${archive}`)) {
+      throw new Error(`${name}'s ${platform} is not v${version}'s ${archive}`);
     }
     if (entry.signature?.trim() !== trimmed) throw new Error(`${name}'s ${platform} carries another signature`);
   }

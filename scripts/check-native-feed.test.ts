@@ -31,9 +31,14 @@ describe("the native feed", () => {
     );
   });
 
+  it("accepts a rehearsal tag for the version's own files", () => {
+    expect(() => checkNativeManifest(manifest, { ...check, tag: "v1.2.3-rc.1" })).not.toThrow();
+  });
+
   it("refuses another version or tag, a missing key, another archive and another signature", () => {
     expect(() => checkNativeManifest({ ...manifest, version: "1.2.4" }, check)).toThrow(/not v1.2.3/);
-    expect(() => checkNativeManifest(manifest, { ...check, tag: "v1.2.3-rc.1" })).toThrow(/not v1.2.3-rc.1/);
+    expect(() => checkNativeManifest(manifest, { ...check, tag: "v1.2.4" })).toThrow(/not v1.2.4/);
+    expect(() => checkNativeManifest(manifest, { ...check, tag: "v1.2.30" })).toThrow(/not v1.2.30/);
     const only = { ...manifest, platforms: { "darwin-aarch64": manifest.platforms["darwin-aarch64"] } };
     expect(() => checkNativeManifest(only, check)).toThrow(/lists no darwin-aarch64-app/);
     const tauri = updaterManifest({ version: "1.2.3", signature: "native", url: `${FLAVORS.main.feed("1.2.3")}/Lattice_1.2.3_aarch64.app.tar.gz` });
