@@ -426,6 +426,201 @@ fn recent_projects_stop_at_eight() {
     let _ = std::fs::remove_dir_all(&profile.root);
 }
 
+/// Write `value` under `key` in the Tauri app's localStorage, as the Tauri
+/// app does while it runs (after a switch back to it).
+fn store(website_data: &Path, key: &str, value: &str) {
+    let path = website_data.join("Default/salt/salt/LocalStorage/localstorage.sqlite3");
+    // A write in the same millisecond as the last one would leave its time
+    // unchanged.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    let blob: Vec<u8> = value.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    connection
+        .execute(
+            "INSERT INTO ItemTable VALUES (?1, ?2)",
+            rusqlite::params![key, blob],
+        )
+        .unwrap();
+    std::mem::forget(connection);
+}
+
+fn project(name: &str, opened_at: Option<u64>) -> Value {
+    let mut entry = json!({ "name": name, "path": format!("/p/{name}") });
+    if let Some(opened_at) = opened_at {
+        entry["openedAt"] = opened_at.into();
+    }
+    entry
+}
+
+fn union(own: &[Value], tauri: &[Value]) -> (usize, Vec<Value>) {
+    static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let run = RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = scratch(&format!("union-{run}"));
+    let target = dir.join("recent-projects.json");
+    if !own.is_empty() {
+        write(&target, &pretty(&Value::Array(own.to_vec())));
+    }
+    let changed =
+        recent_projects_union(Some(&pretty(&Value::Array(tauri.to_vec()))), &target).unwrap();
+    let list = std::fs::read(&target)
+        .ok()
+        .map(|bytes| serde_json::from_slice(&bytes).unwrap())
+        .unwrap_or_default();
+    let _ = std::fs::remove_dir_all(&dir);
+    (changed, list)
+}
+
+#[test]
+fn a_later_switch_joins_both_lists_newest_first_in_either_order() {
+    // The Tauri app's projects newer than the GPUI app's.
+    let (changed, list) = union(
+        &[project("g1", Some(20)), project("g2", Some(10))],
+        &[project("t1", Some(40)), project("t2", Some(30))],
+    );
+    assert_eq!(changed, 2);
+    assert_eq!(
+        list,
+        vec![
+            project("t1", Some(40)),
+            project("t2", Some(30)),
+            project("g1", Some(20)),
+            project("g2", Some(10)),
+        ]
+    );
+    // And older: the same list either way.
+    let (_, list) = union(
+        &[project("t1", Some(40)), project("t2", Some(30))],
+        &[
+            project("g1", Some(20)),
+            project("g2", Some(10)),
+            project("old", None),
+        ],
+    );
+    assert_eq!(
+        list,
+        vec![
+            project("t1", Some(40)),
+            project("t2", Some(30)),
+            project("g1", Some(20)),
+            project("g2", Some(10)),
+            project("old", None),
+        ]
+    );
+}
+
+#[test]
+fn a_folder_in_both_lists_keeps_the_newer_opening() {
+    let (changed, list) = union(
+        &[project("a", Some(10)), project("b", Some(50))],
+        &[project("a", Some(60)), project("b", Some(5))],
+    );
+    assert_eq!(changed, 1);
+    assert_eq!(list, vec![project("a", Some(60)), project("b", Some(50))]);
+    // Nothing newer: the list is left as it was, unwritten.
+    let (changed, list) = union(
+        &[project("a", Some(60)), project("b", Some(50))],
+        &[project("a", Some(60)), project("b", None)],
+    );
+    assert_eq!(changed, 0);
+    assert_eq!(list, vec![project("a", Some(60)), project("b", Some(50))]);
+}
+
+#[test]
+fn the_union_keeps_eight_and_never_drops_the_gpui_apps_own() {
+    let own: Vec<Value> = (0..6).map(|n| project(&format!("g{n}"), Some(n))).collect();
+    let tauri: Vec<Value> = (0..5)
+        .map(|n| project(&format!("t{n}"), Some(100 + n)))
+        .collect();
+    let (_, list) = union(&own, &tauri);
+    assert_eq!(list.len(), RECENT_PROJECTS_KEPT);
+    // The two newest of the Tauri app's, then all six of the GPUI app's.
+    assert_eq!(list[0], project("t4", Some(104)));
+    assert_eq!(list[1], project("t3", Some(103)));
+    for entry in &own {
+        assert!(list.contains(entry), "{entry} was dropped");
+    }
+    // A full list takes none of the Tauri app's in, however new.
+    let full: Vec<Value> = (0..8).map(|n| project(&format!("g{n}"), Some(n))).collect();
+    let (changed, list) = union(&full, &tauri);
+    assert_eq!(changed, 0);
+    assert_eq!(list.len(), RECENT_PROJECTS_KEPT);
+    for entry in &full {
+        assert!(list.contains(entry));
+    }
+}
+
+#[test]
+fn a_later_switch_merges_the_recent_projects_and_nothing_else() {
+    let profile = profile("later");
+    full_tauri_profile(&profile);
+    let (tauri, gpui) = (&profile.tauri, &profile.gpui);
+    // No marker yet: the first pass's to do, not this.
+    assert!(merge_recent_projects(tauri, gpui).is_none());
+    assert!(migrate(tauri, gpui).is_some());
+    // The launch after the first pass: the Tauri app has not run since.
+    assert!(merge_recent_projects(tauri, gpui).is_none());
+
+    // Some time in the GPUI app...
+    write(
+        &gpui.state.join("recent-projects.json"),
+        r#"[{"name":"Native","path":"/Users/ada/Native","openedAt":1800000000000},{"name":"Thesis","path":"/Users/ada/Thesis","openedAt":1750000000000}]"#,
+    );
+    write(&gpui.state.join("recent-commands.json"), r#"["mine"]"#);
+    write(
+        &gpui.overleaf.join("overleaf-session.json"),
+        r#"{"cookie":"mine"}"#,
+    );
+    // ...then back in the Tauri app, which opens projects and changes the
+    // rest of its state too.
+    let website_data = tauri.website_data.as_deref().unwrap();
+    store(
+        website_data,
+        RECENT_PROJECTS,
+        r#"[{"name":"Back","path":"/Users/ada/Back","openedAt":1900000000000},{"name":"Thesis","path":"/Users/ada/Thesis","openedAt":1850000000000}]"#,
+    );
+    store(website_data, RECENT_COMMANDS, r#"["tauri"]"#);
+    write(
+        &tauri.config.join("overleaf-session.json"),
+        r#"{"cookie":"tauri"}"#,
+    );
+    write(
+        &tauri.data.join("themes/dev.ada.new.json"),
+        r#"{"id":"dev.ada.new"}"#,
+    );
+    write(&tauri.data.join("synara/skills/cite/SKILL.md"), "# Cite");
+    let tauri_before = snapshot(&profile.root.join("tauri"));
+    let gpui_before = snapshot(&profile.root.join("gpui"));
+
+    let merged = merge_recent_projects(tauri, gpui)
+        .expect("the Tauri app ran since")
+        .unwrap();
+    assert_eq!(merged, 2);
+    assert_eq!(
+        read_json(&gpui.state.join("recent-projects.json")),
+        json!([
+            { "name": "Back", "path": "/Users/ada/Back", "openedAt": 1900000000000u64 },
+            { "name": "Thesis", "path": "/Users/ada/Thesis", "openedAt": 1850000000000u64 },
+            { "name": "Native", "path": "/Users/ada/Native", "openedAt": 1800000000000u64 }
+        ])
+    );
+    // Only the list and the marker changed; the Tauri app's files not at all.
+    let recents = gpui.state.join("recent-projects.json");
+    let marker = gpui.state.join(MARKER);
+    let mut after = snapshot(&profile.root.join("gpui"));
+    let mut before = gpui_before;
+    for path in [&recents, &marker] {
+        after.remove(path);
+        before.remove(path);
+    }
+    assert_eq!(after, before);
+    assert_eq!(snapshot(&profile.root.join("tauri")), tauri_before);
+    assert_eq!(read_json(&marker)["carried"]["plugins"], 2);
+
+    // Once per switch: the next launch finds the storage as it was.
+    assert!(merge_recent_projects(tauri, gpui).is_none());
+    let _ = std::fs::remove_dir_all(&profile.root);
+}
+
 #[test]
 fn no_tauri_app_carries_nothing_and_still_marks_the_step_done() {
     let profile = profile("missing");

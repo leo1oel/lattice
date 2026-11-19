@@ -166,7 +166,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     crate::get_started::progress::install(state.clone(), cx);
     crate::help::whats_new::announce_update(
         state.clone(),
-        carried_from_tauri && crate::flavor::current().replaces_tauri,
+        carried_from_tauri && crate::flavor::current().native_lattice,
         cx,
     );
     // Windows open where the last one was left.

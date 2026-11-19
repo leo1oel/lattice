@@ -1,6 +1,22 @@
+#: lattice-gpui/src/updater.rs
+msgid "Couldn’t switch to the classic version"
+msgstr "无法切换到经典版本"
+
+#: lattice-gpui/src/updater.rs
+msgid "Downloading the classic version…"
+msgstr "正在下载经典版本…"
+
 #: lattice-gpui/src/crash.rs
 msgid "Lattice quit unexpectedly"
 msgstr "Lattice 意外退出"
+
+#: lattice-gpui/src/updater.rs
+msgid "Switching to the classic version…"
+msgstr "正在切换到经典版本…"
+
+#: lattice-gpui/src/updater.rs
+msgid "The classic version has no release for this Mac"
+msgstr "经典版本没有适用于这台 Mac 的发布版本"
 
 #: lattice-gpui/src/crash.rs
 msgid "{count} documents could not be saved before Lattice quit: {paths}"
