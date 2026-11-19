@@ -368,6 +368,42 @@ pub fn wash(mark: Mark, fresh: Option<(usize, Duration)>, palette: &Palette) -> 
     )
 }
 
+/// The infinity loader on its own, `size` square in `ink`'s running colour
+/// (`InfinityLoader` in `activity-icons.tsx`, an image of the same path, so
+/// black or white at 72% whatever the text beside it): the history's
+/// "Loading diff…", a comparison being read, an export under way.
+pub fn infinity_loader(
+    id: impl Into<gpui::ElementId>,
+    size: Pixels,
+    palette: &Palette,
+) -> AnyElement {
+    let ink = ink_for(Mark::Running, palette);
+    let line = infinity();
+    div()
+        .relative()
+        .flex_none()
+        .size(size)
+        .with_animation(
+            id,
+            gpui::Animation::new(Duration::from_secs(2)).repeat(),
+            move |slot, t| {
+                let line = line.clone();
+                slot.child(
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, _| {
+                            for part in loader_parts(&line, t) {
+                                stroke::paint_moving(&part, 100., bounds, 10., ink, window);
+                            }
+                        },
+                    )
+                    .size_full(),
+                )
+            },
+        )
+        .into_any_element()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -443,40 +479,4 @@ mod tests {
             assert!((drawn / line.length() - 0.8).abs() < 0.01, "t {t}: {drawn}");
         }
     }
-}
-
-/// The infinity loader on its own, `size` square in `ink`'s running colour
-/// (`InfinityLoader` in `activity-icons.tsx`, an image of the same path, so
-/// black or white at 72% whatever the text beside it): the history's
-/// "Loading diff…", a comparison being read, an export under way.
-pub fn infinity_loader(
-    id: impl Into<gpui::ElementId>,
-    size: Pixels,
-    palette: &Palette,
-) -> AnyElement {
-    let ink = ink_for(Mark::Running, palette);
-    let line = infinity();
-    div()
-        .relative()
-        .flex_none()
-        .size(size)
-        .with_animation(
-            id,
-            gpui::Animation::new(Duration::from_secs(2)).repeat(),
-            move |slot, t| {
-                let line = line.clone();
-                slot.child(
-                    canvas(
-                        |_, _, _| (),
-                        move |bounds, _, window, _| {
-                            for part in loader_parts(&line, t) {
-                                stroke::paint_moving(&part, 100., bounds, 10., ink, window);
-                            }
-                        },
-                    )
-                    .size_full(),
-                )
-            },
-        )
-        .into_any_element()
 }
