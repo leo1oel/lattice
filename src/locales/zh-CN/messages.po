@@ -2069,11 +2069,11 @@ msgstr "AI 助手"
 msgid "Agent is revising, {0} of {1} answered"
 msgstr "AI 助手正在修改，已答复 {0}/{1}"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Agent isn’t available here"
 msgstr "此处无法使用 AI 助手"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Agent isn’t available on Windows yet"
 msgstr "Windows 暂不支持AI 助手"
 
@@ -9012,7 +9012,7 @@ msgstr "Lattice 用这台电脑上的 TeX Live 编译 PDF，请从发行版的�
 msgid "Lattice can't save files in that folder. Choose another one."
 msgstr "Lattice 无法在该文件夹中保存文件，请选择其他文件夹。"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection."
 msgstr "Lattice 在这里无法阻止 AI 助手直接编辑 .bib 文件，因此它会保持关闭，而不是在没有这项保护的情况下运行。"
 
@@ -18098,7 +18098,7 @@ msgstr "请更新 Lattice 后使用校对"
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
 msgstr "此 Windows 版本暂时无法防止AI 助手直接修改 .bib 文件。可在终端面板中使用 Claude Code 或 Codex。依赖内置AI 助手的功能暂不可用。"
 

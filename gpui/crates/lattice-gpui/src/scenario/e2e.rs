@@ -353,6 +353,7 @@ impl Run {
             if !steps::selected(registered.name) {
                 continue;
             }
+            steps.set_module(Some(registered.name));
             if module.setup {
                 self.standalone_setup(cx, &fixture.root).await?;
             }
@@ -367,6 +368,7 @@ impl Run {
                     json!({ "error": format!("{error:#}") }),
                 );
             }
+            steps.set_module(None);
         }
         Ok(())
     }
