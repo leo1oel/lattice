@@ -235,6 +235,11 @@ pub fn request_close(native: Native) {
     }
 }
 
+/// `SetForegroundWindow` makes it the foreground window at once.
+pub fn window_is_key(_native: Native) -> bool {
+    true
+}
+
 pub fn bring_to_front(native: Native) {
     unsafe {
         let _ = SetForegroundWindow(native.hwnd);

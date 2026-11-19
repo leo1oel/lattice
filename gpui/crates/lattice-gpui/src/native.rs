@@ -20,10 +20,9 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 mod front;
 mod input_source;
-pub use front::{app_is_active, bring_to_front, deactivate_app};
+pub use front::{app_is_active, bring_to_front, deactivate_app, window_is_key};
 pub use input_source::{
-    current_input_source, post_hid_key, post_hid_shift_tap, restore_keyboard, select_input_method,
-    use_ascii_keyboard,
+    current_input_source, post_hid_key, restore_keyboard, select_input_method, use_ascii_keyboard,
 };
 
 #[link(name = "CoreGraphics", kind = "framework")]

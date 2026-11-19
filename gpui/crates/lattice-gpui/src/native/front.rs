@@ -23,6 +23,21 @@ pub fn bring_to_front(native: Native) {
     }
 }
 
+/// Whether `native`'s window is AppKit's key window of the active app,
+/// making it key once the app is active: `bring_to_front`'s
+/// `makeKeyWindow` is lost when it runs before activation lands, and under
+/// `GPUI_LAB_ASSUME_KEY` GPUI reports every window active, so only AppKit
+/// tells whether the keyboard and the input method reach this one.
+pub fn window_is_key(native: Native) -> bool {
+    unsafe {
+        let key: Bool = msg_send![native.window, isKeyWindow];
+        if !key.as_bool() && app_is_active() {
+            let _: () = msg_send![native.window, makeKeyWindow];
+        }
+        key.as_bool()
+    }
+}
+
 /// Whether this app is the active one, whose key window takes the keyboard.
 pub fn app_is_active() -> bool {
     unsafe {

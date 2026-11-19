@@ -2,13 +2,16 @@
 //! The e2e checks of typing with Pinyin selected (gpui's
 //! `fast::ime_bindings`, `patches/gpui-fast-ime-bindings.diff`), as the
 //! Tauri app's editor takes it: letters compose as marked text that Space
-//! commits as the first candidate and Enter as the letters typed, Shift
-//! switches Pinyin to English and back, and the keys Lattice binds on their
-//! own reach their bindings rather than Pinyin's full-width punctuation: `$`
-//! pairs in a LaTeX file and Vim's `:` opens its command line. The run types
-//! on an ASCII layout (`native::use_ascii_keyboard`); this module selects
-//! Pinyin (enabling it first where the user has not) and puts the keyboard
-//! back after. The keys go through the system's event stream
+//! commits as the first candidate and Enter as the letters typed, and the
+//! keys Lattice binds on their own reach their bindings rather than Pinyin's
+//! full-width punctuation: `$` pairs in a LaTeX file and Vim's `:` opens its
+//! command line. Pinyin still sees the Shift those keys are typed with, so
+//! it keeps composing after them rather than reading a lone Shift (which
+//! switches Sogou and other input methods to English, zed#21042); Apple's
+//! Pinyin switches with Caps Lock, not Shift, so the run does not tap Shift.
+//! The run types on an ASCII layout (`native::use_ascii_keyboard`); this
+//! module selects Pinyin (enabling it first where the user has not) and puts
+//! the keyboard back after. The keys go through the system's event stream
 //! (`native::post_hid_key`), as Pinyin composes only keys it takes before
 //! the window does. The chapter is put back too.
 
@@ -91,32 +94,18 @@ impl Run {
             json!({ "source": selected, "marked": marked, "candidate": candidate, "letters": letters }),
         );
 
-        native::post_hid_shift_tap()?;
-        self.hid_keys(cx, "ab").await?;
-        let english = tail(cx);
-        let english_unmarked = !self.marked(cx, &editor)?;
-        native::post_hid_shift_tap()?;
-        self.hid_keys(cx, "n").await?;
-        let chinese_again = self.marked(cx, &editor)?;
-        self.hid_keys(cx, "\u{1b}").await?;
-        let cancelled = tail(cx);
-        steps.check(
-            "with Pinyin selected, Shift switches it to English, where letters go in as typed, and back",
-            english == format!("{letters}ab").replacen("|", "", 1) + "|"
-                && english_unmarked
-                && chinese_again
-                && cancelled == english,
-            json!({ "english": english, "composing_again": chinese_again, "after_escape": cancelled }),
-        );
-
         let before = tail(cx);
         self.hid_keys(cx, "$").await?;
         let paired = tail(cx);
+        self.hid_keys(cx, "n").await?;
+        let composing = self.marked(cx, &editor)?;
+        self.hid_keys(cx, "\u{1b}").await?;
+        let cancelled = tail(cx);
         let typed = before.trim_end_matches('|');
         steps.check(
-            "with Pinyin selected, $ in a LaTeX file writes a pair with the caret between, not Pinyin's ￥",
-            paired == format!("{typed}$|$"),
-            json!({ "paired": paired }),
+            "with Pinyin selected, $ in a LaTeX file writes a pair with the caret between, not Pinyin's ￥, and Pinyin still composes after it",
+            paired == format!("{typed}$|$") && composing && cancelled == paired,
+            json!({ "paired": paired, "composing_after": composing, "after_escape": cancelled }),
         );
 
         self.put_back(cx, &editor, &original)?;

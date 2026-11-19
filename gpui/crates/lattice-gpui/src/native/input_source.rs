@@ -202,14 +202,6 @@ pub fn post_hid_key(key_code: u16, shift: bool) -> Result<()> {
     post_hid_events(&events)
 }
 
-/// Shift pressed and let go alone, through the system's event stream, as
-/// an input method that switches between its own language and English on
-/// Shift sees it.
-pub fn post_hid_shift_tap() -> Result<()> {
-    const SHIFT_KEY: u16 = 0x38;
-    post_hid_events(&[(SHIFT_KEY, true, 1 << 17), (SHIFT_KEY, false, 0)])
-}
-
 fn post_hid_events(events: &[(u16, bool, u64)]) -> Result<()> {
     const HID_EVENT_TAP: u32 = 0;
     for &(key_code, down, flags) in events {
