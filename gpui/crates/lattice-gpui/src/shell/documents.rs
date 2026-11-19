@@ -132,6 +132,7 @@ impl Shell {
             QuickOpenPick::Insert { command, key } => {
                 self.insert_at_caret(command, &key, window, cx)
             }
+            QuickOpenPick::OpenProject(root) => self.reveal_project(root, false, window, cx),
         }
     }
 

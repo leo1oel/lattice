@@ -9,7 +9,8 @@
 //! (`search/goto_line.rs`) on the editor in front.
 
 use gpui::{
-    AppContext as _, Context, Entity, InteractiveElement as _, Subscription, Window, actions,
+    AppContext as _, Context, Entity, Focusable as _, InteractiveElement as _, Subscription,
+    Window, actions,
 };
 use lattice_i18n::t;
 
@@ -18,6 +19,7 @@ use super::{
     commands::{Command, Section},
     parts::Part,
 };
+use crate::recents::RecentProjects;
 use crate::search::{
     goto_line::{GotoLineDialog, GotoLineEvent},
     insert_pickers::{PickerKind, citation_items, inserted, reference_items},
@@ -121,6 +123,10 @@ impl Shell {
             PickerKind::InsertCitation | PickerKind::InsertReference => {
                 self.latex_source_in_front(cx)
             }
+            PickerKind::RecentProject => {
+                self.open_recent_finder(window, cx);
+                return;
+            }
         };
         let Some(project) = self.project.clone().filter(|_| applies) else {
             return;
@@ -141,7 +147,7 @@ impl Shell {
                     None => index.references().to_vec(),
                 })),
                 // Read in the background from the main document, as `@` is.
-                PickerKind::GoToSymbol => None,
+                PickerKind::GoToSymbol | PickerKind::RecentProject => None,
             };
             (
                 project.root().to_path_buf(),
@@ -165,6 +171,42 @@ impl Shell {
         let view = cx.new(|cx| QuickOpen::picker(weak, kind, items, source, window, cx));
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             QuickOpenEvent::Dismiss => this.close_document_overlays(window, cx),
+        })
+        .detach();
+        view.update(cx, |view, cx| view.focus_input(window, cx));
+        self.documents.quick_open = Some(view);
+        cx.notify();
+    }
+
+    /// "Open a recent project…": quick open's card over the recent projects
+    /// but the one in front, or closed again. It opens from the palette,
+    /// the switcher, File ▸ Open Recent and the welcome screen, so a window
+    /// without a project takes it too, and gives the keyboard back to its
+    /// welcome screen.
+    pub(crate) fn open_recent_finder(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self
+            .documents
+            .quick_open
+            .as_ref()
+            .is_some_and(|open| open.read(cx).picker_kind() == Some(PickerKind::RecentProject))
+        {
+            self.close_document_overlays(window, cx);
+            return;
+        }
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
+        RecentProjects::refresh(cx);
+        let projects = RecentProjects::others(self.root(cx).as_deref(), cx);
+        let weak = cx.entity().downgrade();
+        let view = cx.new(|cx| QuickOpen::recent_projects(weak, projects, window, cx));
+        cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
+            QuickOpenEvent::Dismiss => {
+                this.close_document_overlays(window, cx);
+                if let Some(welcome) = this.welcome() {
+                    window.focus(&welcome.focus_handle(cx), cx);
+                }
+            }
         })
         .detach();
         view.update(cx, |view, cx| view.focus_input(window, cx));

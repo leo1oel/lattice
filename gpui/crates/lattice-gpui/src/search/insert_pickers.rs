@@ -5,11 +5,26 @@
 //! (`SearchPickerDialog` is the Tauri app's quick open dialog with a fixed
 //! list) on its own items, title and placeholder, and says "No matches"
 //! when a query finds nothing.
+//!
+//! The recent project finder ("Open a recent project…",
+//! `recent-projects-finder.tsx` in the Tauri app) is the same card over the
+//! recent projects but the one in front, newest first: a row is the
+//! project's name, its parent folder (home as ~), the Cloud glyph and an
+//! "Overleaf" badge for a linked one, and a "Missing" badge, dimmed, for one
+//! whose folder is gone. A pick opens it as Open Recent does.
 
 use lattice_editor::index::{Citation, Reference};
 use lattice_i18n::t;
+use lattice_ui::components::Badge;
 
-use super::symbols::{Symbol, SymbolGroup};
+use super::{
+    ranking::{RankedRow, rank, score_item},
+    symbols::{Symbol, SymbolGroup},
+};
+use crate::recents::RecentProject;
+
+/// How a missing project's glyph, name and folder are dimmed.
+pub const MISSING_OPACITY: f32 = 0.55;
 
 /// Which picker a quick open card is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -17,6 +32,9 @@ pub enum PickerKind {
     InsertCitation,
     InsertReference,
     GoToSymbol,
+    /// "Open a recent project…": the recent projects, not the project's own
+    /// items.
+    RecentProject,
 }
 
 impl PickerKind {
@@ -26,6 +44,7 @@ impl PickerKind {
             PickerKind::InsertCitation => t!("Insert \\cite{…}").to_string(),
             PickerKind::InsertReference => t!("Insert \\ref{…}").to_string(),
             PickerKind::GoToSymbol => t!("Go to section or label…").to_string(),
+            PickerKind::RecentProject => t!("Open a recent project…").to_string(),
         }
     }
 
@@ -34,8 +53,42 @@ impl PickerKind {
         match self {
             PickerKind::InsertCitation => Some("cite"),
             PickerKind::InsertReference => Some("ref"),
-            PickerKind::GoToSymbol => None,
+            PickerKind::GoToSymbol | PickerKind::RecentProject => None,
         }
+    }
+}
+
+/// The finder's rows for `query`, as indices of `projects`: every one,
+/// newest first, for an empty query; else those whose name or path match,
+/// best first and newest first between equals.
+pub fn rank_projects(projects: &[RecentProject], query: &str) -> Vec<usize> {
+    let query = query.trim();
+    rank(
+        projects,
+        |project| {
+            score_item(
+                &RankedRow {
+                    label: &project.name,
+                    detail: &project.path.to_string_lossy(),
+                    group: "",
+                },
+                query,
+            )
+        },
+        |_, _| std::cmp::Ordering::Equal,
+        projects.len(),
+    )
+}
+
+/// A project row's trailing badge: "Missing" for a gone folder, else
+/// "Overleaf" for a linked one.
+pub fn project_badge(project: &RecentProject) -> Option<Badge> {
+    if project.missing {
+        Some(Badge::new(t!("Missing")).compact())
+    } else if project.overleaf {
+        Some(Badge::new(t!("Overleaf")).compact())
+    } else {
+        None
     }
 }
 
@@ -130,6 +183,56 @@ mod tests {
         assert_eq!(
             (rows[0].path.as_str(), rows[0].line),
             ("chapters/intro.tex", 3)
+        );
+    }
+
+    fn recent(name: &str, path: &str) -> RecentProject {
+        RecentProject {
+            name: name.into(),
+            path: path.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn the_finder_lists_every_project_newest_first_then_ranks_a_query() {
+        let projects = [
+            recent("Thesis", "/Users/writer/Documents/thesis"),
+            recent(
+                "NeurIPS rebuttal",
+                "/Users/writer/Papers/2026/neurips-rebuttal",
+            ),
+            recent("Sparse attention", "/Users/writer/Papers/sparse-attention"),
+            recent("Notes on rebuttals", "/Users/writer/notes"),
+        ];
+        assert_eq!(rank_projects(&projects, ""), [0, 1, 2, 3]);
+        assert_eq!(rank_projects(&projects, "  "), [0, 1, 2, 3]);
+        // The name leads; a match further in follows.
+        assert_eq!(rank_projects(&projects, "neur"), [1]);
+        assert_eq!(rank_projects(&projects, "rebut"), [1, 3]);
+        // The path is searched too.
+        assert_eq!(rank_projects(&projects, "papers"), [1, 2]);
+        assert!(rank_projects(&projects, "zzz").is_empty());
+        assert_eq!(rank_projects(&[], ""), Vec::<usize>::new());
+    }
+
+    #[test]
+    fn a_finder_row_says_where_the_project_is_and_what_it_is() {
+        let mut linked = recent("Paper", "/Users/writer/Papers/paper");
+        linked.overleaf = true;
+        let mut gone = linked.clone();
+        gone.missing = true;
+        assert!(project_badge(&recent("Plain", "/p/plain")).is_none());
+        assert!(project_badge(&linked).is_some());
+        assert!(project_badge(&gone).is_some());
+        assert_eq!(
+            crate::welcome::parent_folder_label(&linked.path),
+            "~/Papers"
+        );
+        assert_eq!(PickerKind::RecentProject.command(), None);
+        assert_eq!(
+            PickerKind::RecentProject.placeholder(),
+            "Open a recent project…"
         );
     }
 

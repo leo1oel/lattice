@@ -64,14 +64,17 @@ impl Shell {
                     let opened = crate::project::open(last.path.clone(), cx).await;
                     this.update_in(cx, |this, window, cx| match opened {
                         Ok(project) => this.set_project(project, window, cx),
-                        Err(reason) => this.show_welcome(
-                            Some(Unopened {
-                                project: last,
-                                reason,
-                            }),
-                            window,
-                            cx,
-                        ),
+                        Err(reason) => {
+                            RecentProjects::check(cx);
+                            this.show_welcome(
+                                Some(Unopened {
+                                    project: last,
+                                    reason,
+                                }),
+                                window,
+                                cx,
+                            )
+                        }
                     })
                     .ok();
                 }));
@@ -132,6 +135,7 @@ impl Shell {
             WelcomeEvent::OpenFolder => self.open_folder(false, window, cx),
             WelcomeEvent::Tutorial => self.open_tutorial(window, cx),
             WelcomeEvent::OpenRecent(path) => self.reveal_project(path.clone(), false, window, cx),
+            WelcomeEvent::ShowAllRecents => self.open_recent_finder(window, cx),
             WelcomeEvent::ImportZip => self.import_zip(window, cx),
             WelcomeEvent::InstallLatexTools => {
                 self.install_latex_tools(&InstallLatexTools, window, cx)

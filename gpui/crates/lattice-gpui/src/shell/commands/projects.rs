@@ -64,6 +64,13 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
             );
         }
     }
+    // Every recent project, searched (`recent-projects-finder.tsx`).
+    out.push(Command::new(
+        "open-recent-project",
+        t!("Open recent project…"),
+        Section::Project,
+        OpenRecentFinder,
+    ));
     out.push(
         Command::new(
             "clone-repository",
