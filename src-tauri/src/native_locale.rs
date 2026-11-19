@@ -49,8 +49,11 @@ pub(crate) struct MenuLabels {
     import_zip: String,
     export_zip: String,
     export_arxiv: String,
-    /// The other projects the sending window's switcher offers, newest first.
+    /// The newest other projects, then, when that leaves some out, an item
+    /// that opens the page's finder over all of them (`open-recent-project`).
     recent_projects: Vec<RecentProjectItem>,
+    more_recent_projects: bool,
+    all_recent_projects: String,
     /// Whether the sending window has a project open, which the exports need.
     project_open: bool,
     edit: String,
@@ -247,8 +250,20 @@ pub(crate) fn build_menu<R: Runtime>(
             )
         })
         .collect::<tauri::Result<Vec<_>>>()?;
-    let recent_items: Vec<&dyn tauri::menu::IsMenuItem<R>> =
+    let more_recent = if labels.more_recent_projects {
+        Some((
+            PredefinedMenuItem::separator(app)?,
+            page_command("open-recent-project", &labels.all_recent_projects, true, None)?,
+        ))
+    } else {
+        None
+    };
+    let mut recent_items: Vec<&dyn tauri::menu::IsMenuItem<R>> =
         recents.iter().map(|item| item as &dyn tauri::menu::IsMenuItem<R>).collect();
+    if let Some((separator, all)) = &more_recent {
+        recent_items.push(separator);
+        recent_items.push(all);
+    }
     // With no other project to offer, Open Recent stays in its place, dimmed.
     let open_recent =
         Submenu::with_items(app, &labels.open_recent, !recents.is_empty(), &recent_items)?;
@@ -581,6 +596,7 @@ mod tests {
         let labels: MenuLabels = serde_json::from_value(complete.clone()).expect("labels");
         assert_eq!(labels.copy, "拷贝");
         assert_eq!(labels.recent_projects[0].path, "/Users/me/论文初稿");
+        assert!(labels.more_recent_projects);
         assert!(labels.project_open);
         assert_eq!(labels.check_for_updates.as_deref(), Some("检查更新…"));
         // Where Lattice does not update itself, the page sends no title and

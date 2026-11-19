@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Cloud, FileArchive, Folder, FolderOpen, GitBranch, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
@@ -24,6 +24,8 @@ import { PROJECT_VENUES } from "./project-venues";
 // Loaded on demand: only the new-project dialog needs it, and the eager-JS budget is tight.
 const loadLocalTemplates = chunk(() => import("./local-templates"));
 const LocalTemplates = lazyChunk(loadLocalTemplates, (module) => module.LocalTemplates);
+// Only a writer with more than three recent projects sees the list under the desk.
+const WelcomeRecentList = lazy(() => import("./welcome-recent-list").then((module) => ({ default: module.WelcomeRecentList })));
 
 /** A recent project launch could not reopen, with the backend's reason. */
 export type UnopenedProject = RecentProject & { reason: string };
@@ -57,6 +59,8 @@ export function Welcome(props: {
   recentProjects: RecentProject[];
   unopenedProject: UnopenedProject | null;
   onRecent: (path: string) => void;
+  /** The finder over every recent project. */
+  onShowAllRecent: () => void;
   onSettings: () => void;
   onInstallTex: () => void;
   onOpenOverleaf?: () => void;
@@ -64,6 +68,7 @@ export function Welcome(props: {
   const { t } = useLingui();
   // The welcome screen lays out a few projects to reopen; the switcher in a project goes deeper.
   const recents = welcomeDeskProjects(props.recentProjects, props.unopenedProject?.path);
+  const others = props.unopenedProject ? props.recentProjects.filter((item) => item.path !== props.unopenedProject?.path) : props.recentProjects;
   const unopened = props.unopenedProject;
   const unopenedName = unopened?.name;
   const unopenedReason = unopened?.reason ?? "";
@@ -111,6 +116,17 @@ export function Welcome(props: {
             )}
             {recents.length > 0 && (
               <WelcomeDesk projects={recents} disabled={Boolean(props.busyLabel)} onOpen={props.onRecent} />
+            )}
+            {others.length > recents.length && (
+              <Suspense fallback={null}>
+                <WelcomeRecentList
+                  projects={others.slice(recents.length)}
+                  total={props.recentProjects.length}
+                  disabled={Boolean(props.busyLabel)}
+                  onOpen={props.onRecent}
+                  onShowAll={props.onShowAllRecent}
+                />
+              </Suspense>
             )}
           </section>
         )}

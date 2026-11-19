@@ -5,6 +5,8 @@ use std::os::fd::AsRawFd;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{FileExt, PermissionsExt};
 
+/// The keys Lattice passes in, which the sandbox cannot read from the keyring.
+mod keys;
 /// What the sandbox is kept from of the writer's session, and their opt-ins.
 mod session;
 

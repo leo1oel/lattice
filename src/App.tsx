@@ -90,7 +90,7 @@ import {
 } from "./build/compile-diagnostics";
 import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
 import { useCompileRepair } from "./build/use-compile-repair";
-import { Welcome } from "./project/project-dialogs";
+import { AppWelcomeScreen } from "./app/app-welcome-screen";
 import type { NewEntryRequest, NewEntryType } from "./project/project-new-entries";
 import { baseArxivId } from "./papers/arxiv-id";
 import type {
@@ -544,9 +544,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     shellRef, browserHosted,
   });
   const {
-    launching, busyLabel, recentProjects, unopenedProject, createForm, updateCreateForm,
-    chooseExisting, createProject, chooseRecentProject,
-    openTutorialProject, importOverleafZip, moveWorkspace, movingWorkspace,
+    launching, createForm, updateCreateForm, chooseExisting, createProject, moveWorkspace, movingWorkspace,
   } = lifecycle;
 
   useTrafficLightAlignment(shellRef, !browserHosted && !isFullscreen, appearance.interfaceScale, project?.manifest.name);
@@ -745,31 +743,13 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     onOverleafSync: syncOverleaf,
   });
   // Shown over the welcome screen and a project alike.
-  const appOverlays = <AppOverlays interfaceScale={appearance.interfaceScale} interfaceZoom={interfaceZoom} whatsNew={whatsNew} clone={lifecycle.clone} />;
+  const appOverlays = <AppOverlays interfaceScale={appearance.interfaceScale} interfaceZoom={interfaceZoom} whatsNew={whatsNew} lifecycle={lifecycle} currentPath={project?.root} />;
   if (!project) {
     return (
       <>
         {/* While launch reopens a project, the window's own background, not a flash of the welcome screen. */}
-        {!launching && <Welcome
-          busyLabel={busyLabel}
-          createOpen={createForm.open}
-          createError={createForm.error}
-          projectName={createForm.name}
-          projectVenue={createForm.venue}
-          onOpenCreate={() => updateCreateForm({ open: true })}
-          onCloseCreate={() => updateCreateForm({ open: false })}
-          setProjectName={(name) => updateCreateForm({ name })}
-          setProjectVenue={(venue) => updateCreateForm({ venue })}
-          onCreate={createProject}
-          onOpen={chooseExisting}
-          onImportZip={importOverleafZip}
-          onClone={lifecycle.clone.show}
-          onOpenTutorial={openTutorialProject}
-          recentProjects={recentProjects}
-          unopenedProject={unopenedProject}
-          onRecent={chooseRecentProject}
-          onSettings={() => openSettings()}
-          onInstallTex={texSetup.openWizard}
+        {!launching && <AppWelcomeScreen
+          lifecycle={lifecycle} onSettings={() => openSettings()} onInstallTex={texSetup.openWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />}
         {commandOverlays}

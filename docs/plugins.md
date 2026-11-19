@@ -81,7 +81,7 @@ Then turn the plugin on, which shows what it asks for. Its commands appear in
 the command palette (⌘K) as "<Plugin>: <Command>".
 
 Settings › Plugins › Browse installs reviewed plugins from the registry
-(`leo1oel/lattice-plugins`: a signed index of versions and hashes and a remote
+(`lattice-writer/lattice-plugins`: a signed index of versions and hashes and a remote
 block list). [Publishing a plugin](guide/plugin-publishing.md) in the user guide
 walks an author through listing one.
 

@@ -1,12 +1,13 @@
 //! Settings › Editor & builds (`EditorSettingsPane` in settings-dialog.tsx)
 //! and Settings › TeX doctor (`doctor-settings.tsx`).
 //!
-//! The editor's keymap and the name that signs comments; the automatic
-//! build, cleaning the auxiliary files and, with a project open, its engine,
-//! shell escape and whether a build stops at the first error (written to the
+//! The editor's keymap, the name that signs comments and spell checking
+//! (the system's checker, `editor_panel/spelling.rs`); the automatic build,
+//! cleaning the auxiliary files and, with a project open, its engine, shell
+//! escape and whether a build stops at the first error (written to the
 //! project's manifest, as the Tauri app writes them); and the app's version.
-//! The Tauri app's spell check, project dictionary and grammar choices are
-//! not here: the GPUI app does not check spelling.
+//! The Tauri app's Harper rows (other languages' dictionaries, the project
+//! dictionary and the grammar choices) are not here.
 
 use gpui::{
     AnyElement, App, Context, Entity, IntoElement, ParentElement as _, Styled as _, Window, div,
@@ -79,6 +80,12 @@ fn editor(
     let name = div()
         .w(controls::CONTROL_WIDTH)
         .child(Field::new(&dialog.fields.author_name));
+    let spellcheck = controls::switch(
+        "spellcheck",
+        settings.appearance.editor_spellcheck,
+        false,
+        |on, _, cx| super::update_appearance(cx, |a| a.editor_spellcheck = on),
+    );
     let rows = vec![
         row(
             dialog,
@@ -101,6 +108,14 @@ fn editor(
                     None => row,
                 }
             },
+            width,
+            cx,
+        ),
+        row(
+            dialog,
+            Row::new("spellcheck", t!("Check spelling"))
+                .control(spellcheck)
+                .wrap(Wrap::Never),
             width,
             cx,
         ),

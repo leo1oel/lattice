@@ -13,9 +13,17 @@
 //!
 //! The key stays in the system keychain (`keychain`). `models.json` names a
 //! command instead, this executable's `agent-endpoint-key` mode, which Pi runs
-//! for each request (`run_cli`). So the key never reaches a log, a file, the
-//! sidecar's environment or the web UI after it is saved; an agent shell can
-//! still run the helper, as it can read any provider CLI's own credentials.
+//! for each request (`run_cli`). So the key never reaches a log, a file or the
+//! web UI after it is saved; an agent shell can still run the helper, as it can
+//! read any provider CLI's own credentials.
+//!
+//! On Linux the agent runs in bubblewrap without the session bus, so the
+//! helper cannot reach the Secret Service from there. Lattice reads the key
+//! outside, when it starts the sidecar, and hands it over in [`KEY_VARIABLE`],
+//! which the helper prints instead (`configure_sidecar`). It stays in the
+//! environment, never a file: whatever the agent writes outlives the agent.
+//! Plugins never see it: Lattice's own environment never holds it, and a
+//! plugin's is cleared (`plugins::sandbox`).
 
 mod keychain;
 mod probe;
@@ -33,6 +41,8 @@ const MODELS_FILE: &str = "models.json";
 const PROVIDER: &str = "lattice";
 /// `<executable> agent-endpoint-key` prints the saved key (`run_cli`).
 const KEY_HELPER: &str = "agent-endpoint-key";
+/// The key as Lattice read it for the sidecar it started, on Linux alone.
+pub(crate) const KEY_VARIABLE: &str = "LATTICE_MODEL_ENDPOINT_KEY";
 /// What Pi sends to an endpoint that needs no key, a local server: Pi lists
 /// a model only once it has some key for it.
 const NO_KEY: &str = "no-key";
@@ -277,6 +287,9 @@ fn with_endpoint(document: Option<Value>, endpoint: &Endpoint, api_key: &str) ->
 /// written again here when it differs. A broken file starts the sidecar
 /// without the endpoint rather than not at all.
 pub(crate) fn configure_sidecar(command: &mut Command, home_dir: &Path, executable: &Path) {
+    // Only Lattice names the key for the helper, never an inherited value.
+    #[cfg(target_os = "linux")]
+    command.env_remove(KEY_VARIABLE);
     let Ok(Some(document)) = read_models(home_dir) else { return };
     let Some(entry) = provider(&document) else { return };
     let saved_key = entry.get("apiKey").and_then(Value::as_str).unwrap_or_default();
@@ -289,6 +302,24 @@ pub(crate) fn configure_sidecar(command: &mut Command, home_dir: &Path, executab
         }
     }
     command.env("PI_CODING_AGENT_DIR", agent_dir(home_dir));
+    // A keychain that cannot be read leaves the helper to fail as it would.
+    #[cfg(target_os = "linux")]
+    if saved_key.starts_with('!') {
+        if let Ok(Some(key)) = keychain::read() {
+            command.env(KEY_VARIABLE, key);
+        }
+    }
+}
+
+/// The key the helper prints: on Linux the one Lattice passed in, as the
+/// sandbox has no keychain, else the keychain's.
+pub(crate) fn helper_key(passed: Option<std::ffi::OsString>) -> Result<Option<String>, String> {
+    if cfg!(target_os = "linux") {
+        if let Some(key) = passed.and_then(|key| key.into_string().ok()) {
+            return Ok(keychain::normalized(&key));
+        }
+    }
+    keychain::read()
 }
 
 /// `status_of`, with the key reported only while the keychain still holds it:
@@ -402,7 +433,7 @@ pub fn run_cli() -> bool {
     if std::env::args().nth(1).as_deref() != Some(KEY_HELPER) {
         return false;
     }
-    match keychain::read() {
+    match helper_key(std::env::var_os(KEY_VARIABLE)) {
         Ok(Some(key)) => {
             println!("{key}");
             std::process::exit(0)

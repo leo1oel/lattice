@@ -5,7 +5,6 @@ import {
   FILE_VIEW_STATES_KEY,
   TUTORIAL_SEEN_KEY,
   WORKSPACE_LAYOUT_KEY,
-  forgetRecentProject,
   disableLivePreviewEverywhere,
   hasSeenTutorial,
   loadAppearance,
@@ -26,6 +25,7 @@ import {
   type WorkspaceLayout,
 } from "./app-settings";
 import type { FileViewState } from "../app-types";
+import { markRecentProjects } from "../project/recent-project-states";
 
 beforeEach(() => localStorage.clear());
 
@@ -256,23 +256,55 @@ describe("recent projects across windows", () => {
     expect(loadRecentProjects().map((item) => item.path)).toEqual(["/tmp/paper", "/tmp/notes"]);
   });
 
-  it("does not resurrect a project another window is dropping", () => {
-    rememberRecentProject({ name: "Paper", path: "/tmp/paper" });
+  it("keeps a project whose folder is gone, marked, until it opens again", () => {
     rememberRecentProject({ name: "Gone", path: "/tmp/gone" });
+    rememberRecentProject({ name: "Paper", path: "/tmp/paper" });
 
-    const remaining = forgetRecentProject("/tmp/gone");
+    const marked = markRecentProjects(new Map([["/tmp/gone", { missing: true, overleaf: false }]]));
 
-    expect(remaining.map((item) => item.path)).toEqual(["/tmp/paper"]);
-    expect(loadRecentProjects().map((item) => item.path)).toEqual(["/tmp/paper"]);
+    expect(marked?.map((item) => [item.path, item.missing])).toEqual([["/tmp/paper", undefined], ["/tmp/gone", true]]);
+    expect(loadRecentProjects()[1].missing).toBe(true);
+    expect(rememberRecentProject({ name: "Gone", path: "/tmp/gone" })[0]).not.toHaveProperty("missing");
   });
 
-  it("caps the list so it cannot grow without bound", () => {
-    for (let index = 0; index < 12; index += 1) {
+  it("keeps a hundred projects so it cannot grow without bound", () => {
+    for (let index = 0; index < 120; index += 1) {
       rememberRecentProject({ name: `P${index}`, path: `/tmp/p${index}` });
     }
 
-    expect(loadRecentProjects()).toHaveLength(8);
-    expect(loadRecentProjects()[0].path).toBe("/tmp/p11");
+    expect(loadRecentProjects()).toHaveLength(100);
+    expect(loadRecentProjects()[0].path).toBe("/tmp/p119");
+  });
+
+  it("lists a folder once however its path ends", () => {
+    rememberRecentProject({ name: "Paper", path: "/tmp/paper/" });
+    rememberRecentProject({ name: "Notes", path: "/tmp/notes" });
+    rememberRecentProject({ name: "Paper", path: "/tmp/paper" });
+    localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
+      ...loadRecentProjects(), { name: "Notes again", path: "/tmp/notes/" },
+    ]));
+
+    expect(loadRecentProjects().map((item) => item.path)).toEqual(["/tmp/paper", "/tmp/notes"]);
+  });
+
+  it("marks what each folder was found to be, and writes only news", () => {
+    rememberRecentProject({ name: "Gone", path: "/tmp/gone" });
+    rememberRecentProject({ name: "Synced", path: "/tmp/synced" });
+    rememberRecentProject({ name: "Paper", path: "/tmp/paper" });
+    const found = (missing: boolean, overleaf: boolean) => ({ missing, overleaf });
+
+    const marked = markRecentProjects(new Map([
+      ["/tmp/paper", found(false, false)], ["/tmp/synced", found(false, true)], ["/tmp/gone", found(true, false)],
+    ]));
+
+    expect(marked?.map(({ name, overleaf, missing }) => ({ name, overleaf, missing }))).toEqual([
+      { name: "Paper", overleaf: undefined, missing: undefined },
+      { name: "Synced", overleaf: true, missing: undefined },
+      { name: "Gone", overleaf: undefined, missing: true },
+    ]);
+    expect(markRecentProjects(new Map([["/tmp/synced", found(false, true)]]))).toBeNull();
+    // A linked folder on a drive that is not mounted stays labelled for when it is back.
+    expect(markRecentProjects(new Map([["/tmp/synced", found(true, false)]]))?.[1]).toMatchObject({ overleaf: true, missing: true });
   });
 });
 

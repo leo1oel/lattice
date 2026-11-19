@@ -359,6 +359,7 @@ pub fn run() {
             linux_release_notice::check_linux_release,
             ipc::workspace::create_project,
             ipc::workspace::list_local_templates,
+            ipc::workspace::recent_project_states,
             ipc::workspace::inspect_template_source,
             ipc::workspace::save_local_template,
             ipc::workspace::open_tutorial_project,
