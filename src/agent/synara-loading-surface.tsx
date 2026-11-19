@@ -1,6 +1,5 @@
-import { isWindowsHost } from "../platform/host-platform";
-import { useEffect, useState } from "react";
-import { ChevronRight, CircleAlert, FolderOpen, ShieldOff } from "lucide-react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { ChevronRight, CircleAlert, FolderOpen } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { SynaraRuntimeInfo } from "./synara-runtime";
@@ -12,6 +11,13 @@ import { hostErrorText } from "../platform/host-error-text";
 import { redactLogText } from "../telemetry/app-log-store";
 import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { AgentPanelSkeleton } from "./agent-panel-skeleton";
+
+// Only Windows, and a Linux system or project the .bib guard cannot cover,
+// ever show it, so macOS does not load it at startup. Its own Suspense
+// boundary: this surface is itself a Suspense fallback (use-panel-portals.tsx).
+const SynaraUnsupportedNotice = lazy(() =>
+  import("./synara-unsupported-notice").then((module) => ({ default: module.SynaraUnsupportedNotice })),
+);
 
 /** How long the agent panel waits on the Agent before saying so and offering Retry. */
 const SYNARA_SLOW_MS = 20_000;
@@ -34,7 +40,9 @@ export function SynaraLoadingSurface(props: {
   waiting?: boolean;
 }) {
   const { t } = useLingui();
-  if (props.runtime.state === "unsupported") return <SynaraUnsupportedNotice runtime={props.runtime} />;
+  if (props.runtime.state === "unsupported") {
+    return <Suspense fallback={null}><SynaraUnsupportedNotice runtime={props.runtime} /></Suspense>;
+  }
   const failed = props.runtime.state === "stopped";
   if (props.thread && !failed) {
     return (
@@ -67,37 +75,6 @@ export function SynaraLoadingSurface(props: {
             and are not a diagnosis this surface can vouch for. */}
       </div>
       {failed && <SynaraFailureActions runtime={props.runtime} onRetry={props.onRetry} />}
-    </div>
-  );
-}
-
-/**
- * The Agent where Lattice cannot stop it from editing .bib files itself: it
- * stays off and says why. There is nothing to retry or diagnose, so no
- * Retry, logs or Details. Windows has no guard at all. Linux has one that
- * needs bubblewrap, FUSE and a kernel that scopes abstract sockets, and does
- * not reach every folder, so there the runtime's message names what is
- * missing, and the setting that runs the Agent without the last
- * (synara/bibliography_guard/linux.rs).
- * scripts/linux-e2e.mjs finds it by its `synara-unsupported-notice` class.
- */
-function SynaraUnsupportedNotice({ runtime }: { runtime: SynaraRuntimeInfo }) {
-  const { t } = useLingui();
-  const windows = isWindowsHost();
-  const reason = runtime.message?.trim();
-  return (
-    <div className="synara-loading-surface synara-unsupported-notice" role="status">
-      <span className="synara-loading-mark" aria-hidden="true">
-        <ShieldOff size={17} />
-      </span>
-      <div className="synara-loading-copy">
-        <strong>{windows ? t`Agent isn’t available on Windows yet` : t`Agent isn’t available here`}</strong>
-        <p>{windows
-          ? t`This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable.`
-          : reason
-            ? hostErrorText(reason)
-            : t`Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection.`}</p>
-      </div>
     </div>
   );
 }

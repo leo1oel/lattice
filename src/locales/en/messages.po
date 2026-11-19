@@ -2073,11 +2073,11 @@ msgstr "Agent"
 msgid "Agent is revising, {0} of {1} answered"
 msgstr "Agent is revising, {0} of {1} answered"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Agent isn’t available here"
 msgstr "Agent isn’t available here"
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Agent isn’t available on Windows yet"
 msgstr "Agent isn’t available on Windows yet"
 
@@ -9030,7 +9030,7 @@ msgstr "Lattice builds your PDF with the TeX Live on this computer. Install it f
 msgid "Lattice can't save files in that folder. Choose another one."
 msgstr "Lattice can't save files in that folder. Choose another one."
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection."
 msgstr "Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection."
 
@@ -18157,7 +18157,7 @@ msgstr "This version of the agent runtime cannot proofread yet. Update Lattice t
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 
-#: src/agent/synara-loading-surface.tsx
+#: src/agent/synara-unsupported-notice.tsx
 msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
 msgstr "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
 
