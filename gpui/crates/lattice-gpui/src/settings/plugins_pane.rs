@@ -9,15 +9,28 @@
 //! for more since it was turned on (`needsReview`). Off macOS plugins are
 //! listed but can't be turned on. Every host call runs off the main thread;
 //! the palette's rows are read again after each change.
+//!
+//! Installed and Browse share one search field. Browse is the plugin
+//! market's signed list (`plugin-browse.tsx`): a row per listed plugin and
+//! a details sheet over Settings (`plugin-details.tsx`) that installs it,
+//! with or without turning it on, or updates it, listing only what an update
+//! asks for beyond the current grant. Cards show where a plugin came from,
+//! an offered update and the kill switch's reason; Update all applies the
+//! updates that ask for nothing new.
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use gpui::{AnyElement, AppContext as _, Context, Entity, Subscription, Task, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::plugins::{PluginHost, PluginInfo};
+use lattice_core::registry::PluginListing;
 use lattice_i18n::t;
 
+mod browse;
+mod model;
 mod view;
+
+pub use browse::details_sheet;
 
 use super::{controls::PageWidth, dialog::SettingsDialog};
 use crate::{
@@ -29,7 +42,16 @@ use crate::{
 #[derive(Clone, PartialEq, Eq, Hash)]
 enum Target {
     Install,
+    /// Update all.
+    Updates,
     Plugin(String),
+}
+
+/// Which list the page shows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum View {
+    Installed,
+    Browse,
 }
 
 pub struct PluginsPane {
@@ -41,6 +63,22 @@ pub struct PluginsPane {
     secrets: HashMap<(String, String), Entity<InputState>>,
     busy: Option<Target>,
     errors: HashMap<Target, String>,
+    view: View,
+    /// One search field for whichever list shows.
+    search: Entity<InputState>,
+    sort: model::Sort,
+    /// The plugin market's list as last read (`None` before it is).
+    listing: Option<PluginListing>,
+    refreshing: bool,
+    /// Browse has fetched the registry once; Refresh fetches it again.
+    fetched: bool,
+    /// Why the last fetch showed nothing.
+    list_failure: Option<String>,
+    /// A cached read asked for while the registry is being fetched: it
+    /// would be older than the fetch, so it runs after it.
+    want_cached: bool,
+    /// The listed plugin whose details sheet is open.
+    details: Option<String>,
     _task: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -57,7 +95,7 @@ pub fn render(
         .get_or_insert_with(|| cx.new(|cx| PluginsPane::new(window, cx)))
         .clone();
     let marks = super::pages::marks(dialog);
-    pane.update(cx, |pane, cx| pane.render_page(width, &marks, cx))
+    pane.update(cx, |pane, cx| pane.render_page(width, &marks, window, cx))
 }
 
 impl PluginsPane {
@@ -67,7 +105,13 @@ impl PluginsPane {
         let sha256 = cx.new(|cx| {
             InputState::new(window, cx).placeholder(t!("SHA-256 (64 hexadecimal characters)"))
         });
-        let mut subscriptions = Vec::new();
+        let search =
+            cx.new(|cx| InputState::new(window, cx).placeholder(t!("Search installed plugins")));
+        let mut subscriptions = vec![cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
+            if let InputEvent::Change = event {
+                cx.notify();
+            }
+        })];
         for input in [&url, &sha256] {
             subscriptions.push(cx.subscribe(input, |this, _, event: &InputEvent, cx| {
                 if let InputEvent::Change = event {
@@ -84,11 +128,135 @@ impl PluginsPane {
             secrets: HashMap::new(),
             busy: None,
             errors: HashMap::new(),
+            view: View::Installed,
+            search,
+            sort: model::Sort::Popular,
+            listing: None,
+            refreshing: false,
+            fetched: false,
+            list_failure: None,
+            want_cached: false,
+            details: None,
             _task: None,
             _subscriptions: subscriptions,
         };
         pane.call(Target::Install, |_| Ok(()), window, cx);
         pane
+    }
+
+    /// Show Installed or Browse. The registry is fetched the first time
+    /// Browse shows, not on every visit to Settings.
+    fn set_view(&mut self, view: View, window: &mut Window, cx: &mut Context<Self>) {
+        self.view = view;
+        let placeholder = match view {
+            View::Installed => t!("Search installed plugins"),
+            View::Browse => t!("Search by name, description or author"),
+        };
+        self.search.update(cx, |input, cx| {
+            input.set_placeholder(placeholder, window, cx)
+        });
+        if view == View::Browse && !self.fetched {
+            self.fetched = true;
+            self.load_listing(true, window, cx);
+        }
+        cx.notify();
+    }
+
+    /// Read the plugin list: the cached one, or the registry's after
+    /// fetching and verifying it when `refresh`. A fetched list can bring a
+    /// new block list, which turns installed plugins off, so the installed
+    /// list and the palette's rows are read again after it.
+    fn load_listing(&mut self, refresh: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if !refresh && self.refreshing {
+            self.want_cached = true;
+            return;
+        }
+        if refresh {
+            self.refreshing = true;
+            self.list_failure = None;
+            cx.notify();
+        }
+        let host: Arc<PluginHost> = plugins::host(cx);
+        let read = cx.background_spawn(async move { host.registry_listing(refresh) });
+        let handle = window.window_handle();
+        cx.spawn(async move |this, cx| {
+            let listing = read.await;
+            cx.update_window(handle, |_, window, cx| {
+                this.update(cx, |this, cx| {
+                    match listing {
+                        Some(listing) => this.listing = Some(listing),
+                        None if refresh => {
+                            this.list_failure = Some(t!("The plugin list is not available.").into())
+                        }
+                        None => {}
+                    }
+                    if refresh {
+                        this.refreshing = false;
+                        this.reload(window, cx);
+                        if std::mem::take(&mut this.want_cached) {
+                            this.load_listing(false, window, cx);
+                        }
+                    }
+                    cx.notify();
+                })
+                .ok();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Install (or update to) the listed version of `id`, granting what it
+    /// asks for when `turn_on` (the details sheet showed it).
+    fn install_registry(
+        &mut self,
+        id: String,
+        turn_on: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.call(
+            Target::Plugin(id.clone()),
+            move |host| {
+                host.install_registry(&id)?;
+                if turn_on {
+                    host.set_enabled(&id, true)?;
+                }
+                Ok(())
+            },
+            window,
+            cx,
+        );
+    }
+
+    /// Apply every update that asks for nothing new.
+    fn update_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let ids = model::quiet_updates(self.listing.as_ref(), &self.listed());
+        self.call(
+            Target::Updates,
+            move |host| {
+                for id in &ids {
+                    host.install_registry(id)?;
+                }
+                Ok(())
+            },
+            window,
+            cx,
+        );
+    }
+
+    fn open_details(&mut self, id: String, cx: &mut Context<Self>) {
+        self.details = Some(id);
+        cx.notify();
+    }
+
+    pub fn details_open(&self) -> bool {
+        self.details.is_some()
+    }
+
+    pub fn close_details(&mut self, cx: &mut Context<Self>) {
+        self.details = None;
+        cx.notify();
     }
 
     /// Run one host call off the main thread, unless another is under way;
@@ -132,6 +300,8 @@ impl PluginsPane {
                             this.errors.insert(Target::Install, error);
                         }
                     }
+                    // An install or update changes what the list offers.
+                    this.load_listing(false, window, cx);
                     plugins::refresh(cx).detach();
                     cx.notify();
                 })
