@@ -19,7 +19,7 @@ export const LATTICE_HOST_THEME_REQUEST = "lattice:request-host-theme";
  * follow the roles Synara's `applyEmbedTheme` already fills.
  */
 interface AgentHostThemeColors {
-  /** The agent panel's own surface (the `chrome` embed surface). */
+  /** The agent panel's own surface (the `chrome` embed surface): the side-panel surface Project and Papers stand on. */
   chrome: string;
   /** Right-hand drawers and the Settings dialog's fields (the `drawer` embed surface). */
   drawer: string;
@@ -56,7 +56,7 @@ export interface AgentHostThemeSnapshot {
 }
 
 const COLOR_ROLES: Record<keyof AgentHostThemeColors, string> = {
-  chrome: "--surface-sidebar",
+  chrome: "--surface-side-panel",
   drawer: "--surface-input",
   panel: "--surface-panel",
   editor: "--editor-bg",

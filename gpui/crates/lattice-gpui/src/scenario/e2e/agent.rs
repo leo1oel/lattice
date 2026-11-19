@@ -2,7 +2,7 @@
 //! the Agent island's page, the Tauri app's own Synara host.
 //!
 //! - shown, the Agent panel builds its island, its page loads and draws
-//!   (on its sidebar ground, in the host's theme), and asks lattice-core's
+//!   (on the side panels' ground, in the host's theme), and asks lattice-core's
 //!   supervisor for the runtime: a scratch run has no Synara service staged,
 //!   so the page shows the Tauri app's loading surface with what stopped it
 //!   (or, with one staged and on macOS, the Agent's frame);
@@ -112,8 +112,8 @@ impl Run {
                 surface.read(cx).root().map(Path::to_path_buf),
             )
         });
-        let chrome = cx.update(|cx| {
-            let rgba = gpui::Rgba::from(cx.palette().chrome);
+        let side_panel = cx.update(|cx| {
+            let rgba = gpui::Rgba::from(cx.palette().side_panel);
             format!(
                 "rgb({}, {}, {})",
                 (rgba.r * 255.).round(),
@@ -129,18 +129,18 @@ impl Run {
             }
         });
         steps.check(
-            "shown, the Agent panel's island loads the Tauri app's Synara host, on its sidebar ground in the host's theme, and the runtime's state reaches it",
+            "shown, the Agent panel's island loads the Tauri app's Synara host, on the side panels' ground in the host's theme, and the runtime's state reaches it",
             drawn
                 && state == IslandState::Ready
                 && stats.builds == 1
                 && root_shown.as_deref() == Some(root)
                 && facts["host"] == "object"
                 && facts["theme"] == theme
-                && facts["ground"].as_str() == Some(chrome.as_str())
+                && facts["ground"].as_str() == Some(side_panel.as_str())
                 && (facts["ready"] == true
                     || (facts["frame"] == false
                         && facts["loading"].as_str().is_some_and(|text| !text.is_empty()))),
-            json!({ "drawn": drawn, "state": format!("{state:?}"), "stats": stats, "page": facts, "chrome": chrome }),
+            json!({ "drawn": drawn, "state": format!("{state:?}"), "stats": stats, "page": facts, "side_panel": side_panel }),
         );
 
         self.agent_shot(cx, "agent-panel").await?;

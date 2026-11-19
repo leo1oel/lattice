@@ -103,26 +103,6 @@ impl Srgb {
         }
     }
 
-    /// This colour painted over `ground`, either of them translucent
-    /// (source-over): one fill that looks like the two layers.
-    pub fn composite_over(self, ground: Srgb) -> Srgb {
-        let a = self.a + ground.a * (1. - self.a);
-        if a <= 0. {
-            return Srgb { a: 0., ..ground };
-        }
-        let channel = |x: u8, y: u8| {
-            ((x as f32 * self.a + y as f32 * ground.a * (1. - self.a)) / a)
-                .round()
-                .clamp(0., 255.) as u8
-        };
-        Srgb {
-            r: channel(self.r, ground.r),
-            g: channel(self.g, ground.g),
-            b: channel(self.b, ground.b),
-            a,
-        }
-    }
-
     /// This colour with alpha `a`.
     pub fn with_alpha(self, a: f32) -> Srgb {
         Srgb { a, ..self }

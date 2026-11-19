@@ -812,7 +812,7 @@ impl Panel for PapersPanel {
                     cx: &mut Context<Self>| {
             IconButton::new(id, icon)
                 .radius(TAB_RADIUS)
-                .surface(Surface::Chrome)
+                .surface(Surface::SidePanel)
                 .tooltip(label)
                 .on_click(cx.listener(move |this, _, window, cx| event(this, window, cx)))
         };

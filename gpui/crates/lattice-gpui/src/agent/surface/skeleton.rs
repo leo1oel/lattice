@@ -48,7 +48,7 @@ pub(super) fn agent(
 ) -> AnyElement {
     let palette = cx.palette().clone();
     let opacity = loading_opacity("agent-panel-skeleton", started, window, cx);
-    let (subtle, strong, ground) = (palette.line, palette.line_strong, palette.chrome);
+    let (subtle, strong, ground) = (palette.line, palette.line_strong, palette.side_panel);
     let wide = f32::from(width.get()) >= WIDE;
     let control = |radius: f32, w: f32| {
         div()

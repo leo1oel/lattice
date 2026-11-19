@@ -602,13 +602,13 @@ impl SynaraSurface {
     }
 }
 
-/// The page's ground before it draws: the Agent panel's sidebar, the Git
+/// The page's ground before it draws: the Agent panel's side-panel surface, the Git
 /// workspace's tool surface (`trellis.css`'s `.trellis-agent-host`,
 /// `.trellis-tool-host`) or Settings' page (`.settings-content`), so a load
 /// never flashes another colour.
 fn ground(kind: SurfaceKind, palette: &Palette) -> gpui::Hsla {
     match kind {
-        SurfaceKind::Agent => palette.chrome,
+        SurfaceKind::Agent => palette.side_panel,
         SurfaceKind::Git => palette.input,
         SurfaceKind::Settings => palette.panel,
     }

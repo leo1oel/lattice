@@ -154,7 +154,7 @@ A raised, popover, floating or dialog surface stands on `--color-raised` with `b
 | Token | Light | Dark | Use |
 | --- | --- | --- | --- |
 | `--color-window` | `#F7F7F6` | `#171718` | The window behind everything; welcome page |
-| `--color-chrome` | `#EFEFF0` | `#131315` | Ground: titlebar gutters and the Project, Papers and Agent navigation |
+| `--color-chrome` | `#EFEFF0` | `#131315` | Ground: the titlebar's gutters and the Settings sidebar |
 | `--color-titlebar` | `#F6F6F7` | `#1B1B1D` | Titlebar: the shell under a white veil, closed by a hairline |
 | `--color-panel` | `#FAFAFA` | `#1A1A1C` | The sheet: docked panels and cards |
 | `--color-raised` | `#FFFFFF` | `#252528` | The lift: menus, popovers, toasts, dialogs, Settings cards |
@@ -206,6 +206,7 @@ A raised, popover, floating or dialog surface stands on `--color-raised` with `b
 | `--color-pdf-page` | `#F9F9FA` |  | A compiled PDF page; paper-coloured in both themes |
 | `--color-match` | `rgb(255 208 0 / 34%)` |  | Search hit on document content, both themes |
 | `--color-match-current` | `rgb(255 142 0 / 48%)` |  | Current search hit, both themes |
+| `--color-side-panel` | `#EFEFF0` | `#131315` | Side panels and docks: Project, Papers, Literature and the Agent; one tone below the editor, opaque in a translucent window |
 
 ### Accent presets
 

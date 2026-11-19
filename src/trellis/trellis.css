@@ -28,7 +28,7 @@
   --lattice-panel-surface: var(--editor-bg);
 }
 .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="literature"], [data-type="agent"])) {
-  --lattice-panel-surface: var(--surface-sidebar);
+  --lattice-panel-surface: var(--surface-side-panel);
 }
 .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="todos"], [data-type="checklist"])) {
   --lattice-panel-surface: var(--surface-input);
@@ -43,24 +43,8 @@
 }
 .lattice-trellis [data-trellis-part="surface"] { background: var(--surface-app); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="file"], [data-type="pdf"]) { background: var(--editor-bg); }
-.lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="literature"], [data-type="agent"]) { background: var(--surface-sidebar); }
+.lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="literature"], [data-type="agent"]) { background: var(--surface-side-panel); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="todos"], [data-type="checklist"]) { background: var(--surface-input); }
-
-/* A translucent window (theme.css, `data-glass`) frosts Project and Papers.
-   The panel paints one sheet of --surface-navigator, and its tab strip and
-   body (the surface) lay the same white veil over it, so the header and the
-   body stay one surface. Everything inside a body lets its coat through: a
-   third layer would read as a band. Every other panel, the editors among
-   them, stays on its opaque surface, which the editor shares with Git,
-   History and Overleaf. */
-:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="literature"])) {
-  --lattice-panel-surface: var(--surface-navigator);
-  --lattice-tabstrip: var(--surface-navigator-lift);
-  --trellis-tab-active: var(--surface-navigator-lift);
-}
-:root[data-glass] .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="literature"]) { background: var(--surface-navigator-lift); }
-:root[data-glass] .lattice-trellis :is(.trellis-navigator-host, .navigator, .trellis-tool-host:has(> .literature-drawer), .trellis-tool-host > .literature-drawer) { background: transparent; }
-:root[data-glass] .lattice-trellis .lattice-file-tree { --trees-bg-override: transparent; }
 
 /* ---------------------------------------------------------------- floating
    A floating panel stands at the floating level of the elevation ladder; one
@@ -597,7 +581,7 @@
    document (a document opening), so the deck beneath keeps the pointer. */
 .trellis-deck-overlay { pointer-events: none; }
 .trellis-deck-overlay .primary-opening-overlay { pointer-events: auto; }
-.trellis-navigator-host, .trellis-agent-host, .trellis-tool-host { position: relative; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-sidebar); }
+.trellis-navigator-host, .trellis-agent-host, .trellis-tool-host { position: relative; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-side-panel); }
 .trellis-tool-host { background: var(--surface-input); }
 .trellis-navigator-host > .navigator { width: 100%; min-height: 0; flex: 1; }
 .trellis-agent-host > .synara-frame-shell { flex: 1 1 0; min-height: 0; }
@@ -618,15 +602,13 @@
 .trellis-docked-drawer > .drawer-header { justify-content: flex-end; }
 /* Literature opens beside Papers, in the sidebar, so it takes the sidebar's
    ground and Papers' insets rather than a tool panel's. */
-.trellis-tool-host:has(> .literature-drawer), .trellis-tool-host > .trellis-docked-drawer.literature-drawer { background: var(--surface-sidebar); }
+.trellis-tool-host:has(> .literature-drawer), .trellis-tool-host > .trellis-docked-drawer.literature-drawer { background: var(--surface-side-panel); }
 /* A size container, so its empty state's drawing can answer the panel's own
    width and height (workspace-panels.css): the panel is sized by the layout,
    never by its content. */
 .trellis-tool-host > .trellis-docked-drawer.literature-drawer { container: literature / size; padding: 7px var(--space-6) var(--space-5); }
-/* The search stays put over the results, as Papers' does. A frosted window
-   lets it scroll away instead: an opaque band would break the frost. */
-.trellis-docked-drawer.literature-drawer > .literature-search { position: sticky; z-index: 2; top: -7px; margin: -7px 0 var(--space-1); padding: 7px 0 var(--space-5); background: var(--surface-sidebar); }
-:root[data-glass] .trellis-docked-drawer.literature-drawer > .literature-search { position: static; background: transparent; }
+/* The search stays put over the results, as Papers' does. */
+.trellis-docked-drawer.literature-drawer > .literature-search { position: sticky; z-index: 2; top: -7px; margin: -7px 0 var(--space-1); padding: 7px 0 var(--space-5); background: var(--surface-side-panel); }
 
 /* ---------------------------------------------------------------- empty and sleeping states */
 .trellis-empty {

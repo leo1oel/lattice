@@ -116,6 +116,7 @@
   --color-syntax-github-number: #0550AE;
   --color-syntax-github-citation: #0A3069;
   --color-syntax-github-reference: #953800;
+  --color-side-panel: #EFEFF0;
   --font-ui: "Inter Variable", Inter, "PingFang SC", "Avenir Next", "Segoe UI", sans-serif;
   --font-display: "Instrument Serif", "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
   --font-editor: "Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace;
@@ -373,6 +374,7 @@
   --color-syntax-github-number: #79C0FF;
   --color-syntax-github-citation: #A5D6FF;
   --color-syntax-github-reference: #FFA657;
+  --color-side-panel: #131315;
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 4px rgba(0, 0, 0, 0.16);
   --shadow-popover: 0 17.5px 23.4px rgba(0, 0, 0, 0.16), 0 9.4px 12.5px rgba(0, 0, 0, 0.12), 0 5.25px 7px rgba(0, 0, 0, 0.08), 0 2.8px 3.7px -2px rgba(0, 0, 0, 0.04), 0 1.2px 1.5px rgba(0, 0, 0, 0.04);
   --shadow-floating: 0 25px 50px rgba(0, 0, 0, 0.2), 0 12px 24px rgba(0, 0, 0, 0.16), 0 6px 12px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08), 0 1.5px 3px rgba(0, 0, 0, 0.08);

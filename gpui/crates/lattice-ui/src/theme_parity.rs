@@ -60,6 +60,7 @@ fn record() -> Value {
                     "--surface-titlebar": rgba(palette.titlebar),
                     "--surface-window": rgba(palette.window),
                     "--surface-chrome": rgba(palette.chrome),
+                    "--surface-side-panel": rgba(palette.side_panel),
                     "--surface-panel": rgba(palette.panel),
                     "--surface-panel-raised": rgba(palette.raised),
                     "--surface-input": rgba(palette.input),

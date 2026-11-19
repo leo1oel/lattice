@@ -549,7 +549,7 @@ impl PapersPanel {
                         .h(px(24.))
                         .pl(px(16.))
                         .rounded(px(4.))
-                        .bg(palette.chrome)
+                        .bg(palette.side_panel)
                         .child(div().absolute().inset_0().rounded(px(4.)).bg(backing))
                         .child(actions),
                 );

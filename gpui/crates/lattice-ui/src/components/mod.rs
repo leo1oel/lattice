@@ -78,8 +78,8 @@ use crate::{Palette, elevation::ring};
 /// colour in its focus ring's gap.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Surface {
-    /// The chrome: the Project and Papers panels.
-    Chrome,
+    /// The side panels: Project, Papers and the Agent.
+    SidePanel,
     /// The titlebar: the chrome under its veil, hovered as the chrome.
     Titlebar,
     /// A sheet: the editor, the PDF, tool panels, fields.
@@ -90,7 +90,7 @@ pub enum Surface {
 impl Surface {
     pub fn hover(self, palette: &Palette) -> Hsla {
         match self {
-            Surface::Chrome | Surface::Titlebar => palette.chrome_hover,
+            Surface::SidePanel | Surface::Titlebar => palette.chrome_hover,
             Surface::Sheet => palette.hover,
         }
     }
@@ -98,7 +98,7 @@ impl Surface {
     /// The colour the surface paints behind a control.
     pub fn ground(self, palette: &Palette) -> Hsla {
         match self {
-            Surface::Chrome => palette.chrome,
+            Surface::SidePanel => palette.side_panel,
             Surface::Titlebar => palette.titlebar,
             Surface::Sheet => palette.editor,
         }

@@ -84,6 +84,31 @@ fn from_oklch(lightness: f64, chroma: f64, hue: f64) -> Option<Rgb> {
     Some(linear.map(|channel| to_gamma(channel.clamp(0., 1.))))
 }
 
+/// One tone of OKLCH lightness: the step from the editor down to the side
+/// panels, Graphite's light chrome under its editor (#efeff0, #fafafa).
+pub const SIDE_PANEL_TONE: f64 = 0.033;
+
+/// The side panels' surface (Project, Papers, the Agent) for a theme whose
+/// chrome and editor are `chrome` and `editor`: the chrome, while it stands at
+/// least half a tone off the editor, otherwise the editor a tone darker with
+/// its hue, so the panels never melt into the page beside them.
+pub fn side_panel(chrome: u32, editor: u32) -> u32 {
+    let [chrome_lightness, ..] = to_oklch(parse(chrome));
+    let [lightness, chroma, hue] = to_oklch(parse(editor));
+    if (chrome_lightness - lightness).abs() >= SIDE_PANEL_TONE / 2. {
+        return chrome;
+    }
+    let lightness = (lightness - SIDE_PANEL_TONE).max(0.);
+    let mut reduced = chroma;
+    while reduced > 0. {
+        if let Some(candidate) = from_oklch(lightness, reduced, hue) {
+            return format(candidate);
+        }
+        reduced -= 0.005;
+    }
+    format(from_oklch(lightness, 0., hue).unwrap_or([lightness; 3]))
+}
+
 /// A custom accent (`0xRRGGBB`) as `appearance` uses it when no theme is
 /// active: itself when it reads at [`ACCENT_FLOOR`] on the surface closest
 /// to it, otherwise the nearest colour with its hue that does.
@@ -198,6 +223,20 @@ mod tests {
         let [r, g, b] = [fixed >> 16, (fixed >> 8) & 0xff, fixed & 0xff];
         assert!(r > b && g > b, "{fixed:06X} is no longer a yellow");
         assert_eq!(fit_contrast(0xfff1a6, &[INK], 9., Appearance::Dark), 0xfff1a6);
+    }
+
+    #[test]
+    fn side_panels_keep_a_chrome_off_the_editor_and_step_a_tone_below_one_that_is_not() {
+        // Graphite, Rosé Pine and Nord light: the theme's own chrome.
+        assert_eq!(side_panel(0xefeff0, 0xfafafa), 0xefeff0);
+        assert_eq!(side_panel(0x131315, 0x1f1f22), 0x131315);
+        assert_eq!(side_panel(0x191724, 0x1f1d2e), 0x191724);
+        // Nord's Polar Night paints its chrome and editor alike.
+        let nord = side_panel(0x2e3440, 0x2e3440);
+        let [editor, chroma, hue] = to_oklch(parse(0x2e3440));
+        let [lightness, panel_chroma, panel_hue] = to_oklch(parse(nord));
+        assert!((editor - lightness - SIDE_PANEL_TONE).abs() < 0.003, "{nord:06x}");
+        assert!((chroma - panel_chroma).abs() < 0.005 && (hue - panel_hue).abs() < 0.05, "{nord:06x}");
     }
 
     /// Golden vectors for the Tauri app's copy of `fitContrast` and

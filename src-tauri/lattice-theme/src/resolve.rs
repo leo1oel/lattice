@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use crate::color::{fit_accent, fit_contrast, ACCENT_FLOOR};
+use crate::color::{fit_accent, fit_contrast, side_panel, ACCENT_FLOOR};
 use crate::format::{Color, ThemeFile};
 use crate::roles::{
     self, Fit, COLOR_ROLES, GRAPHITE_DARK, GRAPHITE_LIGHT, SYNTAX_ROLES, TERMINAL_ROLES,
@@ -38,6 +38,10 @@ pub struct Resolved {
     pub theme: Option<String>,
     pub variant: Option<String>,
     pub colors: BTreeMap<&'static str, Color>,
+    /// The side panels' surface, derived from the chrome and the editor
+    /// (`color::side_panel`); `None` without a theme, where the shell's own
+    /// chrome already is it.
+    pub side_panel: Option<Color>,
     /// The accent to use, fitted; `None` leaves the shell's own accent.
     pub accent: Option<Color>,
     pub syntax: BTreeMap<&'static str, Color>,
@@ -82,8 +86,11 @@ pub fn resolve(
             .map(|color| color.rgb)
             .unwrap_or_else(|| graphite(appearance, key))
     };
+    let side = side_panel(surface("chrome"), surface("editor"));
     let all_surfaces = ["window", "chrome", "panel", "raised", "editor"].map(surface);
+    let all_surfaces = [all_surfaces.as_slice(), &[side]].concat();
     let text_surfaces = ["chrome", "panel", "raised", "editor"].map(surface);
+    let text_surfaces = [text_surfaces.as_slice(), &[side]].concat();
     let sheets = ["panel", "raised"].map(surface);
 
     let mut colors = BTreeMap::new();
@@ -126,6 +133,7 @@ pub fn resolve(
         theme: theme.map(|theme| theme.id.clone()),
         variant: Some(variant.id.clone()),
         colors,
+        side_panel: Some(Color::opaque(side)),
         accent,
         syntax,
         terminal,
@@ -144,6 +152,9 @@ impl Resolved {
                     out.push(((*name).to_string(), color.hex()));
                 }
             }
+        }
+        if let Some(side_panel) = self.side_panel {
+            out.push(("--side-panel".to_string(), side_panel.hex()));
         }
         if let Some(accent) = self.accent {
             out.push(("--accent".to_string(), accent.hex()));
@@ -239,5 +250,17 @@ mod tests {
         assert_eq!(get("--accent"), Some("#9ccfd8"));
         assert!(get("--syntax-comment").is_some());
         assert_eq!(get("--terminal-red"), Some("#ff0000"));
+        // No chrome of its own: Graphite's, a step off this editor.
+        assert_eq!(get("--side-panel"), Some("#131315"));
+    }
+
+    #[test]
+    fn a_chrome_the_editor_shares_gives_way_to_a_side_panel_a_tone_below_it() {
+        let file = theme(r##"{"chrome":"#2e3440","editor":"#2e3440","text-secondary":"#3b4252"}"##);
+        let resolved = resolve(Some(&file), Appearance::Dark, AccentChoice::ThemeDefault);
+        let side = resolved.side_panel.unwrap().rgb;
+        assert_ne!(side, 0x2e3440);
+        let muted = resolved.colors["text-secondary"].rgb;
+        assert!(contrast_ratio(muted, side) >= 4.45, "{muted:06x} on {side:06x}");
     }
 }
