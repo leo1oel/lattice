@@ -2,7 +2,9 @@
 
 Types and a one-file runtime for writing [Lattice](https://github.com/leo1oel/lattice)
 plugins. MIT licensed. The contract is [`docs/plugins.md`](../docs/plugins.md).
-It is not on npm yet; copy the files from here.
+It is not on npm yet; copy the files from here. For a step-by-step walkthrough, from
+a hello-world plugin to the plugin market, read
+[Developing plugins](../docs/guide/plugin-development.md) in the user guide.
 
 - `lattice-plugin.mjs`: the JSON-RPC loop over stdio. No dependencies; copy it
   into your plugin folder (a sandboxed plugin can read only its own folder).
