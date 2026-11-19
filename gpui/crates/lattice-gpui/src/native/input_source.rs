@@ -13,13 +13,6 @@ unsafe extern "C" {
     fn CFRetain(object: *const c_void) -> *const c_void;
 }
 
-#[link(name = "CoreGraphics", kind = "framework")]
-unsafe extern "C" {
-    fn CGEventCreateKeyboardEvent(source: *const c_void, key_code: u16, down: bool) -> *mut c_void;
-    fn CGEventSetFlags(event: *mut c_void, flags: u64);
-    fn CGEventPost(tap: u32, event: *mut c_void);
-}
-
 #[link(name = "Carbon", kind = "framework")]
 unsafe extern "C" {
     fn TISCopyCurrentKeyboardInputSource() -> *mut c_void;
@@ -177,42 +170,4 @@ pub fn current_input_source() -> Option<String> {
         CFRelease(source);
         id
     }
-}
-
-/// A key as the keyboard sends it: posted to the system's event stream
-/// (`kCGHIDEventTap`), so the input method in use takes it before the key
-/// window does, as it does a key typed by hand. A key sent to the window
-/// itself (`send_key`) reaches the input method only as an already
-/// interpreted event that Pinyin inserts without composing. Goes to the
-/// frontmost app's key window, so the caller holds a foreground section.
-/// `key_code` is the ANSI key code; `shift` holds Shift down with it.
-pub fn post_hid_key(key_code: u16, shift: bool) -> Result<()> {
-    const SHIFT_KEY: u16 = 0x38;
-    const SHIFT_FLAG: u64 = 1 << 17;
-    let mut events = Vec::new();
-    if shift {
-        events.push((SHIFT_KEY, true, SHIFT_FLAG));
-    }
-    let flags = if shift { SHIFT_FLAG } else { 0 };
-    events.push((key_code, true, flags));
-    events.push((key_code, false, flags));
-    if shift {
-        events.push((SHIFT_KEY, false, 0));
-    }
-    post_hid_events(&events)
-}
-
-fn post_hid_events(events: &[(u16, bool, u64)]) -> Result<()> {
-    const HID_EVENT_TAP: u32 = 0;
-    for &(key_code, down, flags) in events {
-        unsafe {
-            let event = CGEventCreateKeyboardEvent(std::ptr::null(), key_code, down);
-            anyhow::ensure!(!event.is_null(), "CoreGraphics refused the key event");
-            CGEventSetFlags(event, flags);
-            CGEventPost(HID_EVENT_TAP, event);
-            CFRelease(event);
-        }
-        std::thread::sleep(std::time::Duration::from_millis(30));
-    }
-    Ok(())
 }

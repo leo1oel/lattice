@@ -232,13 +232,11 @@ impl Run {
                 }
             }
         }
-        let native = self.native(cx)?;
-        native::bring_to_front(native);
+        native::bring_to_front(self.native(cx)?);
         let window = self.window;
         let key = self
             .wait_for(cx, Duration::from_secs(1), move |_, cx| {
                 native::app_is_active()
-                    && native::window_is_key(native)
                     && window
                         .update(cx, |_, window, _| window.is_window_active())
                         .unwrap_or(false)
