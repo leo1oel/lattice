@@ -127,7 +127,10 @@ libc = "0.2"
 # platform already use.
 block2 = "0.6"
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSLocale", "NSRange", "NSString"] }
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSLocale", "NSOrthography", "NSRange", "NSString", "NSTextCheckingResult"] }
+# The spell check's NSSpellChecker (`editor_panel/spelling.rs`); the version
+# GPUI's macOS platform already uses, so it adds no crate.
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "block2", "NSSpellChecker"] }
 # The internet's reachability, for the live channel to join again when the
 # network comes back (`overleaf/network.rs`); the versions reqwest already
 # brings in, so they add no crate.
