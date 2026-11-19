@@ -6,7 +6,7 @@ use gpui::{
 };
 
 use crate::{
-    LMGetKbdType, NSStringExt, TISCopyCurrentKeyboardLayoutInputSource, TISGetInputSourceProperty,
+    LMGetKbdType, NSStringExt, TISGetInputSourceProperty,
     UCKeyTranslate, kTISPropertyUnicodeKeyLayoutData,
 };
 use core_foundation::data::{CFDataGetBytePtr, CFDataRef};
@@ -530,7 +530,7 @@ fn chars_for_modified_key(code: CGKeyCode, modifiers: u32) -> String {
     let mut buffer: [u16; BUFFER_SIZE] = [0; BUFFER_SIZE];
     let mut buffer_size: usize = 0;
 
-    let keyboard = unsafe { TISCopyCurrentKeyboardLayoutInputSource() };
+    let keyboard = unsafe { crate::fast::ime_keys::keyboard_layout() };
     if keyboard.is_null() {
         return "".to_string();
     }

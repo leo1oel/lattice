@@ -53,7 +53,7 @@ impl Run {
 
         // The input method serves only the key window of the active app.
         let front = self.foreground(cx, "input method").await?;
-        let method = match native::select_input_method(PINYIN) {
+        let method = match native::select_input_method(self.native(cx)?, PINYIN) {
             Ok(method) => method,
             Err(error) => {
                 steps.check(

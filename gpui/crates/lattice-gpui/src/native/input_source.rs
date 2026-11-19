@@ -111,8 +111,10 @@ pub struct InputMethod {
 
 /// Select the installed input source `id` (an input method's mode, such as
 /// Pinyin's `com.apple.inputmethod.SCIM.ITABC`), enabling it first when the
-/// user has not, until the returned guard is dropped.
-pub fn select_input_method(id: &str) -> Result<InputMethod> {
+/// user has not, for the system and for `native`'s view's text input
+/// context (which otherwise picks the change up only when it is activated
+/// again), until the returned guard is dropped.
+pub fn select_input_method(native: super::Native, id: &str) -> Result<InputMethod> {
     unsafe {
         let filter: Retained<AnyObject> = msg_send![class!(NSDictionary),
             dictionaryWithObject: &*NSString::from_str(id),
@@ -137,6 +139,11 @@ pub fn select_input_method(id: &str) -> Result<InputMethod> {
             enabled_here,
         };
         anyhow::ensure!(status == 0, "could not select {id} (status {status})");
+        let context: *mut AnyObject = msg_send![native.view, inputContext];
+        if !context.is_null() {
+            let _: () =
+                msg_send![context, setSelectedKeyboardInputSource: &*NSString::from_str(id)];
+        }
         Ok(method)
     }
 }
