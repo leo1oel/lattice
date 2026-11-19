@@ -643,11 +643,11 @@ msgstr "{failing} 项需要处理"
 msgid "{failures} to fix"
 msgstr "{failures} 项需修复"
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "{file} changed here and on Overleaf. Overleaf's is newer, so it replaced yours; yours is kept aside."
 msgstr "{file} 在这里和 Overleaf 上都改了。Overleaf 的更新，已替换你的；你的已另存"
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "{file} changed here and on Overleaf. Yours is newer, so it stays and goes up; Overleaf's is kept aside."
 msgstr "{file} 在这里和 Overleaf 上都改了。你的更新，保留并上传；Overleaf 的已另存"
 
@@ -663,7 +663,7 @@ msgstr "{fileCount} 个文件"
 msgid "{fileCount} files"
 msgstr "{fileCount} 个文件"
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "{files} changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor; nothing uploads until then."
 msgstr "{files} 在这里和 Overleaf 上改了同一处。请在编辑器里逐处选择保留哪一版，选好前不会上传"
 
@@ -19003,11 +19003,11 @@ msgstr "用作可编辑图"
 msgid "Use letters, numbers, and :_-.+ in the {name}."
 msgstr "{name}只能包含字母、数字和 :_-.+"
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "Use mine"
 msgstr "用我的"
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "Use Overleaf's"
 msgstr "用 Overleaf 的"
 

@@ -643,11 +643,11 @@ msgstr "{failing} checks need attention"
 msgid "{failures} to fix"
 msgstr "{failures} to fix"
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "{file} changed here and on Overleaf. Overleaf's is newer, so it replaced yours; yours is kept aside."
 msgstr "{file} changed here and on Overleaf. Overleaf's is newer, so it replaced yours; yours is kept aside."
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "{file} changed here and on Overleaf. Yours is newer, so it stays and goes up; Overleaf's is kept aside."
 msgstr "{file} changed here and on Overleaf. Yours is newer, so it stays and goes up; Overleaf's is kept aside."
 
@@ -663,7 +663,7 @@ msgstr "{fileCount} file"
 msgid "{fileCount} files"
 msgstr "{fileCount} files"
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "{files} changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor; nothing uploads until then."
 msgstr "{files} changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor; nothing uploads until then."
 
@@ -19003,11 +19003,11 @@ msgstr "Use as editable figure"
 msgid "Use letters, numbers, and :_-.+ in the {name}."
 msgstr "Use letters, numbers, and :_-.+ in the {name}."
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "Use mine"
 msgstr "Use mine"
 
-#: src/app/overleaf-sync-outcome.ts
+#: src/app/overleaf-sync-conflicts.ts
 msgid "Use Overleaf's"
 msgstr "Use Overleaf's"
 
