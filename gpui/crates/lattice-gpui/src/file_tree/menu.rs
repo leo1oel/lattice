@@ -195,7 +195,7 @@ impl FileTreePanel {
                     move |_, cx| {
                         if let Some(absolute) = &absolute {
                             cx.write_to_clipboard(ClipboardItem::new_string(
-                                absolute.to_string_lossy().into_owned(),
+                                dunce::simplified(absolute).to_string_lossy().into_owned(),
                             ));
                             super::clipboard::notify_copied(1, cx);
                         }

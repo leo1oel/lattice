@@ -190,7 +190,7 @@ impl Run {
         let copied = root.join(path_of(on_ix));
         steps.check(
             NAME,
-            clipboard.as_deref() == Some(copied.to_string_lossy().as_ref())
+            clipboard.as_deref() == Some(dunce::simplified(&copied).to_string_lossy().as_ref())
                 && closed
                 && after == before
                 && tree_lit.is_none(),
