@@ -24,12 +24,16 @@ fn key_probe() {
     );
 }
 
-/// Whether any file under `dir` holds `needle`.
-fn written_anywhere(dir: &Path, needle: &str) -> bool {
+/// Whether any file under `dir` holds `needle`, leaving out `skipped`: the
+/// filter's mount, which is the whole file system again.
+fn written_anywhere(dir: &Path, skipped: &Path, needle: &str) -> bool {
     fs::read_dir(dir).into_iter().flatten().flatten().any(|entry| {
         let path = entry.path();
+        if path.starts_with(skipped) {
+            return false;
+        }
         if path.is_dir() && !path.is_symlink() {
-            return written_anywhere(&path, needle);
+            return written_anywhere(&path, skipped, needle);
         }
         fs::read(&path).is_ok_and(|bytes| {
             bytes.windows(needle.len()).any(|window| window == needle.as_bytes())
@@ -75,9 +79,13 @@ fn the_sandbox_gets_the_keys_lattice_passes_in_and_writes_none() {
     assert!(lines.contains(&openalex.as_str()), "the literature key did not arrive: {stdout}");
     assert!(lines.contains(&"person@example.org"), "the contact did not arrive: {stdout}");
 
-    let app_data = sandbox._app_data.to_path_buf();
+    let app_data = fs::canonicalize(&*sandbox._app_data).unwrap();
+    let mounts = sandbox.mountpoint.0.parent().unwrap();
     for secret in [&endpoint, &openalex] {
-        assert!(!written_anywhere(&app_data, secret), "a key was written under the agent's folder");
+        assert!(
+            !written_anywhere(&app_data, mounts, secret),
+            "a key was written under the agent's folder"
+        );
     }
     eprintln!("checked the keys Lattice passes in: they arrive inside and are written nowhere");
 }
