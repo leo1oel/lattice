@@ -962,9 +962,10 @@
     {
       "step": "a mix of sources and figures dropped on an editor says to drop them separately",
       "platforms": [
-        "windows"
+        "windows",
+        "macos"
       ],
-      "reason": "Windows: failed in 1 of 2 main runs (44162980527), so intermittent; observed {\"notice\":\"Build succeeded in 2.0 s: #42f4b8\"}",
+      "reason": "Windows: failed in 1 of 2 main runs (44162980527), so intermittent; observed {\"notice\":\"Build succeeded in 2.0 s: #42f4b8\"} | macOS: failed in main run 44431384013 (2e39149ce) on the hosted runner, passes on the crew Macs; observed {\"notice\":\"the app became active outside a foreground section, after step \\\"a Finder source dropped on an editor is imported into th…: the app became active outside a foreground section, after step \\\"a Finder source dropped on an editor is imported into the project and opens\\\"\\nlattice_gpui::scenario::input_lock\"}",
       "followup": "LEO-15"
     },
     {
@@ -1286,6 +1287,38 @@
       ],
       "reason": "macOS: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"error\":\"window not found\"}",
       "followup": "LEO-14"
+    },
+    {
+      "step": "a word typed into the visual editor just before its tab closes is in the file once the tab has gone",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44431384013 (2e39149ce) on the hosted runner, passes on the crew Macs; observed {\"kept\":false}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "hovering a block of the full text shows Add block below beside it, inside the pane",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44431384013 (2e39149ce) on the hosted runner, passes on the crew Macs; observed {\"controls\":{\"shown\":true,\"left\":66,\"right\":86,\"viewportLeft\":0,\"textLeft\":53,\"inside\":true,\"hit\":true}}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "⌘G / Ctrl+G opens Go to line, and the line typed there with Enter is where the caret goes",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 4 main runs since #1103 (44409549661), so intermittent; observed {\"opened\":true,\"closed\":false,\"row\":0}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "text typed just before quitting is still unsaved when the app quits",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 4 main runs since #1103 (44409549661), so intermittent; observed {\"file\":\"\\\\\\\\?\\\\D:\\\\a\\\\_temp\\\\e2e-project\\\\quit-check.txt\"}",
+      "followup": "LEO-15"
     }
   ]
 }
