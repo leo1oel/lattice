@@ -47,7 +47,7 @@ function titlebarProps(
     project: { root: "/paper", manifest: { name: "Paper" } },
     documents,
     projectMenu: {
-      lifecycle: { projectMenuOpen: false, setProjectMenuOpen: vi.fn(), clone: { show: vi.fn() }, busyLabel: null, ...lifecycle },
+      lifecycle: { projectMenuOpen: false, setProjectMenuOpen: vi.fn(), clone: { show: vi.fn() }, recentFinder: { show: vi.fn() }, busyLabel: null, ...lifecycle },
       importing: false,
       building: true,
     },

@@ -192,6 +192,8 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
                 "Comments are signed {0}, from Git or Overleaf",
                 known_author.unwrap_or("")
             )),
+        Entry::row(Editor, editor, "spellcheck", t!("Check spelling"))
+            .terms(t!("Check spelling in prose")),
         Entry::row(Editor, editor, "auto-build", t!("Automatic build"))
             .terms(format!("{} ⌘S", t!("Manual only"))),
         Entry::row(Editor, editor, "aux-files", t!("Auxiliary files"))
@@ -445,6 +447,7 @@ mod tests {
         );
         let found = search(&all, "vim");
         assert_eq!(found[0].id, Some("editor-keymap"));
+        assert_eq!(search(&all, "spelling")[0].id, Some("spellcheck"));
         // Only two descriptions say "macOS": translucency's and the model
         // endpoint's key, the Tauri index's two.
         let found = search(&all, "macos");

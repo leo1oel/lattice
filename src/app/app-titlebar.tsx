@@ -51,7 +51,8 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
     lifecycle: Pick<
       ReturnType<typeof useProjectLifecycle>,
       | "projectMenuOpen" | "setProjectMenuOpen" | "recentProjects" | "busyLabel" | "chooseRecentProject" | "chooseExisting"
-      | "clone" | "openTutorialProject" | "exportProjectZip" | "openInThisWindow" | "openProjectWindow" | "moveProjectTab"
+      | "clone" | "recentFinder" | "openTutorialProject" | "exportProjectZip" | "openInThisWindow" | "openProjectWindow"
+      | "moveProjectTab"
     >;
     onNew: () => void;
     onOpenOverleaf: () => void;
@@ -120,7 +121,8 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
       <LazyMount when={lifecycle.projectMenuOpen}>
         <ProjectMenu
           currentPath={project.root} recentProjects={lifecycle.recentProjects} busyLabel={lifecycle.busyLabel}
-          onRecent={lifecycle.chooseRecentProject} onOpen={lifecycle.chooseExisting} onNew={onNew} onClone={lifecycle.clone.show}
+          onRecent={lifecycle.chooseRecentProject} onShowAllRecent={lifecycle.recentFinder.show}
+          onOpen={lifecycle.chooseExisting} onNew={onNew} onClone={lifecycle.clone.show}
           onOpenOverleaf={onOpenOverleaf} onOpenTutorial={lifecycle.openTutorialProject} onExportZip={lifecycle.exportProjectZip}
           onExportArxiv={onExportArxiv} onSettings={() => onSettings(triggerRef.current)}
         />

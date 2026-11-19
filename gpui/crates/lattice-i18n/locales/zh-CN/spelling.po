@@ -1,0 +1,14 @@
+#: lattice-gpui/src/editor_panel/source_pointer.rs
+msgctxt "macOS menu bar"
+msgid "Ignore Spelling"
+msgstr "忽略拼写"
+
+#: lattice-gpui/src/editor_panel/source_pointer.rs
+msgctxt "macOS menu bar"
+msgid "Learn Spelling"
+msgstr "学习拼写"
+
+#: lattice-gpui/src/editor_panel/source_pointer.rs
+msgctxt "macOS menu bar"
+msgid "No Guesses Found"
+msgstr "未找到推测"

@@ -241,3 +241,62 @@ fn a_key_the_keychain_lost_is_not_reported_or_kept() {
     assert!(!save(&home, Path::new(EXE), draft(), KeyUpdate::Keep).unwrap().key_saved);
     assert_eq!(saved(&home)["providers"]["lattice"]["apiKey"], NO_KEY);
 }
+
+/// Whether any file under `dir` holds `needle`.
+fn written_anywhere(dir: &Path, needle: &str) -> bool {
+    std::fs::read_dir(dir).into_iter().flatten().flatten().any(|entry| {
+        let path = entry.path();
+        if path.is_dir() {
+            return written_anywhere(&path, needle);
+        }
+        std::fs::read(&path).is_ok_and(|bytes| {
+            bytes.windows(needle.len()).any(|window| window == needle.as_bytes())
+        })
+    })
+}
+
+/// In the Linux sandbox the helper cannot reach the keychain, so Lattice
+/// passes the key in the sidecar's environment, and writes it nowhere.
+#[test]
+#[cfg(target_os = "linux")]
+fn the_linux_sidecar_gets_the_key_in_its_environment_and_nowhere_on_disk() {
+    let home = TempDir::new("model-endpoint");
+    let draft = endpoint(Protocol::OpenAiCompletions, "https://a.com/v1", vec![model("m")]);
+    save(&home, Path::new(EXE), draft, KeyUpdate::Replace("sk-passed-in".into())).unwrap();
+    let mut command = Command::new("true");
+    command.env(KEY_VARIABLE, "inherited");
+    configure_sidecar(&mut command, &home, Path::new(EXE));
+    assert_eq!(env_of(&command, KEY_VARIABLE), Some(PathBuf::from("sk-passed-in")));
+    assert!(!written_anywhere(&home, "sk-passed-in"));
+    assert_eq!(saved(&home)["providers"]["lattice"]["apiKey"], key_command(Path::new(EXE)));
+
+    keychain::remove().unwrap();
+    configure_sidecar(&mut command, &home, Path::new(EXE));
+    assert_eq!(env_of(&command, KEY_VARIABLE), None);
+}
+
+/// macOS and Windows keep the key in the keychain alone: the helper reads it
+/// there, as Pi runs it outside any sandbox that hides it.
+#[test]
+#[cfg(not(target_os = "linux"))]
+fn the_sidecar_never_gets_the_key_off_linux() {
+    let home = TempDir::new("model-endpoint");
+    let draft = endpoint(Protocol::OpenAiCompletions, "https://a.com/v1", vec![model("m")]);
+    save(&home, Path::new(EXE), draft, KeyUpdate::Replace("sk-keychain-only".into())).unwrap();
+    let mut command = Command::new("true");
+    configure_sidecar(&mut command, &home, Path::new(EXE));
+    assert!(command
+        .get_envs()
+        .all(|(_, value)| value.is_none_or(|value| value != "sk-keychain-only")));
+    assert!(!written_anywhere(&home, "sk-keychain-only"));
+}
+
+#[test]
+fn the_helper_prints_the_passed_key_only_on_linux() {
+    keychain::save("from-keychain").unwrap();
+    let expected = if cfg!(target_os = "linux") { "from-lattice" } else { "from-keychain" };
+    assert_eq!(helper_key(Some(" from-lattice ".into())).unwrap().as_deref(), Some(expected));
+    assert_eq!(helper_key(None).unwrap().as_deref(), Some("from-keychain"));
+    keychain::remove().unwrap();
+    assert_eq!(helper_key(None).unwrap(), None);
+}

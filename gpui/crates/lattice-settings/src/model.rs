@@ -235,6 +235,8 @@ pub struct Appearance {
     pub prose_font_size: f32,
     pub prose_line_height: f32,
     pub editor_keymap: EditorKeymap,
+    /// Settings › Editor & builds › Check spelling (`editorSpellcheck`).
+    pub editor_spellcheck: bool,
     pub interface_sounds: bool,
     pub toast_position: ToastPosition,
     pub hidden_titlebar_tools: Vec<TitlebarTool>,
@@ -260,6 +262,7 @@ impl Default for Appearance {
             prose_font_size: PROSE_FONT_SIZE,
             prose_line_height: PROSE_LINE_HEIGHT,
             editor_keymap: EditorKeymap::Default,
+            editor_spellcheck: true,
             interface_sounds: true,
             // Clear of the PDF toolbar and the build's diagnostics card,
             // which share the top right.
@@ -429,6 +432,8 @@ impl Appearance {
                 defaults.prose_line_height,
             ),
             editor_keymap: choice(field("editorKeymap"), defaults.editor_keymap),
+            // Absent means "never chose"; only an explicit false turns it off.
+            editor_spellcheck: field("editorSpellcheck") != Some(&Value::Bool(false)),
             interface_sounds: field("interfaceSounds") != Some(&Value::Bool(false)),
             toast_position: choice(field("toastPosition"), defaults.toast_position),
             hidden_titlebar_tools: hidden,
@@ -576,6 +581,9 @@ mod tests {
         assert_eq!(appearance.toast_position, ToastPosition::BottomRight);
         assert_eq!(appearance.translucency, Translucency::Subtle);
         assert_eq!(appearance.tab_style, TabStyle::Filled);
+        assert!(appearance.editor_spellcheck);
+        let off = Appearance::from_value(&serde_json::json!({ "editorSpellcheck": false }), false);
+        assert!(!off.editor_spellcheck);
     }
 
     #[test]

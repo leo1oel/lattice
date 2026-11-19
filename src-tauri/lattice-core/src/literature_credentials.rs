@@ -1,7 +1,16 @@
 //! Personal literature-provider keys and the Crossref contact email, kept in
 //! one system-keychain item and cached in-process after the first read.
+//!
+//! On Linux the agent's literature tools run this module inside bubblewrap,
+//! which keeps the session bus and with it the Secret Service out. Lattice
+//! reads the item outside, when it starts the sidecar, and hands it over in
+//! [`SIDECAR_VARIABLE`], which a process there takes in place of the keychain
+//! (`configure_sidecar`). It stays in the environment, never a file: whatever
+//! the agent writes outlives the agent. Plugins never see it: Lattice's own
+//! environment never holds it, and a plugin's is cleared (`plugins::sandbox`).
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::ffi::OsString;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -12,6 +21,9 @@ const MAX_EMAIL: usize = 320;
 const TEST_TIMEOUT: Duration = Duration::from_secs(8);
 
 static VAULT: Mutex<Option<CredentialVault>> = Mutex::new(None);
+
+/// The saved item as Lattice read it for the sidecar it started, on Linux.
+pub(crate) const SIDECAR_VARIABLE: &str = "LATTICE_LITERATURE_CREDENTIALS";
 
 #[derive(Clone, Default, Deserialize, Serialize)]
 struct CredentialVault {
@@ -121,9 +133,45 @@ fn loaded_vault() -> Result<CredentialVault, String> {
     if let Some(vault) = cache.as_ref() {
         return Ok(vault.clone());
     }
-    let vault = read_vault(&entry()?)?;
+    let vault = match passed_vault(env::var_os(SIDECAR_VARIABLE)) {
+        Some(vault) => vault,
+        None => read_vault(&entry()?)?,
+    };
     *cache = Some(vault.clone());
     Ok(vault)
+}
+
+/// The item Lattice passed in, on Linux, where the sandbox has no keychain.
+fn passed_vault(passed: Option<OsString>) -> Option<CredentialVault> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    serde_json::from_str(passed?.to_str()?).ok()
+}
+
+/// Hand the saved item to a sidecar about to start in the Linux sandbox, an
+/// empty one included, so a process there never asks the keychain it cannot
+/// reach. A keychain Lattice cannot read either starts the sidecar without
+/// it, as before: its literature tools then say the keychain is unavailable.
+#[cfg(target_os = "linux")]
+pub(crate) fn configure_sidecar(command: &mut std::process::Command) {
+    pass_vault(command, loaded_vault());
+}
+
+/// [`configure_sidecar`] with the item as Lattice read it.
+#[cfg(target_os = "linux")]
+fn pass_vault(command: &mut std::process::Command, vault: Result<CredentialVault, String>) {
+    command.env_remove(SIDECAR_VARIABLE);
+    match vault.and_then(|vault| {
+        serde_json::to_string(&vault).map_err(|_| "could not encode credentials".to_string())
+    }) {
+        Ok(value) => {
+            command.env(SIDECAR_VARIABLE, value);
+        }
+        Err(error) => {
+            log::warn!(target: "lattice::literature_credentials", "not passed to the agent: {error}");
+        }
+    }
 }
 
 fn read_vault(entry: &keyring::Entry) -> Result<CredentialVault, String> {
@@ -418,6 +466,57 @@ mod tests {
         for secret in ["not-for-the-frontend", "also-secret", "firecrawl-secret"] {
             assert!(!json.contains(secret));
         }
+    }
+
+    /// The Linux sandbox has no keychain, so the item Lattice passed in is
+    /// what a process there reads; elsewhere the variable means nothing.
+    #[test]
+    fn the_passed_vault_stands_in_for_the_keychain_only_on_linux() {
+        let vault = CredentialVault {
+            openalex: Some("passed-openalex".into()),
+            crossref_email: Some("person@example.org".into()),
+            ..CredentialVault::default()
+        };
+        let passed = passed_vault(Some(serde_json::to_string(&vault).unwrap().into()));
+        if cfg!(target_os = "linux") {
+            let passed = passed.expect("the passed vault");
+            assert_eq!(
+                effective(&passed, LiteratureProvider::OpenAlex).as_deref(),
+                Some("passed-openalex")
+            );
+            assert_eq!(contact(&passed).as_deref(), Some("person@example.org"));
+            assert!(passed_vault(Some("not json".into())).is_none());
+        } else {
+            assert!(passed.is_none());
+        }
+        assert!(passed_vault(None).is_none());
+    }
+
+    /// The sidecar gets the saved item, an empty one too, in its environment
+    /// alone: nothing is written for it, and an inherited value never stays.
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn the_linux_sidecar_gets_the_vault_in_its_environment() {
+        let env_of = |command: &std::process::Command| {
+            command
+                .get_envs()
+                .find(|(name, _)| *name == SIDECAR_VARIABLE)
+                .and_then(|(_, value)| value.map(|value| value.to_string_lossy().into_owned()))
+        };
+        let vault = CredentialVault {
+            semanticscholar: Some("passed-s2".into()),
+            ..CredentialVault::default()
+        };
+        let mut command = std::process::Command::new("true");
+        command.env(SIDECAR_VARIABLE, "inherited");
+        pass_vault(&mut command, Ok(vault));
+        let passed = passed_vault(env_of(&command).map(Into::into)).expect("a vault");
+        assert_eq!(passed.semanticscholar.as_deref(), Some("passed-s2"));
+
+        pass_vault(&mut command, Ok(CredentialVault::default()));
+        assert_eq!(env_of(&command).as_deref(), Some("{}"));
+        pass_vault(&mut command, Err("locked".into()));
+        assert_eq!(env_of(&command), None);
     }
 
     /// A key is sent the way its provider expects, the response is
