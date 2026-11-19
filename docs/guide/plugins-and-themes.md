@@ -42,4 +42,4 @@ If a plugin is withdrawn from the market, Lattice turns it off and says why on i
 - **Install from URL…**: a plugin's `.zip` release over `https`, checked against the SHA-256 its author publishes.
 - **Install from folder…**: for developing a plugin; Lattice runs the folder in place, so your edits apply on the next run.
 
-Writing a plugin? See the [plugin developer docs](https://github.com/leo1oel/lattice/blob/main/docs/plugins.md).
+Writing a plugin or a theme? Start with [Your first plugin](plugin-development.md) or [Making a theme](theme-development.md).
