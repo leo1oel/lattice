@@ -97,3 +97,62 @@ fn a_bibliography_name_resolves_beside_the_document_then_at_the_root() {
     fixture.write("tex/main.tex", "\\bibliography{../../outside,.research/x}\n");
     assert!(document_bibliographies(&fixture.root, "tex/main.tex").is_empty());
 }
+
+/// The CVPR kit's `\bibliography{\paperbib}`, whose macro is set by
+/// whether `references.bib` sits beside the document or at the root.
+const PAPERBIB_MAIN: &str = "\\documentclass{article}\n\\begin{document}\nText~\\cite{a}.\n\
+    \\newread\\paperbibprobe\n\\openin\\paperbibprobe=references.bib\n\
+    \\ifeof\\paperbibprobe \\def\\paperbib{../references}\\else \\def\\paperbib{references}\\fi\n\
+    \\closein\\paperbibprobe\n\\bibliography{\\paperbib}\n\\end{document}\n";
+
+fn paperbib_project(label: &str) -> Fixture {
+    let fixture = Fixture::folder(label, "native");
+    fixture.write("cvpr/main.tex", PAPERBIB_MAIN);
+    fixture.write("references.bib", "@misc{a, title={A}}\n");
+    fixture.write("author-kit/main.bib", "@misc{kit, title={Kit}}\n");
+    open(&fixture.root).unwrap();
+    let mut manifest = read_manifest(&fixture.root).unwrap();
+    for document in &mut manifest.root_documents {
+        document.is_default = false;
+    }
+    manifest.root_documents.push(crate::models::RootDocument {
+        path: "cvpr/main.tex".into(),
+        name: "main".into(),
+        is_default: true,
+        chosen: false,
+    });
+    write_manifest(&fixture.root, &manifest).unwrap();
+    fixture
+}
+
+#[test]
+fn a_bibliography_named_by_a_macro_resolves_to_the_file_it_defines() {
+    let fixture = paperbib_project("bib-target-paperbib");
+    assert_eq!(document_bibliographies(&fixture.root, "cvpr/main.tex"), ["references.bib"]);
+    assert_eq!(open(&fixture.root).unwrap().manifest.primary_bibliography, "references.bib");
+    assert_eq!(crate::papers::list_papers(&fixture.root).unwrap().len(), 1);
+
+    // An undefined macro names no file at all.
+    fixture.write("tex/main.tex", "\\bibliography{\\undefinedbib}\n");
+    assert!(document_bibliographies(&fixture.root, "tex/main.tex").is_empty());
+}
+
+#[test]
+fn a_macro_primary_an_earlier_version_recorded_heals_on_open() {
+    let fixture = paperbib_project("bib-target-paperbib-heal");
+    // What an earlier version recorded from `\bibliography{\paperbib}`.
+    let mut manifest = read_manifest(&fixture.root).unwrap();
+    manifest.primary_bibliography = "cvpr/\\paperbib.bib".into();
+    write_manifest(&fixture.root, &manifest).unwrap();
+    assert_eq!(open(&fixture.root).unwrap().manifest.primary_bibliography, "references.bib");
+
+    // With a document that names none, a gone or macro primary gives way to
+    // the shallowest .bib there is, not a template's.
+    let target = resolve_target(&fixture.root, "cvpr/\\paperbib.bib", None);
+    assert_eq!(target.path, "references.bib");
+    let target = resolve_target(&fixture.root, "gone.bib", None);
+    assert_eq!(target.path, "references.bib");
+    // A primary not written yet stays when there is no .bib to take instead.
+    let bare = Fixture::folder("bib-target-unwritten", "bare");
+    assert_eq!(resolve_target(&bare.root, "refs.bib", None).path, "refs.bib");
+}

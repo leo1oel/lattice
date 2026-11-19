@@ -17,7 +17,7 @@ use crate::latex::strip_comment;
 use crate::models::ProjectManifest;
 use regex::Regex;
 use serde::Serialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::path::{Component, Path};
 use std::sync::OnceLock;
@@ -101,8 +101,11 @@ fn document_of(manifest: &ProjectManifest) -> Option<&str> {
 /// The choice itself, without writing: the bibliography `primary` names when
 /// the document uses it (several may be in use, and the writer may have
 /// picked one), else the first the document names that exists, else the
-/// first it names. A document that names none keeps `primary`, unless that
-/// is internal; then the first `.bib` outside hidden folders, else
+/// first it names. A document that names none keeps `primary` while it is
+/// there, or while no other `.bib` is: a primary that is internal, names a
+/// TeX macro (`cvpr/\paperbib.bib`, which an earlier version recorded from
+/// `\bibliography{\paperbib}`), or is gone while another `.bib` exists
+/// gives way to the shallowest `.bib` outside hidden folders, else
 /// `references.bib`.
 pub(crate) fn resolve_target(
     root: &Path, primary: &str, document: Option<&str>,
@@ -110,10 +113,13 @@ pub(crate) fn resolve_target(
     let used = document.map(|document| document_bibliographies(root, document)).unwrap_or_default();
     let exists = |relative: &str| safe_path(root, relative).is_ok_and(|path| path.is_file());
     let path = if used.is_empty() {
-        if !primary.is_empty() && !is_internal_path(primary) {
+        let usable = !primary.is_empty() && !is_internal_path(primary) && !primary.contains('\\');
+        if usable && exists(primary) {
             primary.to_string()
         } else {
-            first_visible_bibliography(root).unwrap_or_else(|| DEFAULT_BIBLIOGRAPHY.to_string())
+            first_visible_bibliography(root)
+                .or_else(|| usable.then(|| primary.to_string()))
+                .unwrap_or_else(|| DEFAULT_BIBLIOGRAPHY.to_string())
         }
     } else if used.iter().any(|path| path == primary) {
         primary.to_string()
@@ -124,8 +130,10 @@ pub(crate) fn resolve_target(
     BibliographyTarget { path, used, document }
 }
 
-/// The first `.bib` outside hidden folders, in name order so the pick does
-/// not depend on the order the file system lists a directory in.
+/// The shallowest `.bib` outside hidden folders, in name order among those
+/// as deep, so a project's own `references.bib` wins over a template's
+/// `author-kit/main.bib` and the pick does not depend on the order the file
+/// system lists a directory in.
 pub(crate) fn first_visible_bibliography(root: &Path) -> Option<String> {
     WalkDir::new(root)
         .max_depth(3)
@@ -137,7 +145,8 @@ pub(crate) fn first_visible_bibliography(root: &Path) -> Option<String> {
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_file())
         .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "bib"))
-        .find_map(|entry| {
+        .min_by_key(|entry| entry.depth())
+        .and_then(|entry| {
             let relative = entry.path().strip_prefix(root).ok()?;
             Some(relative.to_string_lossy().replace('\\', "/"))
         })
@@ -166,12 +175,21 @@ pub(crate) fn document_bibliographies(root: &Path, document: &str) -> Vec<String
     let mut found = Vec::new();
     let mut queue = vec![document.to_string()];
     let mut visited = BTreeSet::new();
+    let mut macros: HashMap<String, Vec<String>> = HashMap::new();
     while let Some(source) = queue.pop() {
         if visited.len() >= MAX_SOURCES || !visited.insert(source.clone()) {
             continue;
         }
         let Ok(path) = safe_path(root, &source) else { continue };
         let Ok(text) = fs::read_to_string(&path) else { continue };
+        for line in text.lines().map(strip_comment) {
+            for capture in definitions().captures_iter(line) {
+                macros
+                    .entry(capture[1].to_string())
+                    .or_default()
+                    .push(capture[2].trim().to_string());
+            }
+        }
         let mut inputs = Vec::new();
         for line in text.lines().map(strip_comment) {
             for capture in commands().captures_iter(line) {
@@ -187,10 +205,10 @@ pub(crate) fn document_bibliographies(root: &Path, document: &str) -> Vec<String
                         for name in
                             argument.split(',').map(str::trim).filter(|name| !name.is_empty())
                         {
-                            found.extend(resolve(root, &base, &with_extension(name, "bib")));
+                            found.extend(resolve_named(root, &base, name, &macros, true));
                         }
                     }
-                    _ => found.extend(resolve(root, &base, argument)),
+                    _ => found.extend(resolve_named(root, &base, argument, &macros, false)),
                 }
             }
         }
@@ -202,6 +220,41 @@ pub(crate) fn document_bibliographies(root: &Path, document: &str) -> Vec<String
         !is_internal_path(path) && path.ends_with(".bib") && seen.insert(path.clone())
     });
     found
+}
+
+/// A name a bibliography command gives, resolved as [`resolve`] does. A TeX
+/// macro (`\bibliography{\paperbib}`, set by `\def\paperbib{references}`
+/// or `../references` depending on where it compiles) stands for the
+/// values the sources define it as: the first that exists, else the first.
+/// A macro with no plain definition names no file Lattice can know.
+fn resolve_named(
+    root: &Path, base: &Path, name: &str, macros: &HashMap<String, Vec<String>>, bib: bool,
+) -> Option<String> {
+    let file = |name: &str| if bib { with_extension(name, "bib") } else { name.to_string() };
+    let Some(macro_name) = name.strip_prefix('\\') else {
+        return (!name.contains('\\')).then(|| resolve(root, base, &file(name))).flatten();
+    };
+    let candidates: Vec<String> = macros
+        .get(macro_name)?
+        .iter()
+        .filter(|value| !value.is_empty() && !value.contains('\\'))
+        .filter_map(|value| resolve(root, base, &file(value)))
+        .collect();
+    let exists = |relative: &&String| safe_path(root, relative).is_ok_and(|path| path.is_file());
+    candidates.iter().find(exists).or(candidates.first()).cloned()
+}
+
+/// `\def\name{value}` and `\newcommand{\name}{value}` (and its re- and
+/// provide- forms) with a plain value: what a macro in a bibliography
+/// command may stand for.
+fn definitions() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(
+            r"\\(?:def|(?:re)?newcommand\*?|providecommand\*?)\s*\{?\s*\\([A-Za-z@]+)\s*\}?\s*\{([^{}\\]*)\}",
+        )
+        .expect("macro definition regex")
+    })
 }
 
 fn with_extension(name: &str, extension: &str) -> String {
