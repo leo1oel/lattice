@@ -219,9 +219,10 @@
     {
       "step": "PDF: two notes on one line stand their pins side by side, each pin opens its own card, a click off the pages closes it, and leaving the pages unlights the note",
       "platforms": [
-        "macos"
+        "macos",
+        "windows"
       ],
-      "reason": "macOS: failed in every main run (44173099111, 44154544765, 44162980527); observed {\"placed\":false,\"pins\":\"(None, None)\",\"beside\":false,\"opens_second\":false,\"opens_first\":false,\"off_closes\":false,\"lit\":false,\"unlit\":false}",
+      "reason": "macOS: failed in every main run (44173099111, 44154544765, 44162980527); observed {\"placed\":false,\"pins\":\"(None, None)\",\"beside\":false,\"opens_second\":false,\"opens_first\":false,\"off_closes\":false,\"lit\":false,\"unlit\":false} | Windows: failed once in run 44460622331 attempt 2 of #1148, which does not touch it, and passed in every main run since #1103, so intermittent; observed {\"placed\":false,\"pins\":\"(Some(Point { x: 689.3796px, y: 334.91077px }), None)\",\"beside\":false,\"opens_second\":false,\"opens_first\":false,\"off_closes\":false,\"lit\":false,\"unlit\":false}",
       "followup": "LEO-14"
     },
     {
@@ -1376,6 +1377,22 @@
         "windows"
       ],
       "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"listed\":false,\"deleted\":false,\"back\":false,\"keyBox\":true,\"inFront\":\"second2\"}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "the pointer crossing the next ⋯ menu row on its way to the Move … to submenu keeps it open, and New split below runs",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed once in run 44460622331 attempt 1 of #1148, which does not touch it, and passed in every main run since #1103, so intermittent; observed {\"move_row\":\"Bounds { origin: Point { x: 416px, y: 549px }, size: Size { 251px × 32px } }\",\"crossing\":\"Point { x: 661px, y: 597px }\",\"target\":\"Point { x: 746px, y: 693px }\",\"panels_before\":4,\"panels_after\":4}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "Add reference opens from Add papers' Enter manually",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed once in run 44460622331 attempt 2 of #1148, which does not touch it, and passed in every main run since #1103, so intermittent; observed {}",
       "followup": "LEO-15"
     }
   ]
