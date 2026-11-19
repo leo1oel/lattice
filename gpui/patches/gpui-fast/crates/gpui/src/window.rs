@@ -1139,7 +1139,7 @@ impl Frame {
         self.accessed_element_states.clear();
         self.mouse_listeners.clear();
         self.dispatch_tree.clear();
-        self.scene.clear();
+        crate::fast::rounded_clip::clear_frame_scene(&mut self.scene);
         crate::fast::composition::SurfaceStarts::clear(&mut self.fast_composition_starts);
         self.input_handlers.clear();
         self.tooltip_requests.clear();

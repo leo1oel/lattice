@@ -94,6 +94,12 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
         } else {
             None
         };
+        // The e2e's keys are US keystrokes, which an input method in use
+        // would take before the app's bindings (`native::use_ascii_keyboard`).
+        #[cfg(target_os = "macos")]
+        let keyboard = (args.name == "e2e")
+            .then(native::use_ascii_keyboard)
+            .flatten();
         let result = match args.name.as_str() {
             "e2e" => match args.only.as_deref().map(e2e::set_only) {
                 Some(Err(error)) => Err(error),
@@ -130,8 +136,17 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
         let mut value = result.unwrap_or_else(|error| json!({ "error": format!("{error:#}") }));
         if let Some(object) = value.as_object_mut() {
             object.insert("foreground".into(), run.input.summary());
+            #[cfg(target_os = "macos")]
+            if let Some((from, to)) = &keyboard {
+                object.insert(
+                    "keyboard".into(),
+                    json!({ "switched_from": from, "typed_on": to }),
+                );
+            }
         }
         native::release_private_pasteboard();
+        #[cfg(target_os = "macos")]
+        native::restore_keyboard();
         let text = serde_json::to_string_pretty(&value).unwrap_or_default();
         if let Err(error) = std::fs::write(&args.out, text) {
             log::error!("writing {}: {error}", args.out.display());

@@ -51,10 +51,14 @@ use super::{
 mod annotations;
 mod documents;
 mod drops;
+mod events;
 mod invoke;
 mod notices;
 pub mod permission;
 mod skeleton;
+
+use events::surface_event;
+pub use events::{SurfaceEvent, TurnReview};
 
 /// Which of the page's three surfaces this is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,65 +82,15 @@ impl SurfaceKind {
     }
 }
 
-/// What the Agent asks of the window.
-#[derive(Clone, Debug, PartialEq)]
-pub enum SurfaceEvent {
-    /// Open a project file the Agent named.
-    OpenPath(String),
-    /// Open the Git workspace, pinned to one turn's checkpoint diff when given.
-    OpenReview(Option<TurnReview>),
-    /// Open Settings on the Agent's providers, revealing a place on the
-    /// page when one is named (`provider-binary-paths`).
-    OpenProviderSettings(Option<String>),
-    /// The selection the Agent was shown is spent.
-    ClearSelection,
-    /// The narrowest the Agent's panel can be with its composer intact.
-    MinimumWidth(f32),
-    /// The Git workspace's view tab was chosen.
-    GitView(String),
-    /// The Git workspace's close button.
-    CloseGit,
-    /// A canvas, spreadsheet or presentation tool call for the window's
-    /// documents (`documents.rs`); answer with [`SynaraSurface::answer`].
-    DocumentTool {
-        id: u64,
-        family: String,
-        request: Value,
-    },
-    /// An annotation tool's call to record into the open round
-    /// (`annotations.rs`); answered with [`SynaraSurface::answer`].
-    AnnotationTool {
-        id: u64,
-        annotation: String,
-        answer: crate::annotations::rounds::ToolAnswer,
-    },
-    /// The Agent creates a board or sheet at `path`.
-    CreateDocument {
-        id: u64,
-        path: String,
-        expires_at: f64,
-    },
-    /// The Agent's checkpoint history for the panel's thread
-    /// (`checkpoints.rs`).
-    History(super::checkpoints::Snapshot),
-    /// The panel's turn as it now stands (`AgentDeckPresence`), `None` once
-    /// no turn runs or waits.
-    Turn(Option<Value>),
-    /// A turn started: the writer asked the Agent something.
-    TurnStarted,
-}
-
-/// A turn's checkpoint diff, reviewable after the working tree moved on.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TurnReview {
-    pub thread_id: String,
-    pub turn_id: String,
-    pub file_path: Option<String>,
-}
-
 /// The least time between two pointer reports, as the Tauri host throttles
 /// its `lattice:host-pointer` (`use-synara-host.ts`).
 const POINTER_THROTTLE: Duration = Duration::from_millis(150);
+/// How long a hidden Agent or Git workspace keeps its page before it is torn
+/// down (its WebContent process alone is ~200 MB): long enough that toggling
+/// the panel never reloads it, while a turn running or waiting holds it
+/// however long (`hold_hibernation`). Synara's service, its threads and
+/// terminals live on in the runtime and the page reattaches when shown.
+const AGENT_HIBERNATE_AFTER: Duration = Duration::from_secs(180);
 /// How long the writer's workspace must rest before the page hears of it.
 const WORKSPACE_SETTLE: Duration = Duration::from_millis(80);
 
@@ -146,6 +100,10 @@ pub struct SynaraSurface {
     /// Why there is no island: the pages are not built.
     unavailable: Option<String>,
     root: Option<PathBuf>,
+    /// The panel's thread as the page last reported it (`agent:history`).
+    /// The page keeps it in its own storage, which goes with the page when
+    /// it hibernates, so a page built again is told it with its project.
+    thread: Option<String>,
     shown: bool,
     /// The page has drawn since it was (re)built.
     drawn: bool,
@@ -215,12 +173,13 @@ impl SynaraSurface {
                     ground: Some(ground(kind, &palette)),
                     reveal_on_ready: false,
                     theme: IslandTheme::Document,
-                    // A hidden Agent may still own a turn or a terminal;
-                    // Settings' page owns neither.
-                    hibernates: kind == SurfaceKind::Settings,
+                    hibernates: true,
                 };
                 let island = cx.new(|cx| {
                     let mut island = Island::new(config, window, cx);
+                    if kind != SurfaceKind::Settings {
+                        island.set_hibernate_after(AGENT_HIBERNATE_AFTER);
+                    }
                     if kind == SurfaceKind::Agent {
                         island.accept_file_drops();
                     }
@@ -247,6 +206,7 @@ impl SynaraSurface {
             island,
             unavailable,
             root: None,
+            thread: None,
             shown: false,
             drawn: false,
             opening: None,
@@ -321,6 +281,7 @@ impl SynaraSurface {
             commands::forget_turn(old);
         }
         self.root = root;
+        self.thread = None;
         // A frame belongs to one project: another project's starts afresh
         // (the page keys its host by the project).
         self.workspace = Value::Null;
@@ -497,6 +458,7 @@ impl SynaraSurface {
             "visible": self.shown,
             "appearance": self.appearance,
             "git": self.git,
+            "thread": self.thread,
         });
         self.post("agent:open", payload, cx);
         if self.kind == SurfaceKind::Settings {
@@ -547,6 +509,9 @@ impl SynaraSurface {
             IslandEvent::Ready => {
                 self.drawn = false;
                 self.open_page(cx);
+                if self.kind == SurfaceKind::Agent {
+                    self.retell_annotations(cx);
+                }
             }
             IslandEvent::Hibernated => {
                 self.drawn = false;
@@ -581,7 +546,10 @@ impl SynaraSurface {
             // The Agent's checkpoints: the History panel's rows, and the
             // builds its turns' edits need (`shell/agent_checkpoints.rs`).
             "agent:history" => match super::checkpoints::parse_snapshot(payload) {
-                Some(snapshot) => cx.emit(SurfaceEvent::History(snapshot)),
+                Some(snapshot) => {
+                    self.thread = Some(snapshot.active_thread_id.clone());
+                    cx.emit(SurfaceEvent::History(snapshot))
+                }
                 None => log::debug!("{}: malformed agent:history", self.kind.name()),
             },
             "agent:permission-mode" => {
@@ -590,9 +558,22 @@ impl SynaraSurface {
                 }
             }
             _ => match surface_event(kind, payload) {
-                Some(event) => cx.emit(event),
+                Some(event) => {
+                    if let SurfaceEvent::Turn(presence) = &event {
+                        self.hold_page(presence.is_some(), cx);
+                    }
+                    cx.emit(event)
+                }
                 None => log::debug!("{}: unhandled {kind}", self.kind.name()),
             },
+        }
+    }
+
+    /// A turn running or waiting keeps the page while hidden: its tool calls
+    /// for the window and its approvals pass through the page.
+    fn hold_page(&self, held: bool, cx: &mut Context<Self>) {
+        if let Some(island) = &self.island {
+            island.update(cx, |island, cx| island.hold_hibernation(held, cx));
         }
     }
 
@@ -619,45 +600,6 @@ impl SynaraSurface {
             },
         }
     }
-}
-
-/// What the page asks of the window, as the event its owner hears; `None`
-/// for a message that asks nothing of it.
-fn surface_event(kind: &str, payload: &Value) -> Option<SurfaceEvent> {
-    let text = |key: &str| {
-        payload
-            .get(key)
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|text| !text.is_empty())
-            .map(str::to_string)
-    };
-    Some(match kind {
-        "agent:open-path" => SurfaceEvent::OpenPath(text("path")?),
-        "agent:open-review" => SurfaceEvent::OpenReview(match (text("threadId"), text("turnId")) {
-            (Some(thread_id), Some(turn_id)) => Some(TurnReview {
-                thread_id,
-                turn_id,
-                file_path: None,
-            }),
-            _ => None,
-        }),
-        "agent:open-settings" => SurfaceEvent::OpenProviderSettings(text("target")),
-        "agent:clear-selection" => SurfaceEvent::ClearSelection,
-        "agent:minimum-width" => {
-            SurfaceEvent::MinimumWidth(payload.get("width").and_then(Value::as_f64)? as f32)
-        }
-        "agent:git-view" => SurfaceEvent::GitView(text("view")?),
-        "agent:turn" => SurfaceEvent::Turn(
-            payload
-                .get("presence")
-                .filter(|presence| presence.is_object())
-                .cloned(),
-        ),
-        "agent:turn-started" => SurfaceEvent::TurnStarted,
-        "agent:close-git" => SurfaceEvent::CloseGit,
-        _ => return None,
-    })
 }
 
 /// The page's ground before it draws: the Agent panel's sidebar, the Git
@@ -788,47 +730,5 @@ impl Render for SynaraSurface {
             .when(self.root.is_some(), |this| {
                 this.children(self.island.clone())
             })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The page's messages as `src/agent` and `use-synara-host.ts` post them
-    /// (`openProviderSettings(target)`, `{ target: target ?? null }`).
-    #[test]
-    fn provider_settings_carry_the_place_the_page_named() {
-        assert_eq!(
-            surface_event(
-                "agent:open-settings",
-                &json!({ "target": "provider-binary-paths" })
-            ),
-            Some(SurfaceEvent::OpenProviderSettings(Some(
-                "provider-binary-paths".into()
-            )))
-        );
-        assert_eq!(
-            surface_event("agent:open-settings", &json!({ "target": null })),
-            Some(SurfaceEvent::OpenProviderSettings(None))
-        );
-        assert_eq!(
-            surface_event("agent:minimum-width", &json!({ "width": 312 })),
-            Some(SurfaceEvent::MinimumWidth(312.))
-        );
-        assert_eq!(
-            surface_event("agent:open-path", &json!({ "path": " " })),
-            None
-        );
-        assert_eq!(surface_event("agent:history", &json!({})), None);
-        assert_eq!(surface_event("agent:frame-message", &json!({})), None);
-        assert_eq!(
-            surface_event("agent:turn", &json!({ "presence": null })),
-            Some(SurfaceEvent::Turn(None))
-        );
-        assert_eq!(
-            surface_event("agent:turn", &json!({ "presence": { "state": "running" } })),
-            Some(SurfaceEvent::Turn(Some(json!({ "state": "running" }))))
-        );
     }
 }

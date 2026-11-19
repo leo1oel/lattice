@@ -478,6 +478,9 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
     {
         crate::window_material::apply_all(cx);
     }
+    if changed(|was, now| was.app_updates == now.app_updates) && before.is_some() {
+        crate::updater::setting_changed(cx);
+    }
     if changed(|was, now| {
         (
             was.appearance.toast_position,

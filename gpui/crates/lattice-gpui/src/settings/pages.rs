@@ -30,6 +30,14 @@ pub fn sheet(dialog: &SettingsDialog, cx: &mut gpui::App) -> Option<AnyElement> 
     if let Some(browse) = dialog.pages.theme_browse.clone() {
         return Some(super::theme_browse::sheet(browse, cx));
     }
+    if let Some(details) = dialog
+        .pages
+        .plugins
+        .clone()
+        .and_then(|pane| super::plugins_pane::details_sheet(pane, cx))
+    {
+        return Some(details);
+    }
     let pane = dialog.pages.acknowledgements.clone()?;
     let surface = {
         let close = pane.downgrade();
@@ -143,6 +151,11 @@ impl SettingsDialog {
     /// Acknowledgements' sheet is open over Settings.
     pub fn sheet_open(&self, cx: &gpui::App) -> bool {
         self.pages.theme_browse.is_some()
+            || self
+                .pages
+                .plugins
+                .as_ref()
+                .is_some_and(|pane| pane.read(cx).details_open())
             || self
                 .pages
                 .acknowledgements

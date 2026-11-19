@@ -257,10 +257,10 @@ fn path_copies(key: &str, root: Option<&std::path::Path>) -> Vec<(String, String
     let absolute = root.map_or_else(
         || key.to_string(),
         |root| {
-            key.split('/')
-                .fold(root.to_path_buf(), |path, part| path.join(part))
-                .to_string_lossy()
-                .into_owned()
+            let path = key
+                .split('/')
+                .fold(root.to_path_buf(), |path, part| path.join(part));
+            dunce::simplified(&path).to_string_lossy().into_owned()
         },
     );
     vec![

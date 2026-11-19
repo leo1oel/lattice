@@ -144,6 +144,10 @@ pub(crate) struct SceneClips {
     pub(crate) scopes: Vec<Scope>,
     active: Vec<usize>,
     pub(crate) compiled: bool,
+    /// Primitives are only recorded until the scene finishes: it is
+    /// compiled then, which inserts every one of them into a new scene.
+    /// See [`clear_frame_scene`].
+    pub(crate) deferred: bool,
 }
 
 impl SceneClips {
@@ -169,6 +173,19 @@ pub(crate) fn clear(scene: &mut Scene) {
     scene.fast_rounded_clip.scopes.clear();
     scene.fast_rounded_clip.active.clear();
     scene.fast_rounded_clip.compiled = false;
+    scene.fast_rounded_clip.deferred = false;
+}
+
+/// Clears a window frame's scene for the frame after next. A scene holding
+/// rounded clips is compiled into a new scene when it finishes, inserting
+/// every primitive a second time, the first insertion's ordering and
+/// storage thrown away. A frame drawn where the last one held rounded clips
+/// (a window's clips rarely come and go) only records its primitives, which
+/// the compile inserts once; should it hold none, the compile still runs.
+pub(crate) fn clear_frame_scene(scene: &mut Scene) {
+    let deferred = !scene.fast_rounded_clip.scopes.is_empty();
+    scene.clear();
+    scene.fast_rounded_clip.deferred = deferred;
 }
 
 /// The continuation paints descendants; the element's own border and drop
@@ -241,7 +258,7 @@ impl Window {
 
 #[cfg(test)]
 mod tests {
-    use super::{ClipOperation, SceneClips, Shape, record};
+    use super::{ClipOperation, SceneClips, Shape, clear_frame_scene, record};
     use crate::{
         Bounds, Corners, Edges, Overflow, Quad, ScaledPixels, Scene, Style, point, px, size,
     };
@@ -337,6 +354,58 @@ mod tests {
         let mut style = style(24.);
         style.overflow.x = Overflow::Visible;
         assert!(Shape::for_style(&style, bounds, px(16.), 1.).is_none());
+    }
+
+    #[test]
+    fn a_frame_after_rounded_clips_only_records_until_it_finishes() {
+        let mut scene = Scene::default();
+        record(&mut scene, ClipOperation::Begin(shape()));
+        scene.insert_primitive(quad());
+        record(&mut scene, ClipOperation::End);
+        clear_frame_scene(&mut scene);
+        assert!(scene.fast_rounded_clip.deferred);
+        clear_frame_scene(&mut scene);
+        assert!(!scene.fast_rounded_clip.deferred);
+        scene.fast_rounded_clip.deferred = true;
+        scene.clear();
+        assert!(!scene.fast_rounded_clip.deferred);
+    }
+
+    #[test]
+    fn a_deferred_scene_finishes_as_one_that_inserted_as_it_went() {
+        let quad_at = |x: f32| {
+            let mut quad = quad();
+            quad.bounds.origin.x = ScaledPixels(x);
+            quad.content_mask.bounds = quad.bounds;
+            quad
+        };
+        let draw = |scene: &mut Scene, clips: bool| {
+            scene.insert_primitive(quad_at(0.));
+            scene.push_layer(shape().bounds);
+            scene.insert_primitive(quad_at(8.));
+            scene.pop_layer();
+            if clips {
+                record(scene, ClipOperation::Begin(shape()));
+            }
+            scene.insert_primitive(quad_at(4.));
+            scene.insert_primitive(quad_at(100.));
+            if clips {
+                record(scene, ClipOperation::End);
+            }
+            scene.insert_primitive(quad_at(2.));
+        };
+        for clips in [true, false] {
+            let mut inserted = Scene::default();
+            draw(&mut inserted, clips);
+            inserted.finish();
+            let mut deferred = Scene::default();
+            deferred.fast_rounded_clip.deferred = true;
+            draw(&mut deferred, clips);
+            assert!(deferred.quads.is_empty());
+            assert_eq!(deferred.len(), inserted.len());
+            deferred.finish();
+            assert_eq!(deferred.describe(), inserted.describe(), "clips: {clips}");
+        }
     }
 
     #[test]

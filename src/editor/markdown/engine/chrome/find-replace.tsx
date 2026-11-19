@@ -301,6 +301,8 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
           placeholder={t`Find`}
           value={query}
           spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
           onChange={(event) => setQuery(event.target.value)}
           {...compositionProps}
           onKeyDown={(event) => {
@@ -337,6 +339,8 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
             placeholder={t`Replace`}
             value={replacement}
             spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
             onChange={(event) => setReplacement(event.target.value)}
             {...compositionProps}
             onKeyDown={(event) => {

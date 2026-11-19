@@ -1,6 +1,6 @@
 /**
  * The build flavor, fixed at build time: `LATTICE_FLAVOR=beta` builds Lattice
- * Beta (docs/release-process.md), the release build sets nothing.
+ * Tauri Beta (docs/release-process.md), the release build sets nothing.
  */
 const beta = import.meta.env.LATTICE_FLAVOR === "beta";
 

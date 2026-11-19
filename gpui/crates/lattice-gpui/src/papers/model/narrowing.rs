@@ -567,7 +567,7 @@ mod tests {
 
     #[test]
     fn sorts_put_missing_values_last() {
-        let papers = vec![
+        let papers = [
             with(paper("a"), |p| p.year = Some("2019".into())),
             paper("b"),
             with(paper("c"), |p| p.year = Some("2021".into())),
@@ -583,7 +583,7 @@ mod tests {
 
     #[test]
     fn groups_order_their_sections() {
-        let papers = vec![
+        let papers = [
             with(paper("a"), |p| p.year = Some("2019".into())),
             paper("b"),
             with(paper("c"), |p| p.year = Some("2021".into())),

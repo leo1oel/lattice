@@ -315,7 +315,7 @@ fn art_file(theme: &IndexTheme) -> Option<Arc<ThemeFile>> {
 }
 
 /// The day a list was fetched, as the picker writes a date.
-fn date(timestamp: &str) -> String {
+pub(super) fn date(timestamp: &str) -> String {
     let Ok(at) = chrono::DateTime::parse_from_rfc3339(timestamp) else {
         return timestamp.to_string();
     };

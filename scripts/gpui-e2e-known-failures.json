@@ -5,7 +5,7 @@
     "A step joins only with the main run that shows it failing; take it off once it passes on main (the job notes a listed step that passed).",
     "The steps of scripts/gpui-e2e-quarantine.json are listed too, as flaky: they caused most red runs while passing on main more often than not.",
     "followup is the issue that owns the fix: LEO-14 for macOS, LEO-15 for Windows (a step on both platforms is under LEO-14 and fixed for both).",
-    "Collected from main runs macos: 44173099111, 44154544765, 44162980527; windows: 44162980527, 44213516921.",
+    "Collected from main runs macos: 44173099111, 44154544765, 44162980527; windows: 44162980527, 44213516921, and the intermittent ones of 44229692959, 44247550879, 44272220139, 44274671758, 44276458780.",
     "Also steps that failed in branch runs 44225936391 and 44226228810, whose GPUI sources equal main's: a hosted-runner flake looks like this."
   ],
   "steps": [
@@ -118,9 +118,10 @@
     {
       "step": "PDF: resting on a citation link opens its entry's card after a moment, and leaving it closes the card",
       "platforms": [
-        "macos"
+        "macos",
+        "windows"
       ],
-      "reason": "macOS: failed in 2 of 3 main runs (44173099111, 44154544765), so intermittent; observed {\"built\":true,\"shown\":true,\"link\":\"Point { x: 806.9747px, y: 192.46867px }\",\"early\":null,\"opened\":null,\"closed\":null}",
+      "reason": "macOS: failed in 2 of 3 main runs (44173099111, 44154544765), so intermittent; observed {\"built\":true,\"shown\":true,\"link\":\"Point { x: 806.9747px, y: 192.46867px }\",\"early\":null,\"opened\":null,\"closed\":null} | Windows: failed in main run 44454326816 on the hosted runner; observed {\"built\":true,\"shown\":true,\"link\":\"Point { x: 806.9747px, y: 192.46867px }\",\"early\":null,\"opened\":null,\"closed\":null}",
       "followup": "LEO-14"
     },
     {
@@ -218,9 +219,10 @@
     {
       "step": "PDF: two notes on one line stand their pins side by side, each pin opens its own card, a click off the pages closes it, and leaving the pages unlights the note",
       "platforms": [
-        "macos"
+        "macos",
+        "windows"
       ],
-      "reason": "macOS: failed in every main run (44173099111, 44154544765, 44162980527); observed {\"placed\":false,\"pins\":\"(None, None)\",\"beside\":false,\"opens_second\":false,\"opens_first\":false,\"off_closes\":false,\"lit\":false,\"unlit\":false}",
+      "reason": "macOS: failed in every main run (44173099111, 44154544765, 44162980527); observed {\"placed\":false,\"pins\":\"(None, None)\",\"beside\":false,\"opens_second\":false,\"opens_first\":false,\"off_closes\":false,\"lit\":false,\"unlit\":false} | Windows: failed once in run 44460622331 attempt 2 of #1148, which does not touch it, and passed in every main run since #1103, so intermittent; observed {\"placed\":false,\"pins\":\"(Some(Point { x: 689.3796px, y: 334.91077px }), None)\",\"beside\":false,\"opens_second\":false,\"opens_first\":false,\"off_closes\":false,\"lit\":false,\"unlit\":false}",
       "followup": "LEO-14"
     },
     {
@@ -962,9 +964,10 @@
     {
       "step": "a mix of sources and figures dropped on an editor says to drop them separately",
       "platforms": [
-        "windows"
+        "windows",
+        "macos"
       ],
-      "reason": "Windows: failed in 1 of 2 main runs (44162980527), so intermittent; observed {\"notice\":\"Build succeeded in 2.0 s: #42f4b8\"}",
+      "reason": "Windows: failed in 1 of 2 main runs (44162980527), so intermittent; observed {\"notice\":\"Build succeeded in 2.0 s: #42f4b8\"} | macOS: failed in main run 44431384013 (2e39149ce) on the hosted runner, passes on the crew Macs; observed {\"notice\":\"the app became active outside a foreground section, after step \\\"a Finder source dropped on an editor is imported into th…: the app became active outside a foreground section, after step \\\"a Finder source dropped on an editor is imported into the project and opens\\\"\\nlattice_gpui::scenario::input_lock\"}",
       "followup": "LEO-15"
     },
     {
@@ -1048,30 +1051,6 @@
       "followup": "LEO-15"
     },
     {
-      "step": "the shortcut sheet lists the table's keys and the workspace's, editor's, LaTeX's and visual Markdown's",
-      "platforms": [
-        "windows"
-      ],
-      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"titles\":[\"Navigate\",\"Edit\",\"Build\",\"Layout\",\"Project\",\"Appearance\",\"Panels and tabs\",\"Text editing\",\"LaTeX\",\"Visual Markdown\",\"Check references\"],\"palette\":{\"label\":\"Command palette\",\"combos\":[\"Ctrl+K\",\"Ctrl+Shift+P\"],…",
-      "followup": "LEO-15"
-    },
-    {
-      "step": "the sheet's LaTeX group lists Show the citation card on ⌥⌘K and Proofread the selection on ⌥⌘P, in the Tauri order",
-      "platforms": [
-        "windows"
-      ],
-      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"citation_card\":[\"Ctrl+Alt+K\"],\"proofread\":[\"Ctrl+Alt+P\"],\"order\":[19,20,21]}",
-      "followup": "LEO-15"
-    },
-    {
-      "step": "the sheet's field filters by key, and finds nothing for a query nothing matches",
-      "platforms": [
-        "windows"
-      ],
-      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"by_key\":[],\"none\":[]}",
-      "followup": "LEO-15"
-    },
-    {
       "step": "in focus mode Escape in the PDF first clears its selection, then leaves focus mode",
       "platforms": [
         "windows"
@@ -1082,9 +1061,10 @@
     {
       "step": "closing a window within the autosave pause saves what was typed, then closes it",
       "platforms": [
-        "windows"
+        "windows",
+        "macos"
       ],
-      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"unsaved_before\":false,\"disk\":\"draft\\n\"}",
+      "reason": "Windows: failed in every main run (44162980527, 44213516921); observed {\"unsaved_before\":false,\"disk\":\"draft\\n\"} | macOS: failed in main run 44455883121 on the hosted runner; observed {\"unsaved_before\":false,\"disk\":\"draft\\n\"}",
       "followup": "LEO-15"
     },
     {
@@ -1237,6 +1217,182 @@
         "windows"
       ],
       "reason": "Windows: passed in every main run but failed in branch run 44226228810, whose GPUI sources equal main's, so intermittent",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "Go to on a reference card closes the card and puts the caret on its \\label's line",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44272220139), so intermittent; observed {\"card\":\"Bounds { origin: Point { x: 278px, y: 330px }, size: Size { 333px × 174px } }\",\"went\":false,\"closed\":false,\"line\":10,\"at\":[17,45]}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "resting on the rail opens the outline; a row puts the caret on its heading and keeps it current",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44274671758), so intermittent; observed {\"opened\":false,\"method\":1,\"line\":7,\"jumped\":true,\"current\":1,\"closed\":true}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a file closed straight after a jump comes back to the jumped-to line",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44274671758), so intermittent; observed {\"caret\":7113,\"top\":0,\"line_250\":7113}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a closed file renamed in the tree opens at the place it was left under its old name",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44274671758), so intermittent; observed {\"renamed\":true,\"caret\":7113,\"top\":0,\"line_250\":7113}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "what a Finder drop on the tree brings in is selected",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 5 main runs (44276458780), so intermittent; observed {\"selected\":[\"cite-check.tex\"]}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "Export figures for a journal saves the editor first, then writes the drawing's figure as a PDF in a folder of its own and says so, and a second run meanwhile starts nothing",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"saved\":false,\"notices\":[\"Could not save main.tex\"],\"folders\":[],\"figures\":[],\"second_run_wrote\":0}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "pen strokes drawn in quick succession with native input are an element each",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"strokes\":24,\"elements_added\":0}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "a rectangle drawn with native input on the board is in the .excalidraw after its tab closes at once",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"saved\":false,\"shapes_before\":22,\"on_board_before_close\":22,\"shapes_after\":22}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "the project_tab_drag module runs to its end",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44408832005, the first after the step landed (passes on the crew Macs); observed {\"error\":\"window not found\"}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "a word typed into the visual editor just before its tab closes is in the file once the tab has gone",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44431384013 (2e39149ce) on the hosted runner, passes on the crew Macs; observed {\"kept\":false}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "hovering a block of the full text shows Add block below beside it, inside the pane",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44431384013 (2e39149ce) on the hosted runner, passes on the crew Macs; observed {\"controls\":{\"shown\":true,\"left\":66,\"right\":86,\"viewportLeft\":0,\"textLeft\":53,\"inside\":true,\"hit\":true}}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "⌘G / Ctrl+G opens Go to line, and the line typed there with Enter is where the caret goes",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 4 main runs since #1103 (44409549661), so intermittent; observed {\"opened\":true,\"closed\":false,\"row\":0}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "text typed just before quitting is still unsaved when the app quits",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in 1 of 4 main runs since #1103 (44409549661), so intermittent; observed {\"file\":\"\\\\\\\\?\\\\D:\\\\a\\\\_temp\\\\e2e-project\\\\quit-check.txt\"}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "PDF: a ⌘-double-click on a figure drawn in an SVG asks before opening plot.svg",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in main run 44454343186 on the hosted runner; observed {\"built\":true,\"shown\":true,\"found\":true,\"question\":\"Open plot.svg in its default app? An SVG file often opens in a web browser, which runs any script it holds.\",\"dismissed\":false}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "A applies the open fix into the .bib and moves on to the next finding",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"applied\":false,\"open\":\"knuth1984\",\"written\":false}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "narrower than 800px, Check references drops the side pane and keeps the open finding under its row; wide again, the queue returns",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"narrow\":{\"width\":720,\"queue\":false,\"open\":\"knuth1984\"},\"wide\":{\"width\":1024,\"queue\":true,\"open\":\"knuth1984\"}}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "applying the last fix settles the report: the queue opens nothing and shows the reading glass",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"last\":\"knuth1984\",\"settled\":false,\"queue\":true,\"open\":\"knuth1984\"}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a field typed in the .bib form lands in the source, and ⌘Z steps it back",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"typed\":true,\"landed\":true,\"undone\":false}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a field typed back to its first value in the .bib form is written back",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"retyped\":true,\"changed\":true,\"back\":false}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "a .bib reference renamed after a delete before it was undone stays in front under its new key",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed in main run 44454326816 on the hosted runner; observed {\"listed\":false,\"deleted\":false,\"back\":false,\"keyBox\":true,\"inFront\":\"second2\"}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "the pointer crossing the next ⋯ menu row on its way to the Move … to submenu keeps it open, and New split below runs",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed once in run 44460622331 attempt 1 of #1148, which does not touch it, and passed in every main run since #1103, so intermittent; observed {\"move_row\":\"Bounds { origin: Point { x: 416px, y: 549px }, size: Size { 251px × 32px } }\",\"crossing\":\"Point { x: 661px, y: 597px }\",\"target\":\"Point { x: 746px, y: 693px }\",\"panels_before\":4,\"panels_after\":4}",
+      "followup": "LEO-15"
+    },
+    {
+      "step": "Add reference opens from Add papers' Enter manually",
+      "platforms": [
+        "windows"
+      ],
+      "reason": "Windows: failed once in run 44460622331 attempt 2 of #1148, which does not touch it, and passed in every main run since #1103, so intermittent; observed {}",
       "followup": "LEO-15"
     }
   ]

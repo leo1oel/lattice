@@ -6834,6 +6834,7 @@ dependencies = [
  "codebook-tree-sitter-latex",
  "core-foundation 0.9.4",
  "dirs",
+ "dunce",
  "editor",
  "fancy-regex",
  "flate2",

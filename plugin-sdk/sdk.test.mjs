@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { describe, expect, it } from "vitest";
 import { generate } from "./scripts/gen-types.mjs";
+import { packFiles, packed, pluginFiles } from "./scripts/pack-plugin.mjs";
 import { drifted } from "./scripts/sync-examples.mjs";
 
 const sdk = resolve("plugin-sdk/lattice-plugin.mjs");
@@ -87,6 +88,19 @@ describe("plugin SDK", () => {
     plugin.child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "$/cancelRequest", params: { id: 4 } })}\n`);
     expect((await waiting).error.code).toBe(-32800);
     plugin.child.kill();
+  });
+
+  it("packs a folder reproducibly, without tests or dot files", () => {
+    const files = pluginFiles("examples/plugins/bib-check");
+    expect(files.map((f) => f.path)).toEqual(["LICENSE", "README.md", "check.mjs", "lattice-plugin.mjs", "lattice-plugin.toml", "main.mjs"]);
+    expect(packed(".github/x.mjs") || packed("a/.env") || packed("check.test.mjs")).toBe(false);
+    const zip = packFiles(files);
+    expect(packFiles([...files].reverse()).equals(zip)).toBe(true);
+    expect(zip.readUInt32LE(0)).toBe(0x04034b50);
+    expect(zip.readUInt16LE(12)).toBe(33);
+    expect(zip.readUInt16LE(8)).toBe(0);
+    expect(zip.subarray(30 + "LICENSE".length, 30 + "LICENSE".length + files[0].data.length).equals(files[0].data)).toBe(true);
+    expect(zip.readUInt16LE(zip.length - 22 + 8)).toBe(files.length);
   });
 
   it("runs the bib-check example end to end over the protocol", async () => {

@@ -414,8 +414,22 @@ impl PdfView {
         self.annotating.opened += 1;
         let id = self.annotating.opened;
         let (page, point, text) = (selected.page, selected.point, selected.text.clone());
+        // The live viewer's notes name no document: SyncTeX then searches
+        // the project's compiled one, which a root built or chosen since
+        // (a standalone file, another root's chapter) moves off the PDF on
+        // screen. The words were selected on the PDF shown, so its own
+        // document is searched.
+        let document = source.document.clone().or_else(|| {
+            let shown = self.source.as_ref()?.strip_prefix(&source.root).ok()?;
+            let tex = shown.with_extension("tex");
+            source
+                .root
+                .join(&tex)
+                .is_file()
+                .then(|| tex.to_string_lossy().replace('\\', "/"))
+        });
         let mapping = cx.background_spawn(async move {
-            map_selection(&source.root, source.document.as_deref(), page, point, &text)
+            map_selection(&source.root, document.as_deref(), page, point, &text)
         });
         let mapping = cx.spawn(async move |this, cx| {
             let mapped = mapping.await;

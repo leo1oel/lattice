@@ -18,6 +18,9 @@ use objc2::{
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
+mod input_source;
+pub use input_source::{restore_keyboard, use_ascii_keyboard};
+
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
     fn CGEventCreateScrollWheelEvent2(

@@ -3,6 +3,6 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] Settings: App updates' automatic updates and Check for updates (the GPUI app shows its version and GitHub Releases).
+- [ ] Settings: App updates' automatic installs ("Install automatically"); the GPUI app has Beta updates and Check for updates.
 
-- [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
+- [ ] The first publish to the GPUI release channel (docs/updater.md, "The channel") and the outdated-version hint on a failure's notice.

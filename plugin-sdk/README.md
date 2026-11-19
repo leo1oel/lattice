@@ -89,4 +89,13 @@ node plugin-sdk/scripts/pack-plugin.mjs path/to/plugin dist/my-plugin-0.1.0.zip
 # prints the zip's path and its sha256
 ```
 
-Attach the zip to a GitHub release and put the SHA-256 beside its link.
+The pack leaves out tests (`*.test.mjs`) and dot files, and is reproducible:
+the same files give the same bytes on any machine. Attach the zip to a GitHub
+release and put the SHA-256 beside its link.
+
+To list a plugin in Settings › Plugins › Browse, add an entry to
+[leo1oel/lattice-plugins](https://github.com/leo1oel/lattice-plugins) that
+pins a tag of its source and this sha256. The registry packs the tagged folder
+the same way and publishes the zip only when the hashes match. Name every
+`network` origin and `network-local` port in the plugin's README, with the
+reason; the review asks for it.

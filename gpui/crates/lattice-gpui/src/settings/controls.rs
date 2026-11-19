@@ -85,6 +85,29 @@ pub fn described_page(
     groups: Vec<AnyElement>,
     cx: &App,
 ) -> AnyElement {
+    headed_page(title, description, None, width, groups, cx)
+}
+
+/// A page whose header holds a control at its right, level with the title
+/// (`SettingsSectionHeader`'s `actions`), then its groups.
+pub fn page_with_action(
+    title: impl Into<SharedString>,
+    action: Option<AnyElement>,
+    width: PageWidth,
+    groups: Vec<AnyElement>,
+    cx: &App,
+) -> AnyElement {
+    headed_page(title, None, action, width, groups, cx)
+}
+
+fn headed_page(
+    title: impl Into<SharedString>,
+    description: Option<SharedString>,
+    action: Option<AnyElement>,
+    width: PageWidth,
+    groups: Vec<AnyElement>,
+    cx: &App,
+) -> AnyElement {
     let palette = cx.palette();
     let top = if width.narrow_dialog { px(8.) } else { px(32.) };
     div()
@@ -98,11 +121,10 @@ pub fn described_page(
         .child({
             // The heading's box fits its text, as the app's does.
             let title: SharedString = title.into();
-            div()
+            let heading = div()
                 .flex()
                 .flex_col()
                 .items_start()
-                .mb(px(24.))
                 .child(
                     div()
                         .relative()
@@ -119,7 +141,15 @@ pub fn described_page(
                         .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
                         .text_color(palette.text_secondary)
                         .child(description)
-                }))
+                }));
+            div()
+                .mb(px(24.))
+                .flex()
+                .items_start()
+                .justify_between()
+                .gap(px(12.))
+                .child(heading)
+                .children(action)
         })
         .children(
             groups

@@ -1,0 +1,129 @@
+diff --git a/gpui-fast/crates/gpui/src/app.rs b/gpui-fast/crates/gpui/src/app.rs
+index 3d4e923cc..9c5a2ed82 100644
+--- a/gpui-fast/crates/gpui/src/app.rs
++++ b/gpui-fast/crates/gpui/src/app.rs
+@@ -891,8 +891,11 @@ pub struct App {
+     platform_owned_drag: Option<PlatformOwnedDrag>,
+     pub(crate) background_executor: BackgroundExecutor,
+     pub(crate) foreground_executor: ForegroundExecutor,
++    /// Installed by the first [`App::foreground_journal`] call: until
++    /// something reads the journal, recording into its 4 MB ring is work and
++    /// memory for nobody.
+     #[cfg(feature = "profiler")]
+-    foreground_journal: crate::profiler::journal::ForegroundJournal,
++    foreground_journal: std::cell::OnceCell<crate::profiler::journal::ForegroundJournal>,
+     #[cfg(all(feature = "profiler", not(target_family = "wasm")))]
+     hang_monitor: Option<crate::profiler::hang::HangMonitor>,
+     pub(crate) entities: EntityMap,
+@@ -1005,8 +1008,6 @@ impl App {
+             background_executor.is_main_thread(),
+             "must construct App on main thread"
+         );
+-        #[cfg(feature = "profiler")]
+-        let foreground_journal = crate::profiler::journal::install_foreground_journal();
+         let synced_animation_epoch = background_executor.now();
+ 
+         let text_system = Arc::new(TextSystem::new(platform.text_system()));
+@@ -1033,7 +1034,7 @@ impl App {
+                 background_executor,
+                 foreground_executor,
+                 #[cfg(feature = "profiler")]
+-                foreground_journal,
++                foreground_journal: std::cell::OnceCell::new(),
+                 #[cfg(all(feature = "profiler", not(target_family = "wasm")))]
+                 hang_monitor: None,
+                 svg_renderer: SvgRenderer::new(asset_source.clone()),
+@@ -2403,10 +2404,13 @@ impl App {
+     }
+ 
+     /// Returns the foreground work journal for this app's foreground thread.
+-    /// Apps constructed on the same thread share the stream.
++    /// Apps constructed on the same thread share the stream. The journal
++    /// starts recording at the first call, so it holds nothing from before.
+     #[cfg(feature = "profiler")]
+     pub fn foreground_journal(&self) -> crate::profiler::journal::ForegroundJournal {
+-        self.foreground_journal.clone()
++        self.foreground_journal
++            .get_or_init(crate::profiler::journal::install_foreground_journal)
++            .clone()
+     }
+ 
+     /// Starts detecting foreground hangs on a dedicated thread.
+diff --git a/gpui-fast/crates/gpui/src/profiler/journal.rs b/gpui-fast/crates/gpui/src/profiler/journal.rs
+index 28c66b6e8..9081a0876 100644
+--- a/gpui-fast/crates/gpui/src/profiler/journal.rs
++++ b/gpui-fast/crates/gpui/src/profiler/journal.rs
+@@ -726,14 +726,18 @@ impl ForegroundJournalWriter {
+ thread_local! {
+     static FOREGROUND_RUNNABLES: ForegroundRunnableCounter = ForegroundRunnableCounter::new();
+     static FOREGROUND_JOURNAL: RefCell<Option<ForegroundJournalWriter>> = const { RefCell::new(None) };
++    /// How deep in foreground turns this thread is, kept with or without a
++    /// journal, so one installed in the middle of a turn ends it in step.
++    static FOREGROUND_TURN_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+ }
+ 
+ pub(crate) fn foreground_runnable_counter() -> ForegroundRunnableCounter {
+     FOREGROUND_RUNNABLES.with(Clone::clone)
+ }
+ 
+-/// Starts journaling on the calling thread. Called once by `App` construction
+-/// on the main thread; every other thread's recording calls are no-ops.
++/// Starts journaling on the calling thread. Called by the first
++/// `App::foreground_journal` on the main thread; until then, and on every
++/// other thread, recording calls are no-ops.
+ /// Idempotent so that multiple `App`s on one thread (tests) share one journal.
+ pub(crate) fn install_foreground_journal() -> ForegroundJournal {
+     let foreground_runnables = foreground_runnable_counter();
+@@ -747,10 +751,9 @@ pub(crate) fn install_foreground_journal() -> ForegroundJournal {
+ 
+         let (handle, publisher) =
+             ForegroundJournal::new(MAX_JOURNAL_ENTRIES, MAX_PENDING_JOURNAL_ENTRIES);
+-        *journal = Some(ForegroundJournalWriter::new(
+-            foreground_runnables,
+-            publisher,
+-        ));
++        let mut writer = ForegroundJournalWriter::new(foreground_runnables, publisher);
++        writer.turn_depth = FOREGROUND_TURN_DEPTH.get();
++        *journal = Some(writer);
+         handle
+     })
+ }
+@@ -1007,6 +1010,7 @@ pub(crate) fn foreground_turn() -> ForegroundTurnGuard {
+ }
+ 
+ pub(crate) fn begin_foreground_turn() {
++    FOREGROUND_TURN_DEPTH.set(FOREGROUND_TURN_DEPTH.get() + 1);
+     // Observing before the turn's work takes its start time means a suspend
+     // detected here never invalidates the work that follows it.
+     with_journal(|journal| {
+@@ -1016,6 +1020,7 @@ pub(crate) fn begin_foreground_turn() {
+ }
+ 
+ pub(crate) fn end_foreground_turn() {
++    FOREGROUND_TURN_DEPTH.set(FOREGROUND_TURN_DEPTH.get().saturating_sub(1));
+     with_journal(|journal| journal.end_turn(Instant::now()));
+ }
+ 
+@@ -1517,6 +1522,22 @@ mod tests {
+     use super::*;
+     use crate::{WindowId, profiler::YieldTime};
+ 
++    #[test]
++    fn a_journal_installed_inside_a_turn_ends_it_in_step() {
++        let previous = FOREGROUND_JOURNAL.with(|journal| journal.borrow_mut().take());
++        begin_foreground_turn();
++        begin_foreground_turn();
++        let _journal = install_foreground_journal();
++        end_foreground_turn();
++        end_foreground_turn();
++        let depth = FOREGROUND_JOURNAL.with(|journal| {
++            let depth = journal.borrow().as_ref().map(|writer| writer.turn_depth);
++            *journal.borrow_mut() = previous;
++            depth
++        });
++        assert_eq!(depth, Some(0));
++    }
++
+     #[test]
+     fn platform_signals_are_journaled_without_sealing_or_occupying_time() {
+         let (journal, _guard) = install_test_foreground_journal(32, 4);

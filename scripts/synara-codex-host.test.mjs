@@ -21,6 +21,10 @@ class Manager {
 			for (const rawLine of lines) {
 				const classified = classifyCodexStderrLine(rawLine);
 				if (!classified) continue;
+				if (classified.configWarning) {
+					this.handleServerNotification(context, { method: "configWarning", params: { summary: classified.message, details: null } });
+					continue;
+				}
 				this.emitErrorEvent(context, "process/stderr", classified.message);
 			}
 		});

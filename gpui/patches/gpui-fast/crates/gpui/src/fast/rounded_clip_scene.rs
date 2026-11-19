@@ -22,7 +22,8 @@ const GEOMETRY_KEY: LayerKey = LayerKey(u32::MAX);
 /// Materialize private paint scopes as existing, renderer-readable layer
 /// objects. Preserve the original operation stream for retained paint ranges.
 pub(crate) fn compile(scene: &mut Scene) {
-    if scene.fast_rounded_clip.scopes.is_empty() || scene.fast_rounded_clip.compiled {
+    let clips = &scene.fast_rounded_clip;
+    if (clips.scopes.is_empty() && !clips.deferred) || clips.compiled {
         return;
     }
     let operations = mem::take(&mut scene.paint_operations);
