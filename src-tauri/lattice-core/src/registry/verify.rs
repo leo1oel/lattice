@@ -4,7 +4,7 @@
 
 use minisign_verify::{PublicKey, Signature};
 
-/// The registry's signing keys (`keys/*.pub` in leo1oel/lattice-plugins). Either
+/// The registry's signing keys (`keys/*.pub` in lattice-writer/lattice-plugins). Either
 /// may sign, so the registry can move to the backup key without a release; a
 /// new backup is added in a release before the old primary is retired.
 pub(crate) const PUBLIC_KEYS: [&str; 2] = [

@@ -8,7 +8,7 @@ Create `meadow.lattice-theme.json`:
 
 ```json
 {
-  "$schema": "https://leo1oel.github.io/lattice-plugins/schema/theme-1.json",
+  "$schema": "https://lattice-writer.github.io/lattice-plugins/schema/theme-1.json",
   "schema": 1,
   "id": "io.github.yourname.meadow",
   "name": "Meadow",

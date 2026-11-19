@@ -20,7 +20,7 @@ pub fn schema() -> Value {
     let colors = color_map(COLOR_ROLES.iter().map(|role| role.key).chain([ACCENT]), false);
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://leo1oel.github.io/lattice-plugins/schema/theme-1.json",
+        "$id": "https://lattice-writer.github.io/lattice-plugins/schema/theme-1.json",
         "title": "Lattice theme",
         "type": "object",
         "required": ["schema", "id", "name", "version", "variants"],

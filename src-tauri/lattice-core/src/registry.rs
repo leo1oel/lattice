@@ -1,5 +1,5 @@
 //! The theme marketplace's client: the signed list of themes that
-//! leo1oel/lattice-plugins publishes, kept in `<app data>/registry/`, and
+//! lattice-writer/lattice-plugins publishes, kept in `<app data>/registry/`, and
 //! installs from it (`docs/themes.md`, Captain plan §2.2).
 //!
 //! Trust comes only from the signatures (`verify.rs`), never from where a
@@ -27,8 +27,14 @@ use sha2::{Digest, Sha256};
 use crate::plugins::{manifest, protocol::API_LEVEL, Permissions, PluginHost, Runtime, Source};
 use crate::themes::{ThemeInfo, ThemeStore};
 
-/// Where the registry's GitHub Pages site serves the signed files.
-pub const BASE_URL: &str = "https://leo1oel.github.io/lattice-plugins";
+/// Where the registry's GitHub Pages sites serve the signed files, tried in
+/// order: the registry's home, then its address before it moved to the
+/// lattice-writer organization, which mirrors it for older Lattice releases.
+/// Both serve the same signed files, so either is as trusted as the other.
+pub const BASE_URLS: [&str; 2] = [
+    "https://lattice-writer.github.io/lattice-plugins",
+    "https://leo1oel.github.io/lattice-plugins",
+];
 const INDEX: &str = "index.json";
 const BLOCKED: &str = "blocked.json";
 const FORMAT: u32 = 1;
@@ -248,7 +254,7 @@ struct Record {
 
 pub struct Registry {
     root: PathBuf,
-    base_url: String,
+    base_urls: Vec<String>,
     keys: Vec<PublicKey>,
 }
 
@@ -259,11 +265,12 @@ impl Registry {
             .iter()
             .map(|key| PublicKey::from_base64(key).expect("the embedded registry keys parse"))
             .collect();
-        Self::with(app_data_dir.join("registry"), BASE_URL, keys)
+        Self::with(app_data_dir.join("registry"), &BASE_URLS, keys)
     }
 
-    fn with(root: PathBuf, base_url: &str, keys: Vec<PublicKey>) -> Self {
-        Registry { root, base_url: base_url.trim_end_matches('/').to_string(), keys }
+    fn with(root: PathBuf, base_urls: &[&str], keys: Vec<PublicKey>) -> Self {
+        let base_urls = base_urls.iter().map(|url| url.trim_end_matches('/').to_string()).collect();
+        Registry { root, base_urls, keys }
     }
 
     /// The verified list, refreshed from the registry first when `refresh`,
@@ -341,9 +348,30 @@ impl Registry {
         Ok(Verified { index, blocked: blocked.blocked, fetched_at: cache.fetched_at.clone() })
     }
 
+    /// The list from the first address that serves one that verifies and is
+    /// not older than the cached one. When none does, a refusal is reported
+    /// over an unreachable address, since it means a bad list was served.
     fn refresh(&self) -> Result<Verified, Status> {
+        let mut failure = None;
+        for base_url in &self.base_urls {
+            match self.refresh_from(base_url) {
+                Ok(verified) => return Ok(verified),
+                Err(status) => {
+                    let refused = matches!(status, Status::Refused { .. });
+                    if failure.is_none()
+                        || (refused && !matches!(failure, Some(Status::Refused { .. })))
+                    {
+                        failure = Some(status);
+                    }
+                }
+            }
+        }
+        Err(failure.expect("the registry has an address"))
+    }
+
+    fn refresh_from(&self, base_url: &str) -> Result<Verified, Status> {
         let offline = |message| Status::Offline { message };
-        let get = |file: &str, limit| self.get(&format!("{}/{file}", self.base_url), limit);
+        let get = |file: &str, limit| self.get(&format!("{base_url}/{file}"), limit);
         let cache = Cache {
             index: text(get(INDEX, MAX_LIST_BYTES).map_err(offline)?),
             index_signature: text(
