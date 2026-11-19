@@ -4,7 +4,7 @@
  * comes on screen (the welcome screen, the title's switcher, the finder) or
  * one fails to open.
  */
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { RecentProject } from "../settings/app-settings";
 
@@ -23,22 +23,27 @@ export function useRecentProjectMarks<T extends { projects: RecentProject[] }>(
   // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
   "use no memo";
   const [finderOpen, setFinderOpen] = useReducer(setOpen, false);
-  const check = useCallback(() => {
-    void recheckRecentProjects().then((marked) => {
-      if (marked) setRecents((current) => ({ ...current, projects: marked }));
-    });
-  }, [setRecents]);
+  // One memo for both: this runs on every App render, which the startup
+  // bench's hooks ceiling counts. Opening the finder over a shown list then
+  // looks at the folders once more, which the finder wants anyway.
+  const marks = useMemo(() => ({
+    check: () => {
+      void recheckRecentProjects().then((marked) => {
+        if (marked) setRecents((current) => ({ ...current, projects: marked }));
+      });
+    },
+    finder: {
+      open: finderOpen,
+      show: () => {
+        setProjectMenuOpen(false);
+        setFinderOpen(true);
+      },
+      close: () => setFinderOpen(false),
+    },
+  }), [finderOpen, setProjectMenuOpen, setRecents]);
   const shown = finderOpen || listShown;
   useEffect(() => {
-    if (shown) check();
-  }, [check, shown]);
-  const finder = useMemo(() => ({
-    open: finderOpen,
-    show: () => {
-      setProjectMenuOpen(false);
-      setFinderOpen(true);
-    },
-    close: () => setFinderOpen(false),
-  }), [finderOpen, setProjectMenuOpen]);
-  return { check, finder };
+    if (shown) marks.check();
+  }, [marks, shown]);
+  return marks;
 }
