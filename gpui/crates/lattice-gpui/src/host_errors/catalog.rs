@@ -1422,6 +1422,11 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "overleaf/link.rs",
+        literal: "Overleaf does not allow these file names. Rename them first: {}.",
+        text: Text::Message("Overleaf does not allow these file names. Rename them first: {files}.", &[("files", Arg::Param(0))]),
+    },
+    Entry {
+        file: "overleaf/link.rs",
         literal: "This project has no files that can be uploaded to Overleaf.",
         text: Text::Message("This project has no files that can be uploaded to Overleaf.", &[]),
     },

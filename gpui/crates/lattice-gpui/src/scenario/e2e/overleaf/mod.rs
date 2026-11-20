@@ -294,7 +294,7 @@ impl Run {
         // A file whose name Overleaf refuses (a TeX macro an earlier Papers
         // left in a `.bib` path) stays here, named with why, while the rest
         // still goes up: its HTTP 400 used to fail the whole sync.
-        let stray = clone_root.join("refs").join(r"\paperbib.bib");
+        let stray = clone_root.join(r"refs/\paperbib.bib");
         std::fs::create_dir_all(clone_root.join("refs"))?;
         std::fs::write(&stray, "@misc{a, title={A}}\n")?;
         std::fs::write(clone_root.join("refs/kept.bib"), "@misc{a, title={A}}\n")?;

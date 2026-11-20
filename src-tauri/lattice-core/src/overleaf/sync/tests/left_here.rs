@@ -15,7 +15,7 @@ fn a_file_overleaf_refuses_by_name_stays_here_and_the_rest_syncs() {
     let server = Mock::project(&[("main.tex", b"agreed")]).serve();
     let config = link_to(&server, &root, &[("main.tex", b"agreed")], &[("main.tex", b"agreed")]);
     fs::create_dir_all(disk_path(&root, "cvpr")).unwrap();
-    fs::write(root.join("cvpr").join(r"\paperbib.bib"), b"@misc{a,}").unwrap();
+    fs::write(root.join(r"cvpr/\paperbib.bib"), b"@misc{a,}").unwrap();
     fs::write(disk_path(&root, "cvpr/references.bib"), b"@misc{a,}").unwrap();
 
     let result = sync(&config, &root, NO_LIVE, None).unwrap();
@@ -29,7 +29,7 @@ fn a_file_overleaf_refuses_by_name_stays_here_and_the_rest_syncs() {
     assert!(!uploads[0].body_text().contains("paperbib"));
     assert!(!state_files(&root).contains_key(r"cvpr/\paperbib.bib"));
     // Still there, untouched, for the writer to rename or delete.
-    assert!(root.join("cvpr").join(r"\paperbib.bib").is_file());
+    assert!(root.join(r"cvpr/\paperbib.bib").is_file());
 }
 
 /// A file too large to sync is never read, so it cannot have changed during

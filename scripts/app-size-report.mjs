@@ -229,7 +229,11 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // offer's lazy mount beside What's new, the update-launch answer both share,
 // and the restart helpers moved out of the updater for the dialog to reuse
 // (1,469,395 -> 1,470,028 bytes locally).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.4 * 1024 * 1024) + 2_128;
+// Raised by 512 bytes for Overleaf sync's warning on a file whose name
+// Overleaf refuses: one warning per rule broken (a backslash, an asterisk,
+// ...), said where the sync's other warnings are, in the eager workspace
+// hook (1,470,028 -> 1,470,612 bytes locally).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.4 * 1024 * 1024) + 2_640;
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

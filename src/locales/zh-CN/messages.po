@@ -11996,6 +11996,10 @@ msgid "Overleaf does not allow names longer than 1024 characters, so {file} stay
 msgstr "Overleaf 不允许名称超过 1024 个字符，{file} 只留在本机。重命名后即可同步。"
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf does not allow these file names. Rename them first: {files}."
+msgstr "Overleaf 不允许这些文件名，请先重命名：{files}。"
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf does not offer the websocket transport (offers {transports})"
 msgstr "Overleaf 不提供 WebSocket 连接方式（只提供 {transports}）"
 

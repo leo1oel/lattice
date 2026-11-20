@@ -11996,6 +11996,10 @@ msgid "Overleaf does not allow names longer than 1024 characters, so {file} stay
 msgstr "Overleaf does not allow names longer than 1024 characters, so {file} stays on this machine. Rename it to sync it."
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf does not allow these file names. Rename them first: {files}."
+msgstr "Overleaf does not allow these file names. Rename them first: {files}."
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf does not offer the websocket transport (offers {transports})"
 msgstr "Overleaf does not offer the websocket transport (offers {transports})"
 

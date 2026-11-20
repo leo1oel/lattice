@@ -166,7 +166,7 @@ fn a_macro_primary_an_earlier_version_recorded_heals_on_open() {
 fn no_write_ever_lands_on_a_bibliography_named_as_overleaf_refuses() {
     let fixture = paperbib_project("bib-target-stray");
     fs::create_dir_all(fixture.root.join("cvpr")).unwrap();
-    let stray = fixture.root.join("cvpr").join(r"\paperbib.bib");
+    let stray = fixture.root.join(r"cvpr/\paperbib.bib");
     fs::write(&stray, "@misc{a, title={A}}\n").unwrap();
     fs::remove_file(fixture.root.join("references.bib")).unwrap();
     fs::remove_file(fixture.root.join("author-kit/main.bib")).unwrap();
