@@ -312,6 +312,22 @@
       "followup": "LEO-14"
     },
     {
+      "step": "a word typed into a cell with native keys is saved to the .lattice-sheet, which stays valid JSON",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed twice (its module's rerun too) in 2 of 5 main runs (44759657308, 44781141164), failed once and passed on the rerun in 44733890089, passed in 44734249294 and 44767427945, so intermittent; passes on the Mac mini. The native keys never reach the cell, as a native click into a page on the hosted runner; observed {\"typed\":false,\"parses\":true}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "the sheet hidden past the delay hibernates, and is drawn again with its edit when shown",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed twice (its module's rerun too) in 2 of 5 main runs (44759657308, 44781141164), failed once and passed on the rerun in 44733890089, passed in 44734249294 and 44767427945, so intermittent; passes on the Mac mini. It fails with the step above: with nothing typed there is no edit to keep; observed {\"hibernated\":true,\"woke\":true,\"builds\":2,\"buffer_kept\":false}",
+      "followup": "LEO-14"
+    },
+    {
       "step": "a rectangle drawn with native input on the board is in the .tldr after its tab closes at once",
       "platforms": [
         "macos"
