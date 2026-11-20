@@ -28,8 +28,10 @@
  *
  * Documentation alone (docs/, top-level and .github/ Markdown, gpui/docs/,
  * LICENSE) turns on nothing. A change to ci.yml turns on all of ci.yml's
- * jobs, one to gpui.yml all of gpui.yml's, and one to this file or to
- * .github/actions/ everything.
+ * jobs, one to gpui.yml all of gpui.yml's, and one to this file, to what
+ * picks the local stages and the trailer's cover (ci-local.mjs,
+ * ci-local-select.mjs, gpui-e2e-modules.mjs) or to .github/actions/
+ * everything.
  *
  * `--github` is the workflows' `changes` step. It runs every job (full)
  * for a tag, the schedule, a dispatch on main or with `full`, a dispatch
@@ -63,6 +65,9 @@ const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8"
 
 export const JOBS = ["vitest", "lint-build", "perf-bench", "rust", "gpui", "literature-worker", "open-slide-runtime", "research-env", "synara-pin"];
 const CI_JOBS = JOBS.filter((job) => job !== "gpui");
+// What decides which jobs run and which a CI-local trailer may skip: a
+// change to any of them runs everything.
+const CI_CONTROL = new Set(["scripts/ci-tier.mjs", "scripts/ci-local-select.mjs", "scripts/gpui-e2e-modules.mjs", "scripts/ci-local.mjs"]);
 
 // What `pnpm build` reads besides the sources tsc already checked: a change
 // to any of them can move the bundle the budgets measure.
@@ -150,7 +155,7 @@ export function ciTier(files, { full = false, scan = null } = {}) {
     if (why[job].length < 5 && !why[job].includes(file)) why[job].push(file);
   };
   for (const file of files) {
-    if (file === "scripts/ci-tier.mjs" || file.startsWith(".github/actions/")) {
+    if (CI_CONTROL.has(file) || file.startsWith(".github/actions/")) {
       vitestAll = true;
       for (const job of JOBS) on(job, file);
       continue;
@@ -251,7 +256,7 @@ function github() {
     reason ? `Every job: ${reason}.` : `Compared with ${base.slice(0, 9)}: ${files.length} changed file(s).`,
     ...(cover
       ? [
-          `The head commit's CI-local trailer names this tree (${message.match(/^CI-local:.*$/im)[0]}).`,
+          `The head commit's CI-local trailer names this tree (${cover.line.trim()}).`,
           ...needed.map((group) => (local[group].covered ? `- macOS ${groups[group]}: skipped, the trailer covers it.` : `- macOS ${groups[group]}: runs, ${local[group].reason}.`)),
         ]
       : []),

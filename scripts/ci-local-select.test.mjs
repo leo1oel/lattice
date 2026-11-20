@@ -32,6 +32,21 @@ describe("ci-local-select: the e2e a change needs", () => {
     }
   });
 
+  it("runs the whole scenario for what every window is built from, even where a module's covers name it", () => {
+    const real = [
+      "gpui/patches/gpui-base/src/window.rs",
+      "gpui/patches/gpui-fast/crates/gpui_macos/src/window.rs",
+      "gpui/crates/lattice-ui/src/fonts.rs",
+      "gpui/crates/lattice-gpui/src/main.rs",
+      "gpui/crates/lattice-gpui/src/app.rs",
+      "gpui/crates/lattice-editor/Cargo.toml",
+      "gpui/crates/lattice-gpui/src/scenario/shell_steps.rs",
+      "src-tauri/lattice-core/src/plugins/mod.rs",
+    ];
+    for (const file of real) expect(e2eNeeds([file]), file).toMatchObject({ full: true, fullBecause: [file] });
+    expect(e2eNeeds(["gpui/crates/lattice-gpui/src/scenario/e2e/input_method.rs"])).toMatchObject({ full: false, modules: ["input_method"] });
+  });
+
   it("maps the Tauri modules the islands are built from to the modules that open an island", () => {
     const need = e2eNeeds(["src/editor/board/board.tsx"]);
     expect(need.full).toBe(false);
@@ -53,6 +68,9 @@ describe("ci-local-select: stages by diff", () => {
 
   it("marks release paths, and a full tier needs the whole e2e", () => {
     expect(needsFor(["src-tauri/tauri.conf.json", "gpui/crates/lattice-gpui/src/updater/install.rs"]).release).toHaveLength(2);
+    const release = ["src-tauri/Info.plist", "src-tauri/icons/StoreLogo.png", "src-tauri/macos/x", "gpui/script/fetch-pdfium", "scripts/windows-package.mjs", "scripts/lib/windows-package.mjs", "scripts/release-notes.mjs", "scripts/release-macos-job.sh", "scripts/lib/node-runtime.mjs", "scripts/lib/runtime-prune.mjs"];
+    expect(needsFor(release).release).toEqual(release);
+    expect(needsFor(["scripts/release-notes.test.mjs", "src-tauri/src/lib.rs"]).release).toEqual([]);
     const full = macosNeeds(ciTier(["README.md"], { full: true, scan }), ["README.md"]);
     expect(full.e2e.full).toBe(true);
   });
@@ -69,6 +87,8 @@ describe("ci-local-select: the trailer", () => {
   it("reads a bare trailer, from before it recorded stages, as every macOS job", () => {
     expect(parseTrailer("fix: x\n\nCI-local: macos 0123456789ab\n")).toMatchObject({ rust: true, gpui: true, e2e: FULL, webkit: true, legacy: true });
     expect(parseTrailer("fix: x")).toBeNull();
+    const two = parseTrailer("fix: x\n\nCI-local: macos 0123456789ab rust\nCI-local: macos fedcba987654 gpui e2e=full\n");
+    expect(two).toMatchObject({ tree: "fedcba987654", line: "CI-local: macos fedcba987654 gpui e2e=full", gpui: true, rust: false });
   });
 
   it("lets GitHub skip only the groups whose recorded stages cover the diff", () => {

@@ -80,6 +80,7 @@ describe("ci-tier", () => {
     expect(running([".github/workflows/ci.yml"]).on).toEqual(JOBS.filter((job) => job !== "gpui"));
     expect(running(["scripts/ci-tier.mjs"]).on).toEqual(JOBS);
     expect(running([".github/actions/setup-pnpm/action.yml"]).on).toEqual(JOBS);
+    for (const file of ["scripts/ci-local.mjs", "scripts/ci-local-select.mjs", "scripts/gpui-e2e-modules.mjs"]) expect(running([file]).on, file).toEqual(JOBS);
     expect(ciTier(["README.md"], { full: true, scan }).jobs).toEqual(Object.fromEntries(JOBS.map((job) => [job, true])));
   });
 

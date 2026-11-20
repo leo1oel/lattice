@@ -132,22 +132,26 @@ that stand for them, chosen from the diff against the merge base
 | documentation only | nothing |
 | `src-tauri/` or web code only | the gate (lint, knip, tsc, i18n, notices, the related Vitest tests); rustfmt, clippy `-D warnings` and `cargo test` for the Tauri crates; the bundle budgets and the WebKit benchmark when the bundle's inputs changed. No GPUI stage. |
 | `gpui/` only | GPUI fmt, release build and unit tests, and the e2e below. No WebKit benchmark. |
-| a release path (release workflows, `src-tauri/tauri*.conf.json`, `Entitlements.plist`, either app's updater, the bundle and signing scripts) | everything, as `--full` does, and no trailer |
+| a release path (`RELEASE_PATHS`: release workflows, `src-tauri/tauri*.conf.json`, `Info.plist`, `Entitlements.plist`, the icons, either app's updater, `fetch-pdfium`, the bundle, packaging, signing and release scripts) | everything, as `--full` does, and no trailer |
 
 The GPUI e2e is the smoke flow (open, build, SyncTeX both ways, edits and ⌘S,
 autosave, a second window, the quit that saves) plus the modules the diff
-picks: a file a module's scenario file or `covers` names picks that module,
-and anything else goes through the one table from crates and paths to modules,
-`E2E_TABLE` in `scripts/ci-local-select.mjs`. A file that table maps to
-nothing (the scenario harness, `gpui/patches/`, the manifests, lattice-ui,
-lattice-i18n, lattice-core, a shared file such as `shell.rs`) runs the whole
-scenario. Only the whole scenario records this Mac's main baseline for the
+picks, through the one table from crates and paths to modules, `E2E_TABLE`
+in `scripts/ci-local-select.mjs`. A module's own scenario file picks that
+module. What every window is built from runs the whole scenario even where a
+module's `covers` names it: the scenario harness, `gpui/patches/`, the
+manifests, each crate's `main.rs`/`lib.rs` and the app's `app.rs`,
+lattice-ui, lattice-i18n, lattice-core. Any other file picks the modules whose
+`covers` name it, else the table's row for it, and a file nothing maps (a
+shared file such as `shell.rs`) runs the whole scenario. Only the whole scenario records this Mac's main baseline for the
 merge base first, in a scratch worktree, when the machine has none (one more
 build and e2e, about 20 minutes, per merge base); a module run uses the
 baseline when it is already there and otherwise judges against the known
 failures alone. Either way a step that fails is rerun once with its module on
 a fresh fixture. Add a row to the table when a crate or path has a clear
 owner in the scenario.
+
+A change to `scripts/ci-local.mjs`, `scripts/ci-local-select.mjs` or `scripts/gpui-e2e-modules.mjs`, like one to `scripts/ci-tier.mjs`, runs every job.
 
 Rust, GPUI and benchmark stages wait while a perf measurement holds
 `/tmp/lattice-inapp-test.lock` (`$INAPP_LOCK_FILE` when set). The literature

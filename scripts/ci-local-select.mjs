@@ -17,12 +17,19 @@
  * edits and ⌘S, autosave, a second window, the quit that saves; every
  * `--only` pass runs it) plus, for each GPUI input the branch changes:
  *
- *   1. the module whose scenario file it is, or whose `covers` list names
- *      it (scripts/gpui-e2e-modules.mjs reads both from the scenario);
- *   2. else what the first matching row of E2E_TABLE below says;
- *   3. else the whole scenario. A shared file nothing maps (shell.rs, a
- *      lattice-ui primitive) can break any module, and the trailer tells
- *      GitHub its macOS job need not run, so it runs everything.
+ *   1. the module whose scenario file it is (scenario/e2e/<module>.rs or a
+ *      file under scenario/e2e/<module>/);
+ *   2. else the whole scenario, when an E2E_TABLE row says FULL for it:
+ *      what every window is built from stays FULL even where a module's
+ *      `covers` names it (gpui/patches/ for overlay_exits, lattice-ui's
+ *      fonts.rs for open_failure), since a module's own run cannot show the
+ *      rest of the app is unharmed;
+ *   3. else the modules whose `covers` list names it
+ *      (scripts/gpui-e2e-modules.mjs reads them from the scenario);
+ *   4. else what the first matching E2E_TABLE row says;
+ *   5. else the whole scenario. A shared file nothing maps (shell.rs)
+ *      can break any module, and the trailer tells GitHub its macOS job
+ *      need not run, so it runs everything.
  *
  * Release paths (RELEASE_PATHS) always take the full gate, and no trailer
  * stands for them: GitHub runs its macOS jobs whatever the commit says.
@@ -33,10 +40,11 @@ import { readModules } from "./gpui-e2e-modules.mjs";
 export const FULL = "full";
 
 // What ships or signs a release: the release workflows, the bundle
-// configuration and entitlements, the updater in both apps, and the scripts
-// that sign, package or publish.
+// configuration, entitlements, Info.plist and icons, the updater in both
+// apps, and the scripts that fetch, sign, package, prune or publish what a
+// release bundles.
 export const RELEASE_PATHS =
-  /^(\.github\/workflows\/(release|release-cache|gpui-package|windows-installer|macos-intel|macos-intel-retry|linux-appimage)\.yml$|src-tauri\/tauri[^/]*\.conf\.json$|src-tauri\/Entitlements\.plist$|gpui\/crates\/lattice-gpui\/src\/updater(\.rs$|\/)|src\/telemetry\/app-updater\.tsx$|scripts\/(add-updater-platform|normalize-updater-manifest|gpui-bundle|publish-windows-installer|bump-version)\.mjs$|scripts\/lib\/codesign\.mjs$)/;
+  /^(\.github\/workflows\/(release|release-cache|gpui-package|windows-installer|macos-intel|macos-intel-retry|linux-appimage)\.yml$|src-tauri\/tauri[^/]*\.conf\.json$|src-tauri\/(Entitlements|Info)\.plist$|src-tauri\/(icons|macos)\/|gpui\/script\/fetch-pdfium$|gpui\/crates\/lattice-gpui\/src\/updater(\.rs$|\/)|src\/telemetry\/app-updater\.tsx$|scripts\/release-[^/]+\.sh$|scripts\/(add-updater-platform|normalize-updater-manifest|gpui-bundle|publish-windows-installer|bump-version|windows-package|release-notes)\.mjs$|scripts\/lib\/(codesign|windows-package|node-runtime|runtime-prune)\.mjs$)/;
 
 const MODULE_COVERS = readModules();
 // The modules that open a webview island: what a change to the Tauri
@@ -45,10 +53,10 @@ const ISLAND_MODULES = [...MODULE_COVERS].filter(([, covers]) => covers.some((pr
 const AGENT_MODULES = [...new Set([...ISLAND_MODULES, ...[...MODULE_COVERS.keys()].filter((name) => name.startsWith("agent"))])];
 
 /**
- * The one table from crates and paths to e2e modules, for GPUI inputs that
- * no module's `covers` names: a list of modules ([] for the smoke flow
- * alone) or FULL. The first matching row wins; a file no row matches needs
- * FULL.
+ * The one table from crates and paths to e2e modules: a list of modules
+ * ([] for the smoke flow alone) or FULL. A FULL row wins over a module's
+ * `covers`; the others apply to files no `covers` names. The first
+ * matching row wins; a file no row and no `covers` matches needs FULL.
  */
 export const E2E_TABLE = [
   // The scenario's own harness, runner and fixture: every module runs on them.
@@ -64,7 +72,8 @@ export const E2E_TABLE = [
   // What every window is built from.
   [/^gpui\/patches\//, FULL],
   [/^gpui\/(Cargo\.(toml|lock)|rust-toolchain\.toml|\.cargo\/)/, FULL],
-  [/^gpui\/crates\/[^/]+\/(Cargo\.toml|build\.rs)$/, FULL],
+  [/^gpui\/crates\/[^/]+\/(Cargo\.toml|build\.rs|src\/(main|lib)\.rs)$/, FULL],
+  [/^gpui\/crates\/lattice-gpui\/src\/app\.rs$/, FULL],
   [/^gpui\/crates\/(lattice-ui|lattice-i18n)\//, FULL],
   [/^src-tauri\/lattice-(core|theme)\//, FULL],
   [/^design-system\//, FULL],
@@ -88,12 +97,16 @@ export function e2eNeeds(gpuiFiles, covers = MODULE_COVERS) {
   const fullBecause = [];
   for (const file of gpuiFiles) {
     const picked = new Set();
-    if (file.startsWith(scenario)) {
-      const stem = file.slice(scenario.length).split("/")[0].replace(/\.rs$/, "");
-      if (covers.has(stem)) picked.add(stem);
+    const stem = file.startsWith(scenario) ? file.slice(scenario.length).split("/")[0].replace(/\.rs$/, "") : null;
+    if (stem && covers.has(stem)) picked.add(stem);
+    else if (E2E_TABLE.some(([pattern, need]) => need === FULL && pattern.test(file))) {
+      fullBecause.push(file);
+      continue;
     }
-    for (const [module, prefixes] of covers) {
-      if (prefixes.some((prefix) => file.startsWith(prefix))) picked.add(module);
+    if (!picked.size) {
+      for (const [module, prefixes] of covers) {
+        if (prefixes.some((prefix) => file.startsWith(prefix))) picked.add(module);
+      }
     }
     if (!picked.size) {
       const row = E2E_TABLE.find(([pattern]) => pattern.test(file));
@@ -127,17 +140,18 @@ export function formatTrailer(tree, cover) {
 }
 
 /**
- * The last `CI-local: macos` trailer in a commit message, or null. One that
+ * The last `CI-local: macos` trailer in a commit message (`line` is the
+ * trailer itself), or null. One that
  * names only the tree, as ci:local printed before it recorded its stages,
  * stands for every macOS job, as it did then.
  */
 export function parseTrailer(message) {
   const lines = [...message.matchAll(/^CI-local:[ \t]*macos[ \t]+([0-9a-f]{7,40})((?:[ \t]+[a-z0-9=+_-]+)*)[ \t]*$/gim)];
   if (!lines.length) return null;
-  const [, tree, rest] = lines.at(-1);
+  const [line, tree, rest] = lines.at(-1);
   const tokens = rest.trim().split(/\s+/).filter(Boolean);
-  if (!tokens.length) return { tree, rust: true, gpui: true, e2e: FULL, webkit: true, regate: null, legacy: true };
-  const cover = { tree, rust: false, gpui: false, e2e: null, webkit: false, regate: null, legacy: false };
+  if (!tokens.length) return { line, tree, rust: true, gpui: true, e2e: FULL, webkit: true, regate: null, legacy: true };
+  const cover = { line, tree, rust: false, gpui: false, e2e: null, webkit: false, regate: null, legacy: false };
   for (const token of tokens) {
     if (token === "rust" || token === "gpui" || token === "webkit") cover[token] = true;
     else if (token === "e2e=full") cover.e2e = FULL;
