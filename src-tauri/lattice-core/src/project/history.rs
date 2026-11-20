@@ -4,6 +4,7 @@
 //! index is refreshed. Also here: restoring and deleting history entries, and
 //! pruning conversation checkpoints.
 
+use super::bibliography_target::{unwritable_bibliography, writable_bibliography};
 use super::editor_save::{editor_save, EditorSave};
 use super::manifest::write_pretty_json;
 use super::paths::{is_plain_segment, safe_path, validate_transaction_path};
@@ -167,6 +168,9 @@ fn changes_from_disk(
     let mut changes = Vec::with_capacity(edits.len());
     for (relative, expected, after) in edits {
         validate_transaction_path(&relative)?;
+        if relative.ends_with(".bib") && !writable_bibliography(&relative) {
+            return Err(unwritable_bibliography(&relative));
+        }
         // This path only captures the previous contents. Parent creation and
         // the mutation itself are descriptor-relative in the commit.
         let before = current_text(&root.join(&relative))?;

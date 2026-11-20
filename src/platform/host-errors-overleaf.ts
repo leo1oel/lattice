@@ -37,6 +37,7 @@ export const OVERLEAF_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["overleaf/destination.rs", "Lattice can't save files in that folder. Choose another one.", () => t`Lattice can't save files in that folder. Choose another one.`],
   ["overleaf/link.rs", "This project is already linked to an Overleaf project.", () => t`This project is already linked to an Overleaf project.`],
   ["overleaf/link.rs", "These files are too large for Overleaf: {}.", ([files]) => t`These files are too large for Overleaf: ${files}.`],
+  ["overleaf/link.rs", "Overleaf does not allow these file names. Rename them first: {}.", ([files]) => t`Overleaf does not allow these file names. Rename them first: ${files}.`],
   ["overleaf/link.rs", "This project has no files that can be uploaded to Overleaf.", () => t`This project has no files that can be uploaded to Overleaf.`],
   ["overleaf/link.rs", "Resolve the conflict markers before publishing: {}.", ([files]) => t`Resolve the conflict markers before publishing: ${files}.`],
   ["overleaf/link.rs", "Could not prepare {path} for Overleaf: {error}", ([path, error]) => t`Could not prepare ${path} for Overleaf: ${error}`],

@@ -364,12 +364,18 @@ impl Mock {
                         let body = String::from_utf8_lossy(&body);
                         let name = body.split("filename=\"").nth(1);
                         let name = name.and_then(|rest| rest.split('"').next()).unwrap_or_default();
-                        if let Some(moves) = self.upload_moves {
-                            moved += moves(name);
+                        if crate::overleaf::name_problem(name).is_some() {
+                            // As Overleaf answers a name its SafePath refuses.
+                            let refused = "{\"success\":false,\"error\":\"invalid_filename\"}";
+                            (400, JSON, refused.into())
+                        } else {
+                            if let Some(moves) = self.upload_moves {
+                                moved += moves(name);
+                            }
+                            let body =
+                                "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}";
+                            (200, JSON, body.into())
                         }
-                        let body =
-                            "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}";
-                        (200, JSON, body.into())
                     }
                 }
                 ("POST", p) if p.ends_with("/folder") => {

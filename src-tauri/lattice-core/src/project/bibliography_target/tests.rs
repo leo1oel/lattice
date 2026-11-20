@@ -156,3 +156,51 @@ fn a_macro_primary_an_earlier_version_recorded_heals_on_open() {
     let bare = Fixture::folder("bib-target-unwritten", "bare");
     assert_eq!(resolve_target(&bare.root, "refs.bib", None).path, "refs.bib");
 }
+
+/// Leo's CVPR project after an earlier Papers wrote to its macro primary:
+/// the stray `cvpr/\paperbib.bib` is on disk beside the real bibliography.
+/// Whatever names it (the manifest, a walk for a `.bib`, the document's macro)
+/// no write lands there again: Overleaf refuses the name, so each sync would.
+#[cfg(unix)]
+#[test]
+fn no_write_ever_lands_on_a_bibliography_named_as_overleaf_refuses() {
+    let fixture = paperbib_project("bib-target-stray");
+    fs::create_dir_all(fixture.root.join("cvpr")).unwrap();
+    let stray = fixture.root.join(r"cvpr/\paperbib.bib");
+    fs::write(&stray, "@misc{a, title={A}}\n").unwrap();
+    fs::remove_file(fixture.root.join("references.bib")).unwrap();
+    fs::remove_file(fixture.root.join("author-kit/main.bib")).unwrap();
+
+    // Neither the manifest's macro primary nor the only .bib on disk is
+    // taken, and with nothing else to take the default is.
+    let target = resolve_target(&fixture.root, r"cvpr/\paperbib.bib", None);
+    assert_eq!(target.path, "references.bib");
+    assert_eq!(first_visible_bibliography(&fixture.root), None);
+    let mut manifest = read_manifest(&fixture.root).unwrap();
+    manifest.primary_bibliography = r"cvpr/\paperbib.bib".into();
+    write_manifest(&fixture.root, &manifest).unwrap();
+    let target = citation_bibliography(&fixture.root).unwrap();
+    assert!(writable_bibliography(&target.path), "{}", target.path);
+    assert_ne!(target.path, r"cvpr/\paperbib.bib");
+
+    // A write naming it outright is refused before the disk is touched,
+    // whether through the transaction log or the entry editor, which writes
+    // to the manifest's primary as it stands.
+    let before = fs::read_to_string(&stray).unwrap();
+    let error = crate::project::apply_citation_transaction(
+        &fixture.root,
+        "Add a",
+        vec![(r"cvpr/\paperbib.bib".into(), format!("{before}@misc{{b,}}\n"))],
+    )
+    .unwrap_err();
+    assert!(error.contains("Overleaf does not allow that name"), "{error}");
+    manifest.primary_bibliography = r"cvpr/\paperbib.bib".into();
+    write_manifest(&fixture.root, &manifest).unwrap();
+    let error =
+        crate::project::save_bib_entry(&fixture.root, "b", "@misc{b, title={B}}").unwrap_err();
+    assert!(error.contains("Overleaf does not allow that name"), "{error}");
+    assert_eq!(fs::read_to_string(&stray).unwrap(), before);
+    for bad in ["refs/*.bib", ".research/overleaf-base/main.bib", "", " refs.bib"] {
+        assert!(!writable_bibliography(bad), "{bad:?}");
+    }
+}

@@ -568,9 +568,18 @@ pub fn publish_project(
         return Err("This project is already linked to an Overleaf project.".to_string());
     }
     let project_name = sanitize_project_name(requested_name)?;
-    let LocalFiles { files, oversized } = read_local_files(root)?;
+    let LocalFiles { files, oversized, rejected } = read_local_files(root)?;
     if !oversized.is_empty() {
         return Err(format!("These files are too large for Overleaf: {}.", oversized.join(", ")));
+    }
+    // Overleaf's import would rename each, and the link would then disagree
+    // with Overleaf about every one from its first sync.
+    if !rejected.is_empty() {
+        let names: Vec<&str> = rejected.iter().map(|file| file.path.as_str()).collect();
+        return Err(format!(
+            "Overleaf does not allow these file names. Rename them first: {}.",
+            names.join(", ")
+        ));
     }
     if files.is_empty() {
         return Err("This project has no files that can be uploaded to Overleaf.".to_string());

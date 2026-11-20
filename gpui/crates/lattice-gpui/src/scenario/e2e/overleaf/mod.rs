@@ -292,6 +292,44 @@ impl Run {
             json!({ "uploads": mock.requests("POST /project/proj-mock/upload") }),
         );
 
+        // A file whose name Overleaf refuses (a TeX macro an earlier Papers
+        // left in a `.bib` path) stays here, named with why, while the rest
+        // still goes up: its HTTP 400 used to fail the whole sync.
+        let stray = clone_root.join(r"refs/\paperbib.bib");
+        std::fs::create_dir_all(clone_root.join("refs"))?;
+        std::fs::write(&stray, "@misc{a, title={A}}\n")?;
+        std::fs::write(clone_root.join("refs/kept.bib"), "@misc{a, title={A}}\n")?;
+        linked
+            .wait_for(cx, Duration::from_secs(30), |shell, cx| {
+                !shell.read(cx).overleaf.read(cx).syncing()
+            })
+            .await;
+        linked.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.sync_overleaf(window, cx))
+        })?;
+        let kept = linked
+            .wait_for(cx, Duration::from_secs(40), |_, _| {
+                mock.file("refs/kept.bib").is_some()
+            })
+            .await;
+        let stack = cx.update(crate::notices::install);
+        let named = linked
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                stack.read(cx).titles().iter().any(|title| {
+                    title.contains(r"refs/\paperbib.bib") && title.contains("backslash")
+                })
+            })
+            .await;
+        linked.snapshot(cx, "overleaf-refused-name").await;
+        let titles: Vec<String> =
+            cx.update(|cx| stack.read(cx).titles().iter().map(ToString::to_string).collect());
+        steps.check(
+            "a file whose name Overleaf refuses stays here, named with why, while the rest syncs",
+            kept && named && mock.file(r"refs/\paperbib.bib").is_none(),
+            json!({ "kept_uploaded": kept, "named": named, "notices": titles }),
+        );
+        std::fs::remove_file(&stray).ok();
+
         // An edit on both sides of one line: markers, and the choices on it.
         let settled = linked
             .wait_for(cx, Duration::from_secs(20), |shell, cx| {

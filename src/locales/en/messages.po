@@ -9189,6 +9189,10 @@ msgstr "Lattice UI crashed"
 msgid "Lattice update failed"
 msgstr "Lattice update failed"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Lattice will not write a bibliography at {path}: Overleaf does not allow that name."
+msgstr "Lattice will not write a bibliography at {path}: Overleaf does not allow that name."
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Lattice workspace"
 msgstr "Lattice workspace"
@@ -11994,6 +11998,34 @@ msgstr "Overleaf did not say whether the edit applied."
 msgid "Overleaf disconnected this session."
 msgstr "Overleaf disconnected this session."
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow a backslash in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf does not allow a backslash in file names, so {file} stays on this machine. Rename it to sync it."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow a name that is a dot, or starts or ends with a space, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf does not allow a name that is a dot, or starts or ends with a space, so {file} stays on this machine. Rename it to sync it."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow an asterisk in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf does not allow an asterisk in file names, so {file} stays on this machine. Rename it to sync it."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow control characters in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf does not allow control characters in file names, so {file} stays on this machine. Rename it to sync it."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow emoji or some rare characters in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf does not allow emoji or some rare characters in file names, so {file} stays on this machine. Rename it to sync it."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow names longer than 1024 characters, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf does not allow names longer than 1024 characters, so {file} stays on this machine. Rename it to sync it."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf does not allow these file names. Rename them first: {files}."
+msgstr "Overleaf does not allow these file names. Rename them first: {files}."
+
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf does not offer the websocket transport (offers {transports})"
 msgstr "Overleaf does not offer the websocket transport (offers {transports})"
@@ -12106,6 +12138,10 @@ msgstr "Overleaf renamed or removed {file} while it was edited here, and Lattice
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
 msgstr "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf reserves the name {file} at the top of a project, so it stays on this machine. Rename it to sync it."
+msgstr "Overleaf reserves the name {file} at the top of a project, so it stays on this machine. Rename it to sync it."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf returned {status} for the request."

@@ -51,6 +51,7 @@ mod files;
 mod link;
 mod local_copies;
 mod merge;
+mod names;
 mod projects;
 mod review;
 mod root_document;
@@ -77,6 +78,7 @@ pub use link::{
 pub use local_copies::{
     display_path, local_copies, remember_local_copy, remembered_local_copies, LocalCopy,
 };
+pub use names::{name_problem, NameProblem, RejectedName};
 pub use projects::{
     list_projects, resolve_link, OverleafInvite, OverleafProject, OverleafProjectList, PastedLink,
 };

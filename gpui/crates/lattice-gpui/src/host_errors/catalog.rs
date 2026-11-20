@@ -676,6 +676,11 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("That history entry no longer exists.", &[]),
     },
     Entry {
+        file: "project/bibliography_target.rs",
+        literal: "Lattice will not write a bibliography at {relative}: Overleaf does not allow that name.",
+        text: Text::Message("Lattice will not write a bibliography at {path}: Overleaf does not allow that name.", &[("path", Arg::Param(0))]),
+    },
+    Entry {
         file: "project/history.rs",
         literal: "Invalid transaction id.",
         text: Text::Message("Invalid transaction id.", &[]),
@@ -1419,6 +1424,11 @@ pub(super) static ENTRIES: &[Entry] = &[
         file: "overleaf/link.rs",
         literal: "These files are too large for Overleaf: {}.",
         text: Text::Message("These files are too large for Overleaf: {files}.", &[("files", Arg::Param(0))]),
+    },
+    Entry {
+        file: "overleaf/link.rs",
+        literal: "Overleaf does not allow these file names. Rename them first: {}.",
+        text: Text::Message("Overleaf does not allow these file names. Rename them first: {files}.", &[("files", Arg::Param(0))]),
     },
     Entry {
         file: "overleaf/link.rs",
