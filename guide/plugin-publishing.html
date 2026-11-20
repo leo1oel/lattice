@@ -71,7 +71,7 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 </tr>
 <tr>
 <td>The signed index Lattice reads</td>
-<td><a href="https://leo1oel.github.io/lattice-plugins/index.json">index.json</a>, with <a href="https://leo1oel.github.io/lattice-plugins/index.json.minisig">index.json.minisig</a></td>
+<td><a href="https://lattice-writer.github.io/lattice-plugins/index.json">index.json</a>, with <a href="https://lattice-writer.github.io/lattice-plugins/index.json.minisig">index.json.minisig</a></td>
 </tr>
 <tr>
 <td>The public signing key</td>
@@ -172,8 +172,8 @@ node scripts/validate.mjs --base origin/main
 <h2 id="6-signing">6. Signing</h2>
 <p>You don&#39;t sign anything. Once your pull request merges, the registry&#39;s publish workflow packs every entry, builds <code>index.json</code> and <code>blocked.json</code>, signs both with the registry&#39;s minisign key, and publishes them with the zips to GitHub Pages. The signing job runs only from <code>main</code> and waits for Leo&#39;s approval on every run, and the private key exists only as a secret of that job&#39;s protected environment.</p>
 <p>Lattice checks both signatures against public keys built into the app, refuses an index older than the last one it verified, and checks every zip&#39;s SHA-256 and manifest against the index before installing it. So neither a compromised download server nor someone with access to your GitHub account can change what people install. To check the published index yourself:</p>
-<pre><code class="language-sh">curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
-curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
+<pre><code class="language-sh">curl -fsSLO https://lattice-writer.github.io/lattice-plugins/index.json
+curl -fsSLO https://lattice-writer.github.io/lattice-plugins/index.json.minisig
 curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice-plugins/main/keys/primary.pub
 minisign -V -p primary.pub -m index.json
 </code></pre>

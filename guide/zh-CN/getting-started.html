@@ -44,6 +44,13 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 <li>打开 Lattice。它会自动更新：新版本下载好后，<strong>Lattice › 重新启动以更新…</strong> 即可安装。可在 <strong>设置 › 编辑编译 › 更新</strong> 中修改。</li>
 </ol>
 <p>Lattice 需要 macOS 14 或更高版本。Linux（AppImage）和 Windows 版本仍是实验性的，没有 AI 助手。</p>
+<h2 id="apple-芯片-mac-上的原生-lattice">Apple 芯片 Mac 上的原生 Lattice</h2>
+<p>在搭载 Apple 芯片的 Mac 上，Lattice 可以切换到它的原生版本：界面由 Mac 直接绘制，而不再是网页，外观和用法都一样。带来这个功能的更新之后，Lattice 会询问一次；选了 <strong>以后再说</strong> 或 <strong>不再询问</strong> 之后，也可以随时在 <strong>设置 › 编辑编译 › 切换到新的 Lattice</strong> 中切换。</p>
+<ul>
+<li><strong>会带过去的：</strong> 第一次切换时，最近的项目、设置、主题、插件、项目模板、Agent 技能和 Overleaf 关联。项目文件夹本身无论如何都不受影响。</li>
+<li><strong>不一样的地方：</strong> 原生版本用 macOS 自带的检查器检查拼写，没有语法检查，也没有其他语言的词典。过去的 Agent 对话不会在里面显示。</li>
+<li><strong>切换回去：</strong> 在原生版本中打开 <strong>设置 › 编辑编译 › 切换回经典版本</strong>，就会把经典版本装回原处。经典版本打开时，数据和切换前一样；在原生版本里做的改动不会同步回来。以后再次切换时，原生版本保留它自己的设置、主题、插件和 Overleaf 登录，并加入你在经典版本里打开过的最近项目。</li>
+</ul>
 <h2 id="配置-tex">配置 TeX</h2>
 <p>Lattice 使用你自己的 TeX 发行版（MacTeX 或 TeX Live）编译 PDF。如果还没有安装，Lattice 可以帮你安装 <strong>BasicTeX</strong>：这是「上手」清单的第一步，找不到 TeX 的编译也会提示安装。编译时发现缺少的 LaTeX 宏包，也可以直接在编译问题里安装。</p>
 <p>随时可以打开 <strong>设置 › TeX 检查</strong> 查看环境。它列出编译用到的每个工具，以及当前项目需要的东西（主文档、参考文献、会议模板宏包和字体）。显示 <strong>可以编译了</strong> 就说明一切就绪。有红色项时，点 <strong>安装所需工具</strong> 即可；添加论文和查找引用需要一个小的 Python 工具（<code>uv</code>），同一个按钮也会安装它。</p>

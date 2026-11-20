@@ -71,7 +71,7 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 </tr>
 <tr>
 <td>Lattice 读取的签名索引</td>
-<td><a href="https://leo1oel.github.io/lattice-plugins/index.json">index.json</a>，以及 <a href="https://leo1oel.github.io/lattice-plugins/index.json.minisig">index.json.minisig</a></td>
+<td><a href="https://lattice-writer.github.io/lattice-plugins/index.json">index.json</a>，以及 <a href="https://lattice-writer.github.io/lattice-plugins/index.json.minisig">index.json.minisig</a></td>
 </tr>
 <tr>
 <td>签名公钥</td>
@@ -172,8 +172,8 @@ node scripts/validate.mjs --base origin/main
 <h2 id="6-签名">6. 签名</h2>
 <p>你不需要签任何东西。pull request 合并后，注册表的发布工作流会打包每个条目，生成 <code>index.json</code> 和 <code>blocked.json</code>，用注册表的 minisign 密钥给两者签名，再连同 zip 一起发布到 GitHub Pages。签名任务只在 <code>main</code> 上运行，每次都要等 Leo 批准，私钥只作为该任务受保护环境的密钥存在。</p>
 <p>Lattice 用内置在应用里的公钥验证这两个签名，拒绝比上次验证过的更旧的索引，并在安装前核对每个 zip 的 SHA-256 和清单是否与索引一致。所以无论是被攻破的下载服务器，还是拿到你 GitHub 账号的人，都改不了用户装到的内容。你也可以自己验证已发布的索引：</p>
-<pre><code class="language-sh">curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json
-curl -fsSLO https://leo1oel.github.io/lattice-plugins/index.json.minisig
+<pre><code class="language-sh">curl -fsSLO https://lattice-writer.github.io/lattice-plugins/index.json
+curl -fsSLO https://lattice-writer.github.io/lattice-plugins/index.json.minisig
 curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice-plugins/main/keys/primary.pub
 minisign -V -p primary.pub -m index.json
 </code></pre>
