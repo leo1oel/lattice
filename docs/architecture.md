@@ -55,6 +55,10 @@ default browser: `browser_host` serves the frontend on the fixed loopback
 port and bridges the tab to a hidden host WKWebView, and the workspace opens
 in a native window again when the tab returns it or closes. `lib.rs::setup`
 starts the listener; `browser_host.rs` opens with the rest of the design.
+On a Linux machine with no desktop session, `--browser-host --headless`
+runs the same host under a virtual display such as Xvfb: its one tab opens
+every project in itself and links in its own browser, and nothing calls the
+system opener.
 Only this section describes the window engine: point here rather than
 restating it.
 
@@ -345,7 +349,7 @@ surprising fact about this backend.
 
 Sizes by area (lines, tests included): `project` ~6.3k · `papers` ~4.8k ·
 `overleaf` ~4.2k · `citation_audit` ~3.3k · `overleaf_rt` ~3.0k · `ipc` ~2.5k ·
-`browser_host` ~1.8k · `latex` ~1.5k · `tex_setup` ~1.0k · everything else
+`browser_host` ~1.9k · `latex` ~1.5k · `tex_setup` ~1.0k · everything else
 under 1,000.
 
 **Hubs** (by number of modules that depend on them):

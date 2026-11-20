@@ -195,11 +195,20 @@ pub(super) struct BrowserSessionConfig {
     pub(super) token: String,
     pub(super) bridge_port: u16,
     pub(super) label: String,
+    /// Tells the page it opens links itself and keeps every project in one
+    /// tab (`launched_headless`); left out of the reply everywhere else.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub(super) headless: bool,
 }
 
 impl BrowserSessionConfig {
     pub(super) fn new(token: &str, session: &BrowserSession, port: u16) -> Self {
-        Self { token: token.to_string(), bridge_port: port, label: session.host_label.clone() }
+        Self {
+            token: token.to_string(),
+            bridge_port: port,
+            label: session.host_label.clone(),
+            headless: false,
+        }
     }
 }
 

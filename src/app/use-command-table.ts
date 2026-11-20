@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } 
 import { useLingui } from "@lingui/react/macro";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BROWSER_ENTRY_PORT } from "../platform/flavor";
+import { isHeadlessHost } from "../platform/headless-host";
 import { requestMarginReviewHere, setMarginReviewMode } from "../overleaf/margin-review-mode";
 import { openRecentProjects, otherProjects } from "../project/first-pages";
 import type { NewEntryType } from "../project/project-new-entries";
@@ -332,7 +333,8 @@ export function useCommandTable({
     // Help ▸ Report a Problem… runs it too (native_locale.rs).
     { id: "report-problem", when: !browserHosted, label: t`Report a problem`, group: "project", run: () => void loadReportProblem().then(({ reportProblem }) => reportProblem()) },
     {
-      id: "browser", group: "project", run: () => void moveWorkspace(),
+      // A headless host's tab has no Lattice app to go back to (browser_host.rs).
+      id: "browser", when: !isHeadlessHost(), group: "project", run: () => void moveWorkspace(),
       ...(browserHosted
         ? { label: t`Open in Lattice app` }
         : { label: t`Open in browser`, detail: `http://127.0.0.1:${BROWSER_ENTRY_PORT}` }),

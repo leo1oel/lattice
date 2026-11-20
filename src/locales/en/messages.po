@@ -18031,6 +18031,14 @@ msgstr "This is not a native Open Slide deck."
 msgid "This is the earliest version"
 msgstr "This is the earliest version"
 
+#: src/platform/host-errors-workspace.ts
+msgid "This Lattice runs without a desktop, so it cannot open apps or folders on its computer."
+msgstr "This Lattice runs without a desktop, so it cannot open apps or folders on its computer."
+
+#: src/platform/host-errors-workspace.ts
+msgid "This Lattice runs without a desktop, so the workspace stays in your browser."
+msgstr "This Lattice runs without a desktop, so the workspace stays in your browser."
+
 #: src/platform/host-errors-setup.ts
 msgid "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
 msgstr "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
@@ -18174,6 +18182,10 @@ msgstr "This project is not inside a Git repository."
 #: src/platform/host-errors-overleaf.ts
 msgid "This project is not linked to an Overleaf project."
 msgstr "This project is not linked to an Overleaf project."
+
+#: src/platform/host-errors-workspace.ts
+msgid "This project is open in another browser tab. Close that tab, then open the project here."
+msgstr "This project is open in another browser tab. Close that tab, then open the project here."
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx

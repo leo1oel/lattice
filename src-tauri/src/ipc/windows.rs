@@ -16,6 +16,32 @@ pub(crate) struct OpenedProjectWindow {
     label: String,
     /// True when an existing window was raised instead of a new one created.
     focused_existing: bool,
+    /// The asking window opens the project itself, as "Open in this window"
+    /// does: a headless host's tab (`open_in_this_tab`); absent everywhere else.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    open_here: bool,
+}
+
+const SHOWN_IN_ANOTHER_TAB: &str =
+    "This project is open in another browser tab. Close that tab, then open the project here.";
+
+/// A headless host keeps one workspace, in the tab its writer has, so a
+/// project that tab asks for opens in it rather than in a new workspace and
+/// tab. One another workspace shows stays there: taking it would drop that
+/// tab's unsaved edits, and only the window giving a project up can move it
+/// (`project_tabs`). A headless host opens no second workspace of its own,
+/// so that is a guard rather than a path a writer takes.
+fn open_in_this_tab(
+    state: &AppState, label: &str, root: &Path,
+) -> Result<OpenedProjectWindow, String> {
+    let showing = state.window_showing(root);
+    if showing.as_deref().is_some_and(|showing| showing != label) {
+        return Err(SHOWN_IN_ANOTHER_TAB.to_string());
+    }
+    // Already this tab's project, or one it opens now.
+    let focused_existing = showing.is_some();
+    let label = label.to_string();
+    Ok(OpenedProjectWindow { label, focused_existing, open_here: !focused_existing })
 }
 
 /// Pick a free `project-N` label.
@@ -70,6 +96,9 @@ pub async fn open_project_window(
     // flashing up a broken new one.
     let snapshot = run_blocking("Project opening", move || project::open(Path::new(&path))).await?;
     let root = PathBuf::from(&snapshot.root);
+    if browser_host::launched_headless() && window.label().starts_with("browser-") {
+        return open_in_this_tab(&state, window.label(), &root);
+    }
 
     if let Some(label) = state.window_showing(&root) {
         // That window has shown the project all along, so it is told to
@@ -86,7 +115,7 @@ pub async fn open_project_window(
         };
         if raised {
             fs_watch::announce_reopened(&super::WindowEvents(app.clone()), &root);
-            return Ok(OpenedProjectWindow { label, focused_existing: true });
+            return Ok(OpenedProjectWindow { label, focused_existing: true, open_here: false });
         }
         // The binding outlived its window. Drop it and open a fresh one.
         state.release_window(&label);
@@ -101,7 +130,7 @@ pub async fn open_project_window(
         let _ = created.set_focus();
         label
     };
-    Ok(OpenedProjectWindow { label, focused_existing: false })
+    Ok(OpenedProjectWindow { label, focused_existing: false, open_here: false })
 }
 
 /// Hand this workspace to the default browser at the local address. The
@@ -148,6 +177,7 @@ pub fn get_app_log_dir(app: AppHandle) -> Result<String, String> {
 /// any local path through its registered application.
 #[tauri::command]
 pub fn open_app_log_dir(app: AppHandle) -> Result<(), String> {
+    browser_host::require_desktop()?;
     app.opener()
         .open_path(app_log_dir(&app)?.to_string_lossy(), None::<&str>)
         .map_err(|error| format!("Could not open the log folder: {error}"))
@@ -220,7 +250,9 @@ pub async fn sample_screen_color(app: AppHandle) -> Result<Option<String>, Strin
 
 #[cfg(test)]
 mod tests {
-    use super::next_project_window_label;
+    use super::{next_project_window_label, open_in_this_tab, SHOWN_IN_ANOTHER_TAB};
+    use crate::app_state::AppState;
+    use crate::test_support::TempDir;
 
     #[test]
     fn window_labels_reuse_the_lowest_free_slot() {
@@ -231,5 +263,40 @@ mod tests {
         // and position the writer gave that slot.
         assert_eq!(next_project_window_label(is_taken), "project-2");
         assert_eq!(next_project_window_label(|_| false), "project-1");
+    }
+
+    #[test]
+    fn a_headless_tab_opens_a_project_in_itself_unless_another_tab_has_it() {
+        let (a, b) = (TempDir::new("headless-tab-a"), TempDir::new("headless-tab-b"));
+        let state = AppState::from_environment();
+        state.bind_window("browser-1", a.to_path_buf()).unwrap();
+        let reply = |root: &TempDir| {
+            open_in_this_tab(&state, "browser-1", root)
+                .map(|opened| serde_json::to_value(opened).unwrap())
+        };
+        // No new workspace: the tab is told to take the project itself.
+        let here =
+            serde_json::json!({ "label": "browser-1", "focusedExisting": false, "openHere": true });
+        assert_eq!(reply(&b), Ok(here));
+        // Its own project is already where it asked for it.
+        assert_eq!(
+            reply(&a),
+            Ok(serde_json::json!({ "label": "browser-1", "focusedExisting": true }))
+        );
+        state.bind_window("browser-2", b.to_path_buf()).unwrap();
+        assert_eq!(reply(&b), Err(SHOWN_IN_ANOTHER_TAB.to_string()));
+    }
+
+    #[test]
+    fn every_other_reply_is_what_it_was() {
+        let opened = super::OpenedProjectWindow {
+            label: "project-2".into(),
+            focused_existing: false,
+            open_here: false,
+        };
+        assert_eq!(
+            serde_json::to_value(opened).unwrap(),
+            serde_json::json!({ "label": "project-2", "focusedExisting": false })
+        );
     }
 }

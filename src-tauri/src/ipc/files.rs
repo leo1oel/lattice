@@ -229,6 +229,7 @@ pub async fn open_figure_source(
 ) -> Result<bool, String> {
     use project::FigureSourceOpening::{Ask, Open, Reveal};
     use tauri_plugin_opener::OpenerExt;
+    crate::browser_host::require_desktop()?;
     let root = current_root(&state, &window)?;
     let opener = tauri::Manager::app_handle(&window).clone();
     run_blocking("Opening the figure", move || {

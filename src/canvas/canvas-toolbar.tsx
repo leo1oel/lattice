@@ -3,6 +3,7 @@ import { memo, useMemo, type ButtonHTMLAttributes, type ReactNode } from "react"
 import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { isHeadlessHost } from "../platform/headless-host";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { StateSwap } from "../components/ui/motion";
@@ -197,7 +198,8 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             <AnimatedProductIcon kind="clock-back" size={14} />
           </ToolbarButton>
         )}
-        {shows("browser") && props.onMoveWorkspace && (
+        {/* A headless host has no Lattice app to go back to; it refuses too (browser_host.rs). */}
+        {shows("browser") && props.onMoveWorkspace && !isHeadlessHost() && (
           <ToolbarButton
             label={props.inBrowserTab ? t`Open in Lattice app` : t`Open in browser`}
             className="history-button"

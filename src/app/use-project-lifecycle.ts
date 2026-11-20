@@ -24,20 +24,13 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { markGetStartedStep, TUTORIAL_VENUE } from "../onboarding/get-started-progress";
 import { loadWindowProjectGroup, windowProjects } from "./window-projects";
 import { useProjectTabTransfer } from "./project-tab-transfer";
+import { NEW_WINDOW_FAILURE_PREFIX, OPEN_IN_ANOTHER_WINDOW, type OpenedProjectWindow } from "./project-window-replies";
 
 /** Asked only when the window already shows a project, so the question waits for the first switch. */
 const loadLeaveProject = () => import("./leave-project");
 
 /** How long launch shows an empty window while it reopens a project, before the welcome screen. */
 const LAUNCH_EMPTY_WINDOW_MS = 1_000;
-
-// Must match the prefix `open_project_window` puts on a window-creation
-// failure. Everything else it can fail with is the project itself.
-// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
-const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
-/** What `open_project` answers when another window already shows the project. */
-// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
-const OPEN_IN_ANOTHER_WINDOW = "already open in another Lattice window";
 
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;
@@ -266,42 +259,19 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const enterProjectRef = useLatestRef(enterProject);
 
   /// Hand a project to a window of its own, or raise the window already
-  /// showing it. Returns the failure message so a caller that keeps a list of
+  /// showing it; a headless host's tab, the only window, gives it to `here`.
+  /// Returns the failure message so a caller that keeps a list of
   /// projects can decide whether to look at the project's folder again.
-  const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
+  const openWindow = useCallback(async (path: string, here?: (path: string) => Promise<unknown>): Promise<string | null> => {
     setBusyLabel(t`Opening window…`);
-    return invoke("open_project_window", { path })
-      .then(() => null, (reason: unknown) => {
+    return invoke<OpenedProjectWindow>("open_project_window", { path })
+      .then(async (opened) => { if (opened?.openHere) await here?.(path); return null; }, (reason: unknown) => {
         const message = toMessage(reason);
         showError(message);
         return message;
       })
       .finally(() => setBusyLabel(null));
   }, [t]);
-
-  /// Show a project that was just created, imported or cloned. A window in use
-  /// keeps what it has and the project gets one of its own; an empty window
-  /// takes it in place, claiming the switch first. The backend deliberately
-  /// does not bind these on creation, so this is the only thing that decides
-  /// where they land. `create` resolves the new project's root.
-  const revealNewProject = useCallback(async (
-    label: string,
-    create: () => Promise<string>,
-    onError?: (reason: unknown) => void,
-  ) => {
-    setBusyLabel(label);
-    const openHere = !project?.root;
-    await (async () => {
-      if (openHere && !await startProjectTransition()) return;
-      const root = await create();
-      if (openHere) await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }));
-      else await openProjectWindow(root);
-    })().catch((reason: unknown) => {
-      if (openHere) cancelProjectTransition();
-      if (onError) onError(reason);
-      else showError(toMessage(reason));
-    }).finally(() => setBusyLabel(null));
-  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition]);
 
   /// Replace this window's project with the one at `path`: save, claim the
   /// switch, enter; roll the claim back on failure. A project another window
@@ -320,9 +290,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       return "failed";
     }).finally(() => setBusyLabel(null));
     // `open_project_window` raises the window that has it.
-    if (outcome === "elsewhere") await openProjectWindow(path);
+    if (outcome === "elsewhere") await openWindow(path);
     return outcome === "entered";
-  }, [cancelProjectTransition, enterProject, openProjectWindow, save, startProjectTransition]);
+  }, [cancelProjectTransition, enterProject, openWindow, save, startProjectTransition]);
 
   /// Put the project at `path` in this window, beside the one it shows (see
   /// window-projects.ts): what "Open in this window" and the project tabs do.
@@ -344,7 +314,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       });
       if (elsewhere !== false) {
         setBusyLabel(null);
-        if (elsewhere) await openProjectWindow(path);
+        if (elsewhere) await openWindow(path);
         return false;
       }
       if (leaving && !await (await loadLeaveProject()).confirmLeavingProject(leaving.manifest.name, building)) {
@@ -353,7 +323,30 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       }
       return switchProject(label, path, onError);
     });
-  }, [building, holdWindow, openProjectWindow, projectBeforeTransitionRef, projectRef, switchProject, t]);
+  }, [building, holdWindow, openWindow, projectBeforeTransitionRef, projectRef, switchProject, t]);
+  /// Show a project that was just created, imported or cloned. A window in use
+  /// keeps what it has and the project gets one of its own; an empty window
+  /// takes it in place, claiming the switch first. The backend deliberately
+  /// does not bind these on creation, so this is the only thing that decides
+  /// where they land. `create` resolves the new project's root.
+  const revealNewProject = useCallback(async (
+    label: string,
+    create: () => Promise<string>,
+    onError?: (reason: unknown) => void,
+  ) => {
+    setBusyLabel(label);
+    const openHere = !project?.root;
+    await (async () => {
+      if (openHere && !await startProjectTransition()) return;
+      const root = await create();
+      if (openHere) await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }));
+      else await openWindow(root, openInThisWindow);
+    })().catch((reason: unknown) => {
+      if (openHere) cancelProjectTransition();
+      if (onError) onError(reason);
+      else showError(toMessage(reason));
+    }).finally(() => setBusyLabel(null));
+  }, [cancelProjectTransition, enterProject, openInThisWindow, openWindow, project?.root, startProjectTransition]);
 
   /// Open a folder that is already on disk — the local copy of an Overleaf
   /// project — wherever the writer will find it: the window showing it is
@@ -361,9 +354,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   /// unless the writer asked for this window; an empty window takes it in place.
   const openExistingProject = useCallback(async (path: string, inThisWindow = false) => {
     if (path === project?.root) return;
-    if (project?.root && !inThisWindow) await openProjectWindow(path);
+    if (project?.root && !inThisWindow) await openWindow(path, openInThisWindow);
     else await openInThisWindow(path);
-  }, [openInThisWindow, openProjectWindow, project?.root]);
+  }, [openInThisWindow, openWindow, project?.root]);
 
   const chooseExisting = useCallback(async (inThisWindow = false) => {
     const selected = await open({ directory: true, multiple: false, title: t`Open a LaTeX project` });
@@ -567,13 +560,13 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     }
     if (project?.root) {
       setProjectMenuOpen(false);
-      const failure = await openProjectWindow(path);
+      const failure = await openWindow(path, openInThisWindow);
       // A window that could not be created says nothing about the folder.
       if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) markMissing();
       return;
     }
     await holdWindow(false, () => switchProject(t`Switching project…`, path, markMissing));
-  }, [checkRecentProjects, holdWindow, openInThisWindow, openProjectWindow, project?.root, switchProject, t]);
+  }, [checkRecentProjects, holdWindow, openInThisWindow, openWindow, project?.root, switchProject, t]);
 
   // ---- Closing, quitting and reloading save first -----------------------------------------------------------------
   useSaveBeforeClose({ browserHosted, flush, save, hasUnsavedEdits });
@@ -623,6 +616,6 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, openExistingProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, clone, recentFinder, exportProjectZip, moveWorkspace,
-    movingWorkspace, openInThisWindow, openProjectWindow, moveProjectTab,
+    movingWorkspace, openInThisWindow, openProjectWindow: (path: string) => openWindow(path, openInThisWindow), moveProjectTab,
   };
 }

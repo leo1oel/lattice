@@ -4,6 +4,7 @@ export { BrowserEventRegistry } from "./browser-events";
 export { encodeBridgeValue, decodeBridgeValue } from "./browser-bridge-value";
 import { APPEARANCE_KEY, loadThemePreference, systemTheme } from "../settings/app-settings";
 import { BROWSER_ENTRY_PORT } from "./flavor";
+import { markHeadlessHost } from "./headless-host";
 
 type Callback = (payload: unknown) => void;
 
@@ -34,6 +35,8 @@ export interface BrowserRuntimeConfig {
   token: string;
   bridgePort: number;
   label: string;
+  /** The host has no desktop session (`--headless`): see browser-headless.ts. */
+  headless?: boolean;
 }
 
 let runtimeError: string | null = null;
@@ -105,6 +108,11 @@ const RUNTIME_MESSAGES = {
 /* eslint-enable lingui/no-unlocalized-strings */
 
 export function runtimeMessage(message: keyof typeof RUNTIME_MESSAGES, values: Record<string, string> = {}): string {
+  return runtimeText(RUNTIME_MESSAGES[message], values);
+}
+
+/** `text` in the interface language, read as {@link runtimeMessage} reads it. */
+export function runtimeText(text: readonly [english: string, chinese: string], values: Record<string, string> = {}): string {
   let configuredLanguage: unknown;
   try {
     configuredLanguage = (JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "{}") as {
@@ -117,7 +125,7 @@ export function runtimeMessage(message: keyof typeof RUNTIME_MESSAGES, values: R
   const chinese = configuredLanguage === "en" || configuredLanguage === "zh-CN"
     ? configuredLanguage === "zh-CN"
     : navigator.languages[0]?.toLocaleLowerCase().startsWith("zh");
-  return RUNTIME_MESSAGES[message][chinese ? 1 : 0]
+  return text[chinese ? 1 : 0]
     .replace(/\{(\w+)\}/g, (placeholder, name: string) => values[name] ?? placeholder);
 }
 
@@ -289,12 +297,18 @@ async function installBrowserRuntime(config: BrowserRuntimeConfig): Promise<void
     return id;
   };
   const events = new BrowserEventRegistry(runCallback);
+  // Loaded before the first invoke, which may need to open a link while the
+  // click that asked for it still counts.
+  const headless = config.headless ? await import("./browser-headless") : null;
+  if (headless) markHeadlessHost();
   const relay = new BrowserRelay(config, callbacks);
   mirrorLocalStorage(relay);
 
   const invoke = async (command: string, args: unknown = {}, options?: unknown) => {
     const local = LOCAL_COMMANDS.get(command);
     if (local) return local(args as { value?: unknown });
+    const tabCommand = headless?.HEADLESS_COMMANDS.get(command);
+    if (tabCommand) return tabCommand(args as Record<string, unknown>);
     const dialog = BROWSER_DIALOG_COMMANDS.get(command);
     if (dialog) return relay.invoke(dialog, args, options);
     if (command === "plugin:event|listen") {
@@ -425,7 +439,7 @@ async function requestBrowserSession(
   );
   if (!config) throw new Error(runtimeMessage("entry-invalid-session"));
   persistBrowserConfig(config);
-  return config;
+  return value.headless === true ? { ...config, headless: true } : config;
 }
 
 async function initializeBrowserRuntime(): Promise<void> {
