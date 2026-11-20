@@ -10653,8 +10653,8 @@ msgid "No full text to download"
 msgstr "No full text to download"
 
 #: src/app/native-app-dialog.tsx
-msgid "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Past Agent threads don’t show. Apple silicon Macs only."
-msgstr "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Past Agent threads don’t show. Apple silicon Macs only."
+msgid "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Apple silicon Macs only."
+msgstr "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Apple silicon Macs only."
 
 #: src/project/paper-list-toolbar.tsx
 msgid "No grouping"
@@ -19750,6 +19750,10 @@ msgstr "You’re ready to write"
 #: src/papers/bibliography-audit.tsx
 msgid "Your {BIBITEM} differs: {fields}"
 msgstr "Your {BIBITEM} differs: {fields}"
+
+#: src/app/native-app-dialog.tsx
+msgid "Your Agent conversations come along too, and any you start here later join them in the native app."
+msgstr "Your Agent conversations come along too, and any you start here later join them in the native app."
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Your answer…"

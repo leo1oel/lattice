@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-19 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-20 against upstream
 `v1.6.2` (`47f8f39979a61fc16e86b214c65bf56c46284061`), the current integration changes
-**903 files, +92,018 / −7,836 lines** (about 6,700 of the added lines are the zh-CN catalogs,
+**912 files, +93,607 / −7,863 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
@@ -486,3 +486,13 @@ The pin is upstream 1.6.2 (`47f8f3997`) merged with the whole `amp/lattice-v1.5.
 **Bundle patches.** 1.6 bundles Effect functions under their own names, so the staging-time patch that hid the launch-token probe's "Rejected authenticated session credential." warning no longer matched. The fork now skips that warning in source (`ServerAuth.ts`), and `prepare-synara-sidecar.mjs` no longer patches it. The Codex host patch moved its stderr anchor to the new configuration-warning branch (`scripts/synara-codex-host.mjs`).
 
 The staged runtime is 178.9 MB (1.5.2: 175.3 MB).
+
+### Classic Agent history in the native app (fork PRs 38–40)
+
+The pin moved from `90535f011` to `8be5024bd` on `amp/lattice-v1.6.2-sync`, through three merge commits.
+
+- **Union import** ([fork PR 38](https://github.com/leo1oel/synara/pull/38)). When `SYNARA_IMPORT_THREADS_FROM_HOME` names another Synara home, the server copies that home's `state.sqlite` to a snapshot in the background after startup and adds the threads it lacks through the engine: `project.create` by workspace root, then `thread.create`, `thread.messages.import` and `thread.archive`. It never writes the source, never calls a provider, and skips thread ids it already has or has deleted. Idle imported threads receive messages the source added since. A stamp (`userdata/thread-home-import-stamp.json`) makes an unchanged source cost nothing, and `userdata/thread-home-import-result.json` (`{version, completedAt, imported, appended}`) is left for the host to report. The native app sets the variable to the classic app's `synara` folder when it exists (`src-tauri/lattice-core/src/synara.rs`), and shows the count once, then deletes the result file (`gpui/crates/lattice-gpui/src/agent/runtime.rs`).
+- **Context and times** ([fork PR 39](https://github.com/leo1oel/synara/pull/39)). An imported thread carries a pending handoff (`origin: "home-import"`), so its first new turn gets the earlier transcript through the existing handoff bootstrap (capped at 32k characters), and its tooltip reads "Imported from the classic app". Imported threads keep the source's `createdAt`, `updatedAt` and `archivedAt`; `thread.archive` gained an optional `archivedAt` for that. All three contract additions are optional and need no migration.
+- **History at every width** ([fork PR 40](https://github.com/leo1oel/synara/pull/40)). The embed hides the open-thread tabs so the history menu shows at every panel width.
+
+Tool calls, checkpoints and provider sessions are not imported: the classic transcript comes over as messages. The staged runtime is 187.7 MB of files on the Mac mini.

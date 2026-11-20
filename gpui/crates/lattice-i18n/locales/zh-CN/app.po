@@ -1,3 +1,19 @@
+#: lattice-gpui/src/agent/runtime.rs
+msgid "Brought 1 Agent conversation over from the classic version"
+msgstr "已从经典版本带来 1 个 Agent 对话"
+
+#: lattice-gpui/src/agent/runtime.rs
+msgid "Brought new messages from the classic version into 1 Agent conversation"
+msgstr "已将经典版本中的新消息带入 1 个 Agent 对话"
+
+#: lattice-gpui/src/agent/runtime.rs
+msgid "Brought new messages from the classic version into {count} Agent conversations"
+msgstr "已将经典版本中的新消息带入 {count} 个 Agent 对话"
+
+#: lattice-gpui/src/agent/runtime.rs
+msgid "Brought {count} Agent conversations over from the classic version"
+msgstr "已从经典版本带来 {count} 个 Agent 对话"
+
 #: lattice-gpui/src/updater.rs
 msgid "Couldn’t switch to the classic version"
 msgstr "无法切换到经典版本"

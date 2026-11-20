@@ -123,6 +123,22 @@ fn tauri_storage(scripted: bool) -> Option<PathBuf> {
     }
 }
 
+/// The Tauri app's data folder (Tauri's `app_data_dir`) and its config folder
+/// (`app_config_dir`), read only on an ordinary run; `LATTICE_GPUI_TAURI_DATA`
+/// names a stand-in holding both, as a scenario's copy.
+pub fn tauri_folders(scripted: bool) -> Option<(PathBuf, PathBuf)> {
+    use lattice_settings::import::TAURI_BUNDLE_ID;
+    match std::env::var_os("LATTICE_GPUI_TAURI_DATA") {
+        Some(dir) if dir.is_empty() => None,
+        Some(dir) => Some((PathBuf::from(&dir), PathBuf::from(dir))),
+        None if scripted => None,
+        None => Some((
+            dirs::data_dir()?.join(TAURI_BUNDLE_ID),
+            dirs::config_dir()?.join(TAURI_BUNDLE_ID),
+        )),
+    }
+}
+
 /// Carry the rest of the writer's state over from the Tauri app on the
 /// first launch (`lattice_settings::migrate`), before anything reads it:
 /// the recent projects, the Overleaf session and linked folders, the
@@ -139,20 +155,12 @@ fn tauri_storage(scripted: bool) -> Option<PathBuf> {
 /// (`migrate::merge_recent_projects`); that is no update to announce, so it
 /// returns false.
 pub fn migrate_from_tauri(scripted: bool) -> bool {
-    use lattice_settings::{import::TAURI_BUNDLE_ID, migrate};
+    use lattice_settings::migrate;
     let Some(state) = crate::shell::workspaces::state_dir(scripted) else {
         return false;
     };
-    let (data, config) = match std::env::var_os("LATTICE_GPUI_TAURI_DATA") {
-        Some(dir) if dir.is_empty() => return false,
-        Some(dir) => (PathBuf::from(&dir), PathBuf::from(dir)),
-        None if scripted => return false,
-        None => match (dirs::data_dir(), dirs::config_dir()) {
-            (Some(data), Some(config)) => {
-                (data.join(TAURI_BUNDLE_ID), config.join(TAURI_BUNDLE_ID))
-            }
-            _ => return false,
-        },
+    let Some((data, config)) = tauri_folders(scripted) else {
+        return false;
     };
     let tauri = migrate::Tauri {
         data,
