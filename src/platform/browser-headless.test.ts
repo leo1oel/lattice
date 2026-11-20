@@ -60,12 +60,14 @@ afterEach(() => {
 });
 
 describe("a tab of a host with a desktop", () => {
-  it("relays links and folders to the host, as before", async () => {
+  it("relays links, folders and dialogs to the host, as before", async () => {
     const { socket, invoke } = await loadTab({});
     void invoke("plugin:opener|open_url", { url: "https://example.org/" });
     void invoke("plugin:opener|reveal_item_in_dir", { path: "/projects/b" });
-    await vi.waitFor(() => expect(relayed(socket)).toHaveLength(2));
-    expect(relayed(socket).map(({ command }) => command)).toEqual(["plugin:opener|open_url", "plugin:opener|reveal_item_in_dir"]);
+    void invoke("plugin:dialog|message", { message: "Discard the draft?", buttons: "OkCancel" });
+    await vi.waitFor(() => expect(relayed(socket)).toHaveLength(3));
+    expect(relayed(socket).map(({ command }) => command))
+      .toEqual(["plugin:opener|open_url", "plugin:opener|reveal_item_in_dir", "plugin:dialog|message"]);
     expect(open).not.toHaveBeenCalled();
     expect((await import("./headless-host")).isHeadlessHost()).toBe(false);
   });
@@ -91,6 +93,26 @@ describe("a tab of a headless host", () => {
     const { socket, invoke } = await loadTab({ headless: true });
     await expect(invoke(command, { path: "/projects/b" }))
       .rejects.toThrow("This Lattice runs without a desktop, so it cannot open apps or folders on its computer.");
+    expect(relayed(socket)).toEqual([]);
+  });
+
+  it("answers confirm, ask and message dialogs in this tab, which the host would show where nobody sees them", async () => {
+    const { socket } = await loadTab({ headless: true });
+    const { ask, confirm, message } = await import("@tauri-apps/plugin-dialog");
+    const confirmed = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const alerted = vi.spyOn(window, "alert").mockReturnValue(undefined);
+    // Leaving a project during a build asks with its own labels.
+    const leave = { title: "Switch away from “Paper”?", okLabel: "Switch project", cancelLabel: "Cancel" };
+    await expect(confirm("The build will stop.", leave)).resolves.toBe(true);
+    expect(confirmed).toHaveBeenLastCalledWith("Switch away from “Paper”?\n\nThe build will stop.\n\nOK: Switch project");
+    confirmed.mockReturnValue(false);
+    await expect(confirm("The build will stop.", leave)).resolves.toBe(false);
+    await expect(confirm("Discard the draft?")).resolves.toBe(false);
+    expect(confirmed).toHaveBeenLastCalledWith("Discard the draft?");
+    confirmed.mockReturnValue(true);
+    await expect(ask("Replace it?", "Lattice")).resolves.toBe(true);
+    await expect(message("Saved.", "Lattice")).resolves.toBe("Ok");
+    expect(alerted).toHaveBeenCalledWith("Lattice\n\nSaved.");
     expect(relayed(socket)).toEqual([]);
   });
 

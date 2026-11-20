@@ -229,11 +229,12 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // offer's lazy mount beside What's new, the update-launch answer both share,
 // and the restart helpers moved out of the updater for the dialog to reuse
 // (1,469,395 -> 1,470,028 bytes locally).
-// Raised by 448 bytes for the headless browser host (#1190): its link and
-// folder commands and their text load on demand, in a headless host's tab
-// only; what stays eager is the tab's check of the session reply and that
-// lazy import, the lifecycle's answer to "open it in this tab", and the flag
-// the project tabs read (1,469,741 -> 1,470,168 bytes locally).
+// Raised by 448 bytes for the headless browser host (#1190): its link,
+// folder and dialog commands and their text load on demand, in a headless
+// host's tab only; what stays eager is the tab's check of the session reply
+// and that lazy import, the lifecycle's answer to "open it in this tab", and
+// the flag the project tabs and the palette read (1,469,741 -> 1,470,186
+// bytes locally).
 const EAGER_JS_BUDGET_BYTES = Math.floor(1.4 * 1024 * 1024) + 2_576;
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not

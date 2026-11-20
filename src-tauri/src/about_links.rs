@@ -70,6 +70,9 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, id: &str) -> boo
     if id == ABOUT {
         show_about(app);
     } else if let Some(url) = id.strip_prefix(OPEN_LINK_PREFIX) {
+        // Not behind `browser_host::require_desktop`: only macOS has the
+        // menu bar these links live in, and a headless host runs on Linux.
+        // Any other opener call a browser tab can reach must check it.
         use tauri_plugin_opener::OpenerExt;
         if let Err(error) = app.opener().open_url(url, None::<&str>) {
             tracing::warn!(%error, url, "could not open a Help menu link");
