@@ -53,6 +53,10 @@
       "zh": "Overleaf 同步不再卡在 Overleaf 不接受的文件名上（例如含反斜杠的文件名）：这个文件留在本机，其他文件照常同步，并有一条提示说明是哪个文件以及原因。Lattice 也不会再把参考文献写到这样的路径。"
     },
     {
+      "en": "In the classic Lattice, conflict markers in a file with Windows line endings are recognised and get their inline choices, and a sync that stopped on a conflict says it is waiting on the conflict instead of \"already up to date\".",
+      "zh": "在经典版 Lattice 中，使用 Windows 换行符的文件里的冲突标记现在能被识别，并带有原处的选择按钮；因冲突而停下的同步会说明在等你处理冲突，而不再显示「已是最新」。"
+    },
+    {
       "en": "Switching a window to another project while an Overleaf file is open no longer shows a false \"Could not hand this file back to Overleaf sync\" notice.",
       "zh": "在打开 Overleaf 文件时把窗口切换到另一个项目，不会再误报「此文件暂停同步」。"
     },
