@@ -2,6 +2,7 @@
 //! Overleaf refuses (`overleaf::names`).
 
 use super::*;
+#[cfg(unix)]
 use crate::overleaf::{NameProblem, RejectedName};
 
 /// A file whose name Overleaf refuses (here a TeX macro left in a `.bib`
