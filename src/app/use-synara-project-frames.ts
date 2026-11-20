@@ -21,7 +21,7 @@ export type SynaraProjectFrame = {
   ready: boolean;
 };
 
-type ProjectFrameContext = {
+export type ProjectFrameContext = {
   hostContext: AgentHostContextSnapshot | null;
   paperLibrary: AgentPaperLibrarySnapshot | null;
   history: ProjectHistory | null;

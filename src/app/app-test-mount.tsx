@@ -18,6 +18,7 @@ import type { ProjectSnapshot } from "../app-types";
 import { ConfirmActionProvider } from "../components/ui/confirm-action-dialog";
 import { chunk } from "../lib/lazy-chunk";
 import { loadPaperLibrary, loadProjectFileTree, loadTrellisWorkspace } from "./workspace-chunks";
+import { loadSynaraHostMessages } from "./use-synara-host";
 // Keep the cold Vite transforms of these real lazy parts of App outside interaction-test deadlines; the tests
 // still mount them, not doubles: the Trellis workspace every open project renders into, the file tree and paper
 // library, the Agent panel, and the Overleaf and comment surfaces the comment-routing regressions use.
@@ -31,8 +32,9 @@ import "../editor/comments/editor-comments-panel";
 // Their chunks too: a chunk resolves only once something asks for it, so a file's first test opened its project
 // with the workspace's chunks still on their way, and every later test with them in. A test that acts as soon
 // as the project shows (opening the Git drawer, in app-agent) passed only after another test in its file.
+// The Agent frame's message routes likewise, which a test's embed-ready reaches the moment its frame mounts.
 beforeAll(async () => {
-  await Promise.all([loadTrellisWorkspace(), loadProjectFileTree(), loadPaperLibrary()]);
+  await Promise.all([loadTrellisWorkspace(), loadProjectFileTree(), loadPaperLibrary(), loadSynaraHostMessages()]);
 });
 
 /** A chunk that is in at once: a double's gate opens on the first render. */

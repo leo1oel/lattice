@@ -1,11 +1,11 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { useLayoutEffect } from "react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
 import { LATTICE_HOST_FILE_WRITES, noteHostFileWrites, setHostFileWritesSink } from "../agent/agent-host-writes";
 import { projectAgentInFlight } from "../agent/project-agent-activity";
-import { useSynaraHost } from "../app/use-synara-host";
+import { loadSynaraHostMessages, useSynaraHost } from "../app/use-synara-host";
 import type { Theme } from "../settings/app-settings";
 import TrellisAgentSurface from "./trellis-agent-surface";
 
@@ -68,6 +68,8 @@ const writesPosted = () => posted()
   .filter((message) => message.type === LATTICE_HOST_FILE_WRITES)
   .flatMap((message) => message.writes!.map((write) => write.path));
 
+// The frame's message routes load on demand; have them in before a test's first message.
+beforeAll(() => loadSynaraHostMessages());
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();

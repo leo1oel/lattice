@@ -2065,7 +2065,7 @@ msgstr "修改后"
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/app-overleaf-dialogs.tsx
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 #: src/history/history-drawer.tsx
 #: src/onboarding/get-started-panel.tsx
 #: src/settings/settings-dialog.tsx
@@ -3848,7 +3848,7 @@ msgstr "请选择要导入的 ZIP 文件"
 msgid "Choose abstract, paper, or rebuttal."
 msgstr "请选择摘要、全文或作者回复"
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 msgstr "请先在 AI 助手面板中选择 AI 提供商，再发送输入框里待发的请求。"
 
@@ -16648,7 +16648,7 @@ msgstr "AI 改写失败：{detail}"
 msgid "The agent could not rewrite the selection."
 msgstr "AI 改写失败"
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "The agent could not send the request. It is waiting in the agent's composer."
 msgstr "AI 助手未能发送这条请求，它仍在输入框中等待发送。"
 
@@ -16656,7 +16656,7 @@ msgstr "AI 助手未能发送这条请求，它仍在输入框中等待发送。
 msgid "The Agent is still working in this project. Closing the tab may interrupt the turn."
 msgstr "Agent 仍在此项目中运行。关闭标签页可能中断当前任务。"
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 msgstr "AI 助手正在等你回答。请求已放进输入框，回答后再发送。"
 

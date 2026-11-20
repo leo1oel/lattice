@@ -129,8 +129,11 @@ application, loaded into a cross-origin `<iframe>`:
   Grep for `synaraFrameUrl`.
 - Receiving: the `receive` handler in `useSynaraHost`
   (`src/app/use-synara-host.ts`). Every inbound message is checked against
-  **both** `event.source === frameRef.current?.contentWindow` **and**
-  `event.origin === origin` before being dispatched.
+  **both** `event.source` (the `contentWindow` of one of the window's project
+  Agent frames) **and** `event.origin === origin` before being dispatched,
+  within that frame's own project, to `receiveSynaraFrameMessage`
+  (`src/app/synara-host-messages.ts`, loaded on demand once the service is
+  ready).
 - Sending: `postMessage` from the same hook (App destructures it as
   `postSynaraMessage`), which is `frameRef.current?.contentWindow?.postMessage(...)`.
 

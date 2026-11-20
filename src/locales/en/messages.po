@@ -2065,7 +2065,7 @@ msgstr "After"
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/app-overleaf-dialogs.tsx
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 #: src/history/history-drawer.tsx
 #: src/onboarding/get-started-panel.tsx
 #: src/settings/settings-dialog.tsx
@@ -3848,7 +3848,7 @@ msgstr "Choose a ZIP file to import."
 msgid "Choose abstract, paper, or rebuttal."
 msgstr "Choose abstract, paper, or rebuttal."
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 msgstr "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 
@@ -16648,7 +16648,7 @@ msgstr "The agent could not rewrite the selection: {detail}"
 msgid "The agent could not rewrite the selection."
 msgstr "The agent could not rewrite the selection."
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "The agent could not send the request. It is waiting in the agent's composer."
 msgstr "The agent could not send the request. It is waiting in the agent's composer."
 
@@ -16656,7 +16656,7 @@ msgstr "The agent could not send the request. It is waiting in the agent's compo
 msgid "The Agent is still working in this project. Closing the tab may interrupt the turn."
 msgstr "The Agent is still working in this project. Closing the tab may interrupt the turn."
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 msgstr "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 
