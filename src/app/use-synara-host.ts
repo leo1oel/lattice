@@ -70,9 +70,8 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   useSynaraPopupDismissalBridge({ frameRef: sourceControlFrameRef, origin });
   useSynaraHostShortcuts(origin);
   const projectRoot = project?.root ?? null;
-  const projectRootRef = useLatestRef(projectRoot);
   const {
-    frames, framesRef, currentFrame, contextFor, mountProjectFrame, frameLoading, frameBecameReady,
+    frames, framesRef, rootRef: projectRootRef, currentFrame, contextFor, mountProjectFrame, frameLoading, frameBecameReady,
     retryProjectFrame, scheduleRetirement, retainBackgroundProject,
   } = useSynaraProjectFrames(projectRoot, serviceIdentity);
   const frameMounted = currentFrame !== undefined;

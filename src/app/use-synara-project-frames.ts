@@ -44,23 +44,27 @@ export function useSynaraProjectFrames(projectRoot: string | null, serviceIdenti
   const [frames, setFrames] = useReducer(updateProjectFrames, []);
   const framesRef = useLatestRef(frames);
   const rootRef = useLatestRef(projectRoot);
-  const contexts = useRef(new Map<string, ProjectFrameContext>());
-  const timers = useRef(new Map<string, number>());
-  const leases = useRef(new Set<string>());
-  const knownTabs = useRef(new Set<string>());
-  const lastService = useRef(serviceIdentity);
-  const ownedRoots = useRef(new Set<string>());
+  // One ref for all of them: App renders this hook on every update, and each
+  // hook is counted on every render (the perf bench's startup hooks).
+  const owned = useRef({
+    contexts: new Map<string, ProjectFrameContext>(),
+    timers: new Map<string, number>(),
+    leases: new Set<string>(),
+    knownTabs: new Set<string>(),
+    lastService: serviceIdentity,
+    ownedRoots: new Set<string>(),
+  });
   const currentFrame = frames.find((frame) => frame.root === projectRoot);
 
   const contextFor = useCallback((root: string) => {
-    const existing = contexts.current.get(root);
+    const existing = owned.current.contexts.get(root);
     if (existing) return existing;
     const context: ProjectFrameContext = {
       hostContext: null, paperLibrary: null, history: null, deckPresence: null,
       permissionMode: null, minimumWidth: null, pendingPrompt: null,
     };
-    contexts.current.set(root, context);
-    ownedRoots.current.add(root);
+    owned.current.contexts.set(root, context);
+    owned.current.ownedRoots.add(root);
     return context;
   }, []);
   const mountProjectFrame = useCallback((root: string) => {
@@ -87,38 +91,38 @@ export function useSynaraProjectFrames(projectRoot: string | null, serviceIdenti
   }, [updateFrame]);
 
   const releaseLease = useCallback((root: string) => {
-    if (leases.current.delete(root)) {
+    if (owned.current.leases.delete(root)) {
       void invoke("release_background_agent_project", { projectRoot: root }).catch(() => undefined);
     }
   }, []);
   const retainBackgroundProject = useCallback(async (root: string) => {
     // Activity and a pending prompt travel in separate events. Retain even an
     // apparently idle mounted pair while the outgoing root is still bound.
-    if (leases.current.has(root) || !framesRef.current.some((frame) => frame.root === root && frame.ref.current)) return;
+    if (owned.current.leases.has(root) || !framesRef.current.some((frame) => frame.root === root && frame.ref.current)) return;
     const retained = await invoke<boolean>("retain_background_agent_project", { projectRoot: root });
     if (retained === false) throw new Error(i18n._(msg`Could not keep this project's Agent connected while switching tabs.`));
-    leases.current.add(root);
+    owned.current.leases.add(root);
   }, [framesRef]);
   const clearTimer = useCallback((root: string) => {
-    const timer = timers.current.get(root);
+    const timer = owned.current.timers.get(root);
     if (timer !== undefined) window.clearTimeout(timer);
-    timers.current.delete(root);
+    owned.current.timers.delete(root);
   }, []);
   const retireFrame = useCallback((root: string) => {
     clearTimer(root);
-    contexts.current.delete(root);
+    owned.current.contexts.delete(root);
     releaseLease(root);
     setFrames((current) => current.filter((frame) => frame.root !== root));
   }, [clearTimer, releaseLease]);
   const scheduleRetirement = useCallback((root: string) => {
-    const inFlight = () => projectAgentInFlight(root, Boolean(contexts.current.get(root)?.deckPresence));
+    const inFlight = () => projectAgentInFlight(root, Boolean(owned.current.contexts.get(root)?.deckPresence));
     if (rootRef.current === root || inFlight()) {
       clearTimer(root);
       return;
     }
-    if (timers.current.has(root)) return;
-    timers.current.set(root, window.setTimeout(() => {
-      timers.current.delete(root);
+    if (owned.current.timers.has(root)) return;
+    owned.current.timers.set(root, window.setTimeout(() => {
+      owned.current.timers.delete(root);
       if (rootRef.current !== root && !inFlight()) retireFrame(root);
     }, IDLE_FRAME_DELAY));
   }, [clearTimer, retireFrame, rootRef]);
@@ -126,12 +130,12 @@ export function useSynaraProjectFrames(projectRoot: string | null, serviceIdenti
   useEffect(() => {
     const pruneClosedTabs = () => {
       const tabs = new Set(windowProjects.get().map((project) => project.root));
-      for (const root of tabs) knownTabs.current.add(root);
-      for (const root of knownTabs.current) {
+      for (const root of tabs) owned.current.knownTabs.add(root);
+      for (const root of owned.current.knownTabs) {
         if (tabs.has(root) || rootRef.current === root) continue;
         forgetProjectAgent(root);
-        ownedRoots.current.delete(root);
-        knownTabs.current.delete(root);
+        owned.current.ownedRoots.delete(root);
+        owned.current.knownTabs.delete(root);
         retireFrame(root);
       }
     };
@@ -146,21 +150,19 @@ export function useSynaraProjectFrames(projectRoot: string | null, serviceIdenti
   }, [projectRoot, releaseLease]);
 
   useLayoutEffect(() => {
-    const retired = lastService.current !== null && serviceIdentity !== lastService.current;
-    lastService.current = serviceIdentity;
+    const retired = owned.current.lastService !== null && serviceIdentity !== owned.current.lastService;
+    owned.current.lastService = serviceIdentity;
     if (!retired) return;
-    for (const root of ownedRoots.current) forgetProjectAgent(root);
+    for (const root of owned.current.ownedRoots) forgetProjectAgent(root);
     for (const frame of framesRef.current) {
-      const context = contexts.current.get(frame.root);
+      const context = owned.current.contexts.get(frame.root);
       if (context) context.deckPresence = null;
       if (frame.root !== rootRef.current) retireFrame(frame.root);
     }
   }, [framesRef, retireFrame, rootRef, serviceIdentity]);
 
   useEffect(() => {
-    const ownedTimers = timers.current;
-    const ownedLeases = leases.current;
-    const roots = ownedRoots.current;
+    const { timers: ownedTimers, leases: ownedLeases, ownedRoots: roots } = owned.current;
     return () => {
       for (const timer of ownedTimers.values()) window.clearTimeout(timer);
       ownedTimers.clear();
@@ -171,7 +173,7 @@ export function useSynaraProjectFrames(projectRoot: string | null, serviceIdenti
   }, [releaseLease]);
 
   return {
-    frames, framesRef, currentFrame, contextFor, mountProjectFrame, frameLoading,
+    frames, framesRef, rootRef, currentFrame, contextFor, mountProjectFrame, frameLoading,
     frameBecameReady, retryProjectFrame, scheduleRetirement, retainBackgroundProject,
   };
 }
