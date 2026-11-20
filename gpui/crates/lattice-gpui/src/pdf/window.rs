@@ -163,8 +163,10 @@ fn remember_frame(project: Option<&Path>, window: &Window, cx: &App) {
     let Some(root) = project else {
         return;
     };
-    let frame = crate::window_place::frame_of(window, cx);
-    preferences::update(|preferences| preferences.window_mut(root).frame = Some(frame));
+    // Closed in full screen, the last plain place it rested at stays kept.
+    if let Some(frame) = crate::window_place::frame_of(window, cx) {
+        preferences::update(|preferences| preferences.window_mut(root).frame = Some(frame));
+    }
 }
 
 /// Ask the panel something in its own window, once the window's event is

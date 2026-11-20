@@ -7,8 +7,8 @@
 use std::{cell::Cell, rc::Rc, time::Duration};
 
 use gpui::{
-    App, Bounds, Context, DisplayId, Pixels, PlatformDisplay, Size, Subscription, Window, point,
-    px, size,
+    App, Bounds, Context, DisplayId, Pixels, PlatformDisplay, Size, Subscription, Window,
+    WindowBounds, point, px, size,
 };
 
 use crate::pdf::preferences::WindowFrame;
@@ -64,17 +64,21 @@ pub(crate) fn reopen(
 
 /// Where `window` is now, as a window of its own keeps it: its corner on its
 /// display, the size it shows (its bounds would add the title bar each time
-/// it opens again), and the display.
-pub(crate) fn frame_of(window: &Window, cx: &App) -> WindowFrame {
-    let origin = window.window_bounds().get_bounds().origin;
+/// it opens again), and the display. `None` while it is not a plain window
+/// (full screen, zoomed), whose content is the screen's size, not its own.
+pub(crate) fn frame_of(window: &Window, cx: &App) -> Option<WindowFrame> {
+    let WindowBounds::Windowed(bounds) = window.window_bounds() else {
+        return None;
+    };
+    let origin = bounds.origin;
     let shown = window.viewport_size();
-    WindowFrame {
+    Some(WindowFrame {
         x: f32::from(origin.x),
         y: f32::from(origin.y),
         width: f32::from(shown.width),
         height: f32::from(shown.height),
         display: display_of(window, cx),
-    }
+    })
 }
 
 /// Hand `keep` where `window` is each time it comes to rest after a move or
@@ -88,13 +92,15 @@ pub(crate) fn keep_placed<T: 'static>(
     let moves = Rc::new(Cell::new(0_u64));
     let keep = Rc::new(keep);
     cx.observe_window_bounds(window, move |_, window, cx| {
-        let frame = frame_of(window, cx);
         let this_move = moves.get() + 1;
         moves.set(this_move);
+        let Some(frame) = frame_of(window, cx) else {
+            return;
+        };
         let (moves, keep) = (moves.clone(), keep.clone());
-        cx.spawn(async move |_, cx| {
+        cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SETTLE).await;
-            if moves.get() == this_move {
+            if this.upgrade().is_some() && moves.get() == this_move {
                 keep(frame);
             }
         })

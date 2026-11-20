@@ -86,6 +86,26 @@ impl Run {
         let Some(agent_window) = agent_window.filter(|_| opened) else {
             return Ok(());
         };
+
+        // Fresh, its page never clicked: ⌘K still reaches the window's own
+        // handler and opens the workspace's palette in front.
+        let agent_native = agent_window.update(cx, |_, window, _| native::native(window))??;
+        native::bring_to_front(agent_native);
+        native::send_key(agent_native, 'k', true)?;
+        let shell = self.shell.clone();
+        let palette = self
+            .wait_for(cx, Duration::from_secs(3), move |_, cx| {
+                shell.read(cx).palette_view().is_some()
+            })
+            .await;
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
+        })?;
+        steps.check(
+            "Agent: in its own window, before its page is ever clicked, ⌘K opens the workspace's palette in front",
+            palette,
+            json!({ "palette": palette }),
+        );
         self.agent_window_keys(cx, steps, &main, &island, agent_window).await?;
 
         // Moved, the window's place is kept once it rests, with its display,
@@ -196,7 +216,12 @@ impl Run {
                 .ok(),
             None => None,
         };
-        self.with_window(cx, |_, _, cx| panel.update(cx, |panel, cx| panel.dock(true, cx)))?;
+        // ⌘⇧W in that fresh window, its page never clicked, takes it back.
+        if let Some(handle) = cx.update(|cx| panel.read(cx).window_handle()) {
+            let agent_native = handle.update(cx, |_, window, _| native::native(window))??;
+            native::bring_to_front(agent_native);
+            native::send_chord(agent_native, 'w', true, false, true)?;
+        }
         let docked_again = self
             .wait_for(cx, Duration::from_secs(10), |_, cx| {
                 cx.windows().len() == windows && island.read(cx).window().window_id() == home.window_id()
@@ -206,9 +231,33 @@ impl Run {
         // still within this foreground section.
         self.pause(cx, Duration::from_millis(400)).await;
         steps.check(
-            "Agent: a window left where no display reaches opens at its default place, on screen",
+            "Agent: a window left where no display reaches opens at its default place, on screen, and ⌘⇧W there brings the Agent back",
             out_again && shown.as_ref().is_some_and(|(_, on_screen)| *on_screen) && docked_again,
             json!({ "opened": out_again, "shown": format!("{shown:?}"), "docked": docked_again }),
+        );
+
+        // ⌘W in a fresh window does the same, as Close Tab in the workspace.
+        cx.update(|cx| panel.update(cx, |panel, cx| panel.detach(cx)));
+        let out_last = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                cx.windows().len() == windows + 1 && panel.read(cx).is_detached()
+            })
+            .await;
+        if let Some(handle) = cx.update(|cx| panel.read(cx).window_handle()) {
+            let agent_native = handle.update(cx, |_, window, _| native::native(window))??;
+            native::bring_to_front(agent_native);
+            native::send_key(agent_native, 'w', true)?;
+        }
+        let closed_by_key = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                cx.windows().len() == windows && island.read(cx).window().window_id() == home.window_id()
+            })
+            .await;
+        self.pause(cx, Duration::from_millis(400)).await;
+        steps.check(
+            "Agent: ⌘W in its own window, before its page is ever clicked, brings the Agent back to the workspace",
+            out_last && closed_by_key,
+            json!({ "opened": out_last, "docked": closed_by_key }),
         );
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.show_view("agent", false, window, cx))

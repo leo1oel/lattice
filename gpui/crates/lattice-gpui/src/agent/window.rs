@@ -17,9 +17,9 @@ use std::{
 };
 
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, SharedString, Styled as _, WeakEntity, Window,
-    WindowBounds, WindowOptions, div, px, size,
+    AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
+    WeakEntity, Window, WindowBounds, WindowOptions, div, px, size,
 };
 use lattice_ui::ActiveLattice as _;
 
@@ -35,6 +35,10 @@ const MIN_SIZE: (f32, f32) = (360., 420.);
 
 pub struct AgentWindow {
     surface: Entity<SynaraSurface>,
+    /// GPUI's focus in the window until the page takes it, so the window's
+    /// own keys (⌘W, ⌘K) reach its handlers before the page is ever clicked:
+    /// with nothing focused, GPUI dispatches from the root alone.
+    focus_handle: FocusHandle,
     /// The panel the Agent came from, which takes it back.
     owner: WeakEntity<SynaraPanel>,
     _theme: gpui::Subscription,
@@ -78,13 +82,14 @@ impl AgentWindow {
         let kept = surface.downgrade();
         let placed = project.clone();
         let panel = owner.clone();
-        let (handle, _) = gpui_kit::open_window(options, cx, |window, cx| {
+        let (handle, view) = gpui_kit::open_window(options, cx, |window, cx| {
             // The interface size every window takes.
             crate::interface_zoom::apply(window, cx);
             // Its title bar in the theme's appearance, as the workspace's.
             crate::window_material::pin_appearance(window, cx);
             cx.new(|cx| AgentWindow {
                 surface,
+                focus_handle: cx.focus_handle(),
                 owner: panel,
                 _theme: cx.observe_global_in::<lattice_ui::LatticeTheme>(
                     window,
@@ -99,7 +104,9 @@ impl AgentWindow {
                 }),
             })
         })?;
+        let focus_handle = view.read(cx).focus_handle.clone();
         handle.update(cx, |_, window, cx| {
+            window.focus(&focus_handle, cx);
             window.on_window_should_close(cx, move |window, cx| {
                 remember_frame(project.as_deref(), window, cx);
                 if let Some(surface) = kept.upgrade() {
@@ -149,8 +156,10 @@ fn remember_frame(project: Option<&Path>, window: &Window, cx: &App) {
     let Some(root) = project else {
         return;
     };
-    let frame = window_place::frame_of(window, cx);
-    update(root, |remembered| remembered.frame = Some(frame));
+    // Closed in full screen, the last plain place it rested at stays kept.
+    if let Some(frame) = window_place::frame_of(window, cx) {
+        update(root, |remembered| remembered.frame = Some(frame));
+    }
 }
 
 impl AgentWindow {
@@ -183,6 +192,7 @@ impl Render for AgentWindow {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
         div()
+            .track_focus(&self.focus_handle)
             .on_action(cx.listener(|this, _: &CloseTab, _, cx| this.return_to_workspace(cx)))
             .on_action(cx.listener(|this, _: &CloseWindow, _, cx| this.return_to_workspace(cx)))
             .on_action(cx.listener(|this, _: &CommandPalette, _, cx| this.open_palette(cx)))
