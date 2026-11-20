@@ -29,15 +29,15 @@ jobs:
     # back to GitHub's runners (docs/release-process.md, "Where the macOS jobs
     # run").
     runs-on: ${{ vars.LATTICE_MACOS_RUNNER || 'lattice-mac' }}
-    timeout-minutes: 240
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7
         with:
           # Release notes compare this tag with its nearest released ancestor.
           fetch-depth: 0
 
-      # On the Mac mini: the in-app lock for the whole job, the disk floor,
-      # and no sccache. Nothing on GitHub's runners.
+      # On the Mac mini: the disk floor and no sccache. Nothing on GitHub's
+      # runners.
       - name: Prepare the Mac
         run: scripts/release-macos-job.sh begin
 
@@ -343,8 +343,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
 
-      # Deletes the signing keychain and the key files and releases the
-      # Mac mini's lock, on success, failure or cancellation alike.
+      # Deletes the signing keychain and the key files, on success, failure
+      # or cancellation alike.
       - name: Remove signing material
         if: always()
         run: scripts/release-macos-job.sh cleanup

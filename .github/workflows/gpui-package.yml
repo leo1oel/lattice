@@ -45,9 +45,8 @@ jobs:
     # The Mac mini through runner-up, as release.yml's release job; the
     # LATTICE_MACOS_RUNNER repository variable moves both back to GitHub.
     runs-on: ${{ vars.LATTICE_MACOS_RUNNER || 'lattice-mac' }}
-    # The Mac mini builds cold and may first wait up to 90 minutes for its
-    # in-app lock (scripts/release-macos-job.sh).
-    timeout-minutes: 240
+    # The Mac mini builds cold, beside whatever else it is running.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7
 

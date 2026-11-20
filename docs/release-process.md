@@ -122,7 +122,7 @@ adds the native app to the draft before publishing it (steps 16 to 19).
    the Apple silicon install blurb and a `**Full Changelog**` compare link, then
    passes the whole thing to the build step through a heredoc-delimited
    `$GITHUB_OUTPUT`.
-3. **Toolchains.** pnpm 10, Node 22, Bun 1.4.4, stable Rust with the `aarch64-apple-darwin` target. On the Mac mini a step before them takes the in-app lock and checks the disk (below).
+3. **Toolchains.** pnpm 10, Node 22, Bun 1.4.4, stable Rust with the `aarch64-apple-darwin` target. On the Mac mini a step before them checks the disk (below).
 4. **Rust cache** (GitHub's runners only). `Swatinem/rust-cache@v2` reads the warm dependency build produced by `release-cache.yml` on `main`.
    Its shared key includes `bundle.macOS.minimumSystemVersion`, because Tauri exports that value as `MACOSX_DEPLOYMENT_TARGET` before compiling and Cargo cannot reuse artifacts warmed without it.
    `save-if: false` prevents the tag build from writing a cache no later release could read.
@@ -162,8 +162,7 @@ adds the native app to the draft before publishing it (steps 16 to 19).
     ticket is added after tauri-action's own upload, so the asset is replaced).
     Then, with `if: always()`, `scripts/release-macos-job.sh cleanup` deletes
     the keychain, takes it off the search list, deletes the key files and the
-    licensed fonts, and releases the Mac mini's lock. `gpui-package.yml` ends
-    the same way.
+    licensed fonts. `gpui-package.yml` ends the same way.
 16. **Use public download URLs in `latest.json`**
     (`scripts/normalize-updater-manifest.mjs`) and upload it again.
     `latest.json` stays the Tauri app's on every platform.
@@ -411,21 +410,22 @@ then fall back as above.
 `scripts/release-macos-job.sh` keeps a job on the owner's own Mac from
 leaving anything behind:
 
-1. **`begin`** takes the Mac's in-app lock (`scripts/inapp-lock`, the one
-   GPUI e2e, perf and `pnpm ci:local` runs take) and holds it for the whole
-   job, so a release never builds while a measurement or an e2e holds the
-   screen. It waits up to 90 minutes. It then fails the job when the disk
-   has under 15 GB free (`LATTICE_RELEASE_MIN_FREE_GB`), sets
-   `CARGO_BUILD_JOBS` to fit the place, and sets `RUSTC_WRAPPER` empty so
-   no compiled-in key reaches the owner's shared sccache.
+1. **`begin`** fails the job at once when the disk has under 20 GB free
+   (`LATTICE_RELEASE_MIN_FREE_GB`), sets `CARGO_BUILD_JOBS` to fit the
+   place, and sets `RUSTC_WRAPPER` empty so no compiled-in key reaches the
+   owner's shared sccache. It takes no in-app lock: building, signing,
+   notarizing and publishing never open a window (Tauri's `bundle_dmg.sh`
+   skips its Finder script under `CI=true`, and `gpui-bundle.mjs` uses
+   `hdiutil` alone), so a release runs beside an e2e or a `pnpm ci:local`
+   gate and shares the CPU with it.
 2. **`import-certificate`** and **`api-key`** put the Developer ID
    certificate in a keychain of the job's own and the App Store Connect key in
    a mode-600 file, both under `$RUNNER_TEMP`. The updater key and the
    other secrets stay in environment variables of the steps that need them.
 3. **`cleanup`** runs whatever happened (`if: always()`): it deletes the
    keychain and takes it off the search list, deletes the key files, the fonts
-   deploy key and the licensed fonts, releases the lock, and fails the job if a
-   signing keychain is still listed. runner-up then deletes the job's folder.
+   deploy key and the licensed fonts, and fails the job if a signing keychain
+   is still listed. runner-up then deletes the job's folder.
 
 Secrets live only in GitHub. They reach the Mac mini only as a job's
 environment, and nothing of them is left once the job ends.

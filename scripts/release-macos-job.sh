@@ -5,14 +5,15 @@
 # (docs/release-process.md, "Where the macOS jobs run").
 #
 # A runner-up host place is the Mac mini itself, signed in as its owner, not
-# a fresh VM: the job shares the owner's home, keychains, disk and in-app
-# lock with the crew's own work. So, on a self-hosted runner only:
-#   begin    takes the Mac's in-app lock (scripts/inapp-lock) for the whole
-#            job, so a release never builds while an e2e or perf run holds
-#            the screen, then refuses to start below the disk floor, and
-#            turns off the owner's sccache (~/.cargo/config.toml) so nothing
-#            the build compiles in, such as LATTICE_FIRECRAWL_KEY, lands in a
-#            cache that outlives the job.
+# a fresh VM: the job shares the owner's home, keychains and disk with the
+# crew's own work. It never opens a window (the dmg steps run headless:
+# tauri's bundle_dmg.sh skips its Finder script under CI=true, and
+# gpui-bundle.mjs uses hdiutil alone), so it takes no in-app lock and runs
+# beside an e2e or a gate. On a self-hosted runner only:
+#   begin    refuses to start below the disk floor, sizes cargo's jobs to the
+#            place, and turns off the owner's sccache (~/.cargo/config.toml)
+#            so nothing the build compiles in, such as LATTICE_FIRECRAWL_KEY,
+#            lands in a cache that outlives the job.
 # On every runner:
 #   import-certificate  makes the job's own keychain and puts it in front of
 #            the user's search list (never replacing the list: the owner's
@@ -21,18 +22,15 @@
 #   api-key  writes the App Store Connect key (mode 600) and exports
 #            APPLE_API_KEY_PATH.
 #   cleanup  (if: always()) deletes the keychain, takes it off the search
-#            list, deletes the key files and the licensed fonts, releases
-#            the lock, and fails when a signing keychain is still listed.
+#            list, deletes the key files and the licensed fonts, and fails
+#            when a signing keychain is still listed.
 set -euo pipefail
 
 keychain="$RUNNER_TEMP/lattice-signing.keychain-db"
 certificate="$RUNNER_TEMP/apple-developer-certificate.p12"
-lock_code="release-$GITHUB_RUN_ID-$GITHUB_JOB"
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# The crew's floor before any build on the Mac mini. The job's own build,
-# about 8 GB at its peak, goes with the job's folder when it ends.
-min_free_gb="${LATTICE_RELEASE_MIN_FREE_GB:-15}"
-lock_wait_seconds="${LATTICE_RELEASE_LOCK_WAIT:-5400}"
+# Free space the Mac mini must have when the job starts. The job's own
+# build, about 8 GB at its peak, goes with the job's folder when it ends.
+min_free_gb="${LATTICE_RELEASE_MIN_FREE_GB:-20}"
 
 self_hosted() { [[ "${RUNNER_ENVIRONMENT:-}" == self-hosted ]]; }
 
@@ -63,7 +61,6 @@ set_search_list() {
 case "${1:-}" in
   begin)
     self_hosted || exit 0
-    "$repo_root/scripts/inapp-lock" --thread "$lock_code" --wait "$lock_wait_seconds" hold 21600
     free_gb="$(df -g "$GITHUB_WORKSPACE" | awk 'NR == 2 { print $4 }')"
     if ((free_gb < min_free_gb)); then
       echo "::error::$free_gb GB free on this Mac, under the ${min_free_gb} GB floor. Free space and re-run, or set the LATTICE_MACOS_RUNNER variable to macos-latest."
@@ -125,13 +122,6 @@ case "${1:-}" in
     if security list-keychains -d user | grep -q 'lattice-signing'; then
       echo "::error::A signing keychain is still on the search list."
       status=1
-    fi
-    if self_hosted; then
-      "$repo_root/scripts/inapp-lock" --thread "$lock_code" release || true
-      if "$repo_root/scripts/inapp-lock" status 2>&1 | grep -q "$lock_code"; then
-        echo "::error::This job still holds the in-app lock."
-        status=1
-      fi
     fi
     exit "$status"
     ;;
