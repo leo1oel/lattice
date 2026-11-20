@@ -25,6 +25,11 @@ describe("experimental Windows release publication", () => {
       expect(() => releaseSource(value, repository)).toThrow();
     }
     expect(() => releaseSource(event(), "someone/fork")).toThrow();
+    const moved = "lattice-writer/lattice";
+    const home = { ...event(), repository: { full_name: moved } };
+    home.workflow_run = { ...home.workflow_run, head_repository: { full_name: moved } };
+    expect(releaseSource(home, moved)).toEqual({ tag: "v1.2.3", version: "1.2.3", sha });
+    expect(() => releaseSource(home, repository)).toThrow();
     expect(() => releaseSource({}, repository)).toThrow();
   });
 

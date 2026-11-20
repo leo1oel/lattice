@@ -8,11 +8,15 @@ export function windowsAssetNames(version) {
   return { installer: `${stem}-setup.exe`, checksum: `${stem}.sha256`, metadata: `${stem}.build-info.json`, instructions: `${stem}.README.txt` };
 }
 
+// The repository's home in the lattice-writer organization, and its address
+// before the move, so a release keeps publishing on either side of it.
+const RELEASE_REPOSITORIES = ["lattice-writer/lattice", "leo1oel/lattice"];
+
 // A workflow_run is privileged only when it follows this repository's own
 // successful tag release. Manual and PR builds are downloadable artifacts only.
 export function releaseSource(event, repository) {
   const run = event.workflow_run;
-  if (repository !== "leo1oel/lattice" || event.repository?.full_name !== repository
+  if (!RELEASE_REPOSITORIES.includes(repository) || event.repository?.full_name !== repository
     || run?.head_repository?.full_name !== repository || run.name !== "Release"
     || run.event !== "push" || run.conclusion !== "success"
     || !/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(run.head_branch ?? "")

@@ -26,8 +26,11 @@ pub struct Flavor {
     pub name: &'static str,
     /// Its folder under the user's data and cache folders.
     pub folder: &'static str,
-    /// The release manifest its updater reads (`crate::updater`).
-    pub endpoint: &'static str,
+    /// The release manifest its updater reads (`crate::updater`), asked in
+    /// order: the repository's home in the lattice-writer organization, then
+    /// its address before the move, which GitHub redirects only while nobody
+    /// recreates it.
+    pub endpoints: &'static [&'static str],
     /// Whether it is the native Lattice, installed in the Tauri app's place
     /// by the writer's choice: its updater is always on, as the Tauri app's
     /// is; the launch that first carries the Tauri app's state over announces
@@ -43,7 +46,10 @@ pub const BETA: Flavor = Flavor {
     // The `lattice-beta` prerelease, which only Lattice Beta builds are
     // published to; a prerelease is never GitHub's latest release, so the
     // Tauri app's feed never sees it.
-    endpoint: "https://github.com/leo1oel/lattice/releases/download/lattice-beta/latest.json",
+    endpoints: &[
+        "https://github.com/lattice-writer/lattice/releases/download/lattice-beta/latest.json",
+        "https://github.com/leo1oel/lattice/releases/download/lattice-beta/latest.json",
+    ],
     native_lattice: false,
 };
 
@@ -55,7 +61,10 @@ pub const MAIN: Flavor = Flavor {
     // this app's Apple silicon archive. The Tauri app's feed stays the
     // Tauri app's; Settings reads it only to switch back
     // (`crate::updater::classic_channel`).
-    endpoint: "https://github.com/leo1oel/lattice/releases/latest/download/latest-native.json",
+    endpoints: &[
+        "https://github.com/lattice-writer/lattice/releases/latest/download/latest-native.json",
+        "https://github.com/leo1oel/lattice/releases/latest/download/latest-native.json",
+    ],
     native_lattice: true,
 };
 
@@ -95,14 +104,29 @@ mod tests {
             serde_json::from_str(include_str!("../../../../src-tauri/tauri.conf.json")).unwrap();
         assert_eq!(config["identifier"], MAIN_IDENTIFIER);
         assert_eq!(config["productName"], MAIN.name);
-        let classic = config["plugins"]["updater"]["endpoints"][0]
-            .as_str()
-            .unwrap();
-        assert_ne!(classic, MAIN.endpoint);
-        assert_eq!(
-            classic.replace("/latest.json", "/latest-native.json"),
-            MAIN.endpoint
-        );
+        let classic: Vec<String> = config["plugins"]["updater"]["endpoints"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|endpoint| {
+                endpoint
+                    .as_str()
+                    .unwrap()
+                    .replace("/latest.json", "/latest-native.json")
+            })
+            .collect();
+        assert_eq!(classic, MAIN.endpoints);
+    }
+
+    #[test]
+    fn each_feed_asks_the_new_home_before_the_old_address() {
+        for flavor in [&BETA, &MAIN] {
+            let [home, old] = flavor.endpoints else {
+                panic!("{} has two feed addresses", flavor.name);
+            };
+            assert!(home.starts_with("https://github.com/lattice-writer/lattice/"));
+            assert_eq!(*old, home.replace("/lattice-writer/", "/leo1oel/"));
+        }
     }
 
     #[test]
@@ -111,7 +135,11 @@ mod tests {
             assert_ne!(flavor.folder, MAIN_IDENTIFIER);
         }
         assert_ne!(BETA.folder, MAIN.folder);
-        assert!(!BETA.endpoint.contains("/latest/download/"));
+        assert!(
+            BETA.endpoints
+                .iter()
+                .all(|endpoint| !endpoint.contains("/latest/download/"))
+        );
     }
 
     #[test]

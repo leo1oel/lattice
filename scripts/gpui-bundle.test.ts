@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { EXECUTABLE, FLAVORS, infoPlist, updaterManifest } from "./gpui-bundle.mjs";
+import { EXECUTABLE, FLAVORS, infoPlist, releaseRepository, updaterManifest } from "./gpui-bundle.mjs";
 
 // The GPUI package ships two ways. Lattice Beta never reaches the Tauri app's
 // users: it installs under its own identity and its feed is not the Tauri
@@ -45,7 +45,8 @@ describe("the GPUI bundle", () => {
     expect(FLAVORS.main.product).toBe(tauri.productName);
     expect(FLAVORS.main.artifact).toBe("Lattice-native");
     expect(FLAVORS.main.manifest).toBe("latest-native.json");
-    expect(FLAVORS.main.feed("1.2.3")).toBe("https://github.com/leo1oel/lattice/releases/download/v1.2.3");
+    expect(FLAVORS.main.feed("1.2.3", "leo1oel/lattice")).toBe("https://github.com/leo1oel/lattice/releases/download/v1.2.3");
+    expect(FLAVORS.main.feed("1.2.3", "lattice-writer/lattice")).toBe("https://github.com/lattice-writer/lattice/releases/download/v1.2.3");
     // tauri-action names the Tauri app's files <productName>_<version>_*, and
     // the Tauri feed is latest.json: the native app's must never collide.
     expect(FLAVORS.main.artifact.startsWith(`${tauri.productName}_`)).toBe(false);
@@ -58,14 +59,21 @@ describe("the GPUI bundle", () => {
     expect(read("gpui/crates/lattice-settings/src/import.rs")).toContain(`"${FLAVORS.main.identifier}"`);
   });
 
+  it("names the releases of the repository the workflow runs in", () => {
+    expect(releaseRepository({ GITHUB_REPOSITORY: "lattice-writer/lattice" })).toBe("lattice-writer/lattice");
+    expect(releaseRepository({})).toBe("leo1oel/lattice");
+  });
+
   it("writes Lattice Beta's manifest for a feed apart from the Tauri app's", () => {
+    for (const repository of ["lattice-writer/lattice", "leo1oel/lattice"]) {
+      expect(flavor).toContain(`"${FLAVORS.beta.feed(undefined, repository)}/latest.json"`);
+    }
     const feed = FLAVORS.beta.feed();
     const manifest = updaterManifest({ version: "1.2.3", signature: "sig", url: `${feed}/a.app.tar.gz`, pubDate: "2026-01-01T00:00:00Z" });
     expect(manifest.platforms["darwin-aarch64"]).toEqual({ signature: "sig", url: `${feed}/a.app.tar.gz` });
     expect(manifest.platforms["darwin-aarch64-app"]).toEqual(manifest.platforms["darwin-aarch64"]);
     expect(FLAVORS.beta.manifest).toBe("latest.json");
     for (const endpoint of tauri.plugins.updater.endpoints) expect(endpoint.startsWith(feed)).toBe(false);
-    expect(flavor).toContain(`"${feed}/latest.json"`);
   });
 });
 
