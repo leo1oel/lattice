@@ -123,24 +123,63 @@ pnpm ci:local          # --plan to see the stages, --base REF, --full
 pnpm ci:local --headless   # on a Mac someone is using: no stage opens a window
 ```
 
-It prints which CI jobs your change needs and runs the local stages that
-stand for them: the gate (lint, knip, tsc, i18n, notices, the related Vitest
-tests), the bundle budgets and the WebKit benchmark, rustfmt, clippy with
-`-D warnings` and `cargo test` on the changed Tauri crates, and the GPUI release
-build, unit tests and whole e2e scenario. The e2e is judged against the known
-failures and against the merge base run on the same Mac: when the machine's
-main baseline (below) has no record for the merge base, `ci:local` records one
-first in a scratch worktree, which costs one more build and e2e per merge
-base. Rust, GPUI and benchmark stages wait while a perf measurement holds
-`/tmp/lattice-inapp-test.lock`. The literature Worker, the Open Slide runtime,
-the research environment, the Chromium benchmark, Linux and Windows run in CI
-only. When it passes on a clean tree and the change needed a macOS job, it
-prints "local macOS gate passed at <sha>" and a `CI-local: macos <tree>`
-trailer; a pushed head commit carrying it for its own tree skips CI's macOS
-jobs (Rust, GPUI, the WebKit benchmark), which are the slowest to get a
-runner for. Do not use the trailer for a change to packaging
-or the release (`release.yml`, `src-tauri/tauri*.conf.json`, the bundle and
-signing scripts).
+It prints which CI jobs your change needs and runs only the local stages
+that stand for them, chosen from the diff against the merge base
+(`scripts/ci-local-select.mjs` holds the rules, shared with CI):
+
+| The branch changes | `ci:local` runs |
+| --- | --- |
+| documentation only | nothing |
+| `src-tauri/` or web code only | the gate (lint, knip, tsc, i18n, notices, the related Vitest tests); rustfmt, clippy `-D warnings` and `cargo test` for the Tauri crates; the bundle budgets and the WebKit benchmark when the bundle's inputs changed. No GPUI stage. |
+| `gpui/` only | GPUI fmt, release build and unit tests, and the e2e below. No WebKit benchmark. |
+| a release path (`RELEASE_PATHS`: release workflows, `src-tauri/tauri*.conf.json`, `Info.plist`, `Entitlements.plist`, the icons, either app's updater, `fetch-pdfium`, the bundle, packaging, signing and release scripts) | everything, as `--full` does, and no trailer |
+
+The GPUI e2e is the smoke flow (open, build, SyncTeX both ways, edits and ⌘S,
+autosave, a second window, the quit that saves) plus the modules the diff
+picks, through the one table from crates and paths to modules, `E2E_TABLE`
+in `scripts/ci-local-select.mjs`. A module's own scenario file picks that
+module. What every window is built from runs the whole scenario even where a
+module's `covers` names it: the scenario harness, `gpui/patches/`, the
+manifests, each crate's `main.rs`/`lib.rs` and the app's `app.rs`,
+lattice-ui, lattice-i18n, lattice-core. Any other file picks the modules whose
+`covers` name it, else the table's row for it, and a file nothing maps (a
+shared file such as `shell.rs`) runs the whole scenario. Only the whole scenario records this Mac's main baseline for the
+merge base first, in a scratch worktree, when the machine has none (one more
+build and e2e, about 20 minutes, per merge base); a module run uses the
+baseline when it is already there and otherwise judges against the known
+failures alone. Either way a step that fails is rerun once with its module on
+a fresh fixture. Add a row to the table when a crate or path has a clear
+owner in the scenario.
+
+A change to `scripts/ci-local.mjs`, `scripts/ci-local-select.mjs` or `scripts/gpui-e2e-modules.mjs`, like one to `scripts/ci-tier.mjs`, runs every job.
+
+Rust, GPUI and benchmark stages wait while a perf measurement holds
+`/tmp/lattice-inapp-test.lock` (`$INAPP_LOCK_FILE` when set). The literature
+Worker, the Open Slide runtime, the research environment, the Chromium
+benchmark, Linux and Windows run in CI only.
+
+When it passes on a clean tree and the change needed a macOS job, it prints
+"local macOS gate passed at <sha>" and a trailer naming the commit's tree and
+the stages that ran, such as `CI-local: macos 1a2b3c4d5e6f gpui e2e=smoke+pdf+pdf_notes`
+or `CI-local: macos 1a2b3c4d5e6f rust gpui e2e=full webkit`. On a pushed head
+commit whose tree it names, CI skips each macOS job (Rust, GPUI, the WebKit
+benchmark) whose needs those stages cover for the diff; a job they do not
+cover, such as GPUI after a change that needs a module the trailer's e2e did
+not run, still runs on GitHub, and its `changes` summary says why. A trailer
+with only a tree, from before the stages were recorded, still stands for every
+macOS job. No trailer stands for a release path: CI runs its macOS jobs for
+those whatever the commit says. `pnpm ci:local --full` runs every stage and the
+whole e2e.
+
+After merging main into a gated branch, `ci:local` re-certifies the merge
+with a quick pass when HEAD is the gated commit plus clean merges of main and
+nothing else, and main changed none of the files the branch changes
+(`mainMergeRegate`: the merge's tree must be exactly what `git merge-tree`
+makes of the gate and main, so a hand edit in the merge disqualifies it). It
+runs the headless stages only (the gate, the Rust and GPUI builds and unit
+tests; about 10 minutes) and prints the gate's stages again with
+`regate=<gate sha>`. Otherwise it says why not and runs the stages the diff
+picks. `--full` never takes the quick pass.
 
 The GPUI e2e, its main baseline and the WebKit benchmark open windows. On a Mac
 someone is using, run `pnpm ci:local --headless`, which skips them and prints

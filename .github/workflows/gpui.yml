@@ -89,7 +89,7 @@ jobs:
         working-directory: .
     outputs:
       gpui: ${{ steps.tier.outputs.gpui }}
-      macos-local: ${{ steps.tier.outputs.macos-local }}
+      macos-local-gpui: ${{ steps.tier.outputs.macos-local-gpui }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -139,7 +139,7 @@ jobs:
   # 65-minute e2e step (the scenario, then one rerun of failed modules).
   macos:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.gpui != 'false' && needs.changes.outputs.macos-local != 'true' }}
+    if: ${{ !cancelled() && needs.changes.outputs.gpui != 'false' && needs.changes.outputs.macos-local-gpui != 'true' }}
     runs-on: macos-latest
     timeout-minutes: 140
     steps:

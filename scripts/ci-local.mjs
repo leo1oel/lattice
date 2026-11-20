@@ -19,12 +19,16 @@
  *   perf-bench           also the WebKit benchmark against its ceilings, as
  *                        CI's macOS perf-bench-webkit shards run it
  *   gpui                 rustfmt, the release build, the unit tests and the
- *                        whole e2e scenario, judged like CI's against
+ *                        e2e scenario, judged like CI's against
  *                        scripts/gpui-e2e-known-failures.json and against a
- *                        run of the merge base on this Mac: when this
- *                        machine's main baseline has no record for it
- *                        (scripts/gpui-main-baseline.mjs), it records one
- *                        first, in a scratch worktree of the merge base
+ *                        run of the merge base on this Mac. The e2e is the
+ *                        smoke flow plus the modules the diff picks
+ *                        (scripts/ci-local-select.mjs, one table from paths
+ *                        to modules), or the whole scenario when a changed
+ *                        file maps to none; only the whole one records this
+ *                        machine's main baseline for the merge base first
+ *                        (scripts/gpui-main-baseline.mjs) when it has none,
+ *                        in a scratch worktree of the merge base
  *
  * The literature Worker, the Open Slide runtime, the research environment, the
  * Chromium benchmark, Linux and Windows run only in CI.
@@ -36,14 +40,26 @@
  * run through scripts/inapp-lock, so no hand test or other run drives the
  * screen under them.
  *
- * When every stage passes and the change needed the macOS Rust or GPUI jobs,
- * it prints a `CI-local: macos <tree>` trailer for the commit. Pushed on a
- * commit whose tree is that one, it lets CI skip its macOS jobs (Rust, GPUI and
- * the WebKit benchmark); Linux and Windows still run.
+ * When every stage passes and the change needed a macOS job, it prints a
+ * `CI-local: macos <tree> rust gpui e2e=… webkit` trailer naming the stages
+ * that ran. Pushed on a commit whose tree is that one, it lets CI skip each
+ * macOS job (Rust, GPUI, the WebKit benchmark) those stages cover for the
+ * diff; anything they do not cover still runs there, and Linux and Windows
+ * always do.
+ *
+ * After a merge of main, when HEAD is a passing gate plus clean merges of
+ * main that touch none of the branch's files (mainMergeRegate), it runs only
+ * the headless stages (the gate, the Rust and GPUI builds and unit tests)
+ * and prints the gate's stages again with `regate=<gate sha>`.
+ *
+ * A change to a release path (RELEASE_PATHS: release workflows, bundle and
+ * signing configuration, the updater) always runs every stage and prints no
+ * trailer: GitHub runs its macOS jobs for it.
  *
  * Options:
  *   --base REF   compare against REF instead of origin/main (its merge base)
- *   --full       every stage, whatever changed
+ *   --full       every stage and the whole e2e, whatever changed, and no
+ *                quick re-gate
  *   --plan       print the plan only
  *   --headless   skip the stages that open windows (the GPUI e2e, its main
  *                baseline and the WebKit benchmark), for a Mac someone is
@@ -55,6 +71,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as sleep } from "node:timers/promises";
+import { FULL, RELEASE_PATHS, coveredJobs, formatTrailer, macosNeeds, mainMergeRegate } from "./ci-local-select.mjs";
 import { JOBS, ciTier } from "./ci-tier.mjs";
 import { changedFiles, gateStages, runStages } from "./gate-changed.mjs";
 import { readBaseline } from "./gpui-e2e-light.mjs";
@@ -64,7 +81,8 @@ import { extraStages } from "./signoff.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
-const PERF_LOCK = "/tmp/lattice-inapp-test.lock";
+// scripts/inapp-lock's file, which INAPP_LOCK_FILE moves for both.
+const PERF_LOCK = process.env.INAPP_LOCK_FILE ?? "/tmp/lattice-inapp-test.lock";
 const WINDOWED = new Set(["gpui-main", "gpui-e2e", "webkit-bench"]);
 // How long a windowed stage waits for the in-app lock before it gives up.
 const INAPP_WAIT_S = 3600;
@@ -129,8 +147,15 @@ function mainBaselineStage(mergeBase) {
   };
 }
 
-/** The stages for this tier: the gate's, then signoff's, kept by the jobs they stand for. */
-export function localStages(tier, files, mergeBase) {
+/**
+ * The stages for this tier: the gate's, then signoff's, kept by the jobs they
+ * stand for. The GPUI e2e is the whole scenario, after this Mac's main
+ * baseline for the merge base, when `e2e` (macosNeeds in
+ * scripts/ci-local-select.mjs) needs it whole; otherwise the smoke flow and
+ * the modules the diff picks, judged against the known failures and the
+ * baseline when this Mac already has one for the merge base.
+ */
+export function localStages(tier, files, mergeBase, e2eNeed = macosNeeds(tier, files).e2e) {
   const { jobs, vitestFiles } = tier;
   const stages = [];
   if (jobs["lint-build"] || (jobs.vitest && !vitestFiles.length)) stages.push(...gateStages(files));
@@ -154,9 +179,13 @@ export function localStages(tier, files, mergeBase) {
       stages.push(heavy.has(stage.name) && !stage.skip ? { ...stage, before: waitForPerfLock } : stage);
       continue;
     }
-    stages.push(mainBaselineStage(mergeBase));
+    const only = e2eNeed.modules.length ? e2eNeed.modules.join(",") : "smoke";
+    if (e2eNeed.full) stages.push(mainBaselineStage(mergeBase));
+    const e2e = e2eNeed.full
+      ? { ...stage, why: "the whole e2e scenario, failing only on steps main fails too" }
+      : { ...stage, why: `the smoke flow${e2eNeed.modules.length ? ` and ${e2eNeed.modules.length} module(s) the diff picks` : ""}, failing only on steps main fails too`, args: ["--only", only] };
+    e2e.env = { ...stage.env, LATTICE_E2E_VERDICT: "1" };
     // The baseline is read when the stage starts, after gpui-main wrote it.
-    const e2e = { ...stage, why: "the whole e2e scenario, failing only on steps main fails too", env: { ...stage.env, LATTICE_E2E_VERDICT: "1" } };
     e2e.before = async () => {
       await waitForPerfLock();
       const baseline = readBaseline(mergeBase);
@@ -190,8 +219,11 @@ async function main() {
   }
   const started = Date.now();
   const { mergeBase, files } = changedFiles(options.base);
-  const tier = ciTier(files, { full: options.full });
+  const release = files.filter((file) => RELEASE_PATHS.test(file));
+  const tier = ciTier(files, { full: options.full || release.length > 0 });
+  const needs = macosNeeds(tier, files);
   console.log(`ci:local: ${files.length} changed file(s) against ${options.base} (${mergeBase.slice(0, 9)})`);
+  if (release.length) console.log(`ci:local: release paths changed (${release.slice(0, 3).join(", ")}): the full gate runs, and GitHub runs its macOS jobs whatever the trailer says`);
   for (const job of JOBS) {
     const runs = tier.jobs[job];
     console.log(`  ${job.padEnd(19)} ${runs ? "CI runs" : "CI skips"}${runs ? `; here: ${LOCAL[job]}` : ""}${runs && tier.why[job].length ? `  (${tier.why[job].slice(0, 3).join(", ")})` : ""}`);
@@ -200,15 +232,34 @@ async function main() {
     console.log("ci:local: nothing CI checks changed; CI skips every job");
     return;
   }
+  if (needs.e2e?.full) console.log(`  gpui e2e: the whole scenario (${needs.e2e.fullBecause.slice(0, 3).join(", ")})`);
+  else if (needs.e2e) console.log(`  gpui e2e: the smoke flow${needs.e2e.modules.length ? ` and ${needs.e2e.modules.join(", ")}` : " alone"} (scripts/ci-local-select.mjs)`);
+
+  // A passing gate followed only by clean merges of main that touch none of
+  // the branch's files is re-certified by the headless build and unit
+  // tests: what the windowed stages checked is the branch's own code, which
+  // the merge did not change, and main's side was checked on main.
+  let regate = null;
+  if (!tier.full && !git("status", "--porcelain")) {
+    const check = mainMergeRegate({ base: options.base, cwd: repo });
+    const covered = check.ok && coveredJobs(check.cover, needs);
+    if (check.ok && Object.values(covered).every((group) => group.covered)) regate = check;
+    else if (check.ok) console.log(`ci:local: no quick re-gate: the gate at ${check.gate.slice(0, 9)} does not cover this diff (${Object.values(covered).find((group) => !group.covered).reason})`);
+    else if (check.reason !== "HEAD is not a merge") console.log(`ci:local: no quick re-gate: ${check.reason}`);
+  }
+  if (regate) console.log(`ci:local: quick re-gate: HEAD is the gate at ${regate.gate.slice(0, 9)} plus a clean merge of main (${regate.mainCommit.slice(0, 9)}) that touches none of the branch's ${regate.branchFiles.length} file(s); the build and unit tests re-certify it, without the windowed stages`);
+
   // A worktree that moved to a newer main keeps the packages it installed
   // before, and tsc and vitest then fail on modules main added since. CI
   // installs from the lockfile first; so does this, which is quick when
   // nothing changed.
   const install = { name: "install", why: "pnpm install --frozen-lockfile, as CI's setup does", command: "pnpm", args: ["install", "--frozen-lockfile", "--prefer-offline"], timeout: 600_000 };
-  const stages = [install, ...localStages(tier, files, mergeBase)].map((stage) => {
-    if (!WINDOWED.has(stage.name) || stage.skip) return stage;
-    return options.headless ? { name: stage.name, skip: "opens windows; --headless" } : holdingInappLock(stage);
-  });
+  const stages = [install, ...localStages(tier, files, mergeBase, needs.e2e)]
+    .filter((stage) => !regate || !WINDOWED.has(stage.name))
+    .map((stage) => {
+      if (!WINDOWED.has(stage.name) || stage.skip) return stage;
+      return options.headless ? { name: stage.name, skip: "opens windows; --headless" } : holdingInappLock(stage);
+    });
   if (options.plan) {
     for (const stage of stages) console.log(`  ${stage.name.padEnd(12)} ${stage.skip ? `skip (${stage.skip})` : stage.why}`);
     return;
@@ -230,9 +281,21 @@ async function main() {
     console.log("ci:local: commit the change and run this again for the CI-local trailer; it names the commit's tree");
     return;
   }
+  if (release.length) {
+    console.log("ci:local: no CI-local trailer for release paths; push without one and let GitHub's macOS jobs run");
+    return;
+  }
   const tree = git("rev-parse", "HEAD^{tree}").slice(0, 12);
-  console.log(`ci:local: local macOS gate passed at ${git("rev-parse", "HEAD").slice(0, 9)}; this tree stands for CI's macOS jobs. Add the trailer before pushing:`);
-  console.log(`  git commit --amend --no-edit --trailer "CI-local: macos ${tree}"`);
+  const cover = regate
+    ? { ...regate.cover, regate: regate.gate.slice(0, 9) }
+    : { rust: tier.jobs.rust, gpui: tier.jobs.gpui, e2e: needs.e2e && (needs.e2e.full ? FULL : needs.e2e.modules), webkit: tier.jobs["perf-bench"] };
+  const head = git("rev-parse", "HEAD").slice(0, 9);
+  console.log(
+    regate
+      ? `ci:local: local macOS gate re-certified at ${head} by the quick pass after a main merge (gate ${regate.gate.slice(0, 9)}). Add the trailer before pushing:`
+      : `ci:local: local macOS gate passed at ${head}; the trailer records the stages that ran, and CI skips the macOS jobs they cover. Add it before pushing:`,
+  );
+  console.log(`  git commit --amend --no-edit --trailer "${formatTrailer(tree, cover)}"`);
 }
 
 if (isMain(import.meta.url)) {
