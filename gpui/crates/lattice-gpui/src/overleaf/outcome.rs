@@ -4,7 +4,7 @@
 //! (`overleaf-sync-outcome.ts`), and how a failure reads
 //! (`overleaf-sync-failures.ts`, `overleaf-realtime-model.ts`).
 
-use lattice_core::overleaf::{OverleafConflict, OverleafSyncResult};
+use lattice_core::overleaf::{ConflictSide, OverleafConflict, OverleafSyncResult};
 use lattice_i18n::t;
 
 /// The line a finished sync ends on: what moved, or why nothing did. A file
@@ -114,27 +114,44 @@ pub fn warnings(result: &OverleafSyncResult) -> Vec<Warning> {
     warnings
 }
 
-/// What a sync's conflicts say: the files with spots to resolve (`marked`),
-/// read back from disk by the caller, and the files that changed whole on
-/// both sides; and the file the resolver opens on.
-pub fn conflict_message(marked: &[&OverleafConflict], whole: &[&OverleafConflict]) -> String {
-    let paths = |items: &[&OverleafConflict]| {
-        items
-            .iter()
-            .map(|item| item.path.as_str())
-            .collect::<Vec<_>>()
-            .join(", ")
-    };
-    let mut parts: Vec<String> = Vec::new();
-    if !marked.is_empty() {
-        let files = paths(marked);
-        parts.push(t!("Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then.", markedFiles = &files));
+/// What a sync's conflicts with spots to resolve say (`marked`, read back
+/// from disk by the caller); empty when there are none.
+pub fn conflict_message(marked: &[&OverleafConflict]) -> String {
+    if marked.is_empty() {
+        return String::new();
     }
-    if !whole.is_empty() {
-        let files = paths(whole);
-        parts.push(t!("{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it.", wholeFiles = &files));
+    let files = marked
+        .iter()
+        .map(|item| item.path.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    t!(
+        "{files} changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor; nothing uploads until then.",
+        files = &files
+    )
+}
+
+/// A binary file both sides changed: which copy the path kept (the newer
+/// one), and the action that swaps in the one set aside.
+pub fn binary_conflict(conflict: &OverleafConflict) -> (String, String) {
+    let file = &conflict.path;
+    if conflict.kept == Some(ConflictSide::ThisMac) {
+        (
+            t!(
+                "{file} changed here and on Overleaf. Yours is newer, so it stays and goes up; Overleaf's is kept aside.",
+                file = file
+            ),
+            t!("Use Overleaf's").to_string(),
+        )
+    } else {
+        (
+            t!(
+                "{file} changed here and on Overleaf. Overleaf's is newer, so it replaced yours; yours is kept aside.",
+                file = file
+            ),
+            t!("Use mine").to_string(),
+        )
     }
-    parts.join(" ")
 }
 
 /// Any files a sync brought in, merged, conflicted or deleted: the PDF and

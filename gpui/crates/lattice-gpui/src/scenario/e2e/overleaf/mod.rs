@@ -10,8 +10,8 @@
 //!   leaves this window's keyboard where its shortcuts reach it, though the
 //!   editor last typed in is behind the checklist's tab;
 //! - live mode pulls a co-author's edit on its own, and pushes one made here;
-//! - an edit on both sides leaves conflict markers, and the resolver opens
-//!   on the file with this computer's and Overleaf's sides;
+//! - an edit on both sides leaves conflict markers, and the file opens in
+//!   the editor with Keep mine / Keep theirs / Keep both on the spot;
 //! - manual mode badges new work on Overleaf, and Review changes lists it
 //!   and applies it;
 //! - Settings › Overleaf says who is signed in and which project syncs;
@@ -41,7 +41,7 @@ mod review_panel;
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result, anyhow};
-use gpui::{AsyncApp, Focusable as _};
+use gpui::{App, AsyncApp, Entity, Focusable as _};
 use lattice_settings::{OverleafSyncMode, SettingsTab};
 use serde_json::{Value, json};
 
@@ -52,6 +52,7 @@ use crate::{
         overleaf_mock::{EMAIL, MockOverleaf, PROJECT_NAME},
     },
     settings,
+    shell::Shell,
 };
 
 const MAIN: &str =
@@ -291,7 +292,7 @@ impl Run {
             json!({ "uploads": mock.requests("POST /project/proj-mock/upload") }),
         );
 
-        // An edit on both sides of one line: markers, and the resolver.
+        // An edit on both sides of one line: markers, and the choices on it.
         let settled = linked
             .wait_for(cx, Duration::from_secs(20), |shell, cx| {
                 !shell.read(cx).overleaf.read(cx).syncing()
@@ -302,80 +303,77 @@ impl Run {
             clone_root.join("main.tex"),
             ours.replace("A shared paper", "Our paper"),
         )?;
+        // The choices show wherever the file may be edited; until the
+        // channel names this account's role the editor stays read-only
+        // (`may_edit` fails closed), and so carries none.
+        let marked_editor = |shell: &Entity<Shell>, cx: &App| {
+            shell.read(cx).active_editor().filter(|editor| {
+                let editor = editor.read(cx);
+                let editable = !editor.editor().read(cx).read_only(cx);
+                editor.relative() == "main.tex"
+                    && editor.buffer_has_markers_for_scenario(cx)
+                    && editor.conflict_choices_shown() == editable
+            })
+        };
         let resolving = linked
             .wait_for(cx, Duration::from_secs(60), |shell, cx| {
-                shell
-                    .read(cx)
-                    .conflict
-                    .as_ref()
-                    .is_some_and(|(resolver, _)| resolver.read(cx).is_overleaf())
+                marked_editor(shell, cx).is_some()
             })
             .await;
         let marked = std::fs::read_to_string(clone_root.join("main.tex"))
             .is_ok_and(|text| text.contains("<<<<<<<"));
-        steps.check(
-            "an edit on both sides leaves markers, and the resolver opens with this computer's and Overleaf's sides",
-            settled && resolving && marked,
-            json!({ "marked": marked }),
-        );
-        let resolver = cx.update(|cx| {
-            linked
-                .shell
-                .read(cx)
-                .conflict
-                .as_ref()
-                .map(|(resolver, _)| resolver.clone())
+        let active = cx.update(|cx| {
+            linked.shell.read(cx).active_editor().map(|editor| {
+                let editor = editor.read(cx);
+                json!({
+                    "path": editor.relative(),
+                    "shown": editor.conflict_choices_shown(),
+                    "markers": editor.buffer_has_markers_for_scenario(cx),
+                    "read_only": editor.editor().read(cx).read_only(cx),
+                })
+            })
         });
-        if let Some(resolver) = resolver {
-            // Builds are manual while it is resolved, so the build that
-            // follows is the resolution's own, not the watcher's.
-            let builds = cx.update(|cx| settings::get(cx).auto_build_mode);
-            cx.update(|cx| {
-                settings::update(cx, |s| {
-                    s.auto_build_mode = lattice_settings::AutoBuildMode::Manual
-                })
-            });
-            linked
-                .wait_for(cx, Duration::from_secs(60), |shell, cx| {
-                    !shell.read(cx).building()
-                })
-                .await;
-            // A build quick enough to end between two looks still leaves a
-            // newer PDF behind.
-            let pdf = clone_root.join("main.pdf");
-            let modified = |pdf: &Path| std::fs::metadata(pdf).and_then(|m| m.modified()).ok();
-            let before = modified(&pdf);
-            // The resolver reads the file in the background once it opens.
-            // Choosing before that read lands picks no spots and saves
-            // against an empty expected text, which the write refuses as
-            // changed on disk, so the markers stay and every later sync of
-            // main.tex stops on them (a loaded run hit this).
-            let loaded = resolver.clone();
-            linked
-                .wait_for(cx, Duration::from_secs(10), move |_, cx| {
-                    loaded.read(cx).spots() > 0
-                })
-                .await;
-            cx.update(|cx| {
-                resolver.update(cx, |resolver, cx| resolver.choose_and_save_for_scenario(cx))
-            });
-            linked
-                .wait_for(cx, Duration::from_secs(10), |_, _| {
+        steps.check(
+            "an edit on both sides leaves markers, and the file opens on them, with the choices wherever it may be edited",
+            settled && resolving && marked,
+            json!({
+                "settled": settled,
+                "resolving": resolving,
+                "marked": marked,
+                "active": active,
+            }),
+        );
+        let editor = cx.update(|cx| marked_editor(&linked.shell, cx));
+        if let Some(editor) = editor {
+            // Overleaf never saw the markers.
+            let held = mock
+                .file("main.tex")
+                .is_some_and(|text| !text.contains("<<<<<<<"));
+            // Keep mine, as its button does; the edit saves like typing.
+            cx.update(|cx| editor.update(cx, |editor, cx| editor.keep_mine_for_scenario(cx)));
+            let kept = linked
+                .wait_for(cx, Duration::from_secs(15), |_, _| {
                     std::fs::read_to_string(clone_root.join("main.tex"))
-                        .is_ok_and(|text| !text.contains("<<<<<<<"))
-                })
-                .await;
-            let built = linked
-                .wait_for(cx, Duration::from_secs(10), |shell, cx| {
-                    shell.read(cx).building() || modified(&pdf) > before
+                        .is_ok_and(|text| !text.contains("<<<<<<<") && text.contains("Our paper"))
                 })
                 .await;
             steps.check(
-                "the resolved file is compiled, with builds left to the writer",
-                built,
-                json!({ "built": built }),
+                "Keep mine leaves this computer's text in place of the spot, saved",
+                held && kept,
+                json!({ "held": held, "kept": kept }),
             );
-            cx.update(|cx| settings::update(cx, |s| s.auto_build_mode = builds));
+            let uploaded = linked
+                .wait_for(cx, Duration::from_secs(45), |_, _| {
+                    mock.file("main.tex").is_some_and(|text| {
+                        !text.contains("<<<<<<<") && text.contains("Our paper")
+                    })
+                })
+                .await;
+            steps.check(
+                "the resolved file goes up to Overleaf like any edit",
+                uploaded,
+                json!({ "overleaf": mock.file("main.tex") }),
+            );
         }
 
         // Manual mode: a badge for new work, then Review changes.

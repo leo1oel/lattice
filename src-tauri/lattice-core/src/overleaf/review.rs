@@ -435,6 +435,11 @@ impl HistoryUpdate {
         self.to_v.is_none_or(|v| v > version)
     }
 
+    /// When this update's last change was made, in ms, if Overleaf said.
+    pub fn ended_at(&self) -> Option<i64> {
+        self.end_ts
+    }
+
     /// The version this update brought the project to, if Overleaf said.
     pub fn to_version(&self) -> Option<i64> {
         self.to_v

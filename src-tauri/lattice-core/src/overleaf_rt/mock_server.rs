@@ -115,6 +115,11 @@ pub(crate) fn doc_text(state: &Arc<Mutex<MockState>>, id: &str) -> (String, i64)
     (doc.text(), doc.version())
 }
 
+/// What every document reads now, by id.
+pub(crate) fn doc_texts(state: &Arc<Mutex<MockState>>) -> Vec<(String, String)> {
+    lock(state).docs.iter().map(|(id, doc)| (id.clone(), doc.text())).collect()
+}
+
 /// Refuse every update from now on, after acknowledging it was queued.
 pub(crate) fn refuse_updates(state: &Arc<Mutex<MockState>>) {
     lock(state).refuse_updates = true;

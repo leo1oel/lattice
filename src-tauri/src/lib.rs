@@ -601,6 +601,7 @@ pub fn run() {
             ipc::overleaf::overleaf_preview,
             ipc::overleaf::overleaf_set_paused,
             ipc::overleaf::overleaf_probe,
+            ipc::overleaf::overleaf_restore_set_aside,
             ipc::overleaf::overleaf_sync,
             ipc::overleaf_realtime::overleaf_rt_connect,
             ipc::overleaf_realtime::overleaf_rt_disconnect,

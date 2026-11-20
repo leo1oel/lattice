@@ -1,8 +1,8 @@
 //! The default root document's PDF in a subfolder (`cvpr/main.tex` builds
 //! `cvpr/main.pdf`) is this copy's build, as `main.pdf` beside a top-level
 //! `main.tex` is: it never goes up, a collaborator's never comes down over
-//! it, and one an earlier sync agreed on is let go of on both sides. Other
-//! root documents' PDFs sync like any other file.
+//! it, and one an earlier sync agreed on is let go of on both sides. So does
+//! every other root document's, unless a source includes it (LATA-51).
 
 use crate::overleaf::sync::{prefetch, sync, sync_prefetched};
 use crate::overleaf::test_support::*;
@@ -128,10 +128,11 @@ fn a_collaborators_pdf_added_on_overleaf_is_not_fetched() {
 }
 
 /// `supplementary/supp.tex` was built here once, so it is a root document,
-/// but Build compiles `cvpr/main.tex`: the supplement's PDF is an input of
-/// the paper that collaborators on Overleaf cannot build, and it syncs.
+/// though Build compiles `cvpr/main.tex`: its PDF is build output all the
+/// same, and syncs in neither direction (LATA-51). Overleaf's copy, sent up
+/// by an older Lattice, stays there untouched.
 #[test]
-fn a_non_default_roots_pdf_syncs_both_ways() {
+fn a_non_default_roots_pdf_syncs_neither_way() {
     let sources = [("cvpr/main.tex", PAPER), ("supplementary/supp.tex", PAPER)];
     let with_pdf = |pdf: &'static [u8]| {
         let mut files = sources.to_vec();
@@ -145,21 +146,47 @@ fn a_non_default_roots_pdf_syncs_both_ways() {
     let (config, root) = linked(&server, &with_pdf(b"%PDF v2 mine"), &base);
     set_roots(&root, &roots, "cvpr/main.tex");
     let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert!(result.pushed.is_empty(), "{result:?}");
+    assert!(!uploads_name(&server, "supp.pdf"));
+
+    let server = Mock::project(&with_pdf(b"%PDF v2 theirs")).serve();
+    let (config, root) = linked(&server, &base, &base);
+    set_roots(&root, &roots, "cvpr/main.tex");
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert!(result.pulled.is_empty() && result.conflicts.is_empty(), "{result:?}");
+    assert_eq!(read_local(&root, "supplementary/supp.pdf").unwrap(), b"%PDF v1");
+    assert!(server.with_method("DELETE").is_empty());
+}
+
+/// A root document's PDF the paper includes (`\includepdf` of a supplement,
+/// a standalone figure) is one Overleaf needs and cannot build: it syncs.
+#[test]
+fn a_pdf_the_paper_includes_syncs_both_ways() {
+    let main: &[u8] = b"\\documentclass{article}\n\\begin{document}\n\\includepdf[pages=-]{../supplementary/supp.pdf}\n\\end{document}\n";
+    let sources = [("cvpr/main.tex", main), ("supplementary/supp.tex", PAPER)];
+    let with_pdf = |pdf: &'static [u8]| {
+        let mut files = sources.to_vec();
+        files.push(("supplementary/supp.pdf", pdf));
+        files
+    };
+    let base = with_pdf(b"%PDF v1");
+    let roots = ["cvpr/main.tex", "supplementary/supp.tex"];
+    let server = Mock::project(&base).serve();
+    let (config, root) = linked(&server, &with_pdf(b"%PDF v2 mine"), &base);
+    set_roots(&root, &roots, "cvpr/main.tex");
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
     assert_eq!(result.pushed, ["supplementary/supp.pdf"], "{result:?}");
-    assert!(uploads_name(&server, "supp.pdf"));
 
     let server = Mock::project(&with_pdf(b"%PDF v2 theirs")).serve();
     let (config, root) = linked(&server, &base, &base);
     set_roots(&root, &roots, "cvpr/main.tex");
     let result = sync(&config, &root, NO_LIVE, None).unwrap();
     assert_eq!(result.pulled, ["supplementary/supp.pdf"], "{result:?}");
-    assert_eq!(read_local(&root, "supplementary/supp.pdf").unwrap(), b"%PDF v2 theirs");
 }
 
-/// Making `arxiv/main.tex` what Build compiles hands `cvpr/main.pdf` back
-/// to sync, and takes `arxiv/main.pdf` out of it.
+/// Which root Build compiles no longer matters: neither PDF syncs.
 #[test]
-fn switching_the_default_root_moves_which_pdf_stays_out() {
+fn switching_the_default_root_keeps_every_roots_pdf_out() {
     let sources: Files = &[("cvpr/main.tex", PAPER), ("arxiv/main.tex", PAPER)];
     let local: Files = &[
         ("cvpr/main.tex", PAPER),
@@ -170,44 +197,43 @@ fn switching_the_default_root_moves_which_pdf_stays_out() {
     let roots = ["cvpr/main.tex", "arxiv/main.tex"];
     let server = Mock::project(sources).serve();
     let (config, root) = linked(&server, local, sources);
-
-    set_roots(&root, &roots, "cvpr/main.tex");
-    let result = sync(&config, &root, NO_LIVE, None).unwrap();
-    assert_eq!(result.pushed, ["arxiv/main.pdf"], "{result:?}");
-
-    set_roots(&root, &roots, "arxiv/main.tex");
-    let result = sync(&config, &root, NO_LIVE, None).unwrap();
-    assert_eq!(result.pushed, ["cvpr/main.pdf"], "{result:?}");
-    let tracked = state_files(&root);
-    assert!(tracked.contains_key("cvpr/main.pdf") && !tracked.contains_key("arxiv/main.pdf"));
+    for default in roots {
+        set_roots(&root, &roots, default);
+        let result = sync(&config, &root, NO_LIVE, None).unwrap();
+        assert!(result.pushed.is_empty(), "{result:?}");
+    }
+    assert!(server.uploads().is_empty());
+    assert_eq!(state_files(&root).keys().collect::<Vec<_>>(), ["arxiv/main.tex", "cvpr/main.tex"]);
 }
 
-/// A download read ahead of the lease while `cvpr/main.tex` was the default
-/// holds a collaborator's `arxiv/main.pdf`. Building `arxiv/main.tex`
-/// meanwhile makes it the default, and the sync turns that download down
-/// instead of pulling their PDF over the one just built.
+/// A download read ahead of the lease holds a collaborator's
+/// `arxiv/main.pdf`, then a figure as far as this copy knew. Writing
+/// `arxiv/main.tex` here meanwhile makes that PDF build output, and the sync
+/// turns the download down instead of pulling their PDF over the one just
+/// built.
 #[test]
-fn a_download_read_ahead_before_the_default_root_changed_is_turned_down() {
-    let sources = [("cvpr/main.tex", PAPER), ("arxiv/main.tex", PAPER)];
+fn a_download_read_ahead_before_the_build_output_changed_is_turned_down() {
+    let sources = [("cvpr/main.tex", PAPER)];
     let mut remote = sources.to_vec();
     remote.push(("arxiv/main.pdf", b"%PDF theirs"));
     let server = Mock::project(&remote).serve();
     let (config, root) = linked(&server, &sources, &sources);
-    let roots = ["cvpr/main.tex", "arxiv/main.tex"];
-    set_roots(&root, &roots, "cvpr/main.tex");
+    set_roots(&root, &["cvpr/main.tex"], "cvpr/main.tex");
     let read_ahead = || prefetch(&config, &root, NO_LIVE, None, &|| {}, &|_, _| {}).unwrap();
     let prefetched = read_ahead();
     assert!(prefetched.is_some());
 
-    set_roots(&root, &roots, "arxiv/main.tex");
+    std::fs::create_dir_all(root.join("arxiv")).unwrap();
+    std::fs::write(root.join("arxiv/main.tex"), PAPER).unwrap();
     std::fs::write(root.join("arxiv/main.pdf"), b"%PDF mine").unwrap();
     let turned_down = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, None);
     assert!(turned_down.unwrap().is_none());
     assert_eq!(read_local(&root, "arxiv/main.pdf").unwrap(), b"%PDF mine");
 
     let result = sync_prefetched(&config, &root, NO_LIVE, None, read_ahead(), None).unwrap();
-    let result = result.expect("read again with arxiv/main.tex the default, it fits");
-    assert!(result.pulled.is_empty() && result.pushed.is_empty(), "{result:?}");
+    let result = result.expect("read again with arxiv/main.tex here, it fits");
+    assert!(result.pulled.is_empty() && result.conflicts.is_empty(), "{result:?}");
+    assert_eq!(result.pushed, ["arxiv/main.tex"]);
     assert_eq!(read_local(&root, "arxiv/main.pdf").unwrap(), b"%PDF mine");
 }
 
@@ -218,16 +244,13 @@ fn conflict_copies_in(root: &Path, folder: &str) -> Vec<String> {
         .collect()
 }
 
-/// The writer builds `cvpr/main.tex` while the Agent builds `arxiv/main.tex`
-/// (or the other way round), so what Build compiles keeps moving between
-/// them. Each move hands the other PDF back to sync with no agreed copy,
-/// while Overleaf still holds the one an earlier sync sent up. A build here
-/// in between made the two differ, and the sync used to report
-/// `cvpr/main.pdf` as changed on both sides and set this copy's build aside
-/// as `cvpr/main (local conflict …).pdf`. It is a build, not an edit:
-/// Overleaf's copy stays, quietly, and nothing is set aside.
+/// The writer builds `cvpr/main.tex` while the Agent builds `arxiv/main.tex`,
+/// so what Build compiles keeps moving between them. This used to send each
+/// PDF up as it left the default, and then set this copy's build aside as
+/// `cvpr/main (local conflict …).pdf` once both sides had one. Neither syncs
+/// now, however Build moves, and Overleaf's old copies never come down.
 #[test]
-fn a_pdf_built_here_never_conflicts_when_it_rejoins_sync() {
+fn a_pdf_built_here_never_syncs_or_conflicts_as_build_moves() {
     let sources = [("cvpr/main.tex", PAPER), ("arxiv/main.tex", PAPER)];
     let roots = ["cvpr/main.tex", "arxiv/main.tex"];
     let root = linked_root(&sources, &sources);
@@ -236,7 +259,6 @@ fn a_pdf_built_here_never_conflicts_when_it_rejoins_sync() {
         crate::latex::record_build(&root, document);
         set_roots(&root, &roots, document);
     };
-    // Overleaf as each sync finds it: the sources plus what went up so far.
     let sync_against = |pdfs: &[(&'static str, &'static [u8])]| {
         let mut remote = sources.to_vec();
         remote.extend_from_slice(pdfs);
@@ -245,60 +267,31 @@ fn a_pdf_built_here_never_conflicts_when_it_rejoins_sync() {
         let config = signed_in(&server.base);
         (sync(&config, &root, NO_LIVE, None).unwrap(), server)
     };
-
-    // The Agent builds arxiv: cvpr's earlier build goes up as an ordinary PDF.
-    build("cvpr/main.tex", b"%PDF cvpr 1");
-    build("arxiv/main.tex", b"%PDF arxiv 1");
-    let (result, _server) = sync_against(&[]);
-    assert_eq!(result.pushed, ["cvpr/main.pdf"], "{result:?}");
-
-    // The writer builds cvpr, which leaves sync; arxiv's goes up in turn.
-    build("cvpr/main.tex", b"%PDF cvpr 2");
-    let (result, _server) = sync_against(&[("cvpr/main.pdf", b"%PDF cvpr 1")]);
-    assert_eq!(result.pushed, ["arxiv/main.pdf"], "{result:?}");
-
-    // The Agent builds arxiv again, and cvpr/main.pdf rejoins sync with
-    // Overleaf's copy and this copy's build both differing from no base.
-    build("arxiv/main.tex", b"%PDF arxiv 2");
     let on_overleaf =
         [("cvpr/main.pdf", b"%PDF cvpr 1" as &[u8]), ("arxiv/main.pdf", b"%PDF arxiv 1")];
-    let (result, server) = sync_against(&on_overleaf);
-    assert!(result.conflicts.is_empty(), "{:?}", result.conflicts);
+    for (document, pdf) in [
+        ("cvpr/main.tex", b"%PDF cvpr 2" as &[u8]),
+        ("arxiv/main.tex", b"%PDF arxiv 2"),
+        ("cvpr/main.tex", b"%PDF cvpr 3"),
+    ] {
+        build(document, pdf);
+        let (result, server) = sync_against(&on_overleaf);
+        assert!(result.conflicts.is_empty() && result.pulled.is_empty(), "{result:?}");
+        assert!(result.pushed.is_empty() && server.uploads().is_empty(), "{result:?}");
+    }
     assert!(conflict_copies_in(&root, "cvpr").is_empty());
-    assert_eq!(result.pulled, ["cvpr/main.pdf"], "{result:?}");
-    assert_eq!(read_local(&root, "cvpr/main.pdf").unwrap(), b"%PDF cvpr 1");
-    assert!(server.uploads().is_empty(), "{result:?}");
+    assert_eq!(read_local(&root, "cvpr/main.pdf").unwrap(), b"%PDF cvpr 3");
+    assert_eq!(read_local(&root, "arxiv/main.pdf").unwrap(), b"%PDF arxiv 2");
 }
 
-/// A collaborator's newer build of a PDF that syncs (`supplementary/supp.pdf`)
-/// lands on Overleaf while this copy rebuilt it too: theirs wins, quietly.
+/// A PDF the paper includes that the writer put in place of this copy's
+/// build (a figure exported over it) is theirs, and a both-sides change to it
+/// is a real conflict: one copy takes the path, the other is kept out of the
+/// project, never beside it.
 #[test]
-fn overleafs_copy_of_a_pdf_built_here_wins_without_a_conflict() {
-    let sources = [("cvpr/main.tex", PAPER), ("supplementary/supp.tex", PAPER)];
-    let with_pdf = |pdf: &'static [u8]| {
-        let mut files = sources.to_vec();
-        files.push(("supplementary/supp.pdf", pdf));
-        files
-    };
-    let server = Mock::project(&with_pdf(b"%PDF v2 theirs")).serve();
-    let (config, root) = linked(&server, &with_pdf(b"%PDF v2 mine"), &with_pdf(b"%PDF v1"));
-    set_roots(&root, &["cvpr/main.tex", "supplementary/supp.tex"], "cvpr/main.tex");
-    crate::latex::record_build(&root, "supplementary/supp.tex");
-
-    let result = sync(&config, &root, NO_LIVE, None).unwrap();
-    assert!(result.conflicts.is_empty(), "{:?}", result.conflicts);
-    assert_eq!(result.pulled, ["supplementary/supp.pdf"], "{result:?}");
-    assert_eq!(read_local(&root, "supplementary/supp.pdf").unwrap(), b"%PDF v2 theirs");
-    assert!(conflict_copies_in(&root, "supplementary").is_empty());
-    assert!(server.uploads().is_empty());
-}
-
-/// A PDF the writer put in place of this copy's build (a figure exported
-/// over it, an edited copy) is theirs, and a both-sides change to it is the
-/// real conflict it always was.
-#[test]
-fn a_pdf_written_over_this_copys_build_still_conflicts() {
-    let sources = [("cvpr/main.tex", PAPER), ("figures/plot.tex", PAPER)];
+fn an_included_pdf_written_over_this_copys_build_still_conflicts() {
+    let main: &[u8] = b"\\documentclass{article}\n\\begin{document}\n\\includegraphics{../figures/plot}\n\\end{document}\n";
+    let sources = [("cvpr/main.tex", main), ("figures/plot.tex", PAPER)];
     let with_pdf = |pdf: &'static [u8]| {
         let mut files = sources.to_vec();
         files.push(("figures/plot.pdf", pdf));
@@ -311,6 +304,7 @@ fn a_pdf_written_over_this_copys_build_still_conflicts() {
     std::fs::write(root.join("figures/plot.pdf"), b"%PDF exported by hand").unwrap();
 
     let result = sync(&config, &root, NO_LIVE, None).unwrap();
-    assert_eq!(result.conflicts.len(), 1, "{result:?}");
-    assert_eq!(conflict_copies_in(&root, "figures").len(), 1);
+    let [conflict] = &result.conflicts[..] else { panic!("{result:?}") };
+    assert!(conflict_copies_in(&root, "figures").is_empty());
+    assert_eq!(read_local(&root, &conflict.set_aside).unwrap(), b"%PDF exported by hand");
 }

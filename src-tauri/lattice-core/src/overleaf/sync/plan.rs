@@ -3,31 +3,42 @@
 //! done. The real sync, the staged sync and the preview all carry out this
 //! one plan, so there is only ever one set of rules to keep honest.
 
-use super::outcome::OverleafConflict;
+use super::outcome::{ConflictSide, OverleafConflict};
 use super::renames;
 use crate::overleaf::files::*;
 use crate::overleaf::link::SyncState;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-/// One file both sides changed in ways that need a human.
+/// One file both sides changed in ways that need a human, or, binary, that
+/// only one side's copy can stand for.
 pub(in crate::overleaf) struct ConflictPlan {
     pub path: String,
     /// See `OverleafConflict::markers`.
     pub markers: bool,
-    /// What lands at `path`: the conflict-marked text, or the remote file when
-    /// the two sides cannot be merged line by line.
+    /// What lands at `path`: the conflict-marked text, or for a binary file
+    /// the copy kept (Overleaf's, until `settle_binary` finds this Mac's
+    /// newer).
     pub resolved: Vec<u8>,
-    /// The local file as it stood, kept beside the marked-up one.
-    pub local: Vec<u8>,
-    /// Where that pristine local copy goes.
-    pub local_copy: String,
+    /// The copy taken off the path: this Mac's as it stood, or for a binary
+    /// file where this Mac's is kept, Overleaf's. Nothing is lost: it goes to
+    /// `set_aside`.
+    pub other: Vec<u8>,
+    /// Where `other` is kept (`files::set_aside_path`), out of the project.
+    pub set_aside: String,
+    /// A binary file whose copy here is the newer: it stays and goes up.
+    pub kept_local: bool,
 }
 
 impl ConflictPlan {
     pub fn reported(&self) -> OverleafConflict {
-        let (path, local_copy) = (self.path.clone(), self.local_copy.clone());
-        OverleafConflict { path, local_copy, markers: self.markers }
+        let kept = (!self.markers).then_some(if self.kept_local {
+            ConflictSide::ThisMac
+        } else {
+            ConflictSide::Overleaf
+        });
+        let (path, set_aside) = (self.path.clone(), self.set_aside.clone());
+        OverleafConflict { path, set_aside, markers: self.markers, kept }
     }
 }
 
@@ -216,19 +227,19 @@ pub(in crate::overleaf) fn plan_sync(
                         // Markers land in the file itself so the disagreement
                         // is visible exactly where it happened.
                         MergeOutcome::Conflicted(conflicted) => (true, conflicted),
-                        // Binary, or no base copy to merge against: keep both,
-                        // remote on the real path.
+                        // Binary: one copy takes the path (see `settle_binary`).
                         MergeOutcome::Unmergeable => (false, rb.clone()),
                     };
-                    // The untouched local version is kept beside it.
+                    // The untouched local version is kept, out of the project.
                     Merged::Conflict(ConflictPlan {
                         path: path.clone(),
                         markers,
                         resolved,
-                        local: lb.clone(),
-                        local_copy: conflict_copy_name(path, stamp, |name| {
+                        other: lb.clone(),
+                        set_aside: set_aside_path(path, stamp, |name| {
                             disk_path(root, name).exists()
                         }),
+                        kept_local: false,
                     })
                 });
                 if wipes_out(lb, rb) {

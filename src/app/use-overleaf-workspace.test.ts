@@ -200,7 +200,7 @@ function syncFixture() {
       server = uploaded;
       return {
         pushed: conflict || deleted ? [] : ["section.tex"], pulled: [], merged: [],
-        conflicts: conflict ? [{ path: "section.tex", localCopy: "section.local.tex", markers: true }] : [],
+        conflicts: conflict ? [{ path: "section.tex", setAside: ".research/overleaf-conflicts/20261108-0217/section.tex", markers: true }] : [],
         deletedLocal: [], skippedRemoteDeletes: deleted ? ["section.tex"] : [], readOnly: false,
         editedDuringSync: editedDuringSync.splice(0),
       };
@@ -239,12 +239,14 @@ function mountWorkspace(mode: "live" | "manual", prepare?: (fixture: ReturnType<
 }
 
 describe("external edit Overleaf handoff", () => {
-  it.each([true, false])("checks current file markers before opening a conflict (already resolved: %s)", async (resolved) => {
+  it.each([true, false])("checks current file markers before opening a conflict in the editor (already resolved: %s)", async (resolved) => {
     const { fixture, view, realtime } = mountWorkspace("manual");
     await waitFor(() => expect(realtime().status).toBe("live"));
     fixture.conflict(resolved);
     await act(async () => { await view.result.current.runOverleafSync(); });
-    expect(view.result.current.conflictPath).toBe(resolved ? null : "section.tex");
+    if (resolved) expect(fixture.deps.openProjectFile).not.toHaveBeenCalled();
+    else expect(fixture.deps.openProjectFile).toHaveBeenCalledWith("section.tex", { line: expect.any(Number) });
+    expect(view.result.current.conflictPath).toBeNull();
     expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "section.tex", projectRoot: "/project" });
   });
 
@@ -300,7 +302,7 @@ describe("external edit Overleaf handoff", () => {
   });
 
   it.each(["new disk edit", "typing", "conflict"])("does not resume an older sync after %s", async (change) => {
-    const { fixture, view, realtime, advance, suspend } = mountWorkspace("live");
+    const { fixture, realtime, advance, suspend } = mountWorkspace("live");
     await waitFor(() => expect(realtime().liveFile).toBe(true));
     fixture.edit("first agent edit");
     fixture.hold();
@@ -317,7 +319,7 @@ describe("external edit Overleaf handoff", () => {
     expect(realtime().liveFile).toBe(false);
     expect(fixture.server()).toBe("first agent edit");
     if (change === "typing") expect(fixture.deps.sourceRef.current).toBe("unsaved user words");
-    if (change === "conflict") expect(view.result.current.conflictPath).toBe("section.tex");
+    if (change === "conflict") await waitFor(() => expect(fixture.deps.openProjectFile).toHaveBeenCalledWith("section.tex", { line: expect.any(Number) }));
     if (change === "new disk edit") {
       await advance(31_000);
       await waitFor(() => expect(realtime().liveFile).toBe(true));

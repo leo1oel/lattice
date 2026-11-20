@@ -38,7 +38,7 @@ import type {
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
 import { overleafSyncWarnings } from "./overleaf-sync-warnings";
-import { reportSyncOutcome } from "./overleaf-sync-outcome";
+import { conflictOpener, reportSyncOutcome } from "./overleaf-sync-outcome";
 import { overleafSyncSummary } from "./overleaf-sync-summary";
 import { unsettledPaths } from "./overleaf-sync-unsettled";
 import { useBuildAutoversion } from "./use-build-autoversion";
@@ -145,6 +145,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const externalChangesRef = useRef(new Map<string, symbol>());
   const [externalChangeGeneration, bumpExternalChangeGeneration] = useReducer(increment, 0);
   const overleafSyncOwed = useCallback((path: string) => externalChangesRef.current.has(path), []);
+  const oweSync = useCallback((paths: Iterable<string>) => {
+    for (const path of paths) externalChangesRef.current.set(path, Symbol());
+    bumpExternalChangeGeneration();
+  }, []);
   const resumeRealtimePathsRef = useRef<(paths: readonly string[]) => void>(() => {});
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
@@ -287,10 +291,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       // Edited here while the sync ran: left as they were, so they still need
       // to go up. Queue them like any other disk edit, which also keeps them
       // out of the realtime rejoin below until that next sync settles them.
-      if (result.editedDuringSync?.length) {
-        for (const path of result.editedDuringSync) externalChangesRef.current.set(path, Symbol());
-        bumpExternalChangeGeneration();
-      }
+      if (result.editedDuringSync?.length) oweSync(result.editedDuringSync);
       // Pending whole-file paths omitted from `livePaths` went up with this
       // sync; forget them so a later blur does not download the project again.
       for (const path of deferredWholeFilePathsRef.current) {
@@ -307,8 +308,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         await settleRemoteDeletes(result.skippedRemoteDeletes, syncRoot, syncGeneration);
         if (!stillCurrent()) return;
       }
-      const resolve = (path: string) => { if (stillCurrent()) setConflictPath(path); };
-      for (const { message, action } of overleafSyncWarnings(result, resolve)) showWarning(message, "Overleaf", action);
+      const openConflict = conflictOpener(stillCurrent, openProjectFile);
+      for (const { message, action } of overleafSyncWarnings(result, openConflict)) showWarning(message, "Overleaf", action);
       await reviewMode.afterSync(reviewed, [...result.pulled, ...result.merged]);
       // Merged and conflicted files were rewritten on disk like pulled ones;
       // the editor must reload them or it would save over the incoming edits.
@@ -321,7 +322,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         ...[...externalBatch.keys()].filter((path) => !livePaths.includes(path)
           && !result.deletedLocal.includes(path) && !result.skippedRemoteDeletes.includes(path)),
       ]);
-      if (!(await reportSyncOutcome({ result, projectRoot: syncRoot, stillCurrent, openConflict: setConflictPath }))) return;
+      if (!(await reportSyncOutcome({ result, projectRoot: syncRoot, stillCurrent, openConflict, restored: oweSync }))) return;
       let reloadBlockedPath: string | null = null;
       if (changedOnDisk.size || result.deletedLocal.length) {
         await refreshProject({ expectedRoot: syncRoot, generation: syncGeneration });
@@ -421,9 +422,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       release();
     }
   }, [
-    activeFileRef, compile, currentOverleafLivePaths, holdSyncGate, loadFile, openOverleafSettingsRef,
+    activeFileRef, compile, currentOverleafLivePaths, holdSyncGate, loadFile, oweSync, openOverleafSettingsRef, openProjectFile,
     overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
-    save, savedSourceRef, setConflictPath, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
+    save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
   ]);
 
   overleafSyncRef.current = runOverleafSync;
@@ -522,10 +523,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     activeFile: isWholeFileEditorPath(activeFile) ? null : activeFile,
     onRemoteText: (text, context) => applyOverleafRemoteText(deps, text, context),
     onNotice: (message) => showNotice(message),
-    onNeedsSync: (paths) => {
-      for (const path of paths) externalChangesRef.current.set(path, Symbol());
-      bumpExternalChangeGeneration();
-    },
+    onNeedsSync: oweSync,
   });
   useLayoutEffect(() => {
     resumeRealtimePathsRef.current = overleafRealtime.resumePaths;

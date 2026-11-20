@@ -44,7 +44,7 @@ fn a_file_still_marked_up_is_not_merged_again_while_overleaf_moves_on() {
     assert!(conflict.markers);
     let marked = text(&root, "main.tex");
     assert_eq!(marked.matches("<<<<<<<").count(), 1, "{marked}");
-    assert_eq!(read_local(&root, &conflict.local_copy).unwrap(), AGENT);
+    assert_eq!(read_local(&root, &conflict.set_aside).unwrap(), AGENT);
 
     // The co-author keeps typing in the same paragraph; nobody has resolved
     // the conflict yet. The next sync (live mode polls every 45 s, often
@@ -57,8 +57,8 @@ fn a_file_still_marked_up_is_not_merged_again_while_overleaf_moves_on() {
     assert!(second.pushed.is_empty());
     assert!(server.uploads().is_empty());
     assert_eq!(text(&root, "main.tex"), marked);
-    assert_eq!(read_local(&root, &conflict.local_copy).unwrap(), AGENT);
-    assert_eq!(conflict_copies(&root), std::slice::from_ref(&conflict.local_copy));
+    assert_eq!(read_local(&root, &conflict.set_aside).unwrap(), AGENT);
+    assert!(conflict_copies(&root).is_empty(), "no duplicate joins the project");
     // Still against the copy of Overleaf's the markers show.
     assert_eq!(state_files(&root)["main.tex"], sha256_hex(TYPED));
     assert_eq!(read_base_copy(&root, "main.tex").unwrap().as_bytes(), TYPED);
@@ -85,12 +85,12 @@ fn a_file_still_marked_up_is_not_merged_again_while_overleaf_moves_on() {
     let (server, third) = sync_against(&root, &[("main.tex", KEPT_TYPING)]);
     assert!(third.unresolved_conflicts.is_empty());
     let [again] = &third.conflicts[..] else { panic!("{:?}", third.conflicts) };
-    assert_ne!(again.local_copy, conflict.local_copy);
+    assert_ne!(again.set_aside, conflict.set_aside);
     let remarked = text(&root, "main.tex");
     assert_eq!(remarked.matches("<<<<<<<").count(), 1, "{remarked}");
     assert!(remarked.contains("And kept typing."), "{remarked}");
-    assert_eq!(read_local(&root, &again.local_copy).unwrap(), AGENT);
-    assert_eq!(read_local(&root, &conflict.local_copy).unwrap(), AGENT);
+    assert_eq!(read_local(&root, &again.set_aside).unwrap(), AGENT);
+    assert_eq!(read_local(&root, &conflict.set_aside).unwrap(), AGENT);
     assert!(server.uploads().is_empty());
 }
 
@@ -129,17 +129,15 @@ fn a_marked_up_file_is_not_held_for_newer_edits_while_overleaf_stands_still() {
 }
 
 #[test]
-fn a_conflict_copy_never_takes_the_name_of_an_existing_file() {
+fn a_set_aside_copy_never_takes_the_place_of_an_earlier_one() {
+    let dir = ".research/overleaf-conflicts";
     let taken =
-        ["main (local conflict 20261108-0217).tex", "main (local conflict 20261108-0217 2).tex"];
-    let name = |path| conflict_copy_name(path, "20261108-0217", |name| taken.contains(&name));
-    assert_eq!(name("main.tex"), "main (local conflict 20261108-0217 3).tex");
-    assert_eq!(name("other.tex"), "other (local conflict 20261108-0217).tex");
-    assert_eq!(
-        conflict_copy_name("sec/intro.tex", "20261108-0217", |name| name
-            == "sec/intro (local conflict 20261108-0217).tex"),
-        "sec/intro (local conflict 20261108-0217 2).tex"
-    );
+        [format!("{dir}/20261108-0217/main.tex"), format!("{dir}/20261108-0217 2/main.tex")];
+    let name = |path| set_aside_path(path, "20261108-0217", |name| taken.iter().any(|t| t == name));
+    assert_eq!(name("main.tex"), format!("{dir}/20261108-0217 3/main.tex"));
+    assert_eq!(name("sec/intro.tex"), format!("{dir}/20261108-0217/sec/intro.tex"));
+    assert!(is_excluded(&name("main.tex")), "never synced");
+    // Copies an earlier Lattice made beside the file still never go up.
     assert!(is_conflict_copy("main (local conflict 20261108-0217 3).tex"));
 }
 
@@ -231,7 +229,7 @@ fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
     let conflicted = plan(&state, ours);
     assert_eq!(conflicted.conflict.len(), 1);
     let markers = String::from_utf8(conflicted.conflict[0].resolved.clone()).unwrap();
-    assert!(markers.contains("\n||||||| original\n"), "{markers}");
+    assert!(markers.contains("\n||||||| Last sync\n"), "{markers}");
     assert_eq!(conflicted.files["references.bib"], sha256_hex(theirs));
 
     // What the next sync sees for each choice in the resolver.

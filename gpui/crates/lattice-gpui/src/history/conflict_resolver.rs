@@ -134,11 +134,6 @@ impl ConflictResolver {
         self.agent_undo
     }
 
-    /// Whether the sides are named as an Overleaf sync's, for a scenario.
-    pub fn is_overleaf(&self) -> bool {
-        self.overleaf
-    }
-
     /// How many spots are left to decide, for a scenario.
     pub fn spots(&self) -> usize {
         self.hunks.len()
