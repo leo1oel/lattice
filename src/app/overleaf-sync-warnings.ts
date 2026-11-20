@@ -1,8 +1,26 @@
 import { t } from "@lingui/core/macro";
-import type { OverleafSyncResult } from "../app-types";
+import type { OverleafNameProblem, OverleafSyncResult } from "../app-types";
 import type { AppToastAction } from "../telemetry/app-log-store";
 
 export type OverleafSyncWarning = { message: string; action?: AppToastAction };
+
+/** Why a file stays here: the rule of Overleaf's that its name breaks. */
+function nameWarning(file: string, problem: OverleafNameProblem): string {
+  switch (problem) {
+    case "backslash":
+      return t`Overleaf does not allow a backslash in file names, so ${file} stays on this machine. Rename it to sync it.`;
+    case "asterisk":
+      return t`Overleaf does not allow an asterisk in file names, so ${file} stays on this machine. Rename it to sync it.`;
+    case "controlCharacter":
+      return t`Overleaf does not allow control characters in file names, so ${file} stays on this machine. Rename it to sync it.`;
+    case "dotsOrSpaces":
+      return t`Overleaf does not allow a name that is a dot, or starts or ends with a space, so ${file} stays on this machine. Rename it to sync it.`;
+    case "reserved":
+      return t`Overleaf reserves the name ${file} at the top of a project, so it stays on this machine. Rename it to sync it.`;
+    case "tooLong":
+      return t`Overleaf does not allow names longer than 1024 characters, so ${file} stays on this machine. Rename it to sync it.`;
+  }
+}
 
 /**
  * What a finished sync left undone that would otherwise look synced: one
@@ -16,6 +34,9 @@ export function overleafSyncWarnings(
   // An empty list joins to "", so each list below is said only when it names a file.
   let files = result.skippedLarge?.join(", ");
   if (files) warnings.push(t`Too large for Overleaf, so left on this machine: ${files}.`);
+  // A name Overleaf refuses would fail its upload and, with it, the sync:
+  // the file stays here, named on every sync with what to rename.
+  for (const { path, problem } of result.skippedNames ?? []) warnings.push(nameWarning(path, problem));
   // A download that would have emptied or gutted files nobody changed on
   // Overleaf. Said once: the files simply stay, and the reason is that
   // Overleaf's own history does not confirm the change.

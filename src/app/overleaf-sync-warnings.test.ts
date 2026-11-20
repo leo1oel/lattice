@@ -19,6 +19,17 @@ describe("overleafSyncWarnings", () => {
     expect(resolve).toHaveBeenCalledWith("main.tex");
   });
 
+  it("names each file whose name Overleaf refuses, with the rule it breaks", () => {
+    const skippedNames = [
+      { path: "cvpr/\\paperbib.bib", problem: "backslash" as const },
+      { path: "figs/*.png", problem: "asterisk" as const },
+    ];
+    expect(overleafSyncWarnings(result({ skippedNames }), vi.fn())).toEqual([
+      { message: "Overleaf does not allow a backslash in file names, so cvpr/\\paperbib.bib stays on this machine. Rename it to sync it." },
+      { message: "Overleaf does not allow an asterisk in file names, so figs/*.png stays on this machine. Rename it to sync it." },
+    ]);
+  });
+
   it("names every file uploaded over a co-author's edit in one warning", () => {
     const warnings = overleafSyncWarnings(result({ pushed: ["a.tex", "b.tex"], uploadedOverEdits: ["a.tex", "b.tex"] }), vi.fn());
     expect(warnings).toEqual([{

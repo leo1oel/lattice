@@ -4,7 +4,7 @@
 //! (`overleaf-sync-outcome.ts`), and how a failure reads
 //! (`overleaf-sync-failures.ts`, `overleaf-realtime-model.ts`).
 
-use lattice_core::overleaf::{OverleafConflict, OverleafSyncResult};
+use lattice_core::overleaf::{NameProblem, OverleafConflict, OverleafSyncResult};
 use lattice_i18n::t;
 
 /// The line a finished sync ends on: what moved, or why nothing did. A file
@@ -60,6 +60,11 @@ pub fn warnings(result: &OverleafSyncResult) -> Vec<Warning> {
             files = &files
         ));
     }
+    // A name Overleaf refuses would fail its upload and, with it, the sync:
+    // the file stays here, named on every sync with what to rename.
+    for skipped in &result.skipped_names {
+        said.push(name_warning(&skipped.path, skipped.problem));
+    }
     // A download that would have emptied or gutted files nobody changed on
     // Overleaf. Said once: the files simply stay, and the reason is that
     // Overleaf's own history does not confirm the change.
@@ -112,6 +117,36 @@ pub fn warnings(result: &OverleafSyncResult) -> Vec<Warning> {
     }
     }));
     warnings
+}
+
+/// Why a file stays here: the rule of Overleaf's that its name breaks.
+fn name_warning(file: &str, problem: NameProblem) -> String {
+    match problem {
+        NameProblem::Backslash => t!(
+            "Overleaf does not allow a backslash in file names, so {file} stays on this machine. Rename it to sync it.",
+            file = file
+        ),
+        NameProblem::Asterisk => t!(
+            "Overleaf does not allow an asterisk in file names, so {file} stays on this machine. Rename it to sync it.",
+            file = file
+        ),
+        NameProblem::ControlCharacter => t!(
+            "Overleaf does not allow control characters in file names, so {file} stays on this machine. Rename it to sync it.",
+            file = file
+        ),
+        NameProblem::DotsOrSpaces => t!(
+            "Overleaf does not allow a name that is a dot, or starts or ends with a space, so {file} stays on this machine. Rename it to sync it.",
+            file = file
+        ),
+        NameProblem::Reserved => t!(
+            "Overleaf reserves the name {file} at the top of a project, so it stays on this machine. Rename it to sync it.",
+            file = file
+        ),
+        NameProblem::TooLong => t!(
+            "Overleaf does not allow names longer than 1024 characters, so {file} stays on this machine. Rename it to sync it.",
+            file = file
+        ),
+    }
 }
 
 /// What a sync's conflicts say: the files with spots to resolve (`marked`),
@@ -219,6 +254,21 @@ mod tests {
         assert_eq!(said.len(), 2);
         assert!(said[0].message.contains("video.mp4") && said[0].resolve.is_none());
         assert_eq!(said[1].resolve.as_deref(), Some("main.tex"));
+    }
+
+    #[test]
+    fn a_file_overleaf_refuses_by_name_is_named_with_the_rule_it_breaks() {
+        let mut synced = result();
+        synced.skipped_names = vec![lattice_core::overleaf::RejectedName {
+            path: r"cvpr/\paperbib.bib".into(),
+            problem: NameProblem::Backslash,
+        }];
+        let said = warnings(&synced);
+        assert_eq!(said.len(), 1);
+        assert_eq!(
+            said[0].message,
+            r"Overleaf does not allow a backslash in file names, so cvpr/\paperbib.bib stays on this machine. Rename it to sync it."
+        );
     }
 
     #[test]

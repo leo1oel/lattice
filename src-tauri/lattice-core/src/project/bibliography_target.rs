@@ -71,12 +71,34 @@ pub(crate) fn is_internal_path(relative: &str) -> bool {
     })
 }
 
+/// Whether `relative` may hold the writer's bibliography: not under a
+/// hidden folder, and a name Overleaf takes, so never one with a TeX macro
+/// left in it (`cvpr/\paperbib.bib`, which an earlier version created from
+/// `\bibliography{\paperbib}`) that would then fail every Overleaf sync.
+/// Every candidate [`resolve_target`] weighs passes it, and every citation
+/// write checks it again before touching the disk (`history.rs`).
+pub(crate) fn writable_bibliography(relative: &str) -> bool {
+    !relative.is_empty()
+        && !is_internal_path(relative)
+        && crate::overleaf::name_problem(relative).is_none()
+}
+
+/// The refusal when a write would make a bibliography at `relative`.
+pub(crate) fn unwritable_bibliography(relative: &str) -> String {
+    format!(
+        "Lattice will not write a bibliography at {relative}: Overleaf does not allow that name."
+    )
+}
+
 /// The bibliography a write should go to, recording it as the manifest's
 /// primary bibliography when that named another file, so the interface and
 /// every later read agree with where the entry went.
 pub fn citation_bibliography(root: &Path) -> Result<BibliographyTarget, String> {
     let mut manifest = read_manifest(root)?;
     let target = resolve_target(root, &manifest.primary_bibliography, document_of(&manifest));
+    if !writable_bibliography(&target.path) {
+        return Err(unwritable_bibliography(&target.path));
+    }
     if target.path != manifest.primary_bibliography {
         manifest.primary_bibliography = target.path.clone();
         write_manifest(root, &manifest)?;
@@ -113,7 +135,7 @@ pub(crate) fn resolve_target(
     let used = document.map(|document| document_bibliographies(root, document)).unwrap_or_default();
     let exists = |relative: &str| safe_path(root, relative).is_ok_and(|path| path.is_file());
     let path = if used.is_empty() {
-        let usable = !primary.is_empty() && !is_internal_path(primary) && !primary.contains('\\');
+        let usable = writable_bibliography(primary);
         if usable && exists(primary) {
             primary.to_string()
         } else {
@@ -145,11 +167,14 @@ pub(crate) fn first_visible_bibliography(root: &Path) -> Option<String> {
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_file())
         .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "bib"))
-        .min_by_key(|entry| entry.depth())
-        .and_then(|entry| {
+        .filter_map(|entry| {
             let relative = entry.path().strip_prefix(root).ok()?;
-            Some(relative.to_string_lossy().replace('\\', "/"))
+            let relative = relative.components().map(|part| part.as_os_str().to_string_lossy());
+            let relative = relative.collect::<Vec<_>>().join("/");
+            writable_bibliography(&relative).then_some((entry.depth(), relative))
         })
+        .min_by_key(|(depth, _)| *depth)
+        .map(|(_, relative)| relative)
 }
 
 /// `\bibliography{a,b}` and `\addbibresource[…]{c.bib}` (and biblatex's
@@ -217,7 +242,7 @@ pub(crate) fn document_bibliographies(root: &Path, document: &str) -> Vec<String
     }
     let mut seen = BTreeSet::new();
     found.retain(|path| {
-        !is_internal_path(path) && path.ends_with(".bib") && seen.insert(path.clone())
+        writable_bibliography(path) && path.ends_with(".bib") && seen.insert(path.clone())
     });
     found
 }

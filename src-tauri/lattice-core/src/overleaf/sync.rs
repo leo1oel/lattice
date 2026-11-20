@@ -187,7 +187,7 @@ fn sync_files(
                 }
             },
         };
-    let LocalFiles { files: mut local, oversized } = read;
+    let LocalFiles { files: mut local, oversized, rejected } = read;
     wide_event::record("local_files", local.len());
     // The table can never agree with Overleaf on a path set aside, so later
     // syncs download to see it again rather than trust the agreed copy.
@@ -227,6 +227,7 @@ fn sync_files(
     let mut result = OverleafSyncResult {
         refused_incoming,
         skipped_large: oversized,
+        skipped_names: rejected,
         automatic_remote_deletes,
         skipped_remote_deletes: plan.skipped_remote_deletes,
         newly_unresolved_conflicts: newly_held(&linked.state, &plan.unresolved_conflicts),

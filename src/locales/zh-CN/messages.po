@@ -11975,6 +11975,26 @@ msgstr "Overleaf 没有说明这次修改是否已生效"
 msgid "Overleaf disconnected this session."
 msgstr "Overleaf 断开了这次会话"
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow a backslash in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf 不允许文件名中有反斜杠，{file} 只留在本机。重命名后即可同步。"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow a name that is a dot, or starts or ends with a space, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf 不允许名称为点号，也不允许以空格开头或结尾，{file} 只留在本机。重命名后即可同步。"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow an asterisk in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf 不允许文件名中有星号，{file} 只留在本机。重命名后即可同步。"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow control characters in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf 不允许文件名中有控制字符，{file} 只留在本机。重命名后即可同步。"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow names longer than 1024 characters, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf 不允许名称超过 1024 个字符，{file} 只留在本机。重命名后即可同步。"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf does not offer the websocket transport (offers {transports})"
 msgstr "Overleaf 不提供 WebSocket 连接方式（只提供 {transports}）"
@@ -12087,6 +12107,10 @@ msgstr "{file} 在本机有修改时被 Overleaf 上的协作者重命名或删�
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
 msgstr "此文件暂停同步，Lattice 正在核对"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf reserves the name {file} at the top of a project, so it stays on this machine. Rename it to sync it."
+msgstr "{file} 是 Overleaf 在项目顶层保留的名称，只留在本机。重命名后即可同步。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf returned {status} for the request."

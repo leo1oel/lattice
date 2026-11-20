@@ -12,7 +12,8 @@
 //! - `GET /project/{id}/diff`: a file's text between two versions, as
 //!   unchanged, deleted and inserted runs, the edits naming who made them.
 //! - Overleaf's own history and the chat (`overleaf_history_mock`).
-//! - `POST /project/{id}/upload`: one file, which becomes the next version.
+//! - `POST /project/{id}/upload`: one file, which becomes the next version;
+//!   a name Overleaf refuses answers HTTP 400 `invalid_filename`, as there.
 //! - `/socket.io/…`: a gateway error, as when the live channel cannot be
 //!   reached (syncing carries on without it, and the client keeps retrying),
 //!   unless the stand-in was started
@@ -595,6 +596,17 @@ fn answer(stream: TcpStream, project: Arc<Mutex<Project>>) -> std::io::Result<()
             ("POST", p) if p == format!("{project_path}/upload") => {
                 let content_type = headers.get("content-type").cloned().unwrap_or_default();
                 match multipart(&body, &content_type) {
+                    // As Overleaf answers a name its SafePath refuses.
+                    Some((relative, _))
+                        if lattice_core::overleaf::name_problem(&relative).is_some() =>
+                    {
+                        (
+                            400,
+                            "application/json",
+                            None,
+                            b"{\"success\":false,\"error\":\"invalid_filename\"}".to_vec(),
+                        )
+                    }
                     Some((relative, bytes)) => {
                         project.files.insert(relative.clone(), bytes);
                         bump(&mut project, &relative, ME);

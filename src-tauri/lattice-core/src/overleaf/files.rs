@@ -8,6 +8,7 @@
 //! same file land together instead of one side being pushed aside.
 
 use super::link::{load_state, SyncState, STATE_DIR, STATE_FILE};
+use super::names::{name_problem, RejectedName};
 use super::review::HistoryFrom;
 use crate::project_fs::ProjectDir;
 use crate::util::err;
@@ -310,11 +311,14 @@ pub(super) fn write_local_file(root: &Path, rel: &str, bytes: &[u8]) -> Result<(
 pub(super) struct LocalFiles {
     pub files: BTreeMap<String, Vec<u8>>,
     pub oversized: Vec<String>,
+    /// Files whose names Overleaf refuses (see `names`), left out.
+    pub rejected: Vec<RejectedName>,
 }
 
 /// Walk the project and load every syncable file (path → bytes).
 pub(super) fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
-    let mut local = LocalFiles { files: BTreeMap::new(), oversized: Vec::new() };
+    let mut local =
+        LocalFiles { files: BTreeMap::new(), oversized: Vec::new(), rejected: Vec::new() };
     let build_pdf = BuildPdf::of(root);
     let walker = walkdir::WalkDir::new(root).into_iter().filter_entry(|e| {
         let name = e.file_name().to_string_lossy();
@@ -336,6 +340,12 @@ pub(super) fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
             || build_pdf.is(&rel)
             || is_generated_beside_source(&rel, |source| disk_path(root, source).is_file())
         {
+            continue;
+        }
+        // Overleaf answers an upload of one with HTTP 400, and a sync that
+        // tried would fail on it with every other file it had to send.
+        if let Some(problem) = name_problem(&rel) {
+            local.rejected.push(RejectedName { path: rel, problem });
             continue;
         }
         // Checked from the directory entry, before reading: the whole project

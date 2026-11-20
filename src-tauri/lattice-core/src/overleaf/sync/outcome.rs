@@ -1,6 +1,7 @@
 //! What a sync reports: the files it moved, merged or left alone, and its
 //! shape (counts, never paths) on the wide event.
 
+use super::super::names::RejectedName;
 use super::stale_folders::KeptFolder;
 use super::{CaseCollision, SyncState};
 use crate::wide_event;
@@ -40,6 +41,11 @@ pub struct OverleafSyncResult {
     /// Reported rather than dropped quietly: to the writer they look synced.
     #[serde(default)]
     pub skipped_large: Vec<String>,
+    /// Files left alone because Overleaf refuses their names (a backslash, an
+    /// asterisk; see `names`), with why. Named on every sync, like
+    /// `skipped_large`, until the file is renamed or deleted.
+    #[serde(default)]
+    pub skipped_names: Vec<RejectedName>,
     /// Files kept as they are here although Overleaf's download had them
     /// empty or cut to a fraction, because Overleaf's history does not confirm
     /// a change to them since the last sync (see [`settle_destructive`]). Each
@@ -108,6 +114,7 @@ pub(super) fn record_result(result: &OverleafSyncResult) {
         ("deleted_local", result.deleted_local.len()),
         ("skipped_remote_deletes", result.skipped_remote_deletes.len()),
         ("skipped_large", result.skipped_large.len()),
+        ("skipped_names", result.skipped_names.len()),
         ("refused_incoming", result.refused_incoming.len()),
         ("edited_during_sync", result.edited_during_sync.len()),
         ("uploaded_over_edits", result.uploaded_over_edits.len()),

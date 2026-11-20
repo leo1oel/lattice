@@ -550,6 +550,14 @@ export type OverleafThread = {
   resolvedAt: string | null;
 };
 
+/** Why Overleaf refuses a file name (lattice-core `overleaf/names.rs`). */
+export type OverleafNameProblem = "backslash" | "asterisk" | "controlCharacter" | "dotsOrSpaces" | "reserved" | "tooLong";
+
+export type OverleafRejectedName = {
+  path: string;
+  problem: OverleafNameProblem;
+};
+
 export type OverleafSyncResult = {
   pulled: string[];
   pushed: string[];
@@ -562,6 +570,8 @@ export type OverleafSyncResult = {
   automaticRemoteDeletes?: string[];
   /** Left behind for being bigger than Overleaf will take. */
   skippedLarge?: string[];
+  /** Left behind because Overleaf refuses their names, with why. */
+  skippedNames?: OverleafRejectedName[];
   /**
    * Kept as they are here although Overleaf's download had them empty or
    * cut to a fraction, without Overleaf's history confirming the change.
