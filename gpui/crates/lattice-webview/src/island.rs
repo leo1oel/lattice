@@ -32,7 +32,9 @@
 //!   page and the project files granted to it, never anything else; no frame
 //!   navigates anywhere but the island's own bundle.
 //! - **Focus.** When the page takes the keyboard, GPUI's focus moves to the
-//!   island, so the app's key context is the island's; when GPUI's focus
+//!   island, so the app's key context is the island's (AppKit says when, as
+//!   the page's view becomes first responder, and the bridge where it
+//!   cannot); when GPUI's focus
 //!   leaves the island while the page still holds AppKit's first responder
 //!   (a shortcut from the page opened the palette, or GPUI moved focus while
 //!   the window was inactive), the first responder goes back to GPUI's view.
@@ -212,6 +214,8 @@ pub struct Island {
     file_drops: bool,
     _inbox: Option<Task<()>>,
     _drops: Option<Task<()>>,
+    /// The page's view taking AppKit's keyboard (`native::watch_keyboard`).
+    _keyboard: Option<Task<()>>,
     _drawn_poll: Option<Task<()>>,
     _webview_subscriptions: Vec<Subscription>,
     _subscriptions: Vec<Subscription>,
@@ -256,6 +260,7 @@ impl Island {
             file_drops: false,
             _inbox: None,
             _drops: None,
+            _keyboard: None,
             _drawn_poll: None,
             _webview_subscriptions: Vec::new(),
             _subscriptions: subscriptions,
@@ -418,6 +423,7 @@ impl Island {
         self.webview = None;
         self.handle = None;
         self._inbox = None;
+        self._keyboard = None;
         self._drawn_poll = None;
         self._webview_subscriptions.clear();
         self.page_ready = false;
