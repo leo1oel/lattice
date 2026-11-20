@@ -23,13 +23,23 @@ permissions:
 
 jobs:
   release:
-    # macos-latest is Apple silicon (arm64), which is all we target.
-    runs-on: macos-latest
+    # The Mac mini through runner-up (pool lattice-mac), Apple silicon like
+    # every build we ship. Setting the repository variable
+    # LATTICE_MACOS_RUNNER to macos-latest moves this job and gpui-package.yml's
+    # back to GitHub's runners (docs/release-process.md, "Where the macOS jobs
+    # run").
+    runs-on: ${{ vars.LATTICE_MACOS_RUNNER || 'lattice-mac' }}
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v7
         with:
           # Release notes compare this tag with its nearest released ancestor.
           fetch-depth: 0
+
+      # On the Mac mini: the in-app lock for the whole job, the disk floor,
+      # and no sccache. Nothing on GitHub's runners.
+      - name: Prepare the Mac
+        run: scripts/release-macos-job.sh begin
 
       - name: Prepare version-specific release notes
         id: release-notes
@@ -115,11 +125,15 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           version: 10
+          # The default, ~/setup-pnpm, is the Mac mini owner's home.
+          dest: ${{ runner.temp }}/setup-pnpm
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: pnpm
+          # On the Mac mini pnpm uses the owner's store, as every checkout
+          # there does; a restored tarball would be unpacked into it.
+          cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
 
       - name: Read the minimum macOS version
         id: macos-version
@@ -127,14 +141,21 @@ jobs:
           echo "value=$(node -p "require('./src-tauri/tauri.conf.json').bundle.macOS.minimumSystemVersion")" \
             >> "$GITHUB_OUTPUT"
 
+      # setup-bun installs into ~/.bun/bin; keep it in the job's own folder.
       - uses: oven-sh/setup-bun@v2
+        env:
+          HOME: ${{ runner.temp }}/bun-home
         with:
           bun-version: 1.4.4
 
       # Installs the Rust release rust-toolchain.toml pins, with its components and target.
       - run: rustup toolchain install
 
+      # GitHub's runners only: the warm build it restores was compiled under
+      # /Users/runner, so on the Mac mini Cargo would rebuild it all anyway,
+      # and it would unpack the registry into the owner's ~/.cargo.
       - uses: Swatinem/rust-cache@v2
+        if: runner.environment == 'github-hosted'
         with:
           workspaces: src-tauri
           # Restores the warm dependency build from release-cache.yml. The key
@@ -201,36 +222,14 @@ jobs:
           # scripts/private-fonts.ts fails the build rather than falling back.
           echo "LATTICE_PRIVATE_FONTS_REQUIRED=1" >> "$GITHUB_ENV"
 
+      # The job's own keychain, put in front of the user's search list; the
+      # cleanup step at the end deletes it whatever happened.
       - name: Import Apple Developer ID certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          certificate_path="$RUNNER_TEMP/apple-developer-certificate.p12"
-          keychain_path="$RUNNER_TEMP/lattice-signing.keychain-db"
-
-          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate_path"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
-          security set-keychain-settings -lut 21600 "$keychain_path"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
-          security import "$certificate_path" \
-            -k "$keychain_path" \
-            -P "$APPLE_CERTIFICATE_PASSWORD" \
-            -T /usr/bin/codesign
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -s \
-            -k "$KEYCHAIN_PASSWORD" \
-            "$keychain_path"
-          security list-keychains -d user -s "$keychain_path"
-
-          signing_identity="$(
-            security find-identity -v -p codesigning "$keychain_path" |
-              awk -F '"' '/Developer ID Application/ { print $2; exit }'
-          )"
-          test -n "$signing_identity"
-          echo "APPLE_SIGNING_IDENTITY=$signing_identity" >> "$GITHUB_ENV"
+        run: scripts/release-macos-job.sh import-certificate
 
       # Tag-scoped caches cannot be reused by later tags, so this is restore
       # only. release-cache.yml builds and saves the unsigned runtime on main;
@@ -250,11 +249,7 @@ jobs:
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
-        run: |
-          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
-          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
-          chmod 600 "$api_key_path"
-          echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
+        run: scripts/release-macos-job.sh api-key
 
       - name: Build, sign, and publish the release
         uses: tauri-apps/tauri-action@v1
@@ -346,6 +341,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
+
+      # Deletes the signing keychain and the key files and releases the
+      # Mac mini's lock, on success, failure or cancellation alike.
+      - name: Remove signing material
+        if: always()
+        run: scripts/release-macos-job.sh cleanup
 
   # The native app for Apple silicon: the GPUI app under the Tauri app's
   # identity, built, signed and notarized as gpui-package.yml builds it, with

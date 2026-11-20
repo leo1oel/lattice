@@ -38,19 +38,30 @@ env:
 
 jobs:
   # Named `macos`, with gpui.yml's environment, so rust-cache's key is the
-  # one gpui.yml's macos job saves from main: this restores that warm release
-  # build (about two minutes instead of a cold 30) and never writes a cache.
+  # one gpui.yml's macos job saves from main: on GitHub's runners this
+  # restores that warm release build (about two minutes instead of a cold 30)
+  # and never writes a cache.
   macos:
-    runs-on: macos-latest
-    timeout-minutes: 120
+    # The Mac mini through runner-up, as release.yml's release job; the
+    # LATTICE_MACOS_RUNNER repository variable moves both back to GitHub.
+    runs-on: ${{ vars.LATTICE_MACOS_RUNNER || 'lattice-mac' }}
+    # The Mac mini builds cold and may first wait up to 90 minutes for its
+    # in-app lock (scripts/release-macos-job.sh).
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v7
+
+      - name: Prepare the Mac
+        run: scripts/release-macos-job.sh begin
 
       - name: Install the GPUI toolchain
         working-directory: gpui
         run: rustup toolchain install
 
+      # GitHub's runners only, as in release.yml: a build compiled under
+      # /Users/runner is no use on the Mac mini.
       - uses: Swatinem/rust-cache@v2
+        if: runner.environment == 'github-hosted'
         with:
           workspaces: gpui
           save-if: false
@@ -58,7 +69,10 @@ jobs:
       - name: Set up pnpm
         uses: ./.github/actions/setup-pnpm
 
+      # setup-bun installs into ~/.bun/bin; keep it in the job's own folder.
       - uses: oven-sh/setup-bun@v2
+        env:
+          HOME: ${{ runner.temp }}/bun-home
         with:
           bun-version: 1.4.4
 
@@ -123,47 +137,19 @@ jobs:
         if: steps.synara-runtime-cache.outputs.cache-hit != 'true'
         run: bun install --cwd "$SYNARA_SOURCE_DIR" --frozen-lockfile
 
-      # As release.yml imports it.
+      # As release.yml imports them; the last step removes them.
       - name: Import Apple Developer ID certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          certificate_path="$RUNNER_TEMP/apple-developer-certificate.p12"
-          keychain_path="$RUNNER_TEMP/lattice-signing.keychain-db"
-
-          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate_path"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
-          security set-keychain-settings -lut 21600 "$keychain_path"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
-          security import "$certificate_path" \
-            -k "$keychain_path" \
-            -P "$APPLE_CERTIFICATE_PASSWORD" \
-            -T /usr/bin/codesign
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -s \
-            -k "$KEYCHAIN_PASSWORD" \
-            "$keychain_path"
-          security list-keychains -d user -s "$keychain_path"
-
-          signing_identity="$(
-            security find-identity -v -p codesigning "$keychain_path" |
-              awk -F '"' '/Developer ID Application/ { print $2; exit }'
-          )"
-          test -n "$signing_identity"
-          echo "APPLE_SIGNING_IDENTITY=$signing_identity" >> "$GITHUB_ENV"
+        run: scripts/release-macos-job.sh import-certificate
 
       - name: Prepare App Store Connect API key
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
-        run: |
-          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
-          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
-          chmod 600 "$api_key_path"
-          echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
+        run: scripts/release-macos-job.sh api-key
 
       - name: Bundle, sign and notarize
         env:
@@ -228,3 +214,7 @@ jobs:
             ${{ runner.temp }}/gpui-bundle/latest*.json
           if-no-files-found: error
           retention-days: 14
+
+      - name: Remove signing material
+        if: always()
+        run: scripts/release-macos-job.sh cleanup

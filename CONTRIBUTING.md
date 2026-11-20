@@ -148,6 +148,10 @@ Unless you are changing the agent surface itself, stop here — you can run the
 whole gate, the frontend dev server (`pnpm dev`), and every test without the
 Synara source.
 
+### Release builds run on the maintainer's Mac mini
+
+`release.yml`'s Apple silicon build and `gpui-package.yml` run on a self-hosted runner, the maintainer's Mac mini, through [runner-up](https://github.com/kunchenguid/runner-up) (`runs-on: lattice-mac`). It serves this repository only, refuses jobs from forks' pull requests, and runs one job at a time. Setting the repository variable `LATTICE_MACOS_RUNNER` to `macos-latest` sends those jobs back to GitHub's runners. Everything else, pull-request CI included, runs on GitHub's runners as before. [`docs/release-process.md`, "Where the macOS jobs run"](docs/release-process.md#where-the-macos-jobs-run) has the setup, the signing cleanup and the fallback.
+
 ### Running the full desktop app
 
 `pnpm tauri dev` and `pnpm tauri build` do need the pinned Synara source, and
