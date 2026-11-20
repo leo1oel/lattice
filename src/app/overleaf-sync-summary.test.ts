@@ -14,7 +14,7 @@ describe("overleafSyncSummary", () => {
   });
 
   it("never calls a sync up to date when it stopped on a conflict of its own", () => {
-    const conflict = (path: string) => ({ path, localCopy: path, markers: true });
+    const conflict = (path: string) => ({ path, setAside: "", markers: true });
     expect(overleafSyncSummary(result({ conflicts: [conflict("main.tex")] })))
       .toBe("Overleaf: waiting on conflict resolution in main.tex.");
     expect(overleafSyncSummary(result({ conflicts: [conflict("main.tex")], unresolvedConflicts: ["main.tex", "refs.bib"] })))

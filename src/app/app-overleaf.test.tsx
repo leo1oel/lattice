@@ -203,7 +203,7 @@ describe("Overleaf sync", () => {
     .find(({ entry }) => entry?.title === "A merge with Overleaf is waiting on you");
 
   it("offers to finish a git merge the sync stopped on, and sends the resolution up", async () => {
-    const conflict = { path: "fig.png", localCopy: "fig.png", markers: false };
+    const conflict = { path: "fig.png", setAside: "", markers: false };
     renderOverleafPaper({
       overleaf_link: () => overleafLink({ syncVia: "git" }),
       overleaf_sync: () => overleafSyncResult({ conflicts: [conflict], mergeOpen: true }),
@@ -230,7 +230,7 @@ describe("Overleaf sync", () => {
   it("cancels a git merge only once asked, and then stops offering it", async () => {
     renderOverleafPaper({
       overleaf_link: () => overleafLink({ syncVia: "git" }),
-      overleaf_sync: () => overleafSyncResult({ conflicts: [{ path: "fig.png", localCopy: "fig.png", markers: false }], mergeOpen: true }),
+      overleaf_sync: () => overleafSyncResult({ conflicts: [{ path: "fig.png", setAside: "", markers: false }], mergeOpen: true }),
       overleaf_git_abort_merge: null,
     }, { syncMode: "live", confirmations: true });
     fireEvent.click(await screen.findByRole("button", { name: "Sync with Overleaf" }));

@@ -325,7 +325,7 @@ export function overleafAnswer(command: string, args: Record<string, unknown> | 
         // again while open, it reports the merge still waiting.
         gitMergeOpen = true;
         const markers = context.text("main.tex").includes("<<<<<<<");
-        return { pulled: [], pushed: [], merged: [], conflicts: [{ path: "main.tex", localCopy: "main.tex", markers }], deletedLocal: [], skippedRemoteDeletes: [], refusedIncoming: [], mergeOpen: true };
+        return { pulled: [], pushed: [], merged: [], conflicts: [{ path: "main.tex", setAside: "", markers }], deletedLocal: [], skippedRemoteDeletes: [], refusedIncoming: [], mergeOpen: true };
       }
       if (syncVia === "git") {
         return { pulled: ["references.bib"], pushed: ["main.tex"], merged: [], conflicts: [], deletedLocal: [], skippedRemoteDeletes: [], refusedIncoming: [], uncommitted: ["notes.md"] };
