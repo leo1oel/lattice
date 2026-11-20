@@ -23,7 +23,6 @@ import { OtDocument, preciseOps, type OtOp } from "./ot";
 import { channelFields, projectAccess } from "./overleaf-connection-store";
 import { DocumentProofs, joinDelivery } from "./overleaf-document-proof";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
-import { leaveEveryDocument } from "./overleaf-realtime-leave";
 import { useOverleafRealtimeConnection } from "./use-overleaf-realtime-connection";
 import type { Suggester } from "./overleaf-suggestions";
 import { useOpenDocReview } from "./use-open-doc-review";
@@ -970,8 +969,9 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
       bumpReloadNonce();
     },
     pushLocal,
-    /** Before the window leaves its project (./overleaf-realtime-leave). */
-    leaveProject: () => leaveEveryDocument({ root: connectionRoot, documents, leaving, stopDocument, release }),
+    /** Before the window leaves its project (#1208). */
+    leaveProject: () => import("./overleaf-realtime-leave")
+      .then(({ leaveEveryDocument }) => leaveEveryDocument({ root: connectionRoot, documents, leaving, stopDocument, release })),
     /** After a switch that left, then failed. */
     rejoin: bumpReloadNonce,
     suspendPaths,
