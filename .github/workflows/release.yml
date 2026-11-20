@@ -210,13 +210,14 @@ jobs:
           trap 'rm -rf "$ssh_dir"' EXIT
           (umask 077 && printf '%s\n' "$LATTICE_FONTS_DEPLOY_KEY" > "$ssh_dir/deploy-key")
           # GitHub's published ed25519 host key, so the clone cannot be
-          # redirected to another host.
-          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" \
+          # redirected to another host. SSH over port 443 (ssh.github.com,
+          # the same key): the Mac mini's network closes port 22 to GitHub.
+          echo "[ssh.github.com]:443 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" \
             > "$ssh_dir/known_hosts"
 
           fonts_checkout="$RUNNER_TEMP/lattice-fonts"
           GIT_SSH_COMMAND="ssh -i $ssh_dir/deploy-key -o IdentitiesOnly=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$ssh_dir/known_hosts -o StrictHostKeyChecking=yes" \
-            git clone --quiet --depth=1 git@github.com:leo1oel/lattice-fonts.git "$fonts_checkout"
+            git clone --quiet --depth=1 ssh://git@ssh.github.com:443/leo1oel/lattice-fonts.git "$fonts_checkout"
 
           echo "LATTICE_PRIVATE_FONTS_DIR=$fonts_checkout/Timeless-Type-Family-1.094" >> "$GITHUB_ENV"
           # scripts/private-fonts.ts fails the build rather than falling back.

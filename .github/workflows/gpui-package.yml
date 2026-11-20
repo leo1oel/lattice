@@ -96,12 +96,13 @@ jobs:
           ssh_dir="$(mktemp -d "$RUNNER_TEMP/lattice-fonts-ssh.XXXXXX")"
           trap 'rm -rf "$ssh_dir"' EXIT
           (umask 077 && printf '%s\n' "$LATTICE_FONTS_DEPLOY_KEY" > "$ssh_dir/deploy-key")
-          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" \
+          # Port 443, as release.yml: the Mac mini's network closes port 22.
+          echo "[ssh.github.com]:443 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" \
             > "$ssh_dir/known_hosts"
 
           fonts_checkout="$RUNNER_TEMP/lattice-fonts"
           GIT_SSH_COMMAND="ssh -i $ssh_dir/deploy-key -o IdentitiesOnly=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$ssh_dir/known_hosts -o StrictHostKeyChecking=yes" \
-            git clone --quiet --depth=1 git@github.com:leo1oel/lattice-fonts.git "$fonts_checkout"
+            git clone --quiet --depth=1 ssh://git@ssh.github.com:443/leo1oel/lattice-fonts.git "$fonts_checkout"
 
           echo "LATTICE_PRIVATE_FONTS_DIR=$fonts_checkout/Timeless-Type-Family-1.094" >> "$GITHUB_ENV"
           echo "LATTICE_PRIVATE_FONTS_REQUIRED=1" >> "$GITHUB_ENV"
