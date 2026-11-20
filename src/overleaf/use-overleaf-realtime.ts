@@ -970,9 +970,7 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
     },
     pushLocal,
     /** Before the window leaves its project (#1208). */
-    leaveProject: () => import("./overleaf-realtime-leave")
-      .then(({ leaveEveryDocument }) => leaveEveryDocument({ root: connectionRoot, documents, leaving, stopDocument, release })),
-    /** After a switch that left, then failed. */
+    leaveProject: () => loadLeave().then(({ leaveEveryDocument }) => leaveEveryDocument({ root: connectionRoot, documents, leaving, stopDocument, release })),
     rejoin: bumpReloadNonce,
     suspendPaths,
     resumePaths,
@@ -981,3 +979,4 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
 }
 
 const increment = (count: number) => count + 1;
+const loadLeave = () => import("./overleaf-realtime-leave");
