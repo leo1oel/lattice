@@ -35,9 +35,9 @@ export function fileIcon(key: string, kind: "file" | "asset" | "paper", size = 1
 function documentGlyphKind(key: string, kind: "file" | "asset" | "paper"): FileGlyphKind {
   if (kind === "paper") return "bib";
   if (isOpenSlideDeckPath(key)) return "slides";
-  const byName = fileGlyphKind(key);
-  // An asset is a figure or a PDF; one without a known extension is a figure.
-  return kind === "asset" && byName === "text" ? "image" : byName;
+  // By name alone, as the tree draws it: a figure's extension is an image's,
+  // and a file of a kind Lattice does not know (a .docx) gets the plain page.
+  return fileGlyphKind(key);
 }
 
 export const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {

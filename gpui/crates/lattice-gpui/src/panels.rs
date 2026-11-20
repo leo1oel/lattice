@@ -83,6 +83,18 @@ pub fn present_tabs(cx: &mut App) {
                 surface: Surface::Sheet,
                 document: true,
             }
+        } else if let Ok(asset) = view.clone().downcast::<crate::asset_preview::AssetPanel>() {
+            // A figure, or any other binary file: the glyph the tree draws
+            // beside it, the plain page for a kind Lattice does not know (a
+            // .docx), as trellis-icons.tsx `documentGlyphKind` does.
+            TabLook {
+                icon: TabIcon::Glyph(GlyphKind::for_name(
+                    &asset.read(cx).path().to_string_lossy(),
+                )),
+                dirty: false,
+                surface: Surface::Sheet,
+                document: true,
+            }
         } else if view.clone().downcast::<BuildPanel>().is_ok() {
             look(Icon::HAMMER, Surface::Sheet)
         } else if view
