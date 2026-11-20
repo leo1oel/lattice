@@ -134,6 +134,22 @@ impl Run {
             json!({}),
         );
 
+        // Its tab has the plain page the tree draws beside a kind Lattice
+        // does not know, not an empty space where the icon goes.
+        let icon = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            let panel = shell
+                .view_of_document("figures/data.zip", cx)
+                .and_then(|view| shell.panel_of_view(&view))?;
+            Some(lattice_ui::dock::TabPresenter::look_of(&panel, cx).icon)
+        });
+        self.snapshot(cx, "assets-unknown-type-tab").await;
+        steps.check(
+            "a file of a kind Lattice does not know has the generic file glyph on its tab",
+            icon == Some(lattice_ui::dock::TabIcon::Glyph(lattice_ui::GlyphKind::Text)),
+            json!({ "icon": format!("{icon:?}") }),
+        );
+
         // Delete on a second bibliography asks first, as on any file.
         let notices = cx.update(crate::notices::install);
         cx.update(|cx| notices.update(cx, |stack, cx| stack.clear(cx)));
