@@ -73,6 +73,10 @@
       "zh": "AI 助手面板较宽时，对话历史菜单可以正常打开了。"
     },
     {
+      "en": "When a build or Format document suggests adding a missing package or tool, it names the TeX distribution you actually have, such as TinyTeX, MiKTeX or BasicTeX. Key labels show Ctrl instead of ⌘ on Android phones and Chromebooks.",
+      "zh": "编译或格式化文档提示添加缺少的宏包或工具时，会写出你实际安装的 TeX 发行版，例如 TinyTeX、MiKTeX 或 BasicTeX。在 Android 手机和 Chromebook 上，快捷键标签显示 Ctrl 而不是 ⌘。"
+    },
+    {
       "en": "Updates now come from Lattice's new home on GitHub, lattice-writer/lattice, with the old address as a fallback.",
       "zh": "更新现在从 Lattice 在 GitHub 上的新地址 lattice-writer/lattice 获取，旧地址作为备用。"
     },
