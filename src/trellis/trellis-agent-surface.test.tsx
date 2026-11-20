@@ -260,12 +260,27 @@ it("follows a recreated Trellis slot without moving the frame document", async (
     const originalWindow = original.contentWindow;
     const shell = original.closest<HTMLElement>(".trellis-agent-layer");
     expect(shell).toHaveAttribute("data-positioned");
+    expect(shell).not.toHaveAttribute("inert");
+    expect(shell).not.toHaveAttribute("aria-hidden");
     expect(shell?.style.left).toBe("200px");
+
+    // Another tab of the Agent's dock is selected: Trellis hides its surface.
+    act(() => { surface.style.visibility = "hidden"; });
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(shell).not.toHaveAttribute("data-positioned");
+    expect(shell).toHaveAttribute("aria-hidden", "true");
+    act(() => { surface.style.visibility = ""; });
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(shell).toHaveAttribute("data-positioned");
+    expect(shell).not.toHaveAttribute("aria-hidden");
 
     // Trellis disposes the outgoing project's slots, then creates its new own.
     act(() => { surface.removeChild(anchor); });
     await act(() => vi.advanceTimersByTimeAsync(50));
     expect(shell).not.toHaveAttribute("data-positioned");
+    // Hidden by CSS, and out of focus and the accessibility tree as well.
+    expect(shell).toHaveAttribute("inert");
+    expect(shell).toHaveAttribute("aria-hidden", "true");
     expect(original.isConnected).toBe(true);
 
     act(() => {
@@ -278,6 +293,7 @@ it("follows a recreated Trellis slot without moving the frame document", async (
     });
     await act(() => vi.advanceTimersByTimeAsync(50));
     expect(shell).toHaveAttribute("data-positioned");
+    expect(shell).not.toHaveAttribute("aria-hidden");
     expect(shell?.style.left).toBe("500px");
     expect(frame()).toBe(original);
     expect(original.contentWindow).toBe(originalWindow);

@@ -71,7 +71,8 @@ export function useTrellisAgentPlacement(
       const surface = anchor.closest<HTMLElement>(surfaceSelector);
       const trellis = surface?.closest<HTMLElement>(".trellis");
       const rect = anchor.getBoundingClientRect();
-      const clipped = surface && trellis && surface.style.visibility !== "hidden"
+      const slotShown = Boolean(surface && trellis && surface.style.visibility !== "hidden");
+      const clipped = slotShown && surface && trellis
         && intersect(clippedBounds(surface), trellis.getBoundingClientRect());
       const bounds = clipped && intersect(rect, clipped);
       let visible = bounds ? [bounds] : [];
@@ -83,8 +84,17 @@ export function useTrellisAgentPlacement(
           visible = visible.flatMap((region) => subtract(region, covered));
         }
       }
-      layer.toggleAttribute("data-positioned", visible.length > 0);
-      if (!visible.length) return;
+      const positioned = visible.length > 0;
+      layer.toggleAttribute("data-positioned", positioned);
+      // CSS hides an unplaced layer. One whose slot is hidden, detached or
+      // covered leaves focus and the accessibility tree too, or its loading
+      // status sits beside the shown panel's. A shown slot without a size yet
+      // is left to CSS: browsers keep `visibility: hidden` out of that tree.
+      const away = !slotShown || (Boolean(bounds) && !positioned);
+      layer.toggleAttribute("inert", away);
+      if (away) layer.setAttribute("aria-hidden", "true");
+      else layer.removeAttribute("aria-hidden");
+      if (!positioned) return;
 
       // The shell's containing block is the viewport. Trellis content may
       // retain its old size during a drag; clip it to the actual surface.
@@ -115,6 +125,7 @@ export function useTrellisAgentPlacement(
     window.addEventListener("resize", schedule);
     place();
     return () => {
+      for (const name of ["data-positioned", "inert", "aria-hidden"]) layer.removeAttribute(name);
       changes.disconnect();
       resize?.disconnect();
       window.removeEventListener("resize", schedule);
