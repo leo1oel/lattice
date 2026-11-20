@@ -485,13 +485,20 @@ export type OverleafLink = {
 };
 type OverleafConflict = {
   path: string;
-  localCopy: string;
   /**
-   * Whether the file has conflict markers to work through. False for one that
-   * could not be merged line by line at all — a figure, a PDF — where
-   * Overleaf's version takes the path and yours is kept beside it.
+   * Where the copy taken off the path is kept, under
+   * `.research/overleaf-conflicts/`: this Mac's text as it stood before the
+   * markers went in, or the older copy of a binary file. It never syncs.
+   */
+  setAside: string;
+  /**
+   * Whether the file has conflict markers to work through, each spot
+   * resolved in the editor. False for a binary file (a figure), where the
+   * newer copy simply takes the path.
    */
   markers?: boolean;
+  /** For a binary file, whose copy is now on the path. */
+  kept?: "thisMac" | "overleaf" | null;
 };
 /** What a pending sync would do to one file, before anything is written. */
 export type OverleafChangeKind =

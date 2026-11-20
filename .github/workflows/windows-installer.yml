@@ -21,7 +21,7 @@ jobs:
   build:
     if: >-
       github.event_name != 'workflow_run' ||
-      (github.repository == 'leo1oel/lattice' &&
+      ((github.repository == 'lattice-writer/lattice' || github.repository == 'leo1oel/lattice') &&
        github.event.workflow_run.head_repository.full_name == github.repository &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.conclusion == 'success' &&
@@ -123,7 +123,8 @@ jobs:
   attach:
     needs: build
     if: >-
-      github.event_name == 'workflow_run' && github.repository == 'leo1oel/lattice' &&
+      github.event_name == 'workflow_run' &&
+      (github.repository == 'lattice-writer/lattice' || github.repository == 'leo1oel/lattice') &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.conclusion == 'success' &&

@@ -184,29 +184,8 @@ fn is_compiled_pdf(path: &str, has: impl Fn(&str) -> bool) -> bool {
     }
 }
 
-/// The PDF a build writes for the project's default root document, at any
-/// depth (`project::default_root_pdf`): this copy's build output, which never
-/// syncs in either direction. [`is_compiled_pdf`] only knows a PDF at the
-/// top by the `.tex` beside it, so `cvpr/main.pdf` went up as a figure, came
-/// back down over this copy's build from a collaborator's, and was shown as
-/// if built here. Read from this copy's manifest on every sync, so a PDF
-/// that stops being the default root's syncs again, and such a file on
-/// Overleaf never comes down. Compared without case, as the disk is.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(super) struct BuildPdf(Option<String>);
-
-impl BuildPdf {
-    /// None for a folder with no manifest yet (a clone never opened here).
-    pub fn of(root: &Path) -> Self {
-        let manifest = crate::project::read_manifest(root).ok();
-        let pdf = manifest.as_ref().and_then(crate::project::default_root_pdf);
-        Self(pdf.map(|path| path.to_ascii_lowercase()))
-    }
-
-    pub fn is(&self, path: &str) -> bool {
-        self.0.as_deref() == Some(path.to_ascii_lowercase().as_str())
-    }
-}
+mod build_pdf;
+pub(super) use build_pdf::BuildPdf;
 
 /// Paths (forward-slash relative) that never participate in sync, whatever
 /// else the project holds.
@@ -245,28 +224,44 @@ pub fn is_conflict_copy(file_name: &str) -> bool {
     file_name.contains(" (local conflict ")
 }
 
-/// Where the untouched local side of a conflict goes, beside `path`. The
-/// stamp is to the minute, so a second conflict in the same minute takes the
-/// first free numbered name (`… 2`, `… 3`) rather than `taken` one: writing
-/// over an earlier copy would lose the only clean version of that side.
-pub(super) fn conflict_copy_name(path: &str, stamp: &str, taken: impl Fn(&str) -> bool) -> String {
-    let named = |label: &str| {
-        let renamed = |file_name: &str| match file_name.rsplit_once('.') {
-            Some((stem, ext)) if !stem.is_empty() => {
-                format!("{stem} (local conflict {label}).{ext}")
-            }
-            _ => format!("{file_name} (local conflict {label})"),
-        };
-        match path.rsplit_once('/') {
-            Some((dir, file_name)) => format!("{dir}/{}", renamed(file_name)),
-            None => renamed(path),
-        }
-    };
-    let first = named(stamp);
+/// Where the side a conflict took off a path is kept: never beside the file,
+/// where it would join the project (a second `main.tex` in the tree, a
+/// second PDF the build might pick), but in Lattice's own folder, which never
+/// syncs. Grouped by the minute, each under its project path; a second
+/// conflict in the same minute takes the first free numbered folder
+/// (`… 2`), since writing over an earlier copy would lose it.
+pub(super) const SET_ASIDE_DIR: &str = ".research/overleaf-conflicts";
+
+pub(super) fn set_aside_path(path: &str, stamp: &str, taken: impl Fn(&str) -> bool) -> String {
+    let at = |label: &str| format!("{SET_ASIDE_DIR}/{label}/{path}");
+    let first = at(stamp);
     if !taken(&first) {
         return first;
     }
-    (2..).map(|n| named(&format!("{stamp} {n}"))).find(|name| !taken(name)).unwrap_or(first)
+    (2..).map(|n| at(&format!("{stamp} {n}"))).find(|name| !taken(name)).unwrap_or(first)
+}
+
+/// Keep `bytes` at `at` (a [`set_aside_path`]), out of the versions timeline
+/// as the base copies are.
+pub(super) fn write_set_aside(root: &Path, at: &str, bytes: &[u8]) -> Result<(), String> {
+    write_local_file(root, at, bytes)?;
+    write_local_file(root, &format!("{SET_ASIDE_DIR}/.gitignore"), b"*\n")
+}
+
+/// Put the copy a conflict set aside (`set_aside`, as the sync reported it)
+/// back on `path`. The next sync sends it up as the local edit it then is.
+pub fn restore_set_aside(root: &Path, set_aside: &str, path: &str) -> Result<(), String> {
+    validate_inventory_path(path)?;
+    validate_inventory_path(set_aside)?;
+    let kept_for = set_aside.strip_prefix(SET_ASIDE_DIR).and_then(|rest| rest.strip_prefix('/'));
+    let names_path =
+        kept_for.and_then(|rest| rest.split_once('/')).is_some_and(|(_, kept)| kept == path);
+    if !names_path {
+        return Err(format!("{set_aside} is not a copy Overleaf sync set aside for {path}."));
+    }
+    let bytes = fs::read(disk_path(root, set_aside))
+        .map_err(|e| format!("Could not read the copy set aside for {path}: {e}"))?;
+    write_local_file(root, path, &bytes)
 }
 
 pub(super) fn has_conflict_markers(bytes: &[u8]) -> bool {
@@ -388,17 +383,22 @@ pub(super) fn local_files_changed(
 
 // ---- Base copies and merging --------------------------------------------------
 
-/// Only text we can meaningfully merge gets a base copy: merging is
-/// line-based, and keeping shadow copies of figures would double the project
-/// on disk for no benefit.
+/// Text gets a base copy, the ancestor a merge needs: any UTF-8 file without
+/// a NUL byte, whatever its name (a plotting script, an SVG, a .bbx), up to a
+/// size past which it is data rather than writing. Figures and other binary
+/// files get none: keeping shadow copies of them would double the project on
+/// disk for nothing a merge could use.
 fn is_mergeable_text(rel: &str, bytes: &[u8]) -> bool {
-    const TEXT_SUFFIXES: &[&str] = &[
-        ".tex", ".bib", ".txt", ".md", ".html", ".cls", ".sty", ".bst", ".json", ".yml", ".yaml",
-        ".csv", ".tikz", ".sty.txt", ".cfg", ".def", ".ltx",
+    const MOST_TEXT_BYTES: usize = 4 * 1024 * 1024;
+    // Formats that are binary however their bytes happen to read: an ASCII
+    // PDF or EPS is still one picture, never lines to combine.
+    const BINARY: &[&str] = &[
+        ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".eps", ".ps",
+        ".zip", ".gz", ".tgz", ".xlsx", ".docx", ".pptx",
     ];
     let lower = rel.to_ascii_lowercase();
-    // Guard against anything that only looks textual by name.
-    TEXT_SUFFIXES.iter().any(|suffix| lower.ends_with(suffix))
+    !BINARY.iter().any(|suffix| lower.ends_with(suffix))
+        && bytes.len() <= MOST_TEXT_BYTES
         && !bytes.contains(&0)
         && std::str::from_utf8(bytes).is_ok()
 }
@@ -473,27 +473,30 @@ pub(super) enum MergeOutcome {
     Clean(Vec<u8>),
     /// Genuinely overlapping edits; the bytes carry conflict markers.
     Conflicted(Vec<u8>),
-    /// No usable common ancestor (binary, or a file first seen this sync).
+    /// Binary: there is nothing to merge.
     Unmergeable,
 }
 
 /// Combine both sides of `rel` against the merge base kept for `base_rel`:
 /// `rel` itself, unless a rename on Overleaf carried the file (see
-/// `sync::renames`).
+/// `sync::renames`). Text with no base (new on both sides) is marked where
+/// the two copies differ.
 pub(super) fn merge_three_way(
     root: &Path, rel: &str, base_rel: &str, remote: &[u8], local: &[u8],
 ) -> MergeOutcome {
+    use super::merge::{is_prose, merge_text, merge_without_base, TextMerge};
     if !is_mergeable_text(rel, remote) || !is_mergeable_text(rel, local) {
         return MergeOutcome::Unmergeable;
     }
-    let (Some(base), Ok(ours), Ok(theirs)) =
-        (read_base_copy(root, base_rel), std::str::from_utf8(local), std::str::from_utf8(remote))
-    else {
+    let (Ok(ours), Ok(theirs)) = (std::str::from_utf8(local), std::str::from_utf8(remote)) else {
         return MergeOutcome::Unmergeable;
     };
-    match diffy::MergeOptions::new().merge(&base, ours, theirs) {
-        Ok(merged) => MergeOutcome::Clean(merged.into_bytes()),
-        Err(conflicted) => MergeOutcome::Conflicted(conflicted.into_bytes()),
+    let Some(base) = read_base_copy(root, base_rel) else {
+        return MergeOutcome::Conflicted(merge_without_base(ours, theirs).into_bytes());
+    };
+    match merge_text(&base, ours, theirs, is_prose(rel)) {
+        TextMerge::Clean(merged) => MergeOutcome::Clean(merged.into_bytes()),
+        TextMerge::Conflicted(marked) => MergeOutcome::Conflicted(marked.into_bytes()),
     }
 }
 

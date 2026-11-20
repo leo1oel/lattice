@@ -92,7 +92,7 @@ pub fn preview(
     // the order the user reads them.
     changes.extend(
         (plan.conflict.iter())
-            .map(|c| preview_change(&c.path, "conflict", Some(&c.local), Some(&c.resolved))),
+            .map(|c| preview_change(&c.path, "conflict", Some(&c.other), Some(&c.resolved))),
     );
     // Still marked up from an earlier conflict: nothing moves until resolved.
     for path in &plan.unresolved_conflicts {

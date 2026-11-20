@@ -637,7 +637,33 @@ impl Skin for LatticeSkin {
     }
 
     fn snap_label(&self, label: &str, cx: &mut App) -> AnyElement {
-        pill(label, cx).into_any_element()
+        // Trellis's own snap pill (its style.css `snap-preview span`, with
+        // trellis.css's type): dark glass at the ring's top, whatever the
+        // theme. Absolute, so it keeps its own height in a ring of any size;
+        // as a flex child it stretched to the ring's (a wheel over a gutter
+        // put up a pill as tall as the workspace).
+        div()
+            .absolute()
+            .top(px(12.))
+            .left_0()
+            .right_0()
+            .flex()
+            .justify_center()
+            .child(
+                div()
+                    .relative()
+                    .px(px(11.))
+                    .py(px(7.))
+                    .rounded(px(20.))
+                    .bg(gpui::rgba(0x282c28bf))
+                    .whitespace_nowrap()
+                    .text_role(TextRole::BodyCompact, cx)
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(gpui::white())
+                    .child(label.to_string())
+                    .children(lattice_ui::parity::probe("trellis/snap-label")),
+            )
+            .into_any_element()
     }
 
     fn owns_gestures(&self, view_id: &str, _: &App) -> bool {
@@ -716,7 +742,7 @@ fn parity_probe(part: &str, panel: &PanelFrame) -> Vec<AnyElement> {
         .collect()
 }
 
-/// The lifted pill "Add as tab" and "Release to focus" sit in.
+/// The lifted pill "Add as tab" sits in.
 fn pill(label: &str, cx: &mut App) -> gpui::Div {
     let palette = cx.palette().clone();
     div().left_0().right_0().flex().justify_center().child(

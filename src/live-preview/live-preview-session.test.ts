@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { LivePreviewSession } from "./live-preview-session";
+import type { Item } from "./rtex-protocol";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -118,6 +119,35 @@ describe("a live preview session", () => {
     expect(session.model.baseRevision).toBe(2);
     // Revision 3 came after the build: still painted.
     expect(session.model.overlays.has(1)).toBe(true);
+    session.dispose();
+  });
+
+  it("waits for the layout instead of painting a live paragraph set in none of its unit's fonts", async () => {
+    const session = new LivePreviewSession("/project", "main.tex");
+    await session.start();
+    reply({ reply: "status", versions: { source_revision: 1, context_revision: 0, engine_generation: 0, layout_version: 0 }, convergence: null });
+    const fonts = { "1": { id: 1, name: "ec-lmss9" }, "2": { id: 2, name: "t1-stixgeneral" } };
+    const row = (font: number) => ({ unit: 4, x: 0, y: 100, w: 10, h: 7, d: 2, items: [["g", font, 65, null, 0, 0, 0, 0] as Item] });
+    session.model.applyLayout({
+      pages: [{ page: 1, exact: true, hash: 1, dl: { kind: "page", fonts, lines: [row(1)], other: [], flags: [], width: 0, height: 0, depth: 0 } }],
+      pagesTotal: 1,
+      placements: [{ par_id: 8, fragments: [{ page: 1, first_line: 1, last_line: 1, x: 0, xs: [0], baselines: [100], approximate: false }], lines: 1, kind: "par" }],
+      revision: 1,
+      layoutVersion: 1,
+      hasFallback: false,
+    });
+    const paragraph = (revision: number, font: number) => reply({
+      event: "ParagraphUpdate", par_id: 8, edit_id: revision, versions: { source_revision: revision, context_revision: 0, engine_generation: 0, layout_version: 1 },
+      status: "ok", reasons: [], fragments: [], pagination_stale: false, context_stale: false,
+      dl: { kind: "paragraph", fonts, lines: [{ ...row(font), y: 7 }], other: [], flags: [], width: 0, height: 0, depth: 0 },
+      diagnostics: [], timing: { total_us: 1, tex_us: 1, traverse_us: 0, pack_us: 0 },
+    });
+    paragraph(2, 1);
+    expect(session.model.overlays.has(8)).toBe(true);
+    expect(session.getSnapshot().layoutPending).toBe(false);
+    paragraph(3, 2);
+    expect(session.model.overlays.get(8)?.revision).toBe(2);
+    expect(session.getSnapshot().layoutPending).toBe(true);
     session.dispose();
   });
 

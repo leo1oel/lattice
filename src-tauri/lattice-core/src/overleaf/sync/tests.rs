@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 
 mod case_collisions;
 mod changes;
+mod collaboration;
 mod conflicts;
 mod deletions;
 mod left_here;
@@ -439,9 +440,9 @@ fn an_edit_landing_while_a_sync_waits_on_overleaf_is_never_overwritten() {
     // Deleted on Overleaf, edited here: it goes back up rather than away.
     assert!(result.pushed.contains(&"gone.tex".to_string()));
     assert_eq!(text(&root, "gone.tex"), typed(5));
-    // Both sides rewrote line 1: a conflict, with the edit kept beside it.
+    // Both rewrote line 1: the edit is set aside.
     let [conflict] = &result.conflicts[..] else { panic!("{:?}", result.conflicts) };
-    assert_eq!(text(&root, &conflict.local_copy), edits[0].1);
+    assert_eq!(text(&root, &conflict.set_aside), edits[0].1);
     assert!(result.edited_during_sync.is_empty());
 }
 

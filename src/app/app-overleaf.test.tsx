@@ -1,9 +1,9 @@
-import { fileNodes, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, projectSnapshot, MAIN_DOCUMENT, setInterfaceLanguage, expectNotification, expectInvoked, invokeCalls, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, findOverleafSyncButton, deferred, findProjectTreeRenameInput } from "./app-test-utils";
+import { fileNodes, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, projectSnapshot, MAIN_DOCUMENT, setInterfaceLanguage, expectNotification, visibleToasts, expectInvoked, invokeCalls, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, findOverleafSyncButton, deferred, findProjectTreeRenameInput } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const { renderOverleafPaper } = appHarness();
@@ -40,11 +40,12 @@ describe("Overleaf sync", () => {
     expect((syncCalls()[0][1] as { live: string[] }).live).not.toContain("sections/results.tex");
   });
 
-  it("uploads a reference-check update right away and a resolved bibliography conflict after saving", async () => {
+  it("uploads a reference-check update right away and opens a bibliography conflict at its marked spot", async () => {
     // The Papers path behind the reported conflict: an update written straight
     // to references.bib used to wait, unsynced, for some later save. Here the
-    // first sync it schedules meets an Overleaf edit, and the resolver's choice
-    // must be what lands on disk and what the following sync uploads.
+    // first sync it schedules meets an Overleaf edit, and the file opens in the
+    // editor at the spot to decide, where conflict-choices.ts offers the choices
+    // (its own tests cover choosing; this fixture mounts no CodeMirror).
     const snapshot = projectSnapshot({
       root: "/tmp/lattice-bib-sync", projectId: "bib-sync", name: "Bib sync", rootDocuments: MAIN_DOCUMENT,
       files: fileNodes("main.tex", "references.bib"),
@@ -89,7 +90,7 @@ describe("Overleaf sync", () => {
         // Overleaf changed the same entry in the meantime.
         bib = conflicted;
         return overleafSyncResult({
-          conflicts: [{ path: "references.bib", localCopy: "references (local conflict 20260926-1808).bib", markers: true }],
+          conflicts: [{ path: "references.bib", setAside: ".research/overleaf-conflicts/20260926-1808/references.bib", markers: true }],
         });
       },
       list_todos: () => [],
@@ -108,17 +109,12 @@ describe("Overleaf sync", () => {
     await waitFor(() => expect(syncCalls()).toHaveLength(1), { timeout: 6_000 });
     expect((syncCalls()[0][1] as { live: string[] }).live).not.toContain("references.bib");
 
-    const dialog = await screen.findByRole("dialog", { name: "Resolve conflicts in references.bib" }, { timeout: 60_000 });
-    expect(await within(dialog).findByRole("radio", { name: "Keep Overleaf's version" }, { timeout: 10_000 }))
-      .toHaveTextContent("Overleaf removed this part.");
-    fireEvent.click(within(dialog).getByRole("radio", { name: "Keep this computer's version" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save and upload" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
-      path: "references.bib", content: `${after}\n`, projectRoot: snapshot.root, expectedContent: conflicted,
-    }));
-    // Queued like any disk edit, so it respects the live channel's sync gap.
-    await waitFor(() => expect(syncCalls()).toHaveLength(2), { timeout: 40_000 });
-    expect(bib).toBe(`${after}\n`);
+    await waitFor(() => expect(visibleToasts("Overleaf").map((entry) => `${entry?.title} ${entry?.detail}`).join("\n"))
+      .toContain("references.bib changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor"), { timeout: 20_000 });
+    await waitFor(() => expect(screen.getByRole("tab", { name: "references.bib" })).toHaveAttribute("aria-selected", "true"));
+    // No dialog stands in for the editor any more, and no copy lands beside the file.
+    expect(screen.queryByRole("dialog", { name: "Resolve conflicts in references.bib" })).not.toBeInTheDocument();
+    expect(bib).toBe(conflicted);
   }, 240_000);
 
   it("opens the linked project on its Overleaf host and keeps the project picker available", async () => {

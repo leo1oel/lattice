@@ -201,6 +201,11 @@ fn sync_files(
     let mut plan = plan_sync(root, &linked.state, &remote, &local, live, carried, &sync_stamp())?;
     hold(&mut plan, &linked.state, &renames);
     let mut refused = settle_destructive(&linked, &client, &mut plan);
+    // This Mac's copy of a figure can only win where it can go up.
+    let writable = linked.state.access().can_write();
+    if writable {
+        settle_binary(&linked, &client, root, &mut plan);
+    }
     // Warn about a refused copy once; the same hollow download on every
     // later sync is not news.
     let refused_incoming: Vec<String> = (refused.iter())
@@ -216,7 +221,6 @@ fn sync_files(
     // anyway would be rejected file by file and reported as a sync failure,
     // when in fact everything that could be done has been: incoming work is
     // landing below, and the local edits simply stay here.
-    let writable = linked.state.access().can_write();
     // Uploads need the dashboard's CSRF token, which is a whole page of the
     // account's projects; fetch it only for a sync with something to send,
     // and before writing anything, so a dead session fails the sync whole.
@@ -292,8 +296,10 @@ fn sync_files(
             leave(&conflict.path, &mut new_files, since);
             continue;
         }
-        write_local_file(root, &conflict.local_copy, &conflict.local)?;
-        write_local_file(root, &conflict.path, &conflict.resolved)?;
+        write_set_aside(root, &conflict.set_aside, &conflict.other)?;
+        if !conflict.kept_local {
+            write_local_file(root, &conflict.path, &conflict.resolved)?;
+        }
         conflicts.push(conflict.reported());
     }
     let mut deleted_local = Vec::new();
@@ -411,6 +417,7 @@ fn sync_files(
 
 // ---- Probe ---------------------------------------------------------------------
 
+mod binary;
 mod changes;
 mod download;
 mod failure;
@@ -426,12 +433,13 @@ mod renames;
 mod send;
 mod since_read;
 mod stale_folders;
+use binary::settle_binary;
 use changes::{fetch, remote_copy, RemoteCopy};
 use download::download;
 pub use failure::classify_sync_error;
 use history_evidence::{agreed_copy, settle_destructive};
 use outcome::{newly_held, record_result};
-pub use outcome::{OverleafConflict, OverleafSyncResult};
+pub use outcome::{ConflictSide, OverleafConflict, OverleafSyncResult};
 pub(super) use plan::{plan_sync, wipes_out, Destructive, SyncPlan};
 pub use prefetch::{prefetch, Prefetched};
 pub use preview::{preview, OverleafChange, OverleafPreview};

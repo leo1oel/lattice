@@ -21,12 +21,18 @@ impl Shell {
             let editable = !repairing && self.overleaf.read(cx).may_edit(panel.relative());
             let zed = panel.editor().clone();
             let document = panel.structured().or(panel.markdown_document()).cloned();
-            zed.update(cx, |zed, cx| {
-                if zed.read_only(cx) == editable {
+            let changed = zed.update(cx, |zed, cx| {
+                let changed = zed.read_only(cx) == editable;
+                if changed {
                     zed.set_read_only(!editable);
                     cx.notify();
                 }
+                changed
             });
+            // Conflict choices show only where the file can be edited.
+            if changed {
+                editor.update(cx, |panel, cx| panel.paint_conflicts(cx));
+            }
             if let Some(document) = document {
                 document.update(cx, |document, cx| document.set_editable(editable, cx));
             }

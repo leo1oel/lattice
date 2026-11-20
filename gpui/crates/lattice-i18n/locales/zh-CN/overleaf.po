@@ -14,6 +14,10 @@ msgstr "可见行上的评论与修订建议。滚动以查看其他内容。"
 msgid "Comments go to Overleaf once this file is open live with it."
 msgstr "此文件与 Overleaf 实时同步后，评论才会发送到 Overleaf。"
 
+#: lattice-gpui/src/overleaf/bridge/finished.rs
+msgid "Could not restore the file"
+msgstr "无法恢复该文件"
+
 #: lattice-gpui/src/overleaf/collab/comments.rs
 msgid "Delete this discussion?"
 msgstr "要删除此讨论吗？"

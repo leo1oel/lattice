@@ -13,6 +13,9 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+mod coherent;
+pub(super) use coherent::Overleaf;
+
 pub(super) const CSRF: &str = "csrf-fixture-token";
 
 /// A file list as the tests write it: `(relative path, bytes)`.
@@ -108,6 +111,10 @@ pub(super) struct Mock {
     /// A project the test changes between syncs, served instead of `zip`,
     /// `versions` and `history`, and to the live channel when there is one.
     pub shared: Option<Arc<Mutex<SharedProject>>>,
+    /// `shared` behaves as Overleaf's one copy of the project for every
+    /// client (see `coherent`): uploads and live edits land in it, each as an
+    /// update in its history.
+    pub coherent: bool,
 }
 
 /// A project on the mock Overleaf as a co-author leaves it: served alike by
@@ -130,9 +137,14 @@ impl SharedProject {
     /// Record an update to the next version, naming `pathnames` (documents
     /// edited) and `project_ops` (tree operations).
     pub fn update(&mut self, pathnames: &[&str], project_ops: serde_json::Value) {
+        self.update_at(pathnames, project_ops, 0);
+    }
+
+    /// [`Self::update`], made at `end_ts` (ms).
+    pub fn update_at(&mut self, pathnames: &[&str], project_ops: serde_json::Value, end_ts: i64) {
         let (from, to) = (self.version, self.version + 1);
         let update = serde_json::json!({ "fromV": from, "toV": to, "pathnames": pathnames,
-            "project_ops": project_ops, "meta": { "end_ts": 0 } });
+            "project_ops": project_ops, "meta": { "end_ts": end_ts } });
         self.history.insert(0, update);
         self.version = to;
     }
@@ -232,7 +244,11 @@ impl Mock {
         let routes = std::mem::take(&mut self.routes);
         let realtime = self.realtime.take();
         let shared = self.shared.take();
+        let coherent = self.coherent;
         let base = serve_http(move |mut request| {
+            if let (true, Some(shared), Some(realtime)) = (coherent, &shared, &realtime) {
+                coherent::fold_live_edits(shared, realtime);
+            }
             if let Some(realtime) =
                 realtime.as_ref().filter(|_| request.url().starts_with("/socket.io/"))
             {
@@ -342,6 +358,9 @@ impl Mock {
                         let (status, body) = self.upload_failure.unwrap_or((500, "upload failed"));
                         (status, JSON, body.into())
                     } else {
+                        if let (true, Some(shared)) = (coherent, &shared) {
+                            coherent::land_upload(shared, &body);
+                        }
                         let body = String::from_utf8_lossy(&body);
                         let name = body.split("filename=\"").nth(1);
                         let name = name.and_then(|rest| rest.split('"').next()).unwrap_or_default();

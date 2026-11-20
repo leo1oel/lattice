@@ -140,7 +140,7 @@ pub fn open_on_overleaf(link: &OverleafLink, cx: &mut App) {
 pub enum OverleafBridgeEvent {
     /// A sync brought files in (or deleted some): the PDF should follow.
     Incoming,
-    /// A file a sync left marked up: open the resolver on it.
+    /// A file a sync left marked up: open it in the editor.
     OpenConflict(String),
     /// The session ended: Settings › Overleaf is where to sign in again.
     OpenSettings,

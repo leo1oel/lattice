@@ -4,8 +4,14 @@
 use std::io::Read;
 use std::time::Duration;
 
+/// Asked in order: the repository's home in the lattice-writer organization,
+/// then its address before the move, which GitHub redirects only while
+/// nobody recreates it.
 #[cfg(target_os = "linux")]
-const FEED: &str = "https://api.github.com/repos/leo1oel/lattice/releases/latest";
+const FEEDS: [&str; 2] = [
+    "https://api.github.com/repos/lattice-writer/lattice/releases/latest",
+    "https://api.github.com/repos/leo1oel/lattice/releases/latest",
+];
 const MAX_FEED_BYTES: u64 = 1024 * 1024;
 
 fn numeric_version(version: &str) -> Option<[u64; 3]> {
@@ -54,16 +60,30 @@ fn fetch_url(url: &str, current: &str) -> Result<Option<String>, String> {
     newer_release(&body, current)
 }
 
+/// The first of `urls` that answers with a usable release, or the last error.
+fn fetch_first(urls: &[&str], current: &str) -> Result<Option<String>, String> {
+    let mut result = Err("No release feed".to_string());
+    for url in urls {
+        result = fetch_url(url, current);
+        if result.is_ok() {
+            break;
+        }
+    }
+    result
+}
+
 #[cfg(target_os = "linux")]
 #[tauri::command]
 pub(crate) async fn check_linux_release() -> Result<Option<String>, String> {
-    crate::ipc::run_quietly("Linux release check", || fetch_url(FEED, env!("CARGO_PKG_VERSION")))
-        .await
+    crate::ipc::run_quietly("Linux release check", || {
+        fetch_first(&FEEDS, env!("CARGO_PKG_VERSION"))
+    })
+    .await
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{fetch_url, newer_release};
+    use super::{fetch_first, fetch_url, newer_release};
     use std::time::Duration;
 
     fn feed(version: &str, asset_version: &str) -> Vec<u8> {
@@ -99,5 +119,25 @@ mod tests {
         });
         assert_eq!(fetch_url(&url, "0.15.8").unwrap(), Some("0.16.0".into()));
         responder.join().unwrap();
+    }
+
+    #[test]
+    fn a_feed_that_fails_falls_back_to_the_next_address() {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", server.server_addr());
+        let responder = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let request = server.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
+                let response = match request.url() {
+                    "/moved" => tiny_http::Response::from_data(feed("0.16.0", "0.16.0")),
+                    _ => tiny_http::Response::from_data(Vec::new()).with_status_code(404),
+                };
+                request.respond(response).unwrap();
+            }
+        });
+        let (missing, moved) = (format!("{base}/missing"), format!("{base}/moved"));
+        assert_eq!(fetch_first(&[&missing, &moved], "0.15.8").unwrap(), Some("0.16.0".into()));
+        responder.join().unwrap();
+        assert!(fetch_first(&[], "0.15.8").is_err());
     }
 }

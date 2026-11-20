@@ -23,8 +23,16 @@ use tauri_plugin_updater::UpdaterExt;
 /// never hear of it (Linux does not even register the updater plugin).
 const SUPPORTED: bool = cfg!(all(target_os = "macos", target_arch = "aarch64"));
 
-const NATIVE_FEED: &str =
-    "https://github.com/leo1oel/lattice/releases/latest/download/latest-native.json";
+/// The native feed, asked in order: the repository's home in the
+/// lattice-writer organization, then its address before the move. GitHub
+/// redirects the old address only while nobody recreates it, so a copy that
+/// asks the new one first does not depend on that. The updater moves on to
+/// the next address when one fails or does not answer 2xx, and trusts only
+/// the pinned key's signature, never the address.
+const NATIVE_FEEDS: [&str; 2] = [
+    "https://github.com/lattice-writer/lattice/releases/latest/download/latest-native.json",
+    "https://github.com/leo1oel/lattice/releases/latest/download/latest-native.json",
+];
 const NATIVE_FEED_OVERRIDE: &str = "LATTICE_NATIVE_UPDATER_ENDPOINT";
 
 /// A check that hangs must not leave the offer dialog spinning.
@@ -38,11 +46,13 @@ pub struct NativeAppRelease {
     rid: ResourceId,
 }
 
-/// The feed to ask: the release feed, unless a rehearsal names another.
-fn native_feed(override_endpoint: Option<String>) -> Result<Url, String> {
-    let endpoint = override_endpoint.filter(|endpoint| !endpoint.trim().is_empty());
-    Url::parse(endpoint.as_deref().map_or(NATIVE_FEED, str::trim))
-        .map_err(|error| error.to_string())
+/// The feeds to ask: the release feeds, unless a rehearsal names another.
+fn native_feeds(override_endpoint: Option<String>) -> Result<Vec<Url>, String> {
+    match override_endpoint.filter(|endpoint| !endpoint.trim().is_empty()) {
+        Some(endpoint) => Url::parse(endpoint.trim()).map(|url| vec![url]),
+        None => NATIVE_FEEDS.into_iter().map(Url::parse).collect(),
+    }
+    .map_err(|error| error.to_string())
 }
 
 /// Whether this build may offer the native app at all; the page asks before
@@ -59,10 +69,10 @@ pub async fn check_native_app(webview: Webview) -> Result<Option<NativeAppReleas
     if !SUPPORTED {
         return Ok(None);
     }
-    let feed = native_feed(std::env::var(NATIVE_FEED_OVERRIDE).ok())?;
+    let feeds = native_feeds(std::env::var(NATIVE_FEED_OVERRIDE).ok())?;
     let update = webview
         .updater_builder()
-        .endpoints(vec![feed])
+        .endpoints(feeds)
         .and_then(|builder| builder.version_comparator(|_, _| true).timeout(CHECK_TIMEOUT).build())
         .map_err(|error| error.to_string())?
         .check()
@@ -76,20 +86,30 @@ pub async fn check_native_app(webview: Webview) -> Result<Option<NativeAppReleas
 
 #[cfg(test)]
 mod tests {
-    use super::{native_feed, NATIVE_FEED, SUPPORTED};
+    use super::{native_feeds, NATIVE_FEEDS, SUPPORTED};
+
+    fn addresses(feeds: Vec<tauri::Url>) -> Vec<String> {
+        feeds.into_iter().map(String::from).collect()
+    }
 
     #[test]
-    fn the_release_feed_unless_a_rehearsal_names_another() {
-        assert_eq!(native_feed(None).unwrap().as_str(), NATIVE_FEED);
+    fn the_release_feeds_unless_a_rehearsal_names_another() {
+        assert_eq!(addresses(native_feeds(None).unwrap()), NATIVE_FEEDS);
         // An empty variable is no override: the shell left it set but blank.
-        assert_eq!(native_feed(Some("  ".into())).unwrap().as_str(), NATIVE_FEED);
+        assert_eq!(addresses(native_feeds(Some("  ".into())).unwrap()), NATIVE_FEEDS);
         assert_eq!(
-            native_feed(Some(" http://127.0.0.1:8123/latest-native.json ".into()))
-                .unwrap()
-                .as_str(),
-            "http://127.0.0.1:8123/latest-native.json"
+            addresses(
+                native_feeds(Some(" http://127.0.0.1:8123/latest-native.json ".into())).unwrap()
+            ),
+            ["http://127.0.0.1:8123/latest-native.json"]
         );
-        assert!(native_feed(Some("not a url".into())).is_err());
+        assert!(native_feeds(Some("not a url".into())).is_err());
+    }
+
+    #[test]
+    fn the_new_home_is_asked_before_the_old_address() {
+        assert!(NATIVE_FEEDS[0].starts_with("https://github.com/lattice-writer/lattice/"));
+        assert_eq!(NATIVE_FEEDS[1], NATIVE_FEEDS[0].replace("/lattice-writer/", "/leo1oel/"));
     }
 
     #[test]

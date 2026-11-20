@@ -643,6 +643,14 @@ msgstr "{failing} checks need attention"
 msgid "{failures} to fix"
 msgstr "{failures} to fix"
 
+#: src/app/overleaf-sync-conflicts.ts
+msgid "{file} changed here and on Overleaf. Overleaf's is newer, so it replaced yours; yours is kept aside."
+msgstr "{file} changed here and on Overleaf. Overleaf's is newer, so it replaced yours; yours is kept aside."
+
+#: src/app/overleaf-sync-conflicts.ts
+msgid "{file} changed here and on Overleaf. Yours is newer, so it stays and goes up; Overleaf's is kept aside."
+msgstr "{file} changed here and on Overleaf. Yours is newer, so it stays and goes up; Overleaf's is kept aside."
+
 #: src/app/overleaf-sync-warnings.ts
 msgid "{file} still has conflict markers. Resolve them to bring in Overleaf's newer edits."
 msgstr "{file} still has conflict markers. Resolve them to bring in Overleaf's newer edits."
@@ -654,6 +662,10 @@ msgstr "{fileCount} file"
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} files"
 msgstr "{fileCount} files"
+
+#: src/app/overleaf-sync-conflicts.ts
+msgid "{files} changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor; nothing uploads until then."
+msgstr "{files} changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor; nothing uploads until then."
 
 #: src/project/paper-list-toolbar.tsx
 msgid "{filtered} of {total} papers"
@@ -1222,10 +1234,6 @@ msgstr "{what} is not a drawing Lattice can convert."
 #: src/project/deadline-card.tsx
 msgid "{when} your time ({zone})"
 msgstr "{when} your time ({zone})"
-
-#: src/app/overleaf-sync-outcome.ts
-msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
-msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "{width} × {height} pixels"
@@ -4603,6 +4611,10 @@ msgstr "Confirm “{title}”"
 msgid "Confirmed"
 msgstr "Confirmed"
 
+#: src/editor/conflict-choices.ts
+msgid "Conflict: choose what to keep"
+msgstr "Conflict: choose what to keep"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Conflicting or insufficient fields"
 msgstr "Conflicting or insufficient fields"
@@ -5302,10 +5314,6 @@ msgstr "Couldn’t find this repository, or your account can’t access it"
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "Couldn’t install the update"
-
-#: src/app/overleaf-sync-outcome.ts
-msgid "Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then."
-msgstr "Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then."
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Couldn’t open the logs"
@@ -8713,6 +8721,7 @@ msgstr "Keep .aux, .log, SyncTeX and other build files in the project’s hidden
 msgid "Keep {current}"
 msgstr "Keep {current}"
 
+#: src/editor/conflict-choices.ts
 #: src/project/import-conflict-dialog.tsx
 msgid "Keep both"
 msgstr "Keep both"
@@ -8738,6 +8747,7 @@ msgstr "Keep entry"
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
 
+#: src/editor/conflict-choices.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Keep mine"
 msgstr "Keep mine"
@@ -8770,6 +8780,10 @@ msgstr "Keep the current text"
 #: src/history/conflict-resolver.tsx
 msgid "Keep the text from before the agent"
 msgstr "Keep the text from before the agent"
+
+#: src/editor/conflict-choices.ts
+msgid "Keep theirs"
+msgstr "Keep theirs"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keep this computer's version"
@@ -19107,6 +19121,14 @@ msgstr "Use as editable figure"
 #: src/platform/host-errors-project.ts
 msgid "Use letters, numbers, and :_-.+ in the {name}."
 msgstr "Use letters, numbers, and :_-.+ in the {name}."
+
+#: src/app/overleaf-sync-conflicts.ts
+msgid "Use mine"
+msgstr "Use mine"
+
+#: src/app/overleaf-sync-conflicts.ts
+msgid "Use Overleaf's"
+msgstr "Use Overleaf's"
 
 #: src/app/use-command-table.ts
 msgid "Use the dark theme"

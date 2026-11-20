@@ -96,13 +96,15 @@ fn overleaf_preview_reports_exactly_what_sync_then_does() {
         panic!("expected two conflicts, got {:?}", result.conflicts);
     };
     assert_eq!(conflict.path, "notes.tex");
-    assert!(conflict.local_copy.starts_with("notes (local conflict "));
-    assert!(conflict.local_copy.ends_with(").tex"));
-    // The untouched local version survives beside the marked file.
-    assert_eq!(read_local(&root, &conflict.local_copy).unwrap(), b"local edit");
-    // The figure: Overleaf's version takes the path, ours sits beside it.
+    assert!(conflict.set_aside.starts_with(".research/overleaf-conflicts/"));
+    assert!(conflict.set_aside.ends_with("/notes.tex"));
+    // The untouched local version survives, out of the project.
+    assert_eq!(read_local(&root, &conflict.set_aside).unwrap(), b"local edit");
+    // The figure: with no history to date the two copies, Overleaf's takes
+    // the path and ours is kept.
     assert_eq!(read_local(&root, "figures/fig.pdf").unwrap(), b"%PDF-1.5\0remote");
-    assert_eq!(read_local(&root, &figure.local_copy).unwrap(), b"%PDF-1.5\0local");
+    assert_eq!(read_local(&root, &figure.set_aside).unwrap(), b"%PDF-1.5\0local");
+    assert_eq!(figure.kept, Some(ConflictSide::Overleaf));
     // A figure has no spots to work through, so the app must not tell anyone
     // to resolve them or open a marker resolver on it.
     assert!(!figure.markers);

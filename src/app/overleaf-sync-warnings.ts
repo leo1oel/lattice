@@ -25,7 +25,7 @@ function nameWarning(file: string, problem: OverleafNameProblem): string {
 /**
  * What a finished sync left undone that would otherwise look synced: one
  * warning each, so the absence is not first discovered from the other side.
- * `resolve` opens the conflict resolver on a file.
+ * `resolve` opens a file in the editor, where its spots carry their choices.
  */
 export function overleafSyncWarnings(
   result: OverleafSyncResult, resolve: (path: string) => void,

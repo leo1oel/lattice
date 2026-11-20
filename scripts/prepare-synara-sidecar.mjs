@@ -273,18 +273,17 @@ function replaceUnusedClaudeBinary(stageRoot) {
  * file. Nothing reads it while Node runs: dyld binds addons (node-pty) through
  * the export trie, which `strip -x` keeps together with every global symbol;
  * the local names only label native frames in a debugger or crash report.
- * Stripping drops Node's signature, so restore an ad hoc one for development
- * staging (arm64 refuses unsigned code); releases re-sign with the Developer ID
- * below.
+ * Stripping drops Node's signature, so restore an ad hoc one at once (arm64
+ * kills unsigned code): the dependency smoke test runs this node before the
+ * Developer ID pass below re-signs it for a release. Only a release without a
+ * restored runtime cache reaches that test with a signing identity set.
  */
 function stripNodeSymbols(stageRoot) {
   if (!target.endsWith("-apple-darwin")) return 0;
   const node = join(stageRoot, "bin", nodeExecutable);
   const before = statSync(node).size;
   run("/usr/bin/strip", ["-x", node]);
-  if (!signingIdentity()) {
-    codesign(node, { identity: "-", entitlements: join(projectRoot, "src-tauri/Entitlements.plist") });
-  }
+  codesign(node, { identity: "-", entitlements: join(projectRoot, "src-tauri/Entitlements.plist") });
   return before - statSync(node).size;
 }
 

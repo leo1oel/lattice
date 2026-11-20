@@ -44,6 +44,19 @@ pub fn fetch_text(url: &str) -> Result<String, String> {
     response.text().map_err(|error| error.to_string())
 }
 
+/// Read the first of `urls` that answers, in order (a feed's home, then the
+/// address it had before it moved), or the last one's error.
+pub fn fetch_first(urls: &[String]) -> Result<String, String> {
+    let mut result = Err("The release channel has no address".to_string());
+    for url in urls {
+        result = fetch_text(url);
+        if result.is_ok() {
+            break;
+        }
+    }
+    result
+}
+
 /// Download `url`, telling `progress` the share received so far when the
 /// size is known.
 pub fn download(url: &str, mut progress: impl FnMut(Option<f32>)) -> Result<Vec<u8>, String> {

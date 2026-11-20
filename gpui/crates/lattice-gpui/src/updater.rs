@@ -41,11 +41,12 @@ use crate::{
     notices::{self, Notice, NoticeAction},
 };
 
-/// Where a release channel's manifest is, and the minisign public key its
-/// archives are signed with (base64, as `tauri.conf.json` keeps it).
+/// Where a release channel's manifest is, asked in order until one answers,
+/// and the minisign public key its archives are signed with (base64, as
+/// `tauri.conf.json` keeps it).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Channel {
-    pub endpoint: String,
+    pub endpoints: Vec<String>,
     pub public_key: String,
 }
 
@@ -55,17 +56,25 @@ pub struct Channel {
 pub fn channel() -> Option<Channel> {
     channel_from(
         "LATTICE_GPUI_UPDATER_ENDPOINT",
-        crate::flavor::current().endpoint.to_string(),
+        crate::flavor::current()
+            .endpoints
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
     )
 }
 
-/// The Tauri app's own feed (`plugins.updater.endpoints[0]` in
-/// tauri.conf.json), or the one `LATTICE_CLASSIC_UPDATER_ENDPOINT` names,
-/// checked with the same key: where the switch back to the classic version
-/// finds its release.
+/// The Tauri app's own feeds (`plugins.updater.endpoints` in
+/// tauri.conf.json, in its order), or the one
+/// `LATTICE_CLASSIC_UPDATER_ENDPOINT` names, checked with the same key:
+/// where the switch back to the classic version finds its release.
 pub fn classic_channel() -> Option<Channel> {
-    let endpoint = tauri_updater()?["endpoints"][0].as_str()?.to_string();
-    channel_from("LATTICE_CLASSIC_UPDATER_ENDPOINT", endpoint)
+    let endpoints = tauri_updater()?["endpoints"]
+        .as_array()?
+        .iter()
+        .map(|endpoint| endpoint.as_str().map(str::to_string))
+        .collect::<Option<Vec<_>>>()?;
+    channel_from("LATTICE_CLASSIC_UPDATER_ENDPOINT", endpoints)
 }
 
 /// Whether this app offers the switch back to the classic version: only
@@ -83,15 +92,16 @@ fn tauri_updater() -> Option<serde_json::Value> {
     Some(config["plugins"]["updater"].take())
 }
 
-/// `endpoint`, or the one the variable `env` names, with the updater's key.
-fn channel_from(env: &str, endpoint: String) -> Option<Channel> {
+/// `endpoints`, or only the one the variable `env` names, with the
+/// updater's key.
+fn channel_from(env: &str, endpoints: Vec<String>) -> Option<Channel> {
     let public_key = tauri_updater()?["pubkey"].as_str()?.to_string();
-    let endpoint = std::env::var(env)
+    let endpoints = std::env::var(env)
         .ok()
         .filter(|endpoint| !endpoint.is_empty())
-        .unwrap_or(endpoint);
+        .map_or(endpoints, |endpoint| vec![endpoint]);
     Some(Channel {
-        endpoint,
+        endpoints,
         public_key,
     })
 }
@@ -236,7 +246,7 @@ impl Updater {
         cx.notify();
         let running = lattice_core::VERSION.to_string();
         let found = cx.background_spawn(async move {
-            install::fetch_text(&channel.endpoint)
+            install::fetch_first(&channel.endpoints)
                 .and_then(|text| manifest::newer_release(&text, &running))
         });
         self._task = Some(cx.spawn(async move |this, cx| {
@@ -337,7 +347,7 @@ impl Updater {
             cx,
         );
         let found = cx.background_spawn(async move {
-            install::fetch_text(&channel.endpoint)
+            install::fetch_first(&channel.endpoints)
                 .and_then(|text| manifest::platform_release(&text))
         });
         self._task = Some(cx.spawn(async move |this, cx| {
@@ -543,7 +553,7 @@ mod tests {
     #[test]
     fn the_channel_is_the_flavors_feed_checked_with_the_tauri_updaters_key() {
         let channel = super::channel().unwrap();
-        assert_eq!(channel.endpoint, crate::flavor::current().endpoint);
+        assert_eq!(channel.endpoints, crate::flavor::current().endpoints);
         let config: serde_json::Value =
             serde_json::from_str(include_str!("../../../../src-tauri/tauri.conf.json")).unwrap();
         assert_eq!(channel.public_key, config["plugins"]["updater"]["pubkey"]);
@@ -555,8 +565,8 @@ mod tests {
         let config: serde_json::Value =
             serde_json::from_str(include_str!("../../../../src-tauri/tauri.conf.json")).unwrap();
         assert_eq!(
-            classic.endpoint,
-            config["plugins"]["updater"]["endpoints"][0]
+            serde_json::json!(classic.endpoints),
+            config["plugins"]["updater"]["endpoints"]
         );
         assert_eq!(classic.public_key, super::channel().unwrap().public_key);
         // A binary outside a bundle is Lattice Beta, which never offers it.

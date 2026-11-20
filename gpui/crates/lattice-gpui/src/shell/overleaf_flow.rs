@@ -143,7 +143,15 @@ impl Shell {
             // writes pause (`build_watch`).
             OverleafBridgeEvent::Incoming => {}
             OverleafBridgeEvent::OpenConflict(path) => {
-                self.open_conflict_resolver(path.clone(), true, window, cx)
+                let Some(root) = self.root(cx) else { return };
+                let line = lattice_core::project::read_file(&root, path)
+                    .ok()
+                    .and_then(|text| {
+                        crate::history::conflicts::conflict_hunks(&text)
+                            .first()
+                            .map(|hunk| hunk.line as u32)
+                    });
+                self.open_path(root.join(path), Some(line.unwrap_or(1)), window, cx);
             }
             OverleafBridgeEvent::OpenSettings => {
                 self.open_settings(Some(SettingsTab::Overleaf), window, cx)

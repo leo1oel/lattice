@@ -152,9 +152,11 @@ impl OverleafBridge {
         self.reload_link(cx);
     }
 
-    /// Say which files a sync left in conflict, and open the resolver on the
-    /// first that has markers in it (`reportSyncOutcome`). A later write can
-    /// have settled one already, so each is read back first.
+    /// Say which files a sync left in conflict, and open the first that has
+    /// markers in it in the editor, where each spot carries its own choices
+    /// (`reportSyncOutcome`). A later write can have settled one already, so
+    /// each is read back first. A binary file names the copy it kept, with
+    /// the action that puts the other one back.
     fn report_conflicts(
         &mut self,
         root: &Path,
@@ -174,14 +176,25 @@ impl OverleafBridge {
                     .unwrap_or(true)
             })
             .collect();
-        let whole: Vec<_> = result
-            .conflicts
-            .iter()
-            .filter(|conflict| !conflict.markers)
-            .collect();
-        let message = outcome::conflict_message(&marked, &whole);
+        let message = outcome::conflict_message(&marked);
         if !message.is_empty() {
             notices::show(Notice::new(ToastLevel::Error, message), cx);
+        }
+        for conflict in result.conflicts.iter().filter(|conflict| !conflict.markers) {
+            let (message, label) = outcome::binary_conflict(conflict);
+            let (root, set_aside, path) = (
+                root.to_path_buf(),
+                conflict.set_aside.clone(),
+                conflict.path.clone(),
+            );
+            let action = NoticeAction::new(label, move |_, cx| {
+                if let Err(error) =
+                    lattice_core::overleaf::restore_set_aside(&root, &set_aside, &path)
+                {
+                    notices::error(t!("Could not restore the file"), error, cx);
+                }
+            });
+            notices::show(Notice::new(ToastLevel::Warning, message).action(action), cx);
         }
         if let Some(first) = marked.first() {
             cx.emit(OverleafBridgeEvent::OpenConflict(first.path.clone()));

@@ -8,6 +8,7 @@
 // changed since then is drawn from rtex; any other page is the base, with the
 // live paragraphs painted over it. Pure module (no DOM).
 import type { DisplayList, Fragment, Item, Line, PageUpdate, Placement } from "./rtex-protocol";
+import { fontKey } from "./rtex-render";
 
 export interface Overlay {
   parId: number;
@@ -307,6 +308,30 @@ export class PreviewModel {
     return set;
   }
 
+  /**
+   * Whether a live result for unit `parId` is set in none of the fonts the last layout set
+   * the unit in. rtex's live engine can typeset a unit without what its surroundings give it
+   * in the document: a cas-sc caption came back in the body's 10 pt serif, double spaced,
+   * where the layout has the class's 9 pt sans (#1177). Painted, it would replace the right
+   * text with the wrong one until the next layout. A result that keeps any of the unit's
+   * fonts (a word made bold beside plain ones) passes, and so does one with nothing to
+   * compare: no glyphs, or no laid-out page of the unit in the model.
+   */
+  fontsDisjoint(parId: number, dl: DisplayList): boolean {
+    const live = glyphFonts(dl, dl.lines);
+    if (!live.size) return false;
+    const laid = new Set<string>();
+    for (const n of new Set((this.placements.get(parId) ?? []).map((f) => f.page))) {
+      const pu = this.pages.get(n);
+      if (!pu) continue;
+      const own = [...this.ownLines(n, parId)].map((i) => pu.dl.lines[i]);
+      for (const key of glyphFonts(pu.dl, own)) laid.add(key);
+    }
+    if (!laid.size) return false;
+    for (const key of live) if (laid.has(key)) return false;
+    return true;
+  }
+
   /** Overlay rows to draw on `page`, with the translation of each row into page coordinates. */
   overlaysOn(page: number): PageOverlay[] {
     const out: PageOverlay[] = [];
@@ -324,6 +349,19 @@ export class PreviewModel {
     }
     return out;
   }
+}
+
+/** The font resources (fontKey) the glyphs of `lines` are drawn in. */
+function glyphFonts(dl: DisplayList, lines: Iterable<Line>): Set<string> {
+  const keys = new Set<string>();
+  for (const line of lines) {
+    for (const it of line.items) {
+      if (it[0] !== "g") continue;
+      const desc = dl.fonts[String(it[1])];
+      if (desc) keys.add(fontKey(desc));
+    }
+  }
+  return keys;
 }
 
 /** Place a unit's rows at a layout's placement rows (the algorithm of rtex layout.rs

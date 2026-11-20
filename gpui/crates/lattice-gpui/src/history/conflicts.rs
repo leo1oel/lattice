@@ -20,6 +20,8 @@ pub struct ConflictHunk {
     pub theirs: Vec<String>,
     /// 1-based line where the conflict starts.
     pub line: usize,
+    /// How many lines the spot takes, its markers included.
+    pub rows: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -132,12 +134,16 @@ pub fn conflict_hunks(content: &str) -> Vec<ConflictHunk> {
         .enumerate()
         .filter_map(|(index, block)| match block {
             Block::Conflict {
-                ours, theirs, line, ..
+                ours,
+                theirs,
+                raw,
+                line,
             } => Some(ConflictHunk {
                 index,
                 ours,
                 theirs,
                 line,
+                rows: raw.len(),
             }),
             Block::Text(_) => None,
         })

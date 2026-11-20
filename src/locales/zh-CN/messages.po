@@ -643,6 +643,14 @@ msgstr "{failing} 项需要处理"
 msgid "{failures} to fix"
 msgstr "{failures} 项需修复"
 
+#: src/app/overleaf-sync-conflicts.ts
+msgid "{file} changed here and on Overleaf. Overleaf's is newer, so it replaced yours; yours is kept aside."
+msgstr "{file} 在这里和 Overleaf 上都改了。Overleaf 的更新，已替换你的；你的已另存"
+
+#: src/app/overleaf-sync-conflicts.ts
+msgid "{file} changed here and on Overleaf. Yours is newer, so it stays and goes up; Overleaf's is kept aside."
+msgstr "{file} 在这里和 Overleaf 上都改了。你的更新，保留并上传；Overleaf 的已另存"
+
 #: src/app/overleaf-sync-warnings.ts
 msgid "{file} still has conflict markers. Resolve them to bring in Overleaf's newer edits."
 msgstr "{file} 里还有冲突标记，处理完才能合并 Overleaf 上的新改动"
@@ -654,6 +662,10 @@ msgstr "{fileCount} 个文件"
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} files"
 msgstr "{fileCount} 个文件"
+
+#: src/app/overleaf-sync-conflicts.ts
+msgid "{files} changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor; nothing uploads until then."
+msgstr "{files} 在这里和 Overleaf 上改了同一处。请在编辑器里逐处选择保留哪一版，选好前不会上传"
 
 #: src/project/paper-list-toolbar.tsx
 msgid "{filtered} of {total} papers"
@@ -1222,10 +1234,6 @@ msgstr "{what} 不是 Lattice 能转换的绘图文件。"
 #: src/project/deadline-card.tsx
 msgid "{when} your time ({zone})"
 msgstr "你的时间 {when}（{zone}）"
-
-#: src/app/overleaf-sync-outcome.ts
-msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
-msgstr "{wholeFiles} 两边都改了。项目里是 Overleaf 的版本，你的在旁边“(local conflict …)”文件里"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "{width} × {height} pixels"
@@ -4603,6 +4611,10 @@ msgstr "确认“{title}”"
 msgid "Confirmed"
 msgstr "已确认"
 
+#: src/editor/conflict-choices.ts
+msgid "Conflict: choose what to keep"
+msgstr "冲突：选择保留哪一版"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Conflicting or insufficient fields"
 msgstr "字段冲突或不全"
@@ -5302,10 +5314,6 @@ msgstr "找不到这个仓库，或你的账号没有访问权限"
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "安装更新失败"
-
-#: src/app/overleaf-sync-outcome.ts
-msgid "Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then."
-msgstr "{markedFiles} 没能自动合并，两版都已保留。逐处选好前不会上传"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Couldn’t open the logs"
@@ -8713,6 +8721,7 @@ msgstr "将 .aux、.log、SyncTeX 等临时文件放在项目隐藏的 .research
 msgid "Keep {current}"
 msgstr "保留 {current}"
 
+#: src/editor/conflict-choices.ts
 #: src/project/import-conflict-dialog.tsx
 msgid "Keep both"
 msgstr "保留两者"
@@ -8738,6 +8747,7 @@ msgstr "保留文献"
 msgid "Keep it on Overleaf"
 msgstr "Overleaf 上保留"
 
+#: src/editor/conflict-choices.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Keep mine"
 msgstr "保留我的"
@@ -8770,6 +8780,10 @@ msgstr "保留现在的文本"
 #: src/history/conflict-resolver.tsx
 msgid "Keep the text from before the agent"
 msgstr "保留 Agent 修改前的文本"
+
+#: src/editor/conflict-choices.ts
+msgid "Keep theirs"
+msgstr "保留对方的"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keep this computer's version"
@@ -19107,6 +19121,14 @@ msgstr "用作可编辑图"
 #: src/platform/host-errors-project.ts
 msgid "Use letters, numbers, and :_-.+ in the {name}."
 msgstr "{name}只能包含字母、数字和 :_-.+"
+
+#: src/app/overleaf-sync-conflicts.ts
+msgid "Use mine"
+msgstr "用我的"
+
+#: src/app/overleaf-sync-conflicts.ts
+msgid "Use Overleaf's"
+msgstr "用 Overleaf 的"
 
 #: src/app/use-command-table.ts
 msgid "Use the dark theme"
