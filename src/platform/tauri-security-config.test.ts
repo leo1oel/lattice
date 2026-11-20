@@ -33,7 +33,7 @@ const pdfWindowCapability = readJson<Capability>("src-tauri/capabilities/pdf-win
 const rustApp = readFileSync("src-tauri/src/lib.rs", "utf8");
 // The browser host module: its listener and windows, plus the HTTP server and
 // dialog commands split out beside it.
-const browserHost = ["browser_host.rs", "browser_host/server.rs", "browser_host/dialogs.rs"]
+const browserHost = ["browser_host.rs", "browser_host/server.rs", "browser_host/dialogs.rs", "browser_host/public_origin.rs"]
   .map((file) => readFileSync(`src-tauri/src/${file}`, "utf8"))
   .join("\n");
 const buildPrepare = readFileSync("scripts/prepare-build.mjs", "utf8");
@@ -153,8 +153,14 @@ describe("Tauri security boundary", () => {
     // `unstable` feature, which hid ⌘Z from the page (native_locale.rs).
     expectContains(rustApp, "RunEvent::ExitRequested { code: None, api, .. }", "api.prevent_exit()");
     expect(browserHost).not.toContain("tauri::window::WindowBuilder");
-    expectContains(browserHost, "Ipv4Addr::LOCALHOST, PREFERRED_PORT", "valid_loopback_host(&headers, state.port)",
-      "Some(session.browser_origin.as_str())", 'header::CACHE_CONTROL, HeaderValue::from_static("no-store")');
+    // `--browser-public-origin` widens the Host and Origin checks by exact
+    // comparison only; the listener stays on loopback either way.
+    expectContains(browserHost, "Ipv4Addr::LOCALHOST, PREFERRED_PORT",
+      "valid_host(&headers, state.port, &state.public_origins)",
+      'host == format!("127.0.0.1:{port}") || public_origins.accepts_host(host)',
+      "origin == browser_origin || public_origins.accepts_origin(origin)",
+      "allowed.origin == origin", "allowed.authority == host",
+      'header::CACHE_CONTROL, HeaderValue::from_static("no-store")');
     expect(browserHost).not.toContain("Ipv4Addr::LOCALHOST, 0");
   });
 

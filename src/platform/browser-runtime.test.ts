@@ -66,6 +66,12 @@ describe("browser bridge serialization", () => {
   });
 });
 
+it("connects a loopback page's bridge to the loopback host, as before any public origin", () => {
+  vi.stubGlobal("WebSocket", FakeWebSocket);
+  connectedRelay();
+  expect(lastSocket().url).toBe("ws://127.0.0.1:18452/__lattice_bridge?token=secret&role=browser");
+});
+
 describe("browser bridge recovery", () => {
   beforeEach(() => {
     vi.useFakeTimers();

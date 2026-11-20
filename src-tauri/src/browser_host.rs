@@ -12,8 +12,13 @@
 //!   or hands out the one a single-use `?entry=` nonce was issued for.
 //! - `/__lattice_bridge` upgrades a host or browser peer.
 //! - everything else serves the bundled frontend assets.
+//!
+//! The listener binds 127.0.0.1 only. A reverse proxy may serve it at another
+//! origin when Lattice was started with `--browser-public-origin`
+//! (`public_origin`); without that, only the loopback entry is accepted.
 
 pub(crate) mod dialogs;
+mod public_origin;
 mod server;
 mod session;
 
@@ -368,6 +373,11 @@ impl BrowserHost {
             return Ok(server.clone());
         }
 
+        // An origin given at launch that is not exactly an origin must not
+        // leave the host running with a different list than the one asked for.
+        let public_origins =
+            public_origin::PublicOrigins::from_args(std::env::args_os().skip(1))
+                .map_err(|reason| format!("Could not start local browser access: {reason}"))?;
         // A bookmark can only be permanent if its port is permanent. Do not
         // silently fall back to a random port: that would make the setting look
         // enabled while the saved address opens some other process or nothing.
@@ -383,8 +393,21 @@ impl BrowserHost {
             .local_addr()
             .map_err(|error| format!("Could not read the local browser address: {error}"))?
             .port();
+        if !public_origins.is_empty() {
+            log::info!(
+                target: "lattice::browser",
+                "browser host also accepts {} through a proxy; the proxy's authentication is now the only gate in front of the session token, which reaches project files and the terminal",
+                public_origins.describe()
+            );
+        }
+        for origin in public_origins.without_tls() {
+            log::warn!(
+                target: "lattice::browser",
+                "{origin} is plain http to a host that is not loopback: the session token (?token=) and every edit cross the network without TLS"
+            );
+        }
         let server = RunningServer { port, sessions: Arc::new(Mutex::new(HashMap::new())) };
-        server::spawn(app.clone(), port, Arc::clone(&server.sessions), listener);
+        server::spawn(app.clone(), port, Arc::clone(&server.sessions), public_origins, listener);
         *running = Some(server.clone());
         Ok(server)
     }

@@ -2,6 +2,7 @@
 //! relay between a hidden host WebView and its visible page, and the bundled
 //! frontend assets.
 
+use super::public_origin::PublicOrigins;
 use super::session::{
     self, BridgeQuery, BrowserSession, BrowserSessionConfig, Detached, Expired, Sessions,
 };
@@ -40,6 +41,8 @@ struct ServerState {
     app: tauri::AppHandle,
     port: u16,
     sessions: Sessions,
+    /// `--browser-public-origin`: empty unless Lattice was started with it.
+    public_origins: PublicOrigins,
 }
 
 #[derive(Default, Deserialize)]
@@ -51,8 +54,11 @@ struct SessionQuery {
 
 /// Serve the routes on `listener` (already bound and non-blocking) until the
 /// app exits.
-pub(super) fn spawn(app: tauri::AppHandle, port: u16, sessions: Sessions, listener: TcpListener) {
-    let state = ServerState { app, port, sessions };
+pub(super) fn spawn(
+    app: tauri::AppHandle, port: u16, sessions: Sessions, public_origins: PublicOrigins,
+    listener: TcpListener,
+) {
+    let state = ServerState { app, port, sessions, public_origins };
     tauri::async_runtime::spawn(async move {
         let listener = match tokio::net::TcpListener::from_std(listener) {
             Ok(listener) => listener,
@@ -112,15 +118,28 @@ pub(super) fn settle_later(
     });
 }
 
-fn valid_loopback_host(headers: &HeaderMap, port: u16) -> bool {
-    headers.get(header::HOST).and_then(|value| value.to_str().ok())
-        == Some(format!("127.0.0.1:{port}").as_str())
+/// The exact loopback `Host`, or the host of a configured public origin (a
+/// proxy that keeps the browser's `Host`). Anything else, a DNS-rebinding
+/// name included, is refused.
+fn valid_host(headers: &HeaderMap, port: u16, public_origins: &PublicOrigins) -> bool {
+    headers.get(header::HOST).and_then(|value| value.to_str().ok()).is_some_and(|host| {
+        host == format!("127.0.0.1:{port}") || public_origins.accepts_host(host)
+    })
 }
 
-fn valid_session_request(headers: &HeaderMap, browser_origin: &str, port: u16) -> bool {
+/// Whether `origin` is one a tab may be served from: the session's own (the
+/// loopback entry, or the development server) or a configured public origin.
+fn page_origin_allowed(origin: &str, browser_origin: &str, public_origins: &PublicOrigins) -> bool {
+    origin == browser_origin || public_origins.accepts_origin(origin)
+}
+
+fn valid_session_request(
+    headers: &HeaderMap, browser_origin: &str, port: u16, public_origins: &PublicOrigins,
+) -> bool {
     let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
-    valid_loopback_host(headers, port)
-        && (header("origin") == Some(browser_origin)
+    valid_host(headers, port, public_origins)
+        && (header("origin")
+            .is_some_and(|origin| page_origin_allowed(origin, browser_origin, public_origins))
             || header("sec-fetch-site") == Some("same-origin"))
 }
 
@@ -128,7 +147,7 @@ async fn open_browser_session(
     State(state): State<ServerState>, Query(query): Query<SessionQuery>, headers: HeaderMap,
 ) -> Response {
     let origin = browser_origin(&state.app, state.port);
-    if !valid_session_request(&headers, &origin, state.port) {
+    if !valid_session_request(&headers, &origin, state.port, &state.public_origins) {
         return StatusCode::FORBIDDEN.into_response();
     }
 
@@ -185,19 +204,22 @@ fn allow_origin(response: &mut Response, origin: &str) {
 }
 
 /// Whether a bridge upgrade comes from the page `role` belongs to: the tab
-/// from the session's browser origin, the hidden host from Lattice's bundled
-/// frontend (`app_origins`). A browser always sends `Origin` on a WebSocket
-/// handshake and no page can set it, so a missing one is refused as well.
+/// from the session's browser origin or a configured public origin, the
+/// hidden host from Lattice's bundled frontend (`app_origins`). A browser
+/// always sends `Origin` on a WebSocket handshake and no page can set it, so
+/// a missing one is refused as well.
 /// Without the host's check, any site holding a session token could attach as
 /// the host, displace the real one and read and answer every IPC call of the
 /// tab.
 fn bridge_origin_allowed(
     headers: &HeaderMap, session: &BrowserSession, role: session::BridgeRole,
-    app_origins: &[String],
+    app_origins: &[String], public_origins: &PublicOrigins,
 ) -> bool {
     let origin = headers.get(header::ORIGIN).and_then(|origin| origin.to_str().ok());
     match role {
-        session::BridgeRole::Browser => origin == Some(session.browser_origin.as_str()),
+        session::BridgeRole::Browser => origin.is_some_and(|origin| {
+            page_origin_allowed(origin, &session.browser_origin, public_origins)
+        }),
         session::BridgeRole::Host => {
             origin.is_some_and(|origin| app_origins.iter().any(|allowed| allowed == origin))
         }
@@ -209,10 +231,16 @@ async fn upgrade_bridge(
     ws: WebSocketUpgrade,
 ) -> Response {
     let app_origins = crate::ipc::terminal::local_origins(&state.app);
-    let allowed = valid_loopback_host(&headers, state.port)
+    let allowed = valid_host(&headers, state.port, &state.public_origins)
         && state.sessions.lock().ok().is_some_and(|sessions| {
             sessions.get(&query.token).is_some_and(|session| {
-                bridge_origin_allowed(&headers, session, query.role, &app_origins)
+                bridge_origin_allowed(
+                    &headers,
+                    session,
+                    query.role,
+                    &app_origins,
+                    &state.public_origins,
+                )
             })
         });
     if !allowed {
@@ -281,17 +309,20 @@ struct AssetRangeQuery {
 }
 
 /// The hidden host window whose project a range read is for, and the page
-/// origin to answer. The request must reach the exact loopback host, come from
-/// the session's own page (same origin, or its development origin), and carry
+/// origin to answer. The request must reach the exact loopback host (or a
+/// configured public origin's), come from the session's own page (same
+/// origin, its development origin, or a configured public origin), and carry
 /// a live session token in [`SESSION_HEADER`].
 fn asset_session(
-    headers: &HeaderMap, port: u16, sessions: &HashMap<String, BrowserSession>,
+    headers: &HeaderMap, port: u16, public_origins: &PublicOrigins,
+    sessions: &HashMap<String, BrowserSession>,
 ) -> Option<(String, String)> {
     let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
     let session = sessions.get(header(SESSION_HEADER)?)?;
-    let from_page = header("origin") == Some(session.browser_origin.as_str())
+    let from_page = header("origin")
+        .is_some_and(|origin| page_origin_allowed(origin, &session.browser_origin, public_origins))
         || header("sec-fetch-site") == Some("same-origin");
-    (valid_loopback_host(headers, port) && from_page)
+    (valid_host(headers, port, public_origins) && from_page)
         .then(|| (session.host_label.clone(), session.browser_origin.clone()))
 }
 
@@ -303,7 +334,7 @@ async fn read_asset_range(
 ) -> Response {
     let session = session::lock(&state.sessions)
         .ok()
-        .and_then(|sessions| asset_session(&headers, state.port, &sessions));
+        .and_then(|sessions| asset_session(&headers, state.port, &state.public_origins, &sessions));
     let Some((host_label, browser_origin)) = session else {
         return StatusCode::FORBIDDEN.into_response();
     };
@@ -345,7 +376,7 @@ async fn read_asset_range(
 /// a same-origin page never needs one.
 async fn asset_preflight(State(state): State<ServerState>, headers: HeaderMap) -> Response {
     let origin = browser_origin(&state.app, state.port);
-    if !valid_session_request(&headers, &origin, state.port) {
+    if !valid_session_request(&headers, &origin, state.port, &state.public_origins) {
         return StatusCode::FORBIDDEN.into_response();
     }
     let mut response = StatusCode::NO_CONTENT.into_response();
@@ -361,7 +392,7 @@ async fn asset_preflight(State(state): State<ServerState>, headers: HeaderMap) -
 }
 
 async fn serve_asset(State(state): State<ServerState>, request: Request<Body>) -> Response {
-    if !valid_loopback_host(request.headers(), state.port) {
+    if !valid_host(request.headers(), state.port, &state.public_origins) {
         return StatusCode::MISDIRECTED_REQUEST.into_response();
     }
     let requested = request.uri().path().trim_start_matches('/');
@@ -410,7 +441,7 @@ mod tests {
             headers.insert(header::HOST, host.parse().unwrap());
             headers.insert(header::ORIGIN, request_origin.parse().unwrap());
             assert_eq!(
-                valid_session_request(&headers, origin, 18452),
+                valid_session_request(&headers, origin, 18452, &PublicOrigins::default()),
                 allowed,
                 "{host} {request_origin}"
             );
@@ -428,7 +459,7 @@ mod tests {
             if let Some(origin) = origin {
                 headers.insert(header::ORIGIN, origin.parse().unwrap());
             }
-            bridge_origin_allowed(&headers, &session, role, &app)
+            bridge_origin_allowed(&headers, &session, role, &app, &PublicOrigins::default())
         };
         assert!(upgrade(Some("tauri://localhost"), Host));
         assert!(upgrade(Some("http://tauri.localhost"), Host));
@@ -461,7 +492,8 @@ mod tests {
             for (name, value) in page {
                 headers.insert(*name, value.parse().unwrap());
             }
-            asset_session(&headers, port, &sessions).map(|(label, _)| label)
+            asset_session(&headers, port, &PublicOrigins::default(), &sessions)
+                .map(|(label, _)| label)
         };
         let same_origin = [("sec-fetch-site", "same-origin")];
         let host = "127.0.0.1:18452";
@@ -480,5 +512,129 @@ mod tests {
             ),
             None
         );
+    }
+
+    /// Headers of a request that reaches the host through a proxy, with the
+    /// `Host` the proxy forwards.
+    fn proxied(host: &str, origin: Option<&str>, extra: &[(&'static str, &str)]) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, host.parse().unwrap());
+        if let Some(origin) = origin {
+            headers.insert(header::ORIGIN, origin.parse().unwrap());
+        }
+        // A cookie the proxy's own sign-in set travels along; the host sets
+        // and reads none, so it must never stand in for an allowed origin.
+        headers.insert(header::COOKIE, "proxy_session=signed-in".parse().unwrap());
+        for (name, value) in extra {
+            headers.insert(*name, value.parse().unwrap());
+        }
+        headers
+    }
+
+    #[test]
+    fn a_public_origin_is_accepted_only_when_configured_and_only_exactly() {
+        use session::BridgeRole::{Browser, Host};
+        let port = 18452;
+        let loopback = "http://127.0.0.1:18452";
+        let public = "https://lattice.example";
+        let none = PublicOrigins::default();
+        let configured = PublicOrigins::from_args(
+            ["--browser-public-origin", public].map(std::ffi::OsString::from),
+        )
+        .unwrap();
+        let session = BrowserSession::new("browser-host-1".to_string(), loopback.to_string());
+        let sessions = HashMap::from([("session-secret".to_string(), session)]);
+        let app = ["tauri://localhost".to_string()];
+        let same_origin = [("sec-fetch-site", "same-origin")];
+        let token = [(SESSION_HEADER, "session-secret")];
+        let token_same_origin =
+            [(SESSION_HEADER, "session-secret"), ("sec-fetch-site", "same-origin")];
+
+        // Each route's check, for a request with these headers.
+        let page = |headers: &HeaderMap, origins| valid_host(headers, port, origins);
+        let session_request =
+            |headers: &HeaderMap, origins| valid_session_request(headers, loopback, port, origins);
+        let asset = |headers: &HeaderMap, origins| {
+            asset_session(headers, port, origins, &sessions).is_some()
+        };
+        let bridge = |headers: &HeaderMap, role, origins| {
+            valid_host(headers, port, origins)
+                && bridge_origin_allowed(headers, &sessions["session-secret"], role, &app, origins)
+        };
+
+        // A proxy that keeps the browser's Host: same-origin requests carry
+        // no Origin, the tab's socket always does.
+        let page_load = proxied("lattice.example", None, &[]);
+        let session_load = proxied("lattice.example", None, &same_origin);
+        let asset_read = proxied("lattice.example", None, &token_same_origin);
+        let socket = proxied("lattice.example", Some(public), &[]);
+        // Off by default: everything at the public Host is refused...
+        assert!(!page(&page_load, &none));
+        assert!(!session_request(&session_load, &none));
+        assert!(!asset(&asset_read, &none));
+        assert!(!bridge(&socket, Browser, &none));
+        // ...and accepted once the origin was given at launch.
+        assert!(page(&page_load, &configured));
+        assert!(session_request(&session_load, &configured));
+        assert!(asset(&asset_read, &configured));
+        assert!(bridge(&socket, Browser, &configured));
+
+        // A proxy that rewrites Host to the loopback one: the Origin a tab
+        // sends still says where it was served from.
+        let socket = proxied("127.0.0.1:18452", Some(public), &[]);
+        let fetch = proxied("127.0.0.1:18452", Some(public), &token);
+        assert!(!bridge(&socket, Browser, &none));
+        assert!(!session_request(&fetch, &none));
+        assert!(!asset(&fetch, &none));
+        assert!(bridge(&socket, Browser, &configured));
+        assert!(session_request(&fetch, &configured));
+        assert!(asset(&fetch, &configured));
+
+        // With the option given, an origin not on the list is still refused
+        // everywhere, whether it is a different name, scheme or port, and
+        // whatever token or cookie it carries.
+        for (host, origin) in [
+            ("attacker.example", "https://attacker.example"),
+            ("lattice.example.attacker.example", "https://lattice.example.attacker.example"),
+            ("www.lattice.example", "https://www.lattice.example"),
+            ("lattice.example", "http://lattice.example"),
+            ("lattice.example:8443", "https://lattice.example:8443"),
+            ("127.0.0.1:18452", "https://attacker.example"),
+            ("127.0.0.1:18452", "null"),
+        ] {
+            let page_load = proxied(host, None, &[]);
+            let cross_site = [("sec-fetch-site", "cross-site")];
+            let session_load = proxied(host, Some(origin), &cross_site);
+            let asset_read = proxied(host, Some(origin), &[(SESSION_HEADER, "session-secret")]);
+            let socket = proxied(host, Some(origin), &[]);
+            // The page itself is refused by Host alone; a loopback or the
+            // configured Host is only refused where an Origin is checked.
+            if !["127.0.0.1:18452", "lattice.example"].contains(&host) {
+                assert!(!page(&page_load, &configured), "{host}");
+            }
+            assert!(!session_request(&session_load, &configured), "{host} {origin}");
+            assert!(!asset(&asset_read, &configured), "{host} {origin}");
+            assert!(!bridge(&socket, Browser, &configured), "{host} {origin}");
+        }
+
+        // The configured Host only as browsers write it: not in another case,
+        // with a trailing dot, or with the default port spelled out.
+        for host in
+            ["LATTICE.example", "Lattice.Example", "lattice.example.", "lattice.example:443"]
+        {
+            assert!(!page(&proxied(host, None, &[]), &configured), "{host}");
+            assert!(!session_request(&proxied(host, None, &same_origin), &configured), "{host}");
+            assert!(!asset(&proxied(host, None, &token_same_origin), &configured), "{host}");
+            assert!(!bridge(&proxied(host, Some(public), &[]), Browser, &configured), "{host}");
+        }
+
+        // A configured origin is a place tabs are served from, never the
+        // hidden host's bundled frontend.
+        let socket = proxied("127.0.0.1:18452", Some(public), &[]);
+        assert!(!bridge(&socket, Host, &configured));
+        // The loopback entry keeps working beside it.
+        let socket = proxied("127.0.0.1:18452", Some(loopback), &[]);
+        assert!(bridge(&socket, Browser, &configured));
+        assert!(bridge(&socket, Browser, &none));
     }
 }
