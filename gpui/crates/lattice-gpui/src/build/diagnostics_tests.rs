@@ -187,7 +187,7 @@ fn labels_and_groups_by_the_full_project_path() {
 fn recognizes_installable_dependencies_but_not_project_templates() {
     assert_eq!(
         missing_tex_dependency_file(
-            "Missing LaTeX dependency `algorithm.sty`. BasicTeX does not include every package available on Overleaf."
+            "Missing LaTeX dependency `algorithm.sty`. Your TinyTeX does not include every package available on Overleaf."
         )
         .as_deref(),
         Some("algorithm.sty")

@@ -46,3 +46,18 @@ it("draws a Linux window's modifiers by name too: ⌘ there would be the Super k
   } finally { userAgent.mockRestore(); }
   expect(shiftKeyLabel()).toBe("⇧");
 });
+
+it("draws the keys of the device showing the page, which in a browser tab need not be the host", () => {
+  const userAgent = vi.spyOn(navigator, "userAgent", "get");
+  const save = (agent: string) => {
+    userAgent.mockReturnValue(agent);
+    return comboText({ key: "s", mod: true });
+  };
+  try {
+    // An Android phone or a Chromebook types with Ctrl, though the host checks take either for a Mac.
+    expect(save("Mozilla/5.0 (Linux; Android 16; Pixel 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36")).toBe("Ctrl+S");
+    expect(save("Mozilla/5.0 (X11; CrOS x86_64 16181.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36")).toBe("Ctrl+S");
+    // An iPhone or iPad keyboard has ⌘, and the editors bind their shortcuts to it there.
+    expect(save("Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1")).toBe("⌘S");
+  } finally { userAgent.mockRestore(); }
+});

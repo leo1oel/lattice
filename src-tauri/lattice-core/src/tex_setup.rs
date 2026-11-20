@@ -13,10 +13,12 @@
 //! `package_providers` which package provides a missing file, and
 //! `package_updates` what `tlmgr update --list` says; `macos` runs them
 //! on macOS. Other platforms expose the same commands but refuse one-click
-//! install until a Linux path exists. Downloads stay in `fetch`.
+//! install until a Linux path exists. Downloads stay in `fetch`, and
+//! `distribution` names whichever TeX a build runs, installed by Lattice or not.
 
 use serde::{Deserialize, Serialize};
 
+mod distribution;
 mod fetch;
 // Only `macos` runs the installers, but their scripts and parsers are plain
 // functions tested on every platform.
@@ -48,6 +50,7 @@ mod windows;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod windows_pins;
 
+pub use distribution::{detect_distribution, TexDistribution};
 pub(crate) use fetch::download as download_pinned;
 pub(crate) use installer::{create_private_file, PinnedDownload};
 #[cfg(target_os = "macos")]

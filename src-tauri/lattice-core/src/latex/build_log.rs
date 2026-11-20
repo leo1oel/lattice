@@ -1,6 +1,7 @@
 //! Reading latexmk's log: diagnostics for the editor, and a trimmed copy for
 //! the Log tab.
 
+use super::missing_tex::{missing_dependency, missing_tool};
 use super::rc_failure::rc_file_failure;
 use crate::models::{Diagnostic, MessageParams};
 use regex::{Captures, Regex};
@@ -176,13 +177,7 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
             push_unique(&mut diagnostics, error);
         }
     }
-    let missing_tool = missing_command.captures(log).map(|capture| {
-        let tool = &capture[1];
-        let message = format!(
-            "The LaTeX tool '{tool}' was not found. Install MacTeX or TeX Live, then restart Lattice."
-        );
-        advice("error", "latex-tool-missing", &[("tool", tool)], message)
-    });
+    let missing_tool = missing_command.captures(log).map(|capture| missing_tool(&capture[1]));
     let missing_file =
         missing_dependency.captures(log).map(|capture| missing_dependency_advice(&capture[1]));
     let stale = is_stale_previous_invocation_log(log).then(|| {
@@ -276,14 +271,7 @@ fn missing_dependency_advice(missing_file: &str) -> Diagnostic {
                 "Missing style file `{missing_file}`. It is part of the {venue} template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."
             ),
         ),
-        None => advice(
-            "error",
-            "tex-dependency-missing",
-            &[("file", missing_file)],
-            format!(
-                "Missing LaTeX dependency `{missing_file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
-            ),
-        ),
+        None => missing_dependency(missing_file),
     }
 }
 

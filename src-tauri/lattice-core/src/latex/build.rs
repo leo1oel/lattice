@@ -548,6 +548,7 @@ fn diagnose(
     };
     diagnostics.extend(bib_log::bibliography_diagnostics(root, document));
     super::cjk_text::mark_ctex_missing(&mut diagnostics, crate::doctor::tex_file_installed);
+    super::missing_tex::name_distribution(&mut diagnostics, crate::tex_setup::detect_distribution);
     diagnostic_paths::locate_in_project(root, document, &mut diagnostics);
     // latexmk's output is TeX's terminal, which leaves out what fontspec
     // notes only in the log file.

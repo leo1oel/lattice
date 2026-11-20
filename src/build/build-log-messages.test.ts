@@ -7,7 +7,11 @@ describe("build log messages", () => {
   it("render Lattice's build advice with the English the host writes", () => {
     const cases: [string, Record<string, string>, string][] = [
       ["latex-tool-missing", { tool: "pdflatex" }, "The LaTeX tool 'pdflatex' was not found. Install MacTeX or TeX Live, then restart Lattice."],
-      ["tex-dependency-missing", { file: "algorithm.sty" }, "Missing LaTeX dependency `algorithm.sty`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."],
+      ["latex-tool-missing", { tool: "biber", distribution: "TinyTeX" }, "The LaTeX tool 'biber' was not found. Add it to your TinyTeX, then restart Lattice."],
+      ["tex-dependency-missing", { file: "lipsum.sty", distribution: "TinyTeX", packages: "TeX Live" }, "Missing LaTeX dependency `lipsum.sty`. Your TinyTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."],
+      ["tex-dependency-missing", { file: "lipsum.sty", distribution: "MiKTeX", packages: "MiKTeX" }, "Missing LaTeX dependency `lipsum.sty`. Your MiKTeX does not include every package available on Overleaf. Use Install missing package to find and install its MiKTeX package."],
+      // A host that cannot tell which TeX it runs names none, rather than BasicTeX.
+      ["tex-dependency-missing", { file: "algorithm.sty" }, "Missing LaTeX dependency `algorithm.sty`. Your TeX distribution does not include every package available on Overleaf. Use Install missing package to find and install the package that provides it."],
       ["conference-style-missing", { file: "cvpr.sty", venue: "CVPR" }, "Missing style file `cvpr.sty`. It is part of the CVPR template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."],
       ["latexmkrc-failed", { file: ".latexmkrc", reason: "Figure export failed" }, "latexmk stopped before LaTeX ran because .latexmkrc failed: Figure export failed. The Log tab shows the output of the command it runs."],
       ["build-cancelled", { seconds: "2.5" }, "Build stopped after 2.5 s. The log below is how far it got."],

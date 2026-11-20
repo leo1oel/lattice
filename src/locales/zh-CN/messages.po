@@ -9032,6 +9032,14 @@ msgstr "latexdiff 运行了 {minutes} 分钟仍未完成，已被停止。请比
 msgid "latexdiff was stopped when it used {gigabytes} GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
 msgstr "latexdiff 占用了 {gigabytes} GB 内存，已被停止。请比较两个更接近的版本，或把用 \\input 读入的超大生成文件（数据表、长代码清单）移出，然后再导出。"
 
+#: src/platform/host-errors-workspace.ts
+msgid "latexindent is not installed. Add it to your {distribution}, then retry."
+msgstr "未安装 latexindent。请把它添加到你的 {distribution} 中，然后重试。"
+
+#: src/platform/host-errors-workspace.ts
+msgid "latexindent is not installed. Add it to your TeX distribution, then retry."
+msgstr "未安装 latexindent。请把它添加到你的 TeX 发行版中，然后重试。"
+
 #: src/build/build-log-messages.ts
 msgid "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
 msgstr "latexmk 没有重新编译（Nothing to do / up-to-date）。按住 Shift 并点击“编译”，即可使用已安装的 Times 字体强制重新编译。"
@@ -10110,8 +10118,12 @@ msgid "Missing image"
 msgstr "图片缺失"
 
 #: src/build/build-log-messages.ts
-msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
-msgstr "缺少 LaTeX 依赖 `{file}`。BasicTeX 并不包含 Overleaf 上提供的所有宏包。请使用“安装缺失的软件包”查找并安装对应的 TeX Live 软件包。"
+msgid "Missing LaTeX dependency `{file}`. Your {distribution} does not include every package available on Overleaf. Use Install missing package to find and install its {packages} package."
+msgstr "缺少 LaTeX 依赖 `{file}`。你的 {distribution} 并不包含 Overleaf 上提供的所有宏包。请使用“安装缺失的软件包”查找并安装对应的 {packages} 软件包。"
+
+#: src/build/build-log-messages.ts
+msgid "Missing LaTeX dependency `{file}`. Your TeX distribution does not include every package available on Overleaf. Use Install missing package to find and install the package that provides it."
+msgstr "缺少 LaTeX 依赖 `{file}`。你的 TeX 发行版并不包含 Overleaf 上提供的所有宏包。请使用“安装缺失的软件包”查找并安装提供它的软件包。"
 
 #: src/settings/doctor-settings.tsx
 msgid "Missing required tools"
@@ -12729,8 +12741,8 @@ msgid "Plugins"
 msgstr "插件"
 
 #: src/plugins/plugin-settings.tsx
-msgid "Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on."
-msgstr "插件为命令面板（⌘K）添加命令。每个插件都在沙盒中运行，只能访问你在启用时允许的内容。"
+msgid "Plugins add commands to the command palette ({paletteKeys}). Each runs in a sandbox and can reach only what you allow when you turn it on."
+msgstr "插件为命令面板（{paletteKeys}）添加命令。每个插件都在沙盒中运行，只能访问你在启用时允许的内容。"
 
 #: src/platform/host-errors-plugins.ts
 msgid "Plugins install only over https."
@@ -17119,6 +17131,10 @@ msgstr "标签 {label} 用了两次"
 #: src/editor/latex/latex-command-completions.ts
 msgid "The LaTeX logo"
 msgstr "LaTeX 标志"
+
+#: src/build/build-log-messages.ts
+msgid "The LaTeX tool ''{tool}'' was not found. Add it to your {distribution}, then restart Lattice."
+msgstr "未找到 LaTeX 工具“{tool}”。请把它添加到你的 {distribution} 中，然后重新启动 Lattice。"
 
 #: src/build/build-log-messages.ts
 msgid "The LaTeX tool ''{tool}'' was not found. Install MacTeX or TeX Live, then restart Lattice."
