@@ -1,8 +1,8 @@
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { baselineDir, parseE2e, parseGate } from "./gpui-main-baseline.mjs";
 
-describe("gpui-main-baseline", () => {
+// The main-baseline cache is macOS-only tooling, and its paths are POSIX ones.
+describe.skipIf(process.platform === "win32")("gpui-main-baseline", () => {
   it("reads the gate's stage lines", () => {
     const output = [
       "gate:changed: 0 changed file(s) against abc (abc123456)",
@@ -46,6 +46,6 @@ describe("gpui-main-baseline", () => {
   });
 
   it("writes under the shared build directory", () => {
-    expect(baselineDir({ LATTICE_GPUI_BUILD_DIR: "/x" })).toBe(path.join("/x", "main-baseline"));
+    expect(baselineDir({ LATTICE_GPUI_BUILD_DIR: "/x" })).toBe("/x/main-baseline");
   });
 });
