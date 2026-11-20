@@ -11,6 +11,12 @@
 //! binds to 127.0.0.1 alone; reaching it from elsewhere, and authenticating
 //! whoever does, stays the proxy's job.
 //!
+//! The browser host has no authentication of its own. Once an origin is
+//! configured, the proxy's authentication is the only gate in front of the
+//! session token, and the token reaches the project's files and the terminal.
+//! An `http://` origin that is not loopback sends that token (`?token=`) and
+//! everything else without TLS; the host starts with it but logs a warning.
+//!
 //! The option may be given more than once, one exact origin each, for a proxy
 //! that answers at several names. A value is accepted only when it is already
 //! written the way a browser serializes an origin in its `Origin` header
@@ -34,6 +40,8 @@ struct PublicOrigin {
     origin: String,
     /// `host[:port]`, as browsers send it in `Host`.
     authority: String,
+    /// `http://` to a host that is not loopback.
+    without_tls: bool,
 }
 
 impl PublicOrigins {
@@ -83,6 +91,16 @@ impl PublicOrigins {
     pub(super) fn describe(&self) -> String {
         self.0.iter().map(|allowed| allowed.origin.as_str()).collect::<Vec<_>>().join(", ")
     }
+
+    /// Configured `http://` origins whose host is not loopback: their traffic,
+    /// the session token included, crosses the network without TLS.
+    pub(super) fn without_tls(&self) -> Vec<&str> {
+        self.0
+            .iter()
+            .filter(|allowed| allowed.without_tls)
+            .map(|allowed| allowed.origin.as_str())
+            .collect()
+    }
 }
 
 fn parse(value: &str) -> Result<PublicOrigin, String> {
@@ -108,7 +126,13 @@ fn parse(value: &str) -> Result<PublicOrigin, String> {
         )));
     }
     let authority = origin[url.scheme().len() + "://".len()..].to_string();
-    Ok(PublicOrigin { origin, authority })
+    let loopback = host == "localhost"
+        || host
+            .trim_matches(['[', ']'])
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback());
+    let without_tls = url.scheme() == "http" && !loopback;
+    Ok(PublicOrigin { origin, authority, without_tls })
 }
 
 fn dns_label(label: &str) -> bool {
@@ -177,7 +201,15 @@ mod tests {
         ] {
             assert!(!configured.accepts_origin(origin), "{origin}");
         }
-        for host in ["lattice.example:443", "www.lattice.example", "10.0.0.2", "attacker.example"] {
+        for host in [
+            "lattice.example:443",
+            "LATTICE.example",
+            "lattice.example.",
+            "www.lattice.example",
+            "10.0.0.2",
+            "[FD00::2]:8443",
+            "attacker.example",
+        ] {
             assert!(!configured.accepts_host(host), "{host}");
         }
     }
@@ -202,6 +234,9 @@ mod tests {
             "https://-lattice.example",
             "https://lattice_example.com",
             "https://lättice.example",
+            "https://lattice.example.",
+            "https://[FD00::2]:8443",
+            "https://[fd00:0::2]:8443",
             "ws://lattice.example",
             "file:///tmp/lattice",
             "null",
@@ -210,7 +245,26 @@ mod tests {
             assert!(origins(&["--browser-public-origin", value]).is_err(), "{value}");
             assert!(origins(&[&format!("--browser-public-origin={value}")]).is_err(), "{value}");
         }
+        // A name already in punycode is exactly its origin, and accepted.
+        let punycode =
+            origins(&["--browser-public-origin", "https://xn--lttice-gua.example"]).unwrap();
+        assert!(punycode.accepts_origin("https://xn--lttice-gua.example"));
+        assert!(punycode.accepts_host("xn--lttice-gua.example"));
         // A missing value is an error, not an empty list.
         assert!(origins(&["--browser-public-origin"]).is_err());
+    }
+
+    #[test]
+    fn plain_http_is_flagged_unless_it_stays_on_loopback() {
+        let configured = origins(&[
+            "--browser-public-origin=https://lattice.example",
+            "--browser-public-origin=http://10.0.0.2:8080",
+            "--browser-public-origin=http://lattice.lan",
+            "--browser-public-origin=http://localhost:8080",
+            "--browser-public-origin=http://127.0.0.1:8080",
+            "--browser-public-origin=http://[::1]:8080",
+        ])
+        .unwrap();
+        assert_eq!(configured.without_tls(), ["http://10.0.0.2:8080", "http://lattice.lan"]);
     }
 }

@@ -617,6 +617,17 @@ mod tests {
             assert!(!bridge(&socket, Browser, &configured), "{host} {origin}");
         }
 
+        // The configured Host only as browsers write it: not in another case,
+        // with a trailing dot, or with the default port spelled out.
+        for host in
+            ["LATTICE.example", "Lattice.Example", "lattice.example.", "lattice.example:443"]
+        {
+            assert!(!page(&proxied(host, None, &[]), &configured), "{host}");
+            assert!(!session_request(&proxied(host, None, &same_origin), &configured), "{host}");
+            assert!(!asset(&proxied(host, None, &token_same_origin), &configured), "{host}");
+            assert!(!bridge(&proxied(host, Some(public), &[]), Browser, &configured), "{host}");
+        }
+
         // A configured origin is a place tabs are served from, never the
         // hidden host's bundled frontend.
         let socket = proxied("127.0.0.1:18452", Some(public), &[]);

@@ -396,8 +396,14 @@ impl BrowserHost {
         if !public_origins.is_empty() {
             log::info!(
                 target: "lattice::browser",
-                "browser host also accepts {} through a proxy",
+                "browser host also accepts {} through a proxy; the proxy's authentication is now the only gate in front of the session token, which reaches project files and the terminal",
                 public_origins.describe()
+            );
+        }
+        for origin in public_origins.without_tls() {
+            log::warn!(
+                target: "lattice::browser",
+                "{origin} is plain http to a host that is not loopback: the session token (?token=) and every edit cross the network without TLS"
             );
         }
         let server = RunningServer { port, sessions: Arc::new(Mutex::new(HashMap::new())) };
