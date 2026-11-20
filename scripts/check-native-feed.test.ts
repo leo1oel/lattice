@@ -9,7 +9,7 @@ const files = nativeFiles("1.2.3");
 const manifest = updaterManifest({
   version: "1.2.3",
   signature: "native",
-  url: `${FLAVORS.main.feed("1.2.3")}/${files.archive}`,
+  url: `${FLAVORS.main.feed("1.2.3", "leo1oel/lattice")}/${files.archive}`,
   pubDate: "2026-11-20T00:00:00Z",
 });
 const check = { tag, version: "1.2.3", signature: "native\n" };

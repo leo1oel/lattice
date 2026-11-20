@@ -77,7 +77,9 @@ Overleaf accounts or projects.
 Lattice updates itself. A public minisign key is compiled into the app
 (`plugins.updater.pubkey` in `src-tauri/tauri.conf.json`) and the update feed is
 served from
-`https://github.com/leo1oel/lattice/releases/latest/download/latest.json`.
+`https://github.com/lattice-writer/lattice/releases/latest/download/latest.json`
+(then the same path under `leo1oel/lattice`, the repository's address before it
+moved).
 Release artifacts are signed by `tauri-action`, Developer ID codesigned,
 notarized, and stapled, and `.github/workflows/release.yml` re-verifies
 `codesign`/`spctl`/`stapler` on the DMG *and* on the `.app` inside it before the

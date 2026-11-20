@@ -94,7 +94,7 @@ impl Run {
         cx.update(|cx| {
             updater::use_channel(
                 Channel {
-                    endpoint: format!("file://{}", manifest.display()),
+                    endpoints: vec![format!("file://{}", manifest.display())],
                     public_key: PUBLIC_KEY.to_string(),
                 },
                 cx,

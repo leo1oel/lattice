@@ -55,6 +55,14 @@ import { parseArgs } from "node:util";
 import { codesign, signMachOTree } from "./lib/codesign.mjs";
 
 /**
+ * The repository whose releases the archive is published to: the workflow's
+ * own (`GITHUB_REPOSITORY`), so a release cut after the move to the
+ * lattice-writer organization names its own address and never leans on
+ * GitHub's redirect from the old one.
+ */
+export const releaseRepository = (env = process.env) => env.GITHUB_REPOSITORY || "leo1oel/lattice";
+
+/**
  * The apps the GPUI binary ships as; it reads which one it is from the
  * bundle's identifier (gpui/crates/lattice-gpui/src/flavor.rs). `artifact`
  * names the files (<artifact>_<version>_aarch64.*), `manifest` the updater
@@ -69,7 +77,7 @@ export const FLAVORS = {
     identifier: "app.leo1oel.lattice-beta",
     artifact: "Lattice-Beta",
     manifest: "latest.json",
-    feed: () => "https://github.com/leo1oel/lattice/releases/download/lattice-beta",
+    feed: (_version, repository = releaseRepository()) => `https://github.com/${repository}/releases/download/lattice-beta`,
   },
   // The native app: the Tauri app's name and identifier, so whichever
   // updater installs it puts it in place of Lattice.app and it keeps the
@@ -84,7 +92,7 @@ export const FLAVORS = {
     identifier: "app.leo1oel.researchwriter",
     artifact: "Lattice-native",
     manifest: "latest-native.json",
-    feed: (version) => `https://github.com/leo1oel/lattice/releases/download/v${version}`,
+    feed: (version, repository = releaseRepository()) => `https://github.com/${repository}/releases/download/v${version}`,
   },
 };
 export const EXECUTABLE = "lattice-gpui";

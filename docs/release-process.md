@@ -141,8 +141,10 @@ adds the native app to the draft before publishing it (steps 16 to 19).
      passes;
    - `uploadUpdaterJson: true` — generates and uploads `latest.json`, which the
      in-app updater reads from
-     `https://github.com/leo1oel/lattice/releases/latest/download/latest.json`
-     (see `plugins.updater.endpoints` in `tauri.conf.json`);
+     `https://github.com/lattice-writer/lattice/releases/latest/download/latest.json`,
+     then from the same path under `leo1oel/lattice`, the repository's
+     address before the move (see `plugins.updater.endpoints` in
+     `tauri.conf.json`);
    - `TAURI_SIGNING_PRIVATE_KEY` / `..._PASSWORD` sign the updater artifact
      (`bundle.createUpdaterArtifacts` is on);
    - `LATTICE_FIRECRAWL_KEY` is compiled into the binary here via `option_env!`
@@ -190,11 +192,16 @@ reaches users.
 
 Every release carries two updater feeds:
 
-- `https://github.com/leo1oel/lattice/releases/latest/download/latest.json`,
+- `https://github.com/lattice-writer/lattice/releases/latest/download/latest.json`,
   the Tauri app's (`plugins.updater.endpoints` in `tauri.conf.json`), on
   every platform, which `macos-intel.yml` extends with its Intel entries.
-- `https://github.com/leo1oel/lattice/releases/latest/download/latest-native.json`,
+- `https://github.com/lattice-writer/lattice/releases/latest/download/latest-native.json`,
   the native app's, Apple silicon only.
+
+Each app asks the lattice-writer address first and then the same path under
+`leo1oel/lattice`, the repository's address before the move, so neither
+depends on GitHub's redirect from the old name. The archive URLs inside a
+feed name the repository the release ran in (`GITHUB_REPOSITORY`).
 
 Moving to the native app is the writer's choice. On Apple silicon the Tauri
 app offers it when the native feed answers with a `darwin-aarch64` entry,
