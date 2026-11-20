@@ -34,6 +34,7 @@ pub fn synara_open_skills_folder(app: AppHandle) -> Result<(), String> {
     let skills_dir =
         app.path().app_data_dir().map_err(|error| error.to_string())?.join("synara").join("skills");
     std::fs::create_dir_all(&skills_dir).map_err(|error| error.to_string())?;
+    crate::browser_host::require_desktop()?;
     app.opener()
         .open_path(skills_dir.to_string_lossy().into_owned(), None::<String>)
         .map_err(|error| error.to_string())
@@ -50,6 +51,7 @@ pub fn synara_open_log_folder(
     if !log_dir.is_dir() {
         return Ok(false);
     }
+    crate::browser_host::require_desktop()?;
     app.opener()
         .open_path(log_dir.to_string_lossy().into_owned(), None::<String>)
         .map_err(|error| error.to_string())?;

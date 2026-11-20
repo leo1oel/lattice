@@ -8,6 +8,15 @@
 //! again when the tab returns it or closes. The listener lives exactly as long
 //! as Lattice runs.
 //!
+//! A machine with no desktop session (a Linux server under a virtual display)
+//! runs it as `--browser-host --headless` (`launched_headless`). Nobody would
+//! see a default browser, file manager or native window there, so the host
+//! never calls the system opener and keeps one workspace: a project opened
+//! from the tab opens in that tab, as "Open in this window" does
+//! (`ipc::windows::open_project_window`), and the tab opens links in its own
+//! browser (src/platform/browser-headless.ts). Without `--headless`, and on
+//! every other platform, nothing here changes.
+//!
 //! - `/__lattice_session` mints or resumes a session token for the fixed entry,
 //!   or hands out the one a single-use `?entry=` nonce was issued for.
 //! - `/__lattice_bridge` upgrades a host or browser peer.
@@ -27,6 +36,7 @@ use serde::Serialize;
 use session::{BrowserSession, BrowserSessionConfig, Sessions};
 use std::{
     collections::HashMap,
+    ffi::OsString,
     io,
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
     path::PathBuf,
@@ -48,6 +58,49 @@ const PREFERRED_PORT: u16 = if cfg!(lattice_beta) { 18472 } else { 18452 };
 /// which opens no desktop window of its own.
 pub(crate) fn launched_as_host() -> bool {
     std::env::args_os().any(|argument| argument == "--browser-host")
+}
+
+/// Whether this process is a headless browser host: `--browser-host
+/// --headless` on Linux. Without both flags, or on another platform, it is not.
+pub(crate) fn launched_headless() -> bool {
+    headless_arguments(std::env::args_os(), cfg!(target_os = "linux"))
+}
+
+fn headless_arguments(arguments: impl IntoIterator<Item = OsString>, linux: bool) -> bool {
+    let arguments: Vec<_> = arguments.into_iter().collect();
+    let flag = |name: &str| arguments.iter().any(|argument| argument == name);
+    linux && flag("--browser-host") && flag("--headless")
+}
+
+const NO_DESKTOP_RETURN: &str =
+    "This Lattice runs without a desktop, so the workspace stays in your browser.";
+const NO_DESKTOP_APPS: &str =
+    "This Lattice runs without a desktop, so it cannot open apps or folders on its computer.";
+
+/// Refuse what would hand something to the system opener (`xdg-open`) on a
+/// headless host: a browser or file manager started on a display nobody
+/// sees. Every `opener()` call a browser tab can reach goes through this.
+pub(crate) fn require_desktop() -> Result<(), String> {
+    if launched_headless() {
+        return Err(NO_DESKTOP_APPS.to_string());
+    }
+    Ok(())
+}
+
+/// What a headless host prints, and exits on, when it cannot open a display:
+/// GTK would otherwise abort before the logger exists, with status 101 and
+/// no word (xlib_threads.rs).
+#[cfg(any(target_os = "linux", test))]
+pub(crate) fn missing_display_message(display: Option<OsString>) -> String {
+    let display = display.filter(|display| !display.is_empty()).map_or_else(
+        || "DISPLAY is not set".to_string(),
+        |display| format!("DISPLAY={}", display.to_string_lossy()),
+    );
+    format!(
+        "Lattice could not open a display ({display}). A headless browser host still draws \
+         each workspace in a hidden window, so it needs a display, even a virtual one: start it \
+         under Xvfb, for example with `xvfb-run -a`."
+    )
 }
 
 /// Dock click with no window showing: bring back whichever surface this
@@ -190,6 +243,11 @@ impl BrowserHost {
     pub(crate) fn return_to_desktop(
         &self, app: &tauri::AppHandle, state: &AppState, host_label: &str,
     ) -> Result<(), String> {
+        if launched_headless() {
+            // A window there would open on a display nobody sees, and the
+            // tab would hand its workspace to it.
+            return Err(NO_DESKTOP_RETURN.to_string());
+        }
         let Some((config, _)) = self.workspace_config(host_label)? else {
             return Err("This browser workspace is no longer active.".to_string());
         };
@@ -415,10 +473,12 @@ impl BrowserHost {
 
 /// The default browser gets a tokenless entry address with a single-use
 /// nonce: `open` puts it in process arguments, and the browser keeps it in
-/// history and bookmarks.
+/// history and bookmarks. A headless host opens no browser: its tab opens
+/// projects in itself, so nothing reaches here there.
 fn open_in_default_browser(
     app: &tauri::AppHandle, sessions: &Sessions, config: &BrowserSessionConfig, origin: &str,
 ) -> Result<(), String> {
+    require_desktop()?;
     let nonce = session::issue_entry_nonce(sessions, &config.token)?;
     app.opener()
         .open_url(session::entry_url(origin, &nonce), None::<&str>)
@@ -478,4 +538,44 @@ fn retire_host_soon(app: &tauri::AppHandle, host_label: String) {
         tokio::time::sleep(Duration::from_millis(50)).await;
         destroy_window(&app, &host_label);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_both_flags_on_linux_make_a_headless_host() {
+        let launch = |arguments: &[&str], linux| {
+            let arguments = ["lattice"].iter().chain(arguments).map(OsString::from);
+            headless_arguments(arguments, linux)
+        };
+        assert!(launch(&["--browser-host", "--headless"], true));
+        assert!(launch(&["--headless", "--browser-host"], true));
+        // The desktop app, a plain browser host, and every other platform.
+        assert!(!launch(&[], true));
+        assert!(!launch(&["--headless"], true));
+        assert!(!launch(&["--browser-host"], true));
+        assert!(!launch(&["--browser-host", "--headless"], false));
+    }
+
+    #[test]
+    fn a_missing_display_is_named_with_the_way_out() {
+        let unset = missing_display_message(None);
+        assert!(unset.contains("DISPLAY is not set") && unset.contains("xvfb-run"), "{unset}");
+        assert_eq!(missing_display_message(Some(OsString::new())), unset);
+        assert!(missing_display_message(Some(":122".into())).contains("(DISPLAY=:122)"));
+    }
+
+    #[test]
+    fn the_page_hears_about_headless_only_from_a_headless_host() {
+        let session = BrowserSession::new("browser-test".into(), "http://127.0.0.1:18452".into());
+        let config = BrowserSessionConfig::new("secret", &session, 18452);
+        let reply = |config: &BrowserSessionConfig| serde_json::to_value(config).unwrap();
+        assert_eq!(
+            reply(&config),
+            serde_json::json!({ "token": "secret", "bridgePort": 18452, "label": "browser-test" })
+        );
+        assert_eq!(reply(&BrowserSessionConfig { headless: true, ..config })["headless"], true);
+    }
 }

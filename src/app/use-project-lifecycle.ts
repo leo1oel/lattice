@@ -24,20 +24,13 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { markGetStartedStep, TUTORIAL_VENUE } from "../onboarding/get-started-progress";
 import { loadWindowProjectGroup, windowProjects } from "./window-projects";
 import { useProjectTabTransfer } from "./project-tab-transfer";
+import { NEW_WINDOW_FAILURE_PREFIX, OPEN_IN_ANOTHER_WINDOW, type OpenedProjectWindow } from "./project-window-replies";
 
 /** Asked only when the window already shows a project, so the question waits for the first switch. */
 const loadLeaveProject = () => import("./leave-project");
 
 /** How long launch shows an empty window while it reopens a project, before the welcome screen. */
 const LAUNCH_EMPTY_WINDOW_MS = 1_000;
-
-// Must match the prefix `open_project_window` puts on a window-creation
-// failure. Everything else it can fail with is the project itself.
-// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
-const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
-/** What `open_project` answers when another window already shows the project. */
-// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
-const OPEN_IN_ANOTHER_WINDOW = "already open in another Lattice window";
 
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;
@@ -265,13 +258,16 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   ]);
   const enterProjectRef = useLatestRef(enterProject);
 
+  // `openInThisWindow`, which is defined below and calls `openProjectWindow`.
+  const inPlace = useRef<(path: string) => Promise<boolean>>(async () => false);
   /// Hand a project to a window of its own, or raise the window already
-  /// showing it. Returns the failure message so a caller that keeps a list of
+  /// showing it; a headless host's tab, the only window, takes it in place.
+  /// Returns the failure message so a caller that keeps a list of
   /// projects can decide whether to look at the project's folder again.
   const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
     setBusyLabel(t`Opening window…`);
-    return invoke("open_project_window", { path })
-      .then(() => null, (reason: unknown) => {
+    return invoke<OpenedProjectWindow>("open_project_window", { path })
+      .then(async (opened) => { if (opened?.openHere) await inPlace.current(path); return null; }, (reason: unknown) => {
         const message = toMessage(reason);
         showError(message);
         return message;
@@ -354,6 +350,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       return switchProject(label, path, onError);
     });
   }, [building, holdWindow, openProjectWindow, projectBeforeTransitionRef, projectRef, switchProject, t]);
+  useEffect(() => {
+    inPlace.current = openInThisWindow;
+  });
 
   /// Open a folder that is already on disk — the local copy of an Overleaf
   /// project — wherever the writer will find it: the window showing it is

@@ -25,6 +25,7 @@ pub async fn save_problem_report(
 ) -> Result<ProblemReport, String> {
     use tauri_plugin_opener::OpenerExt;
 
+    crate::browser_host::require_desktop()?;
     let home = app.path().home_dir().ok();
     let folder = super::windows::app_log_dir(&app)?.join("reports");
     let (path, report) = run_blocking("Saving the diagnostic log", move || {

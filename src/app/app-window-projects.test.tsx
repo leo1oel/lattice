@@ -114,6 +114,25 @@ describe("projects in this window", () => {
     build.resolve(buildResult());
   });
 
+  it("takes the project in place when the host answers that this tab opens it (a headless host)", async () => {
+    setAutoBuildMode("manual");
+    rememberRecents();
+    renderApp({
+      ...projectCommands(snapshots[ROOT]), open_project: openProject, project_shown_elsewhere: false,
+      open_project_window: () => ({ label: "browser-1", focusedExisting: false, openHere: true }),
+    });
+    const title = await screen.findByRole("button", { name: "Switch project" });
+    await waitFor(() => expect(title).toBeEnabled());
+    fireEvent.pointerDown(title, { button: 0, pointerType: "mouse" });
+    // The plain entry, which elsewhere gives the project a window of its own.
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Notes" }));
+    await expectInvoked("open_project_window", { path: NOTES });
+    await expectInvoked("open_project", { path: NOTES });
+    const tabs = await screen.findByRole("group", { name: "Projects in this window" });
+    expect(within(tabs).getByRole("button", { name: "Switch project" })).toHaveTextContent("Notes");
+    expect(within(tabs).getByRole("button", { name: "Paper" })).toBeInTheDocument();
+  });
+
   it("raises the window that already shows a project, keeping its tab here", async () => {
     setAutoBuildMode("manual");
     rememberRecents();

@@ -121,6 +121,7 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["pdf_window.rs", "Only a Lattice window can open the PDF in a window of its own.", () => t`Only a Lattice window can open the PDF in a window of its own.`],
   ["pdf_window.rs", "Could not open the PDF in a new window: {error}", ([error]) => t`Could not open the PDF in a new window: ${error}`],
   ["ipc/windows.rs", "Could not open the log folder: {error}", ([error]) => t`Could not open the log folder: ${error}`],
+  ["ipc/windows.rs", "This project is open in another browser tab. Close that tab, then open the project here.", () => t`This project is open in another browser tab. Close that tab, then open the project here.`],
   // Help ▸ Report a Problem… (diagnostic_logs.rs)
   ["diagnostic_logs.rs", "The diagnostic log is too large to save.", () => t`The diagnostic log is too large to save.`],
   ["diagnostic_logs.rs", "Could not create the report folder: {error}", ([error]) => t`Could not create the report folder: ${error}`],
@@ -194,6 +195,8 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["browser_host.rs", "This workspace is already open in your browser.", () => t`This workspace is already open in your browser.`],
   ["browser_host.rs", "This browser workspace is no longer active.", () => t`This browser workspace is no longer active.`],
   ["browser_host.rs", "This Lattice window is already opening in your browser.", () => t`This Lattice window is already opening in your browser.`],
+  ["browser_host.rs", "This Lattice runs without a desktop, so the workspace stays in your browser.", () => t`This Lattice runs without a desktop, so the workspace stays in your browser.`],
+  ["browser_host.rs", "This Lattice runs without a desktop, so it cannot open apps or folders on its computer.", () => t`This Lattice runs without a desktop, so it cannot open apps or folders on its computer.`],
   ["browser_host/dialogs.rs", "Browser dialogs are only available to a browser workspace.", () => t`Browser dialogs are only available to a browser workspace.`],
 
   // Formatting, the arXiv export, PDF review and the language server

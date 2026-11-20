@@ -18031,6 +18031,14 @@ msgstr "这不是 Lattice 幻灯片文件"
 msgid "This is the earliest version"
 msgstr "这是最早的版本"
 
+#: src/platform/host-errors-workspace.ts
+msgid "This Lattice runs without a desktop, so it cannot open apps or folders on its computer."
+msgstr "此 Lattice 在没有桌面的电脑上运行，无法在那台电脑上打开应用或文件夹。"
+
+#: src/platform/host-errors-workspace.ts
+msgid "This Lattice runs without a desktop, so the workspace stays in your browser."
+msgstr "此 Lattice 在没有桌面的电脑上运行，工作区会留在浏览器中。"
+
 #: src/platform/host-errors-setup.ts
 msgid "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
 msgstr "此版本的 Lattice 内置的是 BasicTeX {year}。请先更新 Lattice，再安装最新版 BasicTeX"
@@ -18174,6 +18182,10 @@ msgstr "这个项目不在 Git 仓库中"
 #: src/platform/host-errors-overleaf.ts
 msgid "This project is not linked to an Overleaf project."
 msgstr "这个项目没有关联 Overleaf 项目"
+
+#: src/platform/host-errors-workspace.ts
+msgid "This project is open in another browser tab. Close that tab, then open the project here."
+msgstr "此项目已在另一个浏览器标签页中打开。请先关闭那个标签页，再在这里打开项目。"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx

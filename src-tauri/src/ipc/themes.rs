@@ -105,6 +105,7 @@ pub async fn themes_reveal_folder<R: Runtime>(
 ) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
 
+    crate::browser_host::require_desktop()?;
     let store = themes.store.clone();
     let folder = run_blocking("Themes folder", move || store.folder()).await?;
     app.opener()

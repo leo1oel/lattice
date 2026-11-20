@@ -7,7 +7,8 @@
  * the layout switch belong to the layout workspaces.
  *
  * Each tab closes from its × and moves to a window of its own from its context
- * menu (or Shift+F10). Closing or moving the active project switches to its
+ * menu (or Shift+F10); a headless host's tab is the only window, so there it
+ * only closes. Closing or moving the active project switches to its
  * neighbour first; the last project left folds the tabs back into the title.
  * Loaded with the second project.
  */
@@ -16,6 +17,7 @@ import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { Folder, SquareArrowOutUpRight, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import { isHeadlessHost } from "../platform/headless-host";
 import { windowProjects, type WindowProject } from "./window-projects";
 import type { useProjectLifecycle } from "./use-project-lifecycle";
 import "./project-tabs.css";
@@ -113,9 +115,12 @@ export default function ProjectTabs({ projects, active, activeTab, actions, disa
             document.body,
           )}
           <DropdownMenuContent align="start" sideOffset={2} className="min-w-[11rem]">
-            <DropdownMenuItem disabled={disabled} onSelect={() => void moveWindowProject(menuAt.entry.root, active, actions)}>
-              <SquareArrowOutUpRight size={14} />{t`Open in New Window`}
-            </DropdownMenuItem>
+            {/* A headless host keeps every project in this one tab. */}
+            {!isHeadlessHost() && (
+              <DropdownMenuItem disabled={disabled} onSelect={() => void moveWindowProject(menuAt.entry.root, active, actions)}>
+                <SquareArrowOutUpRight size={14} />{t`Open in New Window`}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem disabled={disabled} onSelect={() => void closeWindowProject(menuAt.entry.root, active, actions)}>
               <X size={14} />{t`Close`}
             </DropdownMenuItem>

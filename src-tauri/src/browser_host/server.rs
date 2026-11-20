@@ -191,6 +191,7 @@ async fn open_browser_session(
         settle_later(&state.app, &state.sessions, token, 0, SESSION_CONNECT_TIMEOUT);
     }
 
+    let config = BrowserSessionConfig { headless: super::launched_headless(), ..config };
     let mut response = Json(config).into_response();
     response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     allow_origin(&mut response, &origin);

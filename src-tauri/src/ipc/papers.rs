@@ -238,6 +238,7 @@ pub async fn open_zotero_link(app: AppHandle, url: String) -> Result<(), String>
     if !zotero::is_annotation_link(&url) {
         return Err("This is not a link into Zotero's PDF reader.".to_string());
     }
+    crate::browser_host::require_desktop()?;
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|error| format!("Lattice couldn't open Zotero: {error}"))

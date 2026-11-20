@@ -931,6 +931,11 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("Could not open the log folder: {error}", &[("error", Arg::Param(0))]),
     },
     Entry {
+        file: "ipc/windows.rs",
+        literal: "This project is open in another browser tab. Close that tab, then open the project here.",
+        text: Text::Message("This project is open in another browser tab. Close that tab, then open the project here.", &[]),
+    },
+    Entry {
         file: "diagnostic_logs.rs",
         literal: "The diagnostic log is too large to save.",
         text: Text::Message("The diagnostic log is too large to save.", &[]),
@@ -1239,6 +1244,16 @@ pub(super) static ENTRIES: &[Entry] = &[
         file: "browser_host.rs",
         literal: "This Lattice window is already opening in your browser.",
         text: Text::Message("This Lattice window is already opening in your browser.", &[]),
+    },
+    Entry {
+        file: "browser_host.rs",
+        literal: "This Lattice runs without a desktop, so the workspace stays in your browser.",
+        text: Text::Message("This Lattice runs without a desktop, so the workspace stays in your browser.", &[]),
+    },
+    Entry {
+        file: "browser_host.rs",
+        literal: "This Lattice runs without a desktop, so it cannot open apps or folders on its computer.",
+        text: Text::Message("This Lattice runs without a desktop, so it cannot open apps or folders on its computer.", &[]),
     },
     Entry {
         file: "browser_host/dialogs.rs",
