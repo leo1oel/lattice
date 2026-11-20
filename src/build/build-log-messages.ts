@@ -21,12 +21,19 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
   const params = diagnostic.params ?? {};
   const file = params.file ?? "";
   switch (diagnostic.code) {
+    // `distribution` is the TeX the build ran (latex/missing_tex.rs), when the host could tell.
     case "latex-tool-missing": {
-      const tool = params.tool ?? "";
-      return i18n._(msg`The LaTeX tool ''${tool}'' was not found. Install MacTeX or TeX Live, then restart Lattice.`);
+      const { tool = "", distribution } = params;
+      return distribution
+        ? i18n._(msg`The LaTeX tool ''${tool}'' was not found. Add it to your ${distribution}, then restart Lattice.`)
+        : i18n._(msg`The LaTeX tool ''${tool}'' was not found. Install MacTeX or TeX Live, then restart Lattice.`);
     }
-    case "tex-dependency-missing":
-      return i18n._(msg`Missing LaTeX dependency \`${file}\`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package.`);
+    case "tex-dependency-missing": {
+      const { distribution, packages = "" } = params;
+      return distribution
+        ? i18n._(msg`Missing LaTeX dependency \`${file}\`. Your ${distribution} does not include every package available on Overleaf. Use Install missing package to find and install its ${packages} package.`)
+        : i18n._(msg`Missing LaTeX dependency \`${file}\`. Your TeX distribution does not include every package available on Overleaf. Use Install missing package to find and install the package that provides it.`);
+    }
     case "conference-style-missing": {
       const venue = params.venue ?? "";
       return i18n._(msg`Missing style file \`${file}\`. It is part of the ${venue} template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project.`);

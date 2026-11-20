@@ -17,14 +17,28 @@ pub(crate) fn text(diagnostic: &Diagnostic) -> String {
     let p = |name| param(diagnostic, name);
     let file = p("file");
     match diagnostic.code {
+        // `distribution` is the TeX the build ran (latex/missing_tex.rs), when
+        // the host could tell.
+        Some("latex-tool-missing") if !p("distribution").is_empty() => t!(
+            "The LaTeX tool ''{tool}'' was not found. Add it to your {distribution}, then restart Lattice.",
+            tool = p("tool"),
+            distribution = p("distribution")
+        )
+        // Lingui's escaped apostrophe.
+        .replace("''", "'"),
         Some("latex-tool-missing") => t!(
             "The LaTeX tool ''{tool}'' was not found. Install MacTeX or TeX Live, then restart Lattice.",
             tool = p("tool")
         )
-        // Lingui's escaped apostrophe.
         .replace("''", "'"),
+        Some("tex-dependency-missing") if !p("distribution").is_empty() => t!(
+            "Missing LaTeX dependency `{file}`. Your {distribution} does not include every package available on Overleaf. Use Install missing package to find and install its {packages} package.",
+            file = file,
+            distribution = p("distribution"),
+            packages = p("packages")
+        ),
         Some("tex-dependency-missing") => t!(
-            "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package.",
+            "Missing LaTeX dependency `{file}`. Your TeX distribution does not include every package available on Overleaf. Use Install missing package to find and install the package that provides it.",
             file = file
         ),
         Some("conference-style-missing") => t!(
@@ -231,6 +245,24 @@ mod tests {
         assert_eq!(
             text(&coded("latex-tool-missing", &[("tool", "latexmk")])),
             "The LaTeX tool 'latexmk' was not found. Install MacTeX or TeX Live, then restart Lattice."
+        );
+        assert_eq!(
+            text(&coded(
+                "tex-dependency-missing",
+                &[
+                    ("file", "lipsum.sty"),
+                    ("distribution", "TinyTeX"),
+                    ("packages", "TeX Live")
+                ]
+            )),
+            "Missing LaTeX dependency `lipsum.sty`. Your TinyTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
+        );
+        assert_eq!(
+            text(&coded(
+                "latex-tool-missing",
+                &[("tool", "biber"), ("distribution", "TinyTeX")]
+            )),
+            "The LaTeX tool 'biber' was not found. Add it to your TinyTeX, then restart Lattice."
         );
         assert_eq!(
             text(&coded("arydshln-after-colortbl", &[])),

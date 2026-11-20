@@ -9027,6 +9027,14 @@ msgstr "latexdiff was stopped after {minutes} minutes without finishing. Compare
 msgid "latexdiff was stopped when it used {gigabytes} GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
 msgstr "latexdiff was stopped when it used {gigabytes} GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
 
+#: src/platform/host-errors-workspace.ts
+msgid "latexindent is not installed. Add it to your {distribution}, then retry."
+msgstr "latexindent is not installed. Add it to your {distribution}, then retry."
+
+#: src/platform/host-errors-workspace.ts
+msgid "latexindent is not installed. Add it to your TeX distribution, then retry."
+msgstr "latexindent is not installed. Add it to your TeX distribution, then retry."
+
 #: src/build/build-log-messages.ts
 msgid "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
 msgstr "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
@@ -10101,8 +10109,12 @@ msgid "Missing image"
 msgstr "Missing image"
 
 #: src/build/build-log-messages.ts
-msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
-msgstr "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
+msgid "Missing LaTeX dependency `{file}`. Your {distribution} does not include every package available on Overleaf. Use Install missing package to find and install its {packages} package."
+msgstr "Missing LaTeX dependency `{file}`. Your {distribution} does not include every package available on Overleaf. Use Install missing package to find and install its {packages} package."
+
+#: src/build/build-log-messages.ts
+msgid "Missing LaTeX dependency `{file}`. Your TeX distribution does not include every package available on Overleaf. Use Install missing package to find and install the package that provides it."
+msgstr "Missing LaTeX dependency `{file}`. Your TeX distribution does not include every package available on Overleaf. Use Install missing package to find and install the package that provides it."
 
 #: src/settings/doctor-settings.tsx
 msgid "Missing required tools"
@@ -17073,6 +17085,10 @@ msgstr "The label {label} is used twice"
 #: src/editor/latex/latex-command-completions.ts
 msgid "The LaTeX logo"
 msgstr "The LaTeX logo"
+
+#: src/build/build-log-messages.ts
+msgid "The LaTeX tool ''{tool}'' was not found. Add it to your {distribution}, then restart Lattice."
+msgstr "The LaTeX tool ''{tool}'' was not found. Add it to your {distribution}, then restart Lattice."
 
 #: src/build/build-log-messages.ts
 msgid "The LaTeX tool ''{tool}'' was not found. Install MacTeX or TeX Live, then restart Lattice."

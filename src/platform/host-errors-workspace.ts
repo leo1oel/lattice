@@ -198,6 +198,8 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
 
   // Formatting, the arXiv export, PDF review and the language server
   ["format_latex.rs", "Format currently supports .tex, .cls, and .sty files.", () => t`Format currently supports .tex, .cls, and .sty files.`],
+  ["format_latex.rs", "latexindent is not installed. Add it to your {distribution}, then retry.", ([distribution]) => t`latexindent is not installed. Add it to your ${distribution}, then retry.`],
+  ["format_latex.rs", "latexindent is not installed. Add it to your TeX distribution, then retry.", () => t`latexindent is not installed. Add it to your TeX distribution, then retry.`],
   ["latex/arxiv.rs", "The paper changed after it was checked. Check it again, then export.", () => t`The paper changed after it was checked. Check it again, then export.`],
   ["latex/arxiv/journal.rs", "This paper has no figure made from a drawing to export.", () => t`This paper has no figure made from a drawing to export.`],
   ["latex/arxiv/journal.rs", "No figure made from a drawing was found in the typeset paper.", () => t`No figure made from a drawing was found in the typeset paper.`],
