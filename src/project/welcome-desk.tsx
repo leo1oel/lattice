@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { FileText } from "lucide-react";
 import { comboText } from "../app/key-combos";
-import { hostPlatform } from "../platform/host-platform";
+import { keyboardPlatform } from "../platform/host-platform";
 import { Badge } from "../components/ui/badge";
 import type { RecentProject } from "../settings/app-settings";
 import { loadFirstPages } from "./first-pages";
@@ -81,7 +81,7 @@ export function WelcomeDesk(props: {
                 // Its key shows only here and in the ⌘? sheet; assistive
                 // technology reads it from aria-keyshortcuts.
                 title={`${item.path} (${comboText({ key: String(index + 1), mod: true })})`}
-                aria-keyshortcuts={`${hostPlatform() === "mac" ? "Meta" : "Control"}+${index + 1}`}
+                aria-keyshortcuts={`${keyboardPlatform() === "mac" ? "Meta" : "Control"}+${index + 1}`}
                 disabled={props.disabled}
                 onClick={() => props.onOpen(item.path)}
               >

@@ -5,13 +5,15 @@
  * `Mod+Shift+Enter`, App's commands), so a sheet built from those keymaps
  * draws what they actually bind.
  *
- * Windows and Linux use Ctrl/Alt/Shift labels, where ⌘ would name the
- * Super key; Mac combinations keep their compact glyphs.
+ * Windows, Linux and Android keyboards use Ctrl/Alt/Shift labels, where ⌘
+ * would name the Super key; Apple keyboards keep their compact glyphs. The
+ * keyboard is the one in front of the writer (`keyboardPlatform`), not the
+ * host's, which a browser tab on another device does not share.
  */
 
 /* eslint-disable lingui/no-unlocalized-strings -- key names and glyphs, not interface copy */
 
-import { hostPlatform, type HostPlatform } from "../platform/host-platform";
+import { keyboardPlatform, type HostPlatform } from "../platform/host-platform";
 
 export type KeyCombo = {
   /** The key as KeyboardEvent.key names it: "j", "?", "Enter", "ArrowUp", "F8". */
@@ -61,7 +63,7 @@ const KEY_LABELS: Record<HostPlatform, KeyLabels> = {
 export function comboKeys(combo: KeyCombo): string[] {
   // A letter is drawn in capitals, as on the keycap; a named key (F8) too.
   const key = KEY_GLYPHS[combo.key.toLowerCase()] ?? (combo.key.length === 1 || /^f\d+$/i.test(combo.key) ? combo.key.toUpperCase() : combo.key);
-  const labels = KEY_LABELS[hostPlatform()];
+  const labels = KEY_LABELS[keyboardPlatform()];
   return [
     ...(combo.ctrl ? [labels.ctrl] : []),
     ...(combo.mod ? [labels.mod] : []),
@@ -71,8 +73,8 @@ export function comboKeys(combo: KeyCombo): string[] {
   ];
 }
 
-/** Shift as this host writes it, for a sentence about a click it changes ("⇧-click"). */
-export const shiftKeyLabel = () => KEY_LABELS[hostPlatform()].shift;
+/** Shift as this keyboard writes it, for a sentence about a click it changes ("⇧-click"). */
+export const shiftKeyLabel = () => KEY_LABELS[keyboardPlatform()].shift;
 
 /** `combo` written as one string, as the palette and menus show it: "⌘⇧J", or "Ctrl+Shift+J". */
-export const comboText = (combo: KeyCombo) => comboKeys(combo).join(KEY_LABELS[hostPlatform()].join);
+export const comboText = (combo: KeyCombo) => comboKeys(combo).join(KEY_LABELS[keyboardPlatform()].join);

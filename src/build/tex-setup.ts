@@ -82,7 +82,7 @@ export function isRequiredSetupMissing(report: DoctorReportLike | null | undefin
 /* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
 /** `PAPER_TOOLS_MISSING` in src-tauri/lattice-core/src/commands/python_tools.rs. */
 export const PAPER_TOOLS_MISSING = "Lattice's paper tools are not installed.";
-/** latex/build.rs's spawn failure and build_log.rs's missing-tool diagnostic. */
+/** latex/build.rs's spawn failure and missing_tex.rs's missing-tool diagnostic. */
 export const LATEXMK_NOT_STARTED = "could not start latexmk";
 export const INSTALL_TEX = "mactex or tex live";
 export const LATEX_TOOL_MISSING = "the latex tool";

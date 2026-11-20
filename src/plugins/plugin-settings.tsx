@@ -14,7 +14,9 @@ import { useLingui } from "@lingui/react/macro";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { confirmAction, hostErrorMessage } from "../app-utils";
+import { PALETTE_KEY } from "../app/command-keys";
 import { subscribeTauriEvent } from "../app/effect-helpers";
+import { comboText } from "../app/key-combos";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { InlineMessage } from "../components/ui/inline-message";
@@ -340,6 +342,8 @@ export function PluginSettings() {
   const detailsInfo = detailsOffer?.kind === "installed" || detailsOffer?.kind === "update" ? detailsOffer.info : null;
   const installable = listing !== null && listing.verified && listing.status.kind !== "refused";
   const searchLabel = view === "browse" ? t`Search plugins` : t`Search installed plugins`;
+  // ⌘K, or Ctrl+K off an Apple keyboard.
+  const paletteKeys = comboText({ ...PALETTE_KEY, mod: true });
 
   return (
     <div className="settings-section plugin-settings" aria-busy={busy !== null || list === null}>
@@ -354,7 +358,7 @@ export function PluginSettings() {
         ) : undefined}
       />
       <p className="plugin-settings-intro">
-        {t`Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on.`}
+        {t`Plugins add commands to the command palette (${paletteKeys}). Each runs in a sandbox and can reach only what you allow when you turn it on.`}
       </p>
       {!available && (
         <InlineMessage level="warning">{t`Plugins run only on macOS for now. They are listed here, but can’t be turned on.`}</InlineMessage>

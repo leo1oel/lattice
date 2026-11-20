@@ -1,6 +1,7 @@
 use crate::commands;
 use crate::project;
 use crate::project_fs::ProjectDir;
+use crate::tex_setup::{self, TexDistribution};
 use std::env;
 use std::ffi::OsString;
 use std::fs;
@@ -36,9 +37,7 @@ pub fn format_document(root: &Path, relative_path: &str, text: &str) -> Result<S
         return Err("Format currently supports .tex, .cls, and .sty files.".to_string());
     }
     if !commands::available("latexindent") {
-        return Err(
-            "latexindent is not installed. Install MacTeX/TeX Live tools, then retry.".to_string()
-        );
+        return Err(latexindent_missing(tex_setup::detect_distribution()));
     }
     let _ = project::safe_path(root, &relative)?;
     let mut child = latexindent()?
@@ -62,6 +61,19 @@ pub fn format_document(root: &Path, relative_path: &str, text: &str) -> Result<S
         return Err(commands::stderr_or(&output, "latexindent failed."));
     }
     String::from_utf8(output.stdout).map_err(|error| format!("Invalid latexindent output: {error}"))
+}
+
+/// What to do without latexindent: add it to the TeX distribution that is
+/// installed (MacTeX has it, BasicTeX and TinyTeX do not), named when Lattice
+/// can tell which one that is.
+fn latexindent_missing(distribution: Option<TexDistribution>) -> String {
+    match distribution {
+        Some(distribution) => {
+            let distribution = distribution.name();
+            format!("latexindent is not installed. Add it to your {distribution}, then retry.")
+        }
+        None => "latexindent is not installed. Add it to your TeX distribution, then retry.".into(),
+    }
 }
 
 /// latexindent found the way compile finds latexmk: a Finder launch's PATH
@@ -109,5 +121,18 @@ mod tests {
         let root = crate::test_support::TempDir::new("format");
         let error = format_document(&root, "notes.md", "hello").unwrap_err();
         assert!(error.contains("supports"));
+    }
+
+    #[test]
+    fn says_which_tex_to_add_latexindent_to() {
+        assert_eq!(
+            latexindent_missing(Some(TexDistribution::TinyTex)),
+            "latexindent is not installed. Add it to your TinyTeX, then retry."
+        );
+        // Not "MacTeX/TeX Live tools" on a Linux host with some other TeX.
+        assert_eq!(
+            latexindent_missing(None),
+            "latexindent is not installed. Add it to your TeX distribution, then retry."
+        );
     }
 }

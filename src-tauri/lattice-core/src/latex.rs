@@ -44,6 +44,7 @@ mod compile_root;
 mod diagnostic_paths;
 mod engine_mismatch;
 mod figure_preview;
+mod missing_tex;
 mod outdated_lineno;
 mod package_order;
 mod pinned;

@@ -14,7 +14,7 @@ import type { NewEntryType } from "../project/project-new-entries";
 import { loadRecentCommands, rememberRecentCommand, type ThemePreference } from "../settings/app-settings";
 import type { SettingsSearchEntry } from "../settings/settings-search-index";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
-import { CITE_KEY, GOTO_LINE_KEY, SAVE_KEY } from "./command-keys";
+import { CITE_KEY, GOTO_LINE_KEY, PALETTE_KEY, SAVE_KEY } from "./command-keys";
 import { pdfDarkPagesSetting, togglePdfDarkPages } from "../pdf/pdf-dark-pages";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { closeDocumentTab } from "../trellis/close-document-tab";
@@ -227,7 +227,7 @@ export function useCommandTable({
     // Vim's :q: the editor's tab, never the window, and in a browser tab too, where ⌘W is the browser's.
     { id: "vim-quit", when: inProject, palette: false, run: () => void closeDocumentTab(trellis) },
     // ⌘K everywhere, the welcome screen included, and ⌘⇧P where it always was: one row in the sheet.
-    { id: "palette", label: t`Command palette`, group: "project", key: "k", palette: false, run: openCommandPalette },
+    { id: "palette", label: t`Command palette`, group: "project", key: PALETTE_KEY.key, palette: false, run: openCommandPalette },
     { id: "palette-shift-p", label: t`Command palette`, group: "project", key: "p", shift: true, palette: false, run: openCommandPalette },
     // The window's ⌘?, the Mac's Help key: every shortcut, from these commands and the keymaps.
     { id: "shortcuts", label: t`Keyboard shortcuts`, group: "project", key: "?", shift: true, run: () => setCommandOverlay({ kind: "shortcuts" }) },

@@ -47,7 +47,7 @@ const PHRASES: [phrase: string, rustSource: string][] = [
   [PAPER_TOOLS_MISSING, "lattice-core/src/commands/python_tools.rs"],
   [LATEXMK_NOT_STARTED, "lattice-core/src/latex/build.rs"],
   [INSTALL_TEX, "lattice-core/src/latex/build.rs"],
-  [LATEX_TOOL_MISSING, "lattice-core/src/latex/build_log.rs"],
+  [LATEX_TOOL_MISSING, "lattice-core/src/latex/missing_tex.rs"],
   [METADATA_INCOMPLETE, "lattice-core/src/citation_audit/check.rs"],
   [PREPRINT_INCOMPLETE, "lattice-core/src/citation_audit/check.rs"],
 ];

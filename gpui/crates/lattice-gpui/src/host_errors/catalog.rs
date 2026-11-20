@@ -1256,6 +1256,16 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("Format currently supports .tex, .cls, and .sty files.", &[]),
     },
     Entry {
+        file: "format_latex.rs",
+        literal: "latexindent is not installed. Add it to your {distribution}, then retry.",
+        text: Text::Message("latexindent is not installed. Add it to your {distribution}, then retry.", &[("distribution", Arg::Param(0))]),
+    },
+    Entry {
+        file: "format_latex.rs",
+        literal: "latexindent is not installed. Add it to your TeX distribution, then retry.",
+        text: Text::Message("latexindent is not installed. Add it to your TeX distribution, then retry.", &[]),
+    },
+    Entry {
         file: "latex/arxiv.rs",
         literal: "The paper changed after it was checked. Check it again, then export.",
         text: Text::Message("The paper changed after it was checked. Check it again, then export.", &[]),
