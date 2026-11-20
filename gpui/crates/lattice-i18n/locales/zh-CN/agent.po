@@ -1,3 +1,19 @@
+#: lattice-gpui/src/agent.rs
+msgid "Could not open the Agent in a new window"
+msgstr "无法在新窗口中打开 AI 助手"
+
+#: lattice-gpui/src/shell/palette_commands.rs
+msgid "Open the Agent in a separate window"
+msgstr "在单独窗口中打开 AI 助手"
+
+#: lattice-gpui/src/shell/palette_commands.rs
+msgid "Return the Agent to the workspace"
+msgstr "把 AI 助手放回工作区"
+
 #: lattice-gpui/src/agent/surface.rs
 msgid "The Agent couldn’t start"
 msgstr "AI 助手无法启动"
+
+#: lattice-gpui/src/agent.rs
+msgid "The Agent is in a separate window"
+msgstr "AI 助手在单独的窗口中"

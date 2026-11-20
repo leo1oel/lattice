@@ -84,6 +84,13 @@ impl Native {
     pub fn ns_window(self) -> *mut AnyObject {
         self.window
     }
+
+    /// Whether GPUI's view is the window's first responder, so the window's
+    /// keys reach GPUI; for the scripted checks.
+    pub fn view_has_keyboard(self) -> bool {
+        let responder: *mut AnyObject = unsafe { msg_send![self.window, firstResponder] };
+        responder == self.view
+    }
 }
 
 pub fn native(window: &Window) -> Result<Native> {
@@ -200,6 +207,23 @@ pub fn send_chord(
     option: bool,
     shift: bool,
 ) -> Result<()> {
+    post_chord(native, character, (command, option, shift), false)
+}
+
+/// ⌘ and `character` through the application, as the keyboard sends it: the
+/// menu bar's key equivalents (Edit › Paste's `paste:` to the first
+/// responder) see it before the window, which a webview's page needs, since
+/// WebKit takes ⌘V only as the menu's `paste:`.
+pub fn send_key_equivalent(native: Native, character: char) -> Result<()> {
+    post_chord(native, character, (true, false, false), true)
+}
+
+fn post_chord(
+    native: Native,
+    character: char,
+    (command, option, shift): (bool, bool, bool),
+    through_app: bool,
+) -> Result<()> {
     let text = match character {
         '\n' => "\r".to_string(),
         '\u{8}' => "\u{7f}".to_string(),
@@ -229,7 +253,12 @@ pub fn send_chord(
                 isARepeat: Bool::NO,
                 keyCode: key_code(shifted.unwrap_or(character))];
             let event = event.context("NSEvent refused the key event")?;
-            let _: () = msg_send![native.window, sendEvent: &*event];
+            if through_app {
+                let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+                let _: () = msg_send![app, sendEvent: &*event];
+            } else {
+                let _: () = msg_send![native.window, sendEvent: &*event];
+            }
         }
     }
     Ok(())

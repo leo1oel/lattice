@@ -167,6 +167,8 @@ pub struct CommandContext {
     pub pdf_dark: bool,
     /// The live PDF is in a window of its own.
     pub pdf_window: bool,
+    /// The Agent is in a window of its own.
+    pub agent_window: bool,
     /// The theme the writer chose.
     pub theme: lattice_settings::ThemePreference,
 }

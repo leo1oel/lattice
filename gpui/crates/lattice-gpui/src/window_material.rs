@@ -78,6 +78,13 @@ pub fn apply(window: &mut Window, cx: &mut App) {
     LatticeTheme::set_glass(glass, cx);
 }
 
+/// Give `window` (one of the app's own, not a workspace's) the appearance of
+/// the theme the writer chose, so its title bar follows the theme too.
+pub fn pin_appearance(window: &Window, cx: &App) {
+    let pinned = crate::app::appearance_chosen(cx).then(|| cx.palette().is_dark());
+    platform::set_appearance(window, pinned);
+}
+
 /// Apply the material to every workspace window.
 pub fn apply_all(cx: &mut App) {
     cx.defer(|cx| {
@@ -130,9 +137,22 @@ mod platform {
         let Ok(native) = crate::native::native(window) else {
             return Backing::Unsupported;
         };
+        set_appearance(window, dark);
+        unsafe { show_material_view(native.ns_window(), clear) };
+        window.set_background_appearance(if clear {
+            WindowBackgroundAppearance::Transparent
+        } else {
+            WindowBackgroundAppearance::Opaque
+        });
+        backing
+    }
+
+    /// The theme's appearance (`dark`), or the system's when it follows it.
+    pub fn set_appearance(window: &Window, dark: Option<bool>) {
+        let Ok(native) = crate::native::native(window) else {
+            return;
+        };
         unsafe {
-            let ns_window = native.ns_window();
-            // The theme's appearance, or the system's when it follows it.
             let appearance: *mut AnyObject = match dark {
                 Some(dark) => {
                     let name = NSString::from_str(if dark {
@@ -144,15 +164,8 @@ mod platform {
                 }
                 None => std::ptr::null_mut(),
             };
-            let _: () = msg_send![ns_window, setAppearance: appearance];
-            show_material_view(ns_window, clear);
+            let _: () = msg_send![native.ns_window(), setAppearance: appearance];
         }
-        window.set_background_appearance(if clear {
-            WindowBackgroundAppearance::Transparent
-        } else {
-            WindowBackgroundAppearance::Opaque
-        });
-        backing
     }
 
     /// Show or hide the window's material, adding it below GPUI's view the
@@ -238,6 +251,8 @@ mod platform {
     pub fn apply(_: &mut Window, _: bool, _: Option<bool>) -> Backing {
         Backing::Unsupported
     }
+
+    pub fn set_appearance(_: &Window, _: Option<bool>) {}
 
     pub fn material_shown(_: &Window) -> bool {
         false

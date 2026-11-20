@@ -242,11 +242,52 @@ impl WebView {
         Ok(())
     }
 
+    /// Move the native view into `window`, the one being updated, keeping its page as it
+    /// is: nothing is reloaded. Only with GPUI Fast's window composition on macOS; elsewhere
+    /// it returns an error and the view stays where it is.
+    pub fn move_to_window(&mut self, window: &mut Window, cx: &mut App) -> anyhow::Result<()> {
+        #[cfg(all(feature = "gpui-fast", target_os = "macos"))]
+        {
+            let surface = self
+                .composition
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("the WebView has no composition surface"))?;
+            self.composition = Some(surface.move_to(&self.webview, window, cx)?);
+            Ok(())
+        }
+        #[cfg(not(all(feature = "gpui-fast", target_os = "macos")))]
+        {
+            let _ = (window, cx);
+            anyhow::bail!("moving a WebView between windows needs GPUI Fast on macOS")
+        }
+    }
+
+    /// Take the native view out of its window before that window closes, keeping its page;
+    /// [`WebView::move_to_window`] puts it in another. Only with GPUI Fast's window
+    /// composition on macOS; elsewhere it does nothing.
+    pub fn leave_window(&self) {
+        #[cfg(all(feature = "gpui-fast", target_os = "macos"))]
+        if let Some(surface) = &self.composition {
+            surface.leave_window(&self.webview);
+        }
+    }
+
+    /// Give the keyboard back to the GPUI view of the window the page is in, which a
+    /// moved page has changed ([`WebView::move_to_window`]).
+    pub fn focus_parent(&self) -> wry::Result<()> {
+        #[cfg(all(feature = "gpui-fast", target_os = "macos"))]
+        if let Some(surface) = &self.composition {
+            surface.focus_parent(&self.webview);
+            return Ok(());
+        }
+        self.webview.focus_parent()
+    }
+
     /// Set visibility and report native errors without discarding the loaded page.
     pub fn set_visible(&self, visible: bool) -> wry::Result<()> {
         // A focus error must not leave a closing native view covering the window.
         let focus_result = if !visible && self.visible.get() {
-            self.webview.focus_parent()
+            self.focus_parent()
         } else {
             Ok(())
         };
@@ -382,7 +423,7 @@ impl Render for WebView {
 /// A webview element can display a wry webview.
 pub struct WebViewElement {
     parent: Entity<WebView>,
-    view: Rc<wry::WebView>,
+    _view: Rc<wry::WebView>,
 }
 
 impl WebViewElement {
@@ -393,7 +434,10 @@ impl WebViewElement {
         _window: &mut Window,
         _cx: &mut App,
     ) -> Self {
-        Self { view, parent }
+        Self {
+            _view: view,
+            parent,
+        }
     }
 }
 
@@ -497,11 +541,13 @@ impl Element for WebViewElement {
     ) {
         let bounds = hitbox.clone().map(|h| h.bounds).unwrap_or(bounds);
         window.with_content_mask(Some(ContentMask { bounds }), |window| {
-            let webview = self.view.clone();
-            window.on_mouse_event(move |event: &MouseDownEvent, _, _, _| {
-                if !bounds.contains(&event.position) {
+            let parent = self.parent.downgrade();
+            window.on_mouse_event(move |event: &MouseDownEvent, _, _, cx| {
+                if !bounds.contains(&event.position)
+                    && let Some(parent) = parent.upgrade()
+                {
                     // Click white space to blur the input focus
-                    let _ = webview.focus_parent();
+                    let _ = parent.read(cx).focus_parent();
                 }
             });
         });

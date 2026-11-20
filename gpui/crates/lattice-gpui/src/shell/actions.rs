@@ -114,6 +114,7 @@ impl Shell {
             }),
             pdf_dark: crate::pdf::dark_pages(),
             pdf_window: self.pdf.read(cx).is_detached(),
+            agent_window: self.agent.panel.read(cx).is_detached(),
             theme: crate::settings::get(cx).theme_preference,
         }
     }

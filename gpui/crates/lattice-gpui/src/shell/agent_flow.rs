@@ -86,10 +86,18 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         self.agent.state = AgentState::default();
+        let panel = self.agent.panel.clone();
+        let switched = self.agent_surface(cx).read(cx).root() != root.as_deref();
+        if switched {
+            panel.update(cx, |panel, cx| panel.leave_project(cx));
+        }
         let settings = self.agent.settings.clone();
         for surface in [self.agent_surface(cx), self.git_surface(cx), settings] {
             let root = root.clone();
             surface.update(cx, |surface, cx| surface.set_project(root, cx));
+        }
+        if switched {
+            panel.update(cx, |panel, cx| panel.restore_window(cx));
         }
         self.push_git_state(cx);
         self.push_agent_workspace(cx);
