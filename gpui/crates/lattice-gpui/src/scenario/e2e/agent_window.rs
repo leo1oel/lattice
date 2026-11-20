@@ -86,7 +86,43 @@ impl Run {
         let Some(agent_window) = agent_window.filter(|_| opened) else {
             return Ok(());
         };
+
+        // Fresh, its page never clicked: ⌘K still reaches the window's own
+        // handler and opens the workspace's palette in front.
+        let agent_native = agent_window.update(cx, |_, window, _| native::native(window))??;
+        native::bring_to_front(agent_native);
+        native::send_key(agent_native, 'k', true)?;
+        let shell = self.shell.clone();
+        let palette = self
+            .wait_for(cx, Duration::from_secs(3), move |_, cx| {
+                shell.read(cx).palette_view().is_some()
+            })
+            .await;
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
+        })?;
+        steps.check(
+            "Agent: in its own window, before its page is ever clicked, ⌘K opens the workspace's palette in front",
+            palette,
+            json!({ "palette": palette }),
+        );
         self.agent_window_keys(cx, steps, &main, &island, agent_window).await?;
+
+        // Moved, the window's place is kept once it rests, with its display,
+        // before anything closes it.
+        native::move_window_by(agent_window.update(cx, |_, window, _| native::native(window))??, 40., 30.);
+        let moved = agent_window.update(cx, |_, window, _| placed(window))?;
+        let kept_moved = self
+            .wait_for(cx, Duration::from_secs(3), |_, _| {
+                crate::agent::window::frame(root)
+                    .is_some_and(|kept| same_frame(&kept, moved) && kept.display.is_some())
+            })
+            .await;
+        steps.check(
+            "Agent: its window's place is kept once a move rests, with the display it is on",
+            kept_moved,
+            json!({ "moved": format!("{moved:?}"), "kept": format!("{:?}", crate::agent::window::frame(root)) }),
+        );
 
         // Closing the window: the page comes back, still not built again,
         // and the window's frame is kept for the project.
@@ -116,7 +152,7 @@ impl Run {
                 && back["builds"] == builds
                 && back["fills"] == true
                 && !open_after
-                && kept_frame.is_some_and(|kept| same_frame(kept, frame)),
+                && kept_frame.as_ref().is_some_and(|kept| same_frame(kept, frame)),
             json!({ "docked": docked, "workspace_keyboard": workspace_keyboard, "kept": kept_back, "page": back, "open": open_after, "frame": format!("{frame:?}"), "kept_frame": format!("{kept_frame:?}") }),
         );
 
@@ -151,6 +187,77 @@ impl Run {
                 && returned
                 && builds_end == builds,
             json!({ "reopened": reopened, "frame": format!("{frame:?}"), "again": format!("{frame_again:?}"), "returned": returned, "builds": builds_end }),
+        );
+
+        // Left where no display reaches now (a display unplugged since): it
+        // opens at its default place instead, on screen.
+        crate::agent::window::update(root, |remembered| {
+            remembered.frame = Some(crate::pdf::preferences::WindowFrame {
+                x: -5000.,
+                y: 100.,
+                width: 480.,
+                height: 760.,
+                display: Some("a display unplugged since".into()),
+            })
+        });
+        cx.update(|cx| panel.update(cx, |panel, cx| panel.detach(cx)));
+        let out_again = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                cx.windows().len() == windows + 1 && panel.read(cx).is_detached()
+            })
+            .await;
+        let shown = match cx.update(|cx| panel.read(cx).window_handle()) {
+            Some(handle) => handle
+                .update(cx, |_, window, cx| {
+                    let bounds = window.window_bounds().get_bounds();
+                    let screen = window.display(cx).map(|display| display.bounds());
+                    (format!("{bounds:?}"), screen.is_some_and(|screen| crate::window_place::reaches(bounds, screen)))
+                })
+                .ok(),
+            None => None,
+        };
+        // ⌘⇧W in that fresh window, its page never clicked, takes it back.
+        if let Some(handle) = cx.update(|cx| panel.read(cx).window_handle()) {
+            let agent_native = handle.update(cx, |_, window, _| native::native(window))??;
+            native::bring_to_front(agent_native);
+            native::send_chord(agent_native, 'w', true, false, true)?;
+        }
+        let docked_again = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                cx.windows().len() == windows && island.read(cx).window().window_id() == home.window_id()
+            })
+            .await;
+        // The workspace window takes the app forward again as it closes:
+        // still within this foreground section.
+        self.pause(cx, Duration::from_millis(400)).await;
+        steps.check(
+            "Agent: a window left where no display reaches opens at its default place, on screen, and ⌘⇧W there brings the Agent back",
+            out_again && shown.as_ref().is_some_and(|(_, on_screen)| *on_screen) && docked_again,
+            json!({ "opened": out_again, "shown": format!("{shown:?}"), "docked": docked_again }),
+        );
+
+        // ⌘W in a fresh window does the same, as Close Tab in the workspace.
+        cx.update(|cx| panel.update(cx, |panel, cx| panel.detach(cx)));
+        let out_last = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                cx.windows().len() == windows + 1 && panel.read(cx).is_detached()
+            })
+            .await;
+        if let Some(handle) = cx.update(|cx| panel.read(cx).window_handle()) {
+            let agent_native = handle.update(cx, |_, window, _| native::native(window))??;
+            native::bring_to_front(agent_native);
+            native::send_key(agent_native, 'w', true)?;
+        }
+        let closed_by_key = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                cx.windows().len() == windows && island.read(cx).window().window_id() == home.window_id()
+            })
+            .await;
+        self.pause(cx, Duration::from_millis(400)).await;
+        steps.check(
+            "Agent: ⌘W in its own window, before its page is ever clicked, brings the Agent back to the workspace",
+            out_last && closed_by_key,
+            json!({ "opened": out_last, "docked": closed_by_key }),
         );
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.show_view("agent", false, window, cx))
@@ -287,7 +394,7 @@ fn placed(window: &gpui::Window) -> Bounds<Pixels> {
     }
 }
 
-fn same_frame(kept: crate::pdf::preferences::WindowFrame, bounds: Bounds<Pixels>) -> bool {
+fn same_frame(kept: &crate::pdf::preferences::WindowFrame, bounds: Bounds<Pixels>) -> bool {
     (kept.x - f32::from(bounds.origin.x)).abs() <= 1.
         && (kept.y - f32::from(bounds.origin.y)).abs() <= 1.
         && (kept.width - f32::from(bounds.size.width)).abs() <= 1.

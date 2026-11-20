@@ -17,21 +17,32 @@ use std::{
 };
 
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, IntoElement,
-    ParentElement as _, Render, SharedString, Styled as _, WeakEntity, Window, WindowBounds,
-    WindowOptions, div, point, px, size,
+    AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
+    WeakEntity, Window, WindowBounds, WindowOptions, div, px, size,
 };
 use lattice_ui::ActiveLattice as _;
 
 use super::{SynaraPanel, SynaraSurface};
-use crate::pdf::preferences::{ProjectWindow, WindowFrame};
+use crate::{
+    pdf::preferences::{ProjectWindow, WindowFrame},
+    shell::commands::{CloseTab, CloseWindow, CommandPalette},
+    window_place,
+};
 
 const DEFAULT_SIZE: (f32, f32) = (480., 760.);
 const MIN_SIZE: (f32, f32) = (360., 420.);
 
 pub struct AgentWindow {
     surface: Entity<SynaraSurface>,
+    /// GPUI's focus in the window until the page takes it, so the window's
+    /// own keys (⌘W, ⌘K) reach its handlers before the page is ever clicked:
+    /// with nothing focused, GPUI dispatches from the root alone.
+    focus_handle: FocusHandle,
+    /// The panel the Agent came from, which takes it back.
+    owner: WeakEntity<SynaraPanel>,
     _theme: gpui::Subscription,
+    _placed: gpui::Subscription,
 }
 
 impl AgentWindow {
@@ -45,20 +56,22 @@ impl AgentWindow {
         focus: bool,
         cx: &mut App,
     ) -> anyhow::Result<AnyWindowHandle> {
-        let remembered = project.as_deref().and_then(frame);
-        let bounds = match remembered {
-            Some(frame) => Bounds {
-                origin: point(px(frame.x), px(frame.y)),
-                size: size(
-                    px(frame.width.max(MIN_SIZE.0)),
-                    px(frame.height.max(MIN_SIZE.1)),
-                ),
-            },
-            None => Bounds::centered(None, size(px(DEFAULT_SIZE.0), px(DEFAULT_SIZE.1)), cx),
-        };
+        let min = size(px(MIN_SIZE.0), px(MIN_SIZE.1));
+        let (bounds, display_id) = project
+            .as_deref()
+            .and_then(frame)
+            .and_then(|frame| window_place::reopen(&frame, min, cx))
+            .map_or_else(
+                || {
+                    let default = size(px(DEFAULT_SIZE.0), px(DEFAULT_SIZE.1));
+                    (Bounds::centered(None, default, cx), None)
+                },
+                |(bounds, display)| (bounds, Some(display)),
+            );
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
-            window_min_size: Some(size(px(MIN_SIZE.0), px(MIN_SIZE.1))),
+            display_id,
+            window_min_size: Some(min),
             titlebar: Some(gpui::TitlebarOptions {
                 title: Some(title),
                 ..Default::default()
@@ -67,24 +80,35 @@ impl AgentWindow {
             ..Default::default()
         };
         let kept = surface.downgrade();
-        let (handle, _) = gpui_kit::open_window(options, cx, |window, cx| {
+        let placed = project.clone();
+        let panel = owner.clone();
+        let (handle, view) = gpui_kit::open_window(options, cx, |window, cx| {
             // The interface size every window takes.
             crate::interface_zoom::apply(window, cx);
             // Its title bar in the theme's appearance, as the workspace's.
             crate::window_material::pin_appearance(window, cx);
             cx.new(|cx| AgentWindow {
                 surface,
+                focus_handle: cx.focus_handle(),
+                owner: panel,
                 _theme: cx.observe_global_in::<lattice_ui::LatticeTheme>(
                     window,
                     |_, window, cx| {
                         crate::window_material::pin_appearance(window, cx);
                     },
                 ),
+                _placed: window_place::keep_placed(window, cx, move |frame| {
+                    if let Some(root) = placed.as_deref() {
+                        update(root, |remembered| remembered.frame = Some(frame));
+                    }
+                }),
             })
         })?;
+        let focus_handle = view.read(cx).focus_handle.clone();
         handle.update(cx, |_, window, cx| {
+            window.focus(&focus_handle, cx);
             window.on_window_should_close(cx, move |window, cx| {
-                remember_frame(project.as_deref(), window);
+                remember_frame(project.as_deref(), window, cx);
                 if let Some(surface) = kept.upgrade() {
                     let_go(&surface, cx);
                 }
@@ -114,8 +138,8 @@ pub(super) fn close(
 ) {
     let_go(surface, cx);
     handle
-        .update(cx, |_, window, _| {
-            remember_frame(project, window);
+        .update(cx, |_, window, cx| {
+            remember_frame(project, window, cx);
             window.remove_window();
         })
         .ok();
@@ -128,27 +152,50 @@ fn let_go(surface: &Entity<SynaraSurface>, cx: &mut App) {
     }
 }
 
-fn remember_frame(project: Option<&Path>, window: &Window) {
+fn remember_frame(project: Option<&Path>, window: &Window, cx: &App) {
     let Some(root) = project else {
         return;
     };
-    // The size is what the window shows, which it opens with again: its
-    // bounds would add the title bar each time.
-    let origin = window.window_bounds().get_bounds().origin;
-    let size = window.viewport_size();
-    let frame = WindowFrame {
-        x: f32::from(origin.x),
-        y: f32::from(origin.y),
-        width: f32::from(size.width),
-        height: f32::from(size.height),
-    };
-    update(root, |remembered| remembered.frame = Some(frame));
+    // Closed in full screen, the last plain place it rested at stays kept.
+    if let Some(frame) = window_place::frame_of(window, cx) {
+        update(root, |remembered| remembered.frame = Some(frame));
+    }
+}
+
+impl AgentWindow {
+    /// ⌘W and ⌘⇧W: the Agent goes back to its panel, as the window's close
+    /// button takes it, once this window's event is over.
+    fn return_to_workspace(&mut self, cx: &mut Context<Self>) {
+        let owner = self.owner.clone();
+        cx.defer(move |cx| {
+            owner.update(cx, |panel, cx| panel.dock(true, cx)).ok();
+        });
+    }
+
+    /// ⌘K: the workspace's palette, in front, as the PDF's window has none of
+    /// its own.
+    fn open_palette(&mut self, cx: &mut Context<Self>) {
+        let Some(home) = self.owner.upgrade().map(|panel| panel.read(cx).home) else {
+            return;
+        };
+        cx.defer(move |cx| {
+            home.update(cx, |_, window, cx| {
+                window.activate_window();
+                window.dispatch_action(Box::new(CommandPalette), cx);
+            })
+            .ok();
+        });
+    }
 }
 
 impl Render for AgentWindow {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
         div()
+            .track_focus(&self.focus_handle)
+            .on_action(cx.listener(|this, _: &CloseTab, _, cx| this.return_to_workspace(cx)))
+            .on_action(cx.listener(|this, _: &CloseWindow, _, cx| this.return_to_workspace(cx)))
+            .on_action(cx.listener(|this, _: &CommandPalette, _, cx| this.open_palette(cx)))
             .size_full()
             .bg(palette.editor)
             .text_color(palette.text)
@@ -208,7 +255,7 @@ fn remembered(root: &Path) -> ProjectWindow {
 }
 
 /// Change what `root`'s window remembers, and write it when it changed.
-pub(super) fn update(root: &Path, change: impl FnOnce(&mut ProjectWindow)) {
+pub(crate) fn update(root: &Path, change: impl FnOnce(&mut ProjectWindow)) {
     let Ok(mut store) = store().lock() else {
         return;
     };
