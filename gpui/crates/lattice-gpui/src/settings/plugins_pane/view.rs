@@ -20,6 +20,7 @@ use super::{PluginsPane, Target, View, model};
 use crate::{
     plugins::text,
     settings::controls::{self, Level, Marks, PageWidth, Row},
+    shell::commands::{CommandPalette, keys_label},
 };
 
 /// Text in Settings' scale: `role` in `ink`.
@@ -47,9 +48,14 @@ impl PluginsPane {
         let palette = cx.palette().clone();
         let busy = self.busy.is_some();
         let this = cx.entity();
+        // The palette's key as this keymap binds it, as the title bar shows it.
+        let palette_keys = keys_label(&CommandPalette, window).unwrap_or_else(|| "⌘K".into());
         let mut groups = vec![
             words(
-                t!("Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on."),
+                t!(
+                    "Plugins add commands to the command palette ({paletteKeys}). Each runs in a sandbox and can reach only what you allow when you turn it on.",
+                    paletteKeys = palette_keys
+                ),
                 TextRole::Body,
                 palette.text_secondary,
                 cx,

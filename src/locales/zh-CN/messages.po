@@ -12700,8 +12700,8 @@ msgid "Plugins"
 msgstr "插件"
 
 #: src/plugins/plugin-settings.tsx
-msgid "Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on."
-msgstr "插件为命令面板（⌘K）添加命令。每个插件都在沙盒中运行，只能访问你在启用时允许的内容。"
+msgid "Plugins add commands to the command palette ({paletteKeys}). Each runs in a sandbox and can reach only what you allow when you turn it on."
+msgstr "插件为命令面板（{paletteKeys}）添加命令。每个插件都在沙盒中运行，只能访问你在启用时允许的内容。"
 
 #: src/platform/host-errors-plugins.ts
 msgid "Plugins install only over https."

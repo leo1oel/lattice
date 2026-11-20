@@ -12700,8 +12700,8 @@ msgid "Plugins"
 msgstr "Plugins"
 
 #: src/plugins/plugin-settings.tsx
-msgid "Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on."
-msgstr "Plugins add commands to the command palette (⌘K). Each runs in a sandbox and can reach only what you allow when you turn it on."
+msgid "Plugins add commands to the command palette ({paletteKeys}). Each runs in a sandbox and can reach only what you allow when you turn it on."
+msgstr "Plugins add commands to the command palette ({paletteKeys}). Each runs in a sandbox and can reach only what you allow when you turn it on."
 
 #: src/platform/host-errors-plugins.ts
 msgid "Plugins install only over https."
