@@ -4,7 +4,9 @@
 //! light and dark and in English and Simplified Chinese, the strip scrolls
 //! instead and shows the selected tab whole; and a wheel over a strip scrolls
 //! it, or does nothing when it fits, and never puts up the free navigator's
-//! "Release to focus" ring or moves the camera.
+//! "Release to focus" ring or moves the camera. A wheel over the gutter
+//! between two panels may zoom and ring, as Tauri's navigator does, but its
+//! label stays a pill at the ring's top.
 //!
 //! With `LATTICE_E2E_SHOTS=DIR` (macOS) it saves the window at each look.
 
@@ -189,7 +191,126 @@ impl Run {
             still,
             detail,
         );
+
+        // Over the gutter between two panels: free navigation zooms the
+        // camera and rings what it would frame, as Tauri's navigator does,
+        // with only Trellis's small pill at the ring's top.
+        let (pill, detail) = self.wheel_over_gutter(cx, &panel, 160).await?;
+        steps.check(
+            "a wheel over the gutter between two panels puts up no tall overlay: at most the ring's small \"Release to focus\" pill",
+            pill,
+            detail,
+        );
         Ok(())
+    }
+
+    /// Native wheel events over the gutter to the left of `panel` (the
+    /// documents), between it and the panel beside it, a frame drawn after
+    /// each. Returns whether every frame that showed "Release to focus" drew
+    /// its label as a pill (no taller than `PILL_MAX`), and the step's
+    /// detail.
+    async fn wheel_over_gutter(
+        &self,
+        cx: &mut AsyncApp,
+        panel: &str,
+        dy: i32,
+    ) -> Result<(bool, Value)> {
+        const PILL_MAX: f32 = 40.;
+        let (at, rects) = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            let doc = shell.document(cx);
+            let workspace = shell.workspace().read(cx);
+            let rects: Vec<(String, Bounds<Pixels>)> = trellis::model::all_panels(&doc)
+                .iter()
+                .filter_map(|p| Some((p.id.clone(), workspace.panel_bounds(&p.id)?)))
+                .collect();
+            let at = workspace.panel_bounds(panel).and_then(|ours| {
+                rects
+                    .iter()
+                    .filter(|(id, beside)| {
+                        id != panel
+                            && beside.right() <= ours.left()
+                            && ours.left() - beside.right() <= px(32.)
+                            && beside.top() < ours.bottom()
+                            && beside.bottom() > ours.top()
+                    })
+                    .max_by(|(_, a), (_, b)| a.right().partial_cmp(&b.right()).unwrap())
+                    .map(|(_, beside)| {
+                        let top = beside.top().max(ours.top());
+                        let bottom = beside.bottom().min(ours.bottom());
+                        gpui::point(
+                            beside.right() + (ours.left() - beside.right()) / 2.,
+                            top + (bottom - top) / 2.,
+                        )
+                    })
+            });
+            let rects: Vec<Value> = rects
+                .iter()
+                .map(|(id, b)| json!([id, f32::from(b.left()), f32::from(b.right())]))
+                .collect();
+            (at, rects)
+        });
+        let at = at.with_context(|| format!("no panel stands beside {panel}: {rects:?}"))?;
+        let native = self.native(cx)?;
+        native::send_mouse(native, native::Mouse::Moved, at)?;
+        self.frame_after_input(cx).await?;
+        let mut rings = 0;
+        let mut labels: Vec<[f32; 2]> = Vec::new();
+        for _ in 0..4 {
+            lattice_ui::parity::forget("trellis/snap-label");
+            native::send_wheel(native, at, dy)?;
+            self.frame_after_input(cx).await?;
+            let ring = cx.update(|cx| {
+                self.shell
+                    .read(cx)
+                    .workspace()
+                    .read(cx)
+                    .shows_release_to_focus()
+            });
+            if ring {
+                if rings == 0 {
+                    self.ring_shot(cx, "gutter-wheel");
+                }
+                rings += 1;
+                let label = lattice_ui::parity::regions()
+                    .get("trellis/snap-label")
+                    .and_then(|region| region.bounds);
+                labels.push(label.map_or([f32::NAN, f32::NAN], |b| {
+                    [f32::from(b.size.width), f32::from(b.size.height)]
+                }));
+            }
+        }
+        self.pause(cx, Duration::from_millis(500)).await;
+        self.frame_after_input(cx).await?;
+        let pill = labels.iter().all(|[_, h]| *h <= PILL_MAX);
+        Ok((
+            pill,
+            json!({
+                "at": [f32::from(at.x), f32::from(at.y)],
+                "panels": rects,
+                "frames_with_ring": rings,
+                "labels_w_h": labels,
+                "pill_max": PILL_MAX,
+            }),
+        ))
+    }
+
+    /// Save the frame on screen now as `name`.png into `LATTICE_E2E_SHOTS`:
+    /// a wheel's ring lasts only until its gesture settles (180 ms), less
+    /// than `capture` takes to draw.
+    fn ring_shot(&self, cx: &mut AsyncApp, name: &str) {
+        #[cfg(feature = "offscreen-shots")]
+        if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
+            let out = Path::new(&dir).join(format!("{name}.png"));
+            let saved = self
+                .with_window(cx, |_, window, _| window.render_to_image())
+                .and_then(|image| Ok(image?.save(&out)?));
+            if let Err(error) = saved {
+                log::warn!("e2e shot {name}: {error:#}");
+            }
+        }
+        #[cfg(not(feature = "offscreen-shots"))]
+        let _ = (cx, name);
     }
 
     /// The documents strip as last drawn.
