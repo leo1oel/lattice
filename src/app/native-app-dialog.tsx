@@ -137,13 +137,14 @@ export function NativeAppDialog({ release: found, onClose }: { release: NativeAp
               <strong>{t`What’s new`}</strong>
               <p>{t`Drawn natively by your Mac instead of as a web page: faster and lighter, with the same look and the same ways of working.`}</p>
               <p>{t`Your recent projects, settings, themes, plugins, templates, Agent skills and Overleaf links come along the first time you switch.`}</p>
+              <p>{t`Your Agent conversations come along too, and any you start here later join them in the native app.`}</p>
             </div>
           </li>
           <li>
             <span className="whats-new-icon" aria-hidden="true"><MinusCircle size={15} aria-hidden /></span>
             <div>
               <strong>{t`Not there yet`}</strong>
-              <p>{t`No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Past Agent threads don’t show. Apple silicon Macs only.`}</p>
+              <p>{t`No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Apple silicon Macs only.`}</p>
             </div>
           </li>
           <li>

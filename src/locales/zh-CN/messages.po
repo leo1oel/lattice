@@ -10634,8 +10634,8 @@ msgid "No full text to download"
 msgstr "没有可下载的全文"
 
 #: src/app/native-app-dialog.tsx
-msgid "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Past Agent threads don’t show. Apple silicon Macs only."
-msgstr "没有语法检查，也没有其他语言的词典：拼写检查使用 macOS 自带的检查器。以前的 Agent 对话不会显示。仅支持 Apple 芯片的 Mac。"
+msgid "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Apple silicon Macs only."
+msgstr "没有语法检查，也没有其他语言的词典：拼写检查使用 macOS 自带的检查器。仅支持 Apple 芯片的 Mac。"
 
 #: src/project/paper-list-toolbar.tsx
 msgid "No grouping"
@@ -19718,6 +19718,10 @@ msgstr "可以开始写了"
 #: src/papers/bibliography-audit.tsx
 msgid "Your {BIBITEM} differs: {fields}"
 msgstr "你的 {BIBITEM} 有出入：{fields}"
+
+#: src/app/native-app-dialog.tsx
+msgid "Your Agent conversations come along too, and any you start here later join them in the native app."
+msgstr "Agent 对话也会一起带过去，之后在这里开始的对话也会加入原生版本。"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Your answer…"

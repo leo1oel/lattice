@@ -21,3 +21,19 @@ msgstr "经典版本没有适用于这台 Mac 的发布版本"
 #: lattice-gpui/src/crash.rs
 msgid "{count} documents could not be saved before Lattice quit: {paths}"
 msgstr "Lattice 退出前有 {count} 个文档未能保存：{paths}"
+
+#: lattice-gpui/src/agent/runtime.rs
+msgid "Brought 1 Agent conversation over from the classic version"
+msgstr "已从经典版本带来 1 个 Agent 对话"
+
+#: lattice-gpui/src/agent/runtime.rs
+msgid "Brought {count} Agent conversations over from the classic version"
+msgstr "已从经典版本带来 {count} 个 Agent 对话"
+
+#: lattice-gpui/src/agent/runtime.rs
+msgid "Brought new messages from the classic version into 1 Agent conversation"
+msgstr "已将经典版本中的新消息带入 1 个 Agent 对话"
+
+#: lattice-gpui/src/agent/runtime.rs
+msgid "Brought new messages from the classic version into {count} Agent conversations"
+msgstr "已将经典版本中的新消息带入 {count} 个 Agent 对话"

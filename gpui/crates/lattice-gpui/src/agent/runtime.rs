@@ -20,7 +20,14 @@
 //! restarted) go to every Synara surface's page, as the Tauri backend emits
 //! them to every window, and the restart offer is the app's notice.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    path::{Path, PathBuf},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{App, AppContext as _, Global, Task, WeakEntity};
@@ -42,11 +49,21 @@ const ENVIRONMENT_CHANGED: &str = "synara-environment-changed";
 const RESTARTED: &str = "synara-runtime-restarted";
 /// The restart offer's notice, replaced or taken down by the next event.
 const RESTART_OFFER: &str = "agent-environment-restart";
+/// What the service's import of the classic app's threads brought over, which
+/// it leaves in its state folder for the host to show and delete.
+const IMPORT_RESULT: &str = "synara/userdata/thread-home-import-result.json";
+/// The service imports after it reports ready, so the result is looked for a
+/// while after the first start; one written later waits for the next launch.
+const IMPORT_RESULT_POLL: Duration = Duration::from_secs(2);
+const IMPORT_RESULT_POLLS: usize = 90;
 
 /// The process's Synara service.
 #[derive(Clone)]
 pub struct AgentRuntime {
     runtime: Arc<SynaraRuntime>,
+    /// Where the import's result lands, when the service imports at all.
+    import_result: Option<PathBuf>,
+    import_watched: Arc<AtomicBool>,
 }
 
 struct RuntimeGlobal(AgentRuntime);
@@ -74,14 +91,27 @@ impl AgentRuntime {
             }
         });
         let dirs = resources::app_dirs();
-        let runtime = Arc::new(SynaraRuntime::new(
-            &Resources {
-                bundle_dir: resources::agent_bundle(),
-                app_data_dir: dirs.data,
-                app_cache_dir: dirs.cache,
-            },
-            sink,
-        ));
+        // Lattice (the native one) brings the classic app's Agent threads into
+        // its own at every start, so a writer who switched sees every past
+        // conversation, and on a later switch the ones started there since.
+        let classic_home = crate::flavor::current()
+            .native_lattice
+            .then(|| crate::settings::tauri_folders(crate::settings::scripted(cx)))
+            .flatten()
+            .map(|(data, _)| data.join("synara"))
+            .filter(|home| home.is_dir());
+        let import_result = classic_home.as_ref().map(|_| dirs.data.join(IMPORT_RESULT));
+        let runtime = Arc::new(
+            SynaraRuntime::new(
+                &Resources {
+                    bundle_dir: resources::agent_bundle(),
+                    app_data_dir: dirs.data,
+                    app_cache_dir: dirs.cache,
+                },
+                sink,
+            )
+            .with_thread_import(classic_home),
+        );
         // Stop the service with the app, as the Tauri app does on exit.
         let stopping = runtime.clone();
         cx.on_app_quit(move |_| {
@@ -95,7 +125,11 @@ impl AgentRuntime {
             }
         })
         .detach();
-        let agent = Self { runtime };
+        let agent = Self {
+            runtime,
+            import_result,
+            import_watched: Arc::default(),
+        };
         cx.set_global(RuntimeGlobal(agent.clone()));
         agent
     }
@@ -107,12 +141,38 @@ impl AgentRuntime {
     /// Start the service if it is not running, off the main thread (a start
     /// verifies the sandbox and polls the service's health for seconds).
     pub fn ensure_ready(&self, cx: &App) -> Task<Result<Value, String>> {
+        self.watch_import(cx);
         let runtime = self.runtime.clone();
         cx.background_spawn(async move {
             runtime
                 .ensure_ready()
                 .and_then(|info| serde_json::to_value(info).map_err(|error| error.to_string()))
         })
+    }
+
+    /// Once per process, from the first start: look for what the import of
+    /// the classic app's threads brought over and say so in a notice.
+    fn watch_import(&self, cx: &App) {
+        let Some(path) = self.import_result.clone() else {
+            return;
+        };
+        if self.import_watched.swap(true, Ordering::Relaxed) {
+            return;
+        }
+        cx.spawn(async move |cx| {
+            for _ in 0..IMPORT_RESULT_POLLS {
+                cx.background_executor().timer(IMPORT_RESULT_POLL).await;
+                let path = path.clone();
+                let taken = cx
+                    .background_spawn(async move { take_import_result(&path) })
+                    .await;
+                if let Some((imported, appended)) = taken {
+                    cx.update(|cx| announce_import(imported, appended, cx));
+                    return;
+                }
+            }
+        })
+        .detach();
     }
 
     /// Stop the service; every surface asks for the new one (`RESTARTED`).
@@ -153,6 +213,37 @@ fn broadcast(event: &str, payload: Value, cx: &mut App) {
             })
             .ok();
     }
+}
+
+/// The import's counts (threads it added, threads it brought new messages
+/// into), taken from its result file, which is removed so it is shown once.
+/// None while there is no file; a file that cannot be read is removed too.
+fn take_import_result(path: &Path) -> Option<(u64, u64)> {
+    let text = std::fs::read_to_string(path).ok()?;
+    std::fs::remove_file(path).ok();
+    let result: Value = serde_json::from_str(&text).ok()?;
+    let count = |key: &str| result.get(key).and_then(Value::as_u64).unwrap_or(0);
+    let counts = (count("imported"), count("appended"));
+    (counts != (0, 0)).then_some(counts)
+}
+
+fn announce_import(imported: u64, appended: u64, cx: &mut App) {
+    let title = match (imported, appended) {
+        (1, _) => t!("Brought 1 Agent conversation over from the classic version").to_string(),
+        (0, 1) => t!("Brought new messages from the classic version into 1 Agent conversation")
+            .to_string(),
+        (0, count) => t!(
+            "Brought new messages from the classic version into {count} Agent conversations",
+            count = count
+        )
+        .to_string(),
+        (count, _) => t!(
+            "Brought {count} Agent conversations over from the classic version",
+            count = count
+        )
+        .to_string(),
+    };
+    notices::show(Notice::new(ToastLevel::Success, title), cx);
 }
 
 /// `agent-environment.ts`'s offer: the service still runs with the proxy it

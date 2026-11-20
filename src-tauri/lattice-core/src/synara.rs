@@ -111,6 +111,9 @@ pub struct SynaraRuntime {
     external_origin: Option<String>,
     version: Option<String>,
     revision: Option<String>,
+    /// Another Synara home whose threads the service adds to its own at each
+    /// start (`with_thread_import`).
+    thread_import_from: Option<PathBuf>,
     /// Shared with the system proxy watcher (`restart`).
     running: Arc<Mutex<Option<RunningSynara>>>,
     /// Where restarts and environment changes are announced. None only in tests.
@@ -148,11 +151,24 @@ impl SynaraRuntime {
             external_origin,
             version,
             revision,
+            thread_import_from: None,
             running: Arc::default(),
             events: Some(events),
             shell_prefetch,
             proxy_watch: OnceLock::new(),
         }
+    }
+
+    /// Have the service add the threads of the Synara home `home` to its own
+    /// at each start: the native app names the classic app's, so a writer who
+    /// switched finds every past conversation (the fork's
+    /// `SYNARA_IMPORT_THREADS_FROM_HOME`, `threadHomeImport.ts`). The fork
+    /// only reads that home, from a copy, adds only threads its own store
+    /// never had, through its engine and without starting a provider, and
+    /// skips a home unchanged since its last pass.
+    pub fn with_thread_import(mut self, home: Option<PathBuf>) -> Self {
+        self.thread_import_from = home;
+        self
     }
 
     fn ready_info(
@@ -317,6 +333,9 @@ impl SynaraRuntime {
             .stdin(Stdio::null())
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::from(stderr));
+        if let Some(home) = &self.thread_import_from {
+            command.env("SYNARA_IMPORT_THREADS_FROM_HOME", home);
+        }
         if bibliography_guard::SEES_LATTICE {
             command.env("SYNARA_DESKTOP_PARENT_PID", std::process::id().to_string());
         }
