@@ -99,4 +99,19 @@ describe("conflict markers", () => {
     expect(hasConflictMarkers(broken)).toBe(false);
     expect(resolveConflicts(broken, new Map())).toBe(broken);
   });
+
+  // Git writes its markers in the file's own line endings, so a CRLF file
+  // (saved on Windows, or checked out with core.autocrlf) has "=======\r".
+  it("finds and resolves conflicts in a file with Windows line endings, keeping them", () => {
+    const crlf = CONFLICTED.replace(/\n/g, "\r\n");
+    expect(hasConflictMarkers(crlf)).toBe(true);
+    const [hunk] = conflictHunks(crlf);
+    expect(hunk.ours).toBe("my sentence");
+    expect(hunk.theirs).toBe("their sentence");
+    expect(hunk.oursLines).toEqual(["my sentence"]);
+    expect(hunk.line).toBe(2);
+    expect(resolveConflicts(crlf, new Map([[hunk.index, "both"]])))
+      .toBe("\\section{Intro}\r\nmy sentence\r\ntheir sentence\r\n\\section{End}");
+    expect(resolveConflicts(crlf, new Map())).toBe(crlf);
+  });
 });
