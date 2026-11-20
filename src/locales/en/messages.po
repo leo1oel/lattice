@@ -9184,6 +9184,10 @@ msgstr "Lattice UI crashed"
 msgid "Lattice update failed"
 msgstr "Lattice update failed"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Lattice will not write a bibliography at {path}: Overleaf does not allow that name."
+msgstr "Lattice will not write a bibliography at {path}: Overleaf does not allow that name."
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Lattice workspace"
 msgstr "Lattice workspace"
@@ -12004,6 +12008,10 @@ msgstr "Overleaf does not allow an asterisk in file names, so {file} stays on th
 #: src/app/overleaf-sync-warnings.ts
 msgid "Overleaf does not allow control characters in file names, so {file} stays on this machine. Rename it to sync it."
 msgstr "Overleaf does not allow control characters in file names, so {file} stays on this machine. Rename it to sync it."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow emoji or some rare characters in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf does not allow emoji or some rare characters in file names, so {file} stays on this machine. Rename it to sync it."
 
 #: src/app/overleaf-sync-warnings.ts
 msgid "Overleaf does not allow names longer than 1024 characters, so {file} stays on this machine. Rename it to sync it."

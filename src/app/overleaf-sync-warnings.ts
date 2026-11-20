@@ -13,6 +13,8 @@ function nameWarning(file: string, problem: OverleafNameProblem): string {
       return t`Overleaf does not allow an asterisk in file names, so ${file} stays on this machine. Rename it to sync it.`;
     case "controlCharacter":
       return t`Overleaf does not allow control characters in file names, so ${file} stays on this machine. Rename it to sync it.`;
+    case "supplementaryCharacter":
+      return t`Overleaf does not allow emoji or some rare characters in file names, so ${file} stays on this machine. Rename it to sync it.`;
     case "dotsOrSpaces":
       return t`Overleaf does not allow a name that is a dot, or starts or ends with a space, so ${file} stays on this machine. Rename it to sync it.`;
     case "reserved":

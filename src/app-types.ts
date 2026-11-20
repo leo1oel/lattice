@@ -558,7 +558,7 @@ export type OverleafThread = {
 };
 
 /** Why Overleaf refuses a file name (lattice-core `overleaf/names.rs`). */
-export type OverleafNameProblem = "backslash" | "asterisk" | "controlCharacter" | "dotsOrSpaces" | "reserved" | "tooLong";
+export type OverleafNameProblem = "backslash" | "asterisk" | "controlCharacter" | "supplementaryCharacter" | "dotsOrSpaces" | "reserved" | "tooLong";
 
 export type OverleafSyncResult = {
   pulled: string[];

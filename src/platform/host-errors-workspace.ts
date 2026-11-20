@@ -57,6 +57,7 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/history.rs", "Cannot restore {} because it changed after this history entry. Review the newer changes first.", ([path]) => t`Cannot restore ${path} because it changed after this history entry. Review the newer changes first.`],
   ["project/history.rs", "The selected files are already at the requested state.", () => t`The selected files are already at the requested state.`],
   ["project/history.rs", "That history entry no longer exists.", () => t`That history entry no longer exists.`],
+  ["project/bibliography_target.rs", "Lattice will not write a bibliography at {relative}: Overleaf does not allow that name.", ([path]) => t`Lattice will not write a bibliography at ${path}: Overleaf does not allow that name.`],
   ["project/history.rs", "Invalid transaction id.", () => t`Invalid transaction id.`],
 
   // ZIP export and import (project/archive.rs)

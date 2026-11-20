@@ -26,6 +26,8 @@ describe("hostErrorText", () => {
       .toMatch(/^此文件不是 UTF-8 文本/);
     expect(hostErrorText("That folder already exists and is not empty.")).toBe("该文件夹已存在且不为空");
     expect(hostErrorText("The primary bibliography cannot be deleted.")).toBe("主参考文献文件不能删除");
+    expect(hostErrorText("Lattice will not write a bibliography at cvpr/\\paperbib.bib: Overleaf does not allow that name."))
+      .toBe("Lattice 不会在 cvpr/\\paperbib.bib 写入参考文献：Overleaf 不允许这个文件名。");
     expect(hostErrorText("The citation key “vaswani2017” already exists.")).toBe("引用名“vaswani2017”已存在");
     expect(hostErrorText("The label “fig:model” already exists.")).toBe("标签“fig:model”已存在");
   });

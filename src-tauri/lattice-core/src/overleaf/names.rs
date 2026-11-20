@@ -39,8 +39,12 @@ pub enum NameProblem {
     /// A control character in a name (`BADCHAR_RX`: U+0000–U+001F, U+007F,
     /// U+0080–U+009F).
     ControlCharacter,
-    /// A name that is `.` or `..`, or starts or ends with whitespace
-    /// (`BADFILE_RX`).
+    /// A character outside the Basic Multilingual Plane, such as an emoji or
+    /// a rare CJK ideograph (`BADCHAR_RX`'s U+D800–U+DFFF, matched without
+    /// the `u` flag, so against each half of its UTF-16 surrogate pair).
+    SupplementaryCharacter,
+    /// A name that is `.` or `..`, or starts or ends with whitespace as
+    /// JavaScript's `\s` counts it (`BADFILE_RX`).
     DotsOrSpaces,
     /// A top-level name JavaScript reserves (`BLOCKEDFILE_RX`).
     Reserved,
@@ -71,10 +75,12 @@ pub fn name_problem(path: &str) -> Option<NameProblem> {
             Some(NameProblem::Asterisk)
         } else if name.chars().any(|c| c <= '\u{1f}' || ('\u{7f}'..='\u{9f}').contains(&c)) {
             Some(NameProblem::ControlCharacter)
+        } else if name.chars().any(|c| c > '\u{ffff}') {
+            Some(NameProblem::SupplementaryCharacter)
         } else if name == "."
             || name == ".."
-            || name.starts_with(char::is_whitespace)
-            || name.ends_with(char::is_whitespace)
+            || name.starts_with(js_whitespace)
+            || name.ends_with(js_whitespace)
         {
             Some(NameProblem::DotsOrSpaces)
         } else if name.encode_utf16().count() > MAX_NAME {
@@ -83,6 +89,22 @@ pub fn name_problem(path: &str) -> Option<NameProblem> {
             None
         }
     })
+}
+
+/// JavaScript's `\s`, which differs from Unicode's White_Space that
+/// `char::is_whitespace` follows: it takes U+FEFF and leaves out U+0085.
+fn js_whitespace(c: char) -> bool {
+    matches!(
+        c,
+        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
+            ..='\u{200a}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202f}'
+                | '\u{205f}'
+                | '\u{3000}'
+                | '\u{feff}'
+    )
 }
 
 #[cfg(test)]
@@ -105,7 +127,11 @@ mod tests {
             ("figs/*.png", NameProblem::Asterisk),
             ("notes\u{7}.txt", NameProblem::ControlCharacter),
             ("tab\u{85}.tex", NameProblem::ControlCharacter),
+            ("fig-\u{1f600}.png", NameProblem::SupplementaryCharacter),
+            ("\u{20000}.tex", NameProblem::SupplementaryCharacter),
             ("../escape.tex", NameProblem::DotsOrSpaces),
+            ("\u{feff}main.tex", NameProblem::DotsOrSpaces),
+            ("main.tex\u{3000}", NameProblem::DotsOrSpaces),
             (" lead.tex", NameProblem::DotsOrSpaces),
             ("folder /trail.tex", NameProblem::DotsOrSpaces),
             ("constructor", NameProblem::Reserved),

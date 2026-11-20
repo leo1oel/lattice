@@ -676,6 +676,11 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("That history entry no longer exists.", &[]),
     },
     Entry {
+        file: "project/bibliography_target.rs",
+        literal: "Lattice will not write a bibliography at {relative}: Overleaf does not allow that name.",
+        text: Text::Message("Lattice will not write a bibliography at {path}: Overleaf does not allow that name.", &[("path", Arg::Param(0))]),
+    },
+    Entry {
         file: "project/history.rs",
         literal: "Invalid transaction id.",
         text: Text::Message("Invalid transaction id.", &[]),

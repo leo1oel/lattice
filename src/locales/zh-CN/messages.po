@@ -9184,6 +9184,10 @@ msgstr "Lattice 出错了"
 msgid "Lattice update failed"
 msgstr "更新失败"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Lattice will not write a bibliography at {path}: Overleaf does not allow that name."
+msgstr "Lattice 不会在 {path} 写入参考文献：Overleaf 不允许这个文件名。"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Lattice workspace"
 msgstr "Lattice 工作区"
@@ -12004,6 +12008,10 @@ msgstr "Overleaf 不允许文件名中有星号，{file} 只留在本机。重�
 #: src/app/overleaf-sync-warnings.ts
 msgid "Overleaf does not allow control characters in file names, so {file} stays on this machine. Rename it to sync it."
 msgstr "Overleaf 不允许文件名中有控制字符，{file} 只留在本机。重命名后即可同步。"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf does not allow emoji or some rare characters in file names, so {file} stays on this machine. Rename it to sync it."
+msgstr "Overleaf 不允许文件名中有 emoji 或部分罕见字符，{file} 只留在本机。重命名后即可同步。"
 
 #: src/app/overleaf-sync-warnings.ts
 msgid "Overleaf does not allow names longer than 1024 characters, so {file} stays on this machine. Rename it to sync it."

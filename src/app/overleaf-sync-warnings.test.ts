@@ -23,10 +23,12 @@ describe("overleafSyncWarnings", () => {
     const skippedNames = [
       { path: "cvpr/\\paperbib.bib", problem: "backslash" as const },
       { path: "figs/*.png", problem: "asterisk" as const },
+      { path: "fig-😀.png", problem: "supplementaryCharacter" as const },
     ];
     expect(overleafSyncWarnings(result({ skippedNames }), vi.fn())).toEqual([
       { message: "Overleaf does not allow a backslash in file names, so cvpr/\\paperbib.bib stays on this machine. Rename it to sync it." },
       { message: "Overleaf does not allow an asterisk in file names, so figs/*.png stays on this machine. Rename it to sync it." },
+      { message: "Overleaf does not allow emoji or some rare characters in file names, so fig-😀.png stays on this machine. Rename it to sync it." },
     ]);
   });
 
