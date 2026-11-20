@@ -2572,6 +2572,11 @@ msgstr "约等于"
 msgid "Archived"
 msgstr "已归档"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Archived threads"
+msgstr "已归档的对话"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Argument"
 msgstr "辐角"
@@ -14204,6 +14209,11 @@ msgstr "在 Overleaf 上把整个项目恢复到此版本？之后新增的文�
 #: src/overleaf/overleaf-history.tsx
 msgid "Restore this file"
 msgstr "恢复文件"
+
+#. Search words for the agent Archived threads settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "restore unarchive conversations chats history"
+msgstr "恢复 取消归档 对话 聊天 历史"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Restore whole project to this version"

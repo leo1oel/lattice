@@ -53,7 +53,7 @@ import { prefersReducedMotion } from "../lib/reduced-motion";
 
 /** The Settings tabs that embed a Synara settings page, and which one. */
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
-  agent: "providers", api: "skills", mcp: "integrations", usage: "usage",
+  agent: "providers", api: "skills", mcp: "integrations", usage: "usage", archived: "archived",
 };
 
 export type SettingsDialogProps = DoctorSettingsProps & {
@@ -145,6 +145,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { tab: "mcp", label: t`MCP`, icon: "plugs" },
       { tab: "api", label: t`Skills`, icon: "package" },
       { tab: "usage", label: t`Usage & limits`, icon: "clock-back" },
+      { tab: "archived", label: t`Archived threads`, icon: "chat" },
       { tab: "model-endpoint", label: t`Model endpoint`, icon: "sparkle" },
       { tab: "environment", label: t`Environment`, icon: "api-key" },
     ] },

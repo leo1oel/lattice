@@ -101,6 +101,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "mcp", label: t`MCP`, place: t`Agent` },
     { tab: "api", label: t`Skills`, place: t`Agent` },
     { tab: "usage", label: t`Usage & limits`, place: t`Agent`, terms: t({ message: "quota credits rate limit refresh", comment: "Search words for the agent Usage & limits settings page, space-separated" }) },
+    { tab: "archived", label: t`Archived threads`, place: t`Agent`, terms: t({ message: "restore unarchive conversations chats history", comment: "Search words for the agent Archived threads settings page, space-separated" }) },
     { tab: "model-endpoint", label: t`Model endpoint`, place: t`Agent`, terms: `OpenAI Anthropic Gemini Pi LLM ${t({ message: "own API base URL custom", comment: "Search words for the agent Model endpoint settings page, space-separated" })}` },
     { tab: "model-endpoint", place: t`Model endpoint`, id: "model-endpoint-address", label: t`Address`, terms: `${t`Protocol`} base URL` },
     { tab: "model-endpoint", place: t`Model endpoint`, id: "model-endpoint-key", label: t`API key`, description: t`Kept in the macOS keychain. Leave it empty for a local server that needs none.` },

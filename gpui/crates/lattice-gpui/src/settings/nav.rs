@@ -98,6 +98,13 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
                 ),
                 (
                     Section {
+                        tab: SettingsTab::Archived,
+                        icon: ProductIcon::Chat,
+                    },
+                    t!("Archived threads").into(),
+                ),
+                (
+                    Section {
                         tab: SettingsTab::ModelEndpoint,
                         icon: ProductIcon::Sparkle,
                     },

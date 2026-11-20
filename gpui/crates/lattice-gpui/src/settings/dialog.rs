@@ -427,7 +427,7 @@ impl SettingsDialog {
 
     /// Settings › Providers' page is shown while its tab is open.
     pub fn sync_providers(&self, cx: &mut App) {
-        // Providers, MCP, Skills and Usage & limits share the one page.
+        // Providers, MCP, Skills, Usage & limits and Archived threads share the one page.
         let shown = super::providers_pane::section(self.tab).is_some();
         self.providers
             .update(cx, |surface, cx| surface.set_shown(shown, cx));

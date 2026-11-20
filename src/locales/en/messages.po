@@ -2572,6 +2572,11 @@ msgstr "Approximately equal"
 msgid "Archived"
 msgstr "Archived"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Archived threads"
+msgstr "Archived threads"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Argument"
 msgstr "Argument"
@@ -14204,6 +14209,11 @@ msgstr "Restore the whole project to this version on Overleaf? Files added since
 #: src/overleaf/overleaf-history.tsx
 msgid "Restore this file"
 msgstr "Restore this file"
+
+#. Search words for the agent Archived threads settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "restore unarchive conversations chats history"
+msgstr "restore unarchive conversations chats history"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Restore whole project to this version"

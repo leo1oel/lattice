@@ -352,7 +352,7 @@ export type RenameSymbolResult = {
 
 export type DocumentViewMode = "source" | "split" | "pdf";
 export type CanvasMode = DocumentViewMode | "asset";
-export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "usage" | "environment" | "model-endpoint" | "overleaf" | "literature" | "plugins" | "api" | "doctor" | "logs" | "acknowledgements";
+export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "usage" | "archived" | "environment" | "model-endpoint" | "overleaf" | "literature" | "plugins" | "api" | "doctor" | "logs" | "acknowledgements";
 type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
 type DoctorCheck = { name: string; detail: string; ok: boolean; code?: string; params?: Record<string, string> };
