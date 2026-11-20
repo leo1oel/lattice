@@ -47,10 +47,24 @@ export const freshBackend = () => ({
    */
   holdLeaves: false,
   heldLeaves: [] as ((reason: Error) => void)[],
+  /**
+   * The project the window shows, once a test says so. The backend pins every
+   * document command to it (`scoped_root`) and refuses one naming another
+   * root, which is what a command for the project a window just left meets.
+   */
+  windowRoot: null as string | null,
 });
 export let backend: ReturnType<typeof freshBackend>;
 /** Feeds the hook the events the Rust side would emit, stamped with the project they came from. */
 export let emit: (payload: Record<string, unknown>, projectRoot?: string) => void;
+
+/** `scoped_root`'s refusal, as Tauri rejects with it: the bare string. */
+const pinned = (projectRoot: unknown) => {
+  if (backend.windowRoot !== null && projectRoot !== backend.windowRoot) {
+    return Promise.reject("The project changed before the action could start.");
+  }
+  return null;
+};
 
 /** Every join, reduced to the version it resumed from. */
 export const joins = () => invokeCalls("overleaf_rt_join_doc").map(({ docId, fromVersion }) => ({ docId, fromVersion: fromVersion ?? null }));
@@ -92,15 +106,19 @@ export function resetRealtimeBackend() {
         permission: backend.permission, trackChanges: backend.trackChanges, userId: OWN_USER_ID, ownHue: OWN_HUE,
       };
     },
-    overleaf_rt_join_doc: ({ docId, fromVersion }: { docId: string; fromVersion: number | null }) =>
-      backend.deferredJoin?.docId === docId ? backend.deferredJoin.promise : joinAnswer(docId, fromVersion ?? null),
-    overleaf_rt_send_ops: () => { if (backend.loseSendAck) throw new Error("ack lost"); },
+    overleaf_rt_join_doc: ({ projectRoot, docId, fromVersion }: { projectRoot: string; docId: string; fromVersion: number | null }) =>
+      pinned(projectRoot)
+        ?? (backend.deferredJoin?.docId === docId ? backend.deferredJoin.promise : joinAnswer(docId, fromVersion ?? null)),
+    overleaf_rt_send_ops: ({ projectRoot }: { projectRoot: string }) => {
+      if (backend.loseSendAck) throw new Error("ack lost");
+      return pinned(projectRoot);
+    },
     // Reading a document's ranges back: what the server holds now, at the version asked about.
     overleaf_rt_doc_ranges: ({ version }: { version: number }) =>
       ({ text: "", version, ...backend.anchors, caughtUp: [], resumed: true }),
-    overleaf_rt_leave_doc: () => backend.holdLeaves
+    overleaf_rt_leave_doc: ({ projectRoot }: { projectRoot: string }) => pinned(projectRoot) ?? (backend.holdLeaves
       ? new Promise((_, reject) => { backend.heldLeaves.push(reject); })
-      : undefined,
+      : undefined),
     overleaf_rt_disconnect: () => {
       for (const reject of backend.heldLeaves.splice(0)) {
         reject(new Error("The Overleaf realtime connection closed before the server answered."));

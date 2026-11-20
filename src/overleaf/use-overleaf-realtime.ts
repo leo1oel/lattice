@@ -195,21 +195,21 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
     const proof = proofOf(doc);
     const checkpoint = proof.checkpoint(doc);
     const drop = drops.current;
+    const held = () => connectionRoot.current === projectRoot && documents.current.get(id) === doc;
     // Rust checkpoints under the sync lease before leaving. Keep frontend
     // ownership too until IPC succeeds; a failed write must not enable REST.
-    // Except once the connection drops: its rooms close with it, so the leave
-    // fails, and a settled document owes nothing. Held, it would stay out of
-    // every sync with no operation able to reach it, Overleaf's edits never
-    // landing here.
+    // Unless a drop closed its rooms: a settled document owes nothing, and
+    // held, no sync would take it. A project switch closes them too, and
+    // this hook then holds nothing: no pause to report.
     const pending = invoke("overleaf_rt_leave_doc", {
       projectRoot, docId: id, receipt: proof.receipt, checkpoint,
     }).then(() => "checkpointed" as const, (reason) => {
       if (drops.current !== drop && doc.settled) return "released" as const;
       const detail = String(reason);
-      callbacks.current.onNotice(i18n._(msg`Could not hand this file back to Overleaf sync (${detail}). Syncing remains paused for this file.`));
+      if (held()) callbacks.current.onNotice(i18n._(msg`Could not hand this file back to Overleaf sync (${detail}). Syncing remains paused for this file.`));
       return null;
     }).then((outcome) => {
-      if (outcome && connectionRoot.current === projectRoot && documents.current.get(id) === doc) {
+      if (outcome && held()) {
         uncertain.current.delete(id);
         reconciling.current.delete(id);
         documents.current.delete(id);

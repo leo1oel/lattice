@@ -6,10 +6,16 @@
  * A document settled on Overleaf owes nothing, so it goes back to ordinary
  * sync; kept, it would stay out of every sync with no operation able to
  * reach it, and Overleaf's edits to it would never land here.
+ *
+ * Switching the window to another project closes them the same way, and
+ * before the hook hears of it: `open_project` points the window at the new
+ * project and cancels the old one's connection, so every leave the hook then
+ * sends for the old project is refused.
  */
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { invokeCalls } from "../platform/tauri-test-mocks";
 import {
   advance, backend, cleanupRealtimeBackend, DOC_A, DOC_B, emit, joinsOf, mountLive, resetRealtimeBackend, typeAndSend,
 } from "./use-overleaf-realtime-test-utils";
@@ -118,6 +124,60 @@ describe("a dropped connection", () => {
     await waitFor(() => expect(view.result.current.status).toBe("live"));
     await waitFor(() => expect(view.result.current.liveFile).toBe(true));
     expect(onNotice).toHaveBeenCalledWith("Overleaf live editing reconnected.");
+  });
+});
+
+describe("a project switch in the same window", () => {
+  const [A, B] = ["/tmp/project-a", "/tmp/project-b"];
+  /** As `open_project` does: the window moves first, and React re-renders with the new project after. */
+  const switchTo = (view: Awaited<ReturnType<typeof mountLive>>, root: string) => {
+    backend.windowRoot = root;
+    view.rerender({ projectRoot: root });
+  };
+  const refusedLeaves = (root: string) => invokeCalls("overleaf_rt_leave_doc").filter((call) => call.projectRoot === root);
+
+  // Switching project tabs while a file was open live told the writer "Could
+  // not hand this file back to Overleaf sync (The project changed before the
+  // action could start.). Syncing remains paused for this file." Nothing was
+  // paused: the backend had already dropped the old project's connection and
+  // the hook let go of every document it held, so on coming back the file
+  // joins afresh and the next sync reconciles it.
+  it.each([
+    ["settled", false],
+    ["with typing not yet sent", true],
+  ])("lets go of the old project's open document quietly (%s)", async (_, typing) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    backend.windowRoot = A;
+    const onNotice = vi.fn();
+    const view = await mountLive({ projectRoot: A, onRemoteText: () => true, onNotice });
+    if (typing) act(() => view.result.current.pushLocal("alpha edited"));
+
+    switchTo(view, B);
+    await waitFor(() => expect(refusedLeaves(A)).not.toHaveLength(0));
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+
+    expect(onNotice).not.toHaveBeenCalledWith(expect.stringMatching(/hand this file back/));
+    expect(view.result.current.livePaths).toEqual(["a.tex"]);
+
+    switchTo(view, A);
+    await waitFor(() => expect(invokeCalls("overleaf_rt_join_doc").at(-1)).toMatchObject({ projectRoot: A, fromVersion: null }));
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    expect(onNotice).not.toHaveBeenCalledWith(expect.stringMatching(/hand this file back/));
+  });
+
+  it("still reports a refused leave for a file the project keeps holding", async () => {
+    const onNotice = vi.fn();
+    const view = await mountLive({ onRemoteText: () => true, onNotice });
+    const original = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "overleaf_rt_leave_doc") throw "Could not record the sync base for a.tex";
+      return original(command, args);
+    });
+
+    view.rerender({ activeFile: "b.tex" });
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith(expect.stringMatching(/hand this file back.*sync base/)));
+    expect(view.result.current.livePaths).toContain("a.tex");
   });
 });
 
