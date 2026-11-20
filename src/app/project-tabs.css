@@ -36,9 +36,7 @@
   border: 1px solid var(--status-warning);
 }
 .project-tab-agent-light[data-agent-status="completed"] { background: var(--status-success); }
-@media (prefers-reduced-motion: no-preference) {
-  .project-tab-agent-light[data-agent-status="running"] { animation: project-agent-pulse 1.6s ease-in-out infinite; }
-}
+.project-tab-agent-light[data-agent-status="running"] { animation: project-agent-pulse 1.6s ease-in-out infinite; }
 @keyframes project-agent-pulse { 50% { opacity: 0.45; } }
 .project-tab-close { width: var(--space-10); height: var(--space-10); flex: none; margin-inline: 0 var(--space-2); border-radius: var(--radius-chrome); background: transparent; color: var(--text-tertiary); display: grid; place-items: center; opacity: 0; }
 .project-tab[data-active] .project-tab-close, .project-tab:hover .project-tab-close, .project-tab:focus-within .project-tab-close { opacity: 1; }

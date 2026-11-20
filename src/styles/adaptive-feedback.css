@@ -59,8 +59,9 @@
      and a suggestion's edits show with its passage. */
   html .source-editor .cm-accept-ghost { display: none; }
   html .proofread-card-text .inline-edit { animation-delay: 0s; }
-  /* Get started's "Show me" ring holds still instead of pulsing. */
-  html .get-started-ring { animation: none; }
+  /* Get started's "Show me" ring and a working project Agent's tab light
+     hold still instead of pulsing. */
+  html .get-started-ring, html .project-tab-agent-light { animation: none; }
   /* An indeterminate toast bar holds a still segment instead of strobing. */
   html .app-toast-progress[data-indeterminate] .app-toast-progress-fill,
   html .overleaf-download-track[data-indeterminate] .overleaf-download-fill { animation: none; transform: translateX(95%); }
