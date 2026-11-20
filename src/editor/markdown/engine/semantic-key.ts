@@ -45,7 +45,8 @@ function semanticJSON(node: JSONContent): unknown {
   }
   // A block's trailing whitespace has no Markdown form (R-ELIG-2).
   const last = content[content.length - 1] as { text?: string } | undefined;
-  if (TEXTBLOCKS.has(node.type ?? "") && last?.text != null) {
+  const endsInColor = node.content?.at(-1)?.marks?.some((mark) => mark.type === "latticeColor");
+  if (TEXTBLOCKS.has(node.type ?? "") && last?.text != null && !endsInColor) {
     const text = last.text.replace(/[ \t]+$/, "");
     if (text) content[content.length - 1] = { ...last, text };
     else content.pop();

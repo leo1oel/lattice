@@ -327,6 +327,13 @@ here, with the requirement it rests on.
   `<u>…</u>`, the one HTML form Markdown readers agree on; highlight is
   `==…==`. Both read back as marks wherever their text is written literally;
   inside code or raw HTML, or when a delimiter is escaped, they stay text.
+- **Inline text colors.** `<span style="color: blue">…</span>` and the same
+  form with a single-quoted style render as editable foreground-color marks,
+  including around emphasis, strikethrough, links and inline math. Color
+  values use the renderer's CSS parser: named colors, hex, RGB/HSL and
+  supported modern color functions. A span with other attributes, extra
+  declarations, CSS-wide keywords or unresolved CSS references stays raw;
+  this does not enable arbitrary HTML rendering.
 - **Task lists (R-BLK-19, R-FMT-14).** A list may mix task and plain items,
   and stays a task list only while every item has a box. An `[X]` box is
   recorded and written back uppercase while it stays checked. The typed-box

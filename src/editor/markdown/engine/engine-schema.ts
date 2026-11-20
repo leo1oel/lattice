@@ -18,6 +18,7 @@ import Italic from "@tiptap/extension-italic";
 import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
+import { foregroundColor } from "./inline-color";
 import { BulletList, ListItem, OrderedList, TaskItem, TaskList } from "@tiptap/extension-list";
 import Strike from "@tiptap/extension-strike";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
@@ -58,11 +59,12 @@ const footnoteSelector = "aside[data-lattice-footnote]";
 const wikiLinkSelector = "span[data-lattice-wiki]";
 const citationSelector = "a[data-lattice-citation]";
 const sourceTextSelector = "span[data-lattice-source]";
+const colorSelector = "span[data-lattice-color]";
 
 /** Style attribute names, dropped when two documents are compared for meaning. */
 export const STYLE_ATTRIBUTES = new Set([
   "setext", "bullet", "delimiter", "incrementListMarker", "spread", "fence", "closeFence", "indented", "markup", "marker", "autolink",
-  "source", "sourceKey", "html", "openTag", "closeTag", "inner", "propsKey", "bodyKey", "legacy", "layout", "colwidth",
+  "source", "sourceKey", "html", "openTag", "closeTag", "outerMarks", "inner", "propsKey", "bodyKey", "legacy", "layout", "colwidth",
 ]);
 
 export type RawBlockKind =
@@ -411,6 +413,26 @@ function markExtensions(): AnyExtension[] {
     // ⌘⇧H is the app's Replace in project, which ran too (editor-app-shortcuts).
     Highlight.extend({ addKeyboardShortcuts: () => ({}) }).configure({ multicolor: false }),
     Underline,
+    Mark.create({
+      name: "latticeColor",
+      // Nested CSS colors can refer to the parent's color via currentColor.
+      excludes: "",
+      addAttributes: () => ({
+        color: { default: null, rendered: false },
+        ...markStyle({ openTag: null, closeTag: null, outerMarks: null }),
+      }),
+      parseHTML: () => [{
+        tag: colorSelector,
+        getAttrs: (element) => {
+          const color = foregroundColor(element.getAttribute("data-lattice-color"));
+          return color ? { color } : false;
+        },
+      }],
+      renderHTML: ({ mark, HTMLAttributes }) => {
+        const color = foregroundColor(mark.attrs.color);
+        return ["span", color ? { ...HTMLAttributes, "data-lattice-color": color, style: `color: ${color}` } : {}, 0];
+      },
+    }),
     Link.extend({ addAttributes() { return { ...this.parent?.(), ...markStyle({ autolink: null }) }; } })
       // A paper's note links each annotation it brought from Zotero into
       // Zotero's reader (papers/zotero-annotations.ts); Tiptap blanks the href

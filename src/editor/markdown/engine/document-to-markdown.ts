@@ -7,6 +7,7 @@
  */
 import type { Mark as PmMark, Node as PmNode } from "@tiptap/pm/model";
 import { TableMap } from "@tiptap/pm/tables";
+import { closeColorSpan, foregroundColor, spanColor } from "./inline-color";
 import { UPPERCASE_CHECK, type LatticeNodeStyle } from "./markdown-syntax";
 import { citationKey, displayMathTex, imageKey, SINGLE_LINE_DISPLAY } from "./markdown-to-document";
 import { writeOpenTag, type ComponentProp } from "./mdx-components";
@@ -203,13 +204,13 @@ function phrasing(parent: PmNode): MdNode[] {
  */
 function trimLineEnd(input: Leaf[]): Leaf[] {
   const last = input[input.length - 1];
-  if (!last || last.source || last.node.type !== "text") return input;
+  if (!last || last.source || last.node.type !== "text" || last.marks.some((mark) => mark.type.name === "latticeColor")) return input;
   const value = String(last.node.value).replace(/[ \t]+$/, "");
   const trimmed: Leaf = { ...last, node: { type: "text", value, data: { lattice: { pieces: [{ value }] } } } };
   return value ? [...input.slice(0, -1), trimmed] : input.slice(0, -1);
 }
 
-const FORMAT_MARKS = new Set(["bold", "italic", "strike", "link", "highlight", "underline"]);
+const FORMAT_MARKS = new Set(["bold", "italic", "strike", "link", "highlight", "underline", "latticeColor"]);
 
 function leaves(parent: PmNode): Leaf[] {
   const result: Leaf[] = [];
@@ -325,6 +326,16 @@ function wrapper(mark: PmMark, children: MdNode[]): MdNode {
     case "strike": return styled({ type: "delete", children }, { marker: String(attrs.marker ?? "~~") });
     case "highlight": return { type: "latticeHighlight", children };
     case "underline": return { type: "latticeUnderline", children };
+    case "latticeColor": {
+      const color = foregroundColor(attrs.color);
+      if (!color) throw new Error();
+      const openTag = typeof attrs.openTag === "string" && spanColor(attrs.openTag) === color
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- Markdown HTML syntax
+        ? attrs.openTag : `<span style="color: ${color}">`;
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- Markdown HTML syntax
+      const closeTag = typeof attrs.closeTag === "string" && closeColorSpan.test(attrs.closeTag) ? attrs.closeTag : "</span>";
+      return { type: "latticeColor", openTag, closeTag, children };
+    }
     default:
       return styled(
         { type: "link", url: String(attrs.href ?? ""), title: (attrs.title as string | null) || null, children },
@@ -352,9 +363,23 @@ function nest(input: Leaf[], open: readonly PmMark[]): MdNode[] {
     };
     let best = candidates[0]!;
     let bestSpan = spanOf(best);
+    // Equal-length marks may only be valid in their authored order: e.g.
+    // strike delimiters cannot touch whitespace and autolinks contain text only.
+    const colors = leaf.marks.filter((mark) => mark.type.name === "latticeColor");
+    const color = colors.at(-1);
+    const names: string[] = color?.attrs.outerMarks?.split(" ") ?? [];
+    if (color) names.push("latticeColor");
+    let depth = 0;
+    const authored = names.map((name) => name === "latticeColor" ? colors[depth++] : leaf.marks.find((mark) => mark.type.name === name));
+    const rank = (mark: PmMark) => {
+      if (!color) return 0;
+      const index = authored.indexOf(mark);
+      if (index >= 0) return index;
+      return authored.length + (mark.type.name === "link" && mark.attrs.autolink ? 1 : 0);
+    };
     for (const mark of candidates.slice(1)) {
       const span = spanOf(mark);
-      if (span > bestSpan) {
+      if (span > bestSpan || (span === bestSpan && rank(mark) < rank(best))) {
         best = mark;
         bestSpan = span;
       }

@@ -40,6 +40,35 @@ function landing(map: SourceMap, pos: number | null) {
 }
 
 describe("caret to source (R-SRC-1)", () => {
+  it("maps colored words to the text inside their tags and plain words after the closing tags", () => {
+    const source = '<span style="color: red">red</span>span';
+    const map = mapOf(source);
+    for (const [word, offset] of [["red", source.indexOf(">red") + 1], ["span", source.lastIndexOf("span")]] as const) {
+      const pos = inText(map.doc, word, 1);
+      expect(map.positionToOffset(pos)).toBe(offset + 1);
+      expect(map.offsetToPosition(offset + 1)).toBe(pos);
+    }
+  });
+
+  it("maps both sides of identically colored neighbors that become one editor text node", () => {
+    const text = '<span style="color:red">abc</span><span style="color:red">def</span>';
+    const map = mapOf(text);
+    const start = inText(map.doc, "abcdef", 0);
+    expect(map.positionToOffset(start + 1)).toBe(text.indexOf("abc") + 1);
+    expect(map.positionToOffset(start + 4)).toBe(text.indexOf("def") + 1);
+  });
+
+  it.each([
+    '<Callout>\n<span style="color:red">red</span>\n</Callout>',
+    '`<span style="color:red">red</span>` then <span style="color:red">red</span>',
+  ])("maps only rendered tags in a paragraph or component: %s", (text) => {
+    const map = mapOf(text);
+    expect(map.positionToOffset(inText(map.doc, "red", 1))).toBe(text.lastIndexOf(">red<") + 2);
+    if (text.startsWith("`")) {
+      expect(map.positionToOffset(inText(map.doc, "<span", 1))).toBe(2);
+    }
+  });
+
   it.each([
     ["# Hello", "Hello", 2, [0, 4]],
     ["**bold**", "bold", 2, [0, 4]],

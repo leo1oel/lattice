@@ -318,6 +318,10 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
     latticeHighlight(node, _parent, state, info) {
       return `==${state.containerPhrasing(node as Parameters<State["containerPhrasing"]>[0], { ...info, before: "=", after: "=" })}==`;
     },
+    latticeColor(node, _parent, state, info) {
+      const { openTag, closeTag } = node as unknown as { openTag: string; closeTag: string };
+      return openTag + state.containerPhrasing(node as Parameters<State["containerPhrasing"]>[0], { ...info, before: ">", after: "<" }) + closeTag;
+    },
     latticeUnderline(node, _parent, state, info) {
       // eslint-disable-next-line lingui/no-unlocalized-strings -- HTML markup written into the document
       return `<u>${state.containerPhrasing(node as Parameters<State["containerPhrasing"]>[0], { ...info, before: ">", after: "<" })}</u>`;
@@ -338,6 +342,7 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
     inlineMath: () => "$",
     latticeHighlight: () => "=",
     latticeUnderline: () => "<",
+    latticeColor: () => "<",
     link(node, parent, state, info) {
       const only = (node as { children: RootContent[] }).children[0];
       if (literal && styleOf(node)?.autolink === "literal" && only?.type === "text") return only.value.charAt(0);
