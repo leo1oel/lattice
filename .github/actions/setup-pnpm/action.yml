@@ -13,6 +13,8 @@ runs:
     - uses: pnpm/action-setup@v6
       with:
         version: 10
+        # The default, ~/setup-pnpm, is the owner's home on a self-hosted Mac.
+        dest: ${{ runner.temp }}/setup-pnpm
     - uses: actions/setup-node@v7
       with:
         # Matches mise.toml's `node`, which local `pnpm check` runs on.
@@ -25,7 +27,10 @@ runs:
     - id: store
       shell: bash
       run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+    # GitHub's runners only: on a self-hosted Mac (release.yml through
+    # runner-up) pnpm uses the owner's store, and a restore would unpack into it.
     - id: restore
+      if: runner.environment == 'github-hosted'
       uses: actions/cache/restore@v5
       with:
         path: ${{ steps.store.outputs.path }}
@@ -33,7 +38,7 @@ runs:
         restore-keys: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ inputs.project }}-
     - run: pnpm --dir "${{ inputs.project }}" install --frozen-lockfile
       shell: bash
-    - if: github.ref == 'refs/heads/main' && steps.restore.outputs.cache-hit != 'true'
+    - if: runner.environment == 'github-hosted' && github.ref == 'refs/heads/main' && steps.restore.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
       with:
         path: ${{ steps.store.outputs.path }}
