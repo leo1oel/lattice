@@ -57,7 +57,10 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 <li><strong>Sync mode</strong>: <strong>Live sync</strong> sends and receives edits as you type. <strong>Manual</strong> syncs only when you choose <strong>Sync now</strong>.</li>
 <li><strong>When you delete a file here</strong>: <strong>Ask before deleting</strong> (the default), <strong>Delete on Overleaf too</strong>, or <strong>Keep it on Overleaf</strong>.</li>
 </ul>
-<p>When the same file changed on both sides while you were offline, Lattice merges what it can. If it can&#39;t, Overleaf&#39;s version goes into the project and yours is saved beside it as a &quot;(local conflict …)&quot; file, so nothing is lost.</p>
+<p>When the same file changed on both sides between syncs, Lattice merges the two against the last synced version: prose (.tex, Markdown, text) sentence by sentence, other text files line by line. Edits to different sentences, even in the same paragraph, both survive. Only a spot you both rewrote is marked, in the file itself, with your text and Overleaf&#39;s tinted side by side and <strong>Keep mine</strong>, <strong>Keep theirs</strong> and <strong>Keep both</strong> on it; the sync opens the first marked file there. The text from before the merge is kept under <code>.research/overleaf-conflicts/</code>, which never syncs.</p>
+<p>When a figure or another binary file changed on both sides, the newer copy stays and the other is set aside. A notice says whose copy stayed, with <strong>Use mine</strong> or <strong>Use Overleaf&#39;s</strong> to swap.</p>
+<p>The PDF that a main document builds never syncs, for every main document in the project. A PDF your source includes as a figure still syncs.</p>
+<p>Overleaf refuses some file names, such as one with a backslash or an asterisk, or one starting or ending with a space. Such a file stays on this Mac and everything else keeps syncing; a warning names the file and the rule it breaks. Rename it to sync it. Uploading a project with such a name to Overleaf asks you to rename them first.</p>
 <p>Comments and suggestions from Overleaf appear in the margin of the source and in the Overleaf panel (Comments, Suggestions and Chat). <strong>View › Margin Review</strong> chooses how much the margin shows.</p>
 </main>
 </div>

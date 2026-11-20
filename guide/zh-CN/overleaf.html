@@ -57,7 +57,10 @@ main blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(
 <li><strong>同步方式</strong>：<strong>实时同步</strong> 在输入时就收发修改；<strong>手动</strong> 只在你点 <strong>立即同步</strong> 时同步。</li>
 <li><strong>在这里删除文件时</strong>：<strong>先问我</strong>（默认）、<strong>Overleaf 上也删</strong> 或 <strong>Overleaf 上保留</strong>。</li>
 </ul>
-<p>离线期间两边都改了同一个文件时，Lattice 会尽量合并。合并不了时，Overleaf 的版本进入项目，你的版本另存为旁边一个带「(local conflict …)」的文件，不会丢失内容。</p>
+<p>两次同步之间两边都改了同一个文件时，Lattice 以上次同步的版本为基准合并两边：正文（.tex、Markdown、纯文本）按句子合并，其他文本文件按行合并。改的是不同句子时，即使在同一段里，两边的修改也都会保留。只有两人都改写过的地方才会被标出，直接标在文件里，你的文字和 Overleaf 的文字以不同底色并排显示，上面有 <strong>保留我的</strong>、<strong>保留对方的</strong> 和 <strong>保留两者</strong>；同步后会打开第一个有标记的文件并定位到那里。合并前的文字保存在 <code>.research/overleaf-conflicts/</code> 下，这个文件夹不会同步。</p>
+<p>图片等二进制文件两边都改过时，保留较新的那份，另一份另存起来。提示会说明留下的是谁的版本，可以用 <strong>用我的</strong> 或 <strong>用 Overleaf 的</strong> 换回来。</p>
+<p>项目里每个主文档编译出的 PDF 都不会同步。源码中作为图片引用的 PDF 照常同步。</p>
+<p>Overleaf 不接受某些文件名，例如含反斜杠或星号，或以空格开头或结尾的文件名。这样的文件留在本机，其他文件照常同步，并有一条提示说明是哪个文件、违反了哪条规则。重命名后即可同步。把含有这类文件名的项目上传到 Overleaf 时，会先请你重命名。</p>
 <p>Overleaf 上的评论和修订建议显示在源码边栏，以及 Overleaf 面板的评论、修订和聊天中。<strong>视图 › 页边审阅</strong> 设置边栏显示多少内容。</p>
 </main>
 </div>
