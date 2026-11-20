@@ -5,6 +5,8 @@
 
 mod caller;
 
+pub(crate) use caller::local_origins;
+
 use super::{pinned_root, run_blocking};
 use crate::app_state::AppState;
 use crate::terminal::Session;

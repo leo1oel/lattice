@@ -105,8 +105,8 @@ guide from the release's commit.
 ## What `release.yml` does
 
 Three jobs, with `contents: write` so they can create the Release and upload
-assets: **release** builds the Tauri app on `macos-latest` (Apple silicon)
-and creates the draft (steps 1 to 15 below); **gpui** builds the native app
+assets: **release** builds the Tauri app on the Mac mini (Apple silicon; see
+[Where the macOS jobs run](#where-the-macos-jobs-run)) and creates the draft (steps 1 to 15 below); **gpui** builds the native app
 (the GPUI app as Lattice) through `.github/workflows/gpui-package.yml` with
 `flavor: main`, beside it; **publish** runs only when both succeeded and
 adds the native app to the draft before publishing it (steps 16 to 19).
@@ -122,18 +122,18 @@ adds the native app to the draft before publishing it (steps 16 to 19).
    the Apple silicon install blurb and a `**Full Changelog**` compare link, then
    passes the whole thing to the build step through a heredoc-delimited
    `$GITHUB_OUTPUT`.
-3. **Toolchains.** pnpm 10, Node 22, Bun 1.4.4, stable Rust with the `aarch64-apple-darwin` target.
-4. **Rust cache.** `Swatinem/rust-cache@v2` reads the warm dependency build produced by `release-cache.yml` on `main`.
+3. **Toolchains.** pnpm 10, Node 22, Bun 1.4.4, stable Rust with the `aarch64-apple-darwin` target. On the Mac mini a step before them checks the disk (below).
+4. **Rust cache** (GitHub's runners only). `Swatinem/rust-cache@v2` reads the warm dependency build produced by `release-cache.yml` on `main`.
    Its shared key includes `bundle.macOS.minimumSystemVersion`, because Tauri exports that value as `MACOSX_DEPLOYMENT_TARGET` before compiling and Cargo cannot reuse artifacts warmed without it.
    `save-if: false` prevents the tag build from writing a cache no later release could read.
 5. **`pnpm install --frozen-lockfile`.**
 6. **Fetch the pinned Synara source.** The workflow reads `repository` and `revision` from `scripts/synara-runtime.json`, shallow-fetches exactly that revision into `$RUNNER_TEMP/lattice-synara`, asserts `HEAD` equals the pin, and exports `SYNARA_SOURCE_DIR` and `BUN_BIN`.
-7. **Fetch the licensed interface fonts.** With the `LATTICE_FONTS_DEPLOY_KEY` secret, the workflow clones the private `leo1oel/lattice-fonts` repository into `$RUNNER_TEMP/lattice-fonts` and exports `LATTICE_PRIVATE_FONTS_DIR` and `LATTICE_PRIVATE_FONTS_REQUIRED=1`, so a missing or incomplete copy fails the build; without the secret it builds with the open-licensed fonts. See [`design-system.md`, "Private interface fonts"](design-system.md#private-interface-fonts).
-8. **Import the Apple Developer ID certificate.** The workflow base64-decodes `APPLE_CERTIFICATE` into a `.p12`, creates a throwaway keychain, imports the certificate with `-T /usr/bin/codesign`, sets the key partition list so codesign can use it without prompting, makes it the active keychain, finds the `Developer ID Application` identity, and exports it as `APPLE_SIGNING_IDENTITY`.
+7. **Fetch the licensed interface fonts.** With the `LATTICE_FONTS_DEPLOY_KEY` secret, the workflow clones the private `leo1oel/lattice-fonts` repository (over SSH on port 443, `ssh.github.com`, since the Mac mini's network closes port 22) into `$RUNNER_TEMP/lattice-fonts` and exports `LATTICE_PRIVATE_FONTS_DIR` and `LATTICE_PRIVATE_FONTS_REQUIRED=1`, so a missing or incomplete copy fails the build; without the secret it builds with the open-licensed fonts. See [`design-system.md`, "Private interface fonts"](design-system.md#private-interface-fonts).
+8. **Import the Apple Developer ID certificate.** `scripts/release-macos-job.sh import-certificate` base64-decodes `APPLE_CERTIFICATE` into a `.p12`, creates a throwaway keychain, imports the certificate with `-T /usr/bin/codesign` and deletes the `.p12`, sets the key partition list so codesign can use it without prompting, puts it in front of the user's keychain search list (the login keychain stays listed), finds the `Developer ID Application` identity, and exports it as `APPLE_SIGNING_IDENTITY`.
 9. **Restore the prepared Synara runtime.** The restore-only cache is written on `main` and keyed by the target platform, `scripts/synara-runtime.json`, and `scripts/prepare-synara-sidecar.mjs`.
    A miss runs `bun install --frozen-lockfile` and lets `pnpm prepare:build` build the runtime normally.
    A hit lets the preparation script validate the source-derived manifest and re-sign the cached unsigned binaries with the current Developer ID certificate without rebuilding Synara's four-minute web bundle.
-10. **Prepare the App Store Connect API key.** The workflow writes `APPLE_API_PRIVATE_KEY` to `$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8` with mode 600 and exports `APPLE_API_KEY_PATH`.
+10. **Prepare the App Store Connect API key.** `scripts/release-macos-job.sh api-key` writes `APPLE_API_PRIVATE_KEY` to `$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8` with mode 600 and exports `APPLE_API_KEY_PATH`.
 11. **Build, sign, and publish** with `tauri-apps/tauri-action@v1`:
    - `args: --target aarch64-apple-darwin` (this is what makes the updater
      platform key `darwin-aarch64`);
@@ -160,6 +160,9 @@ adds the native app to the draft before publishing it (steps 16 to 19).
     execute`, `xcrun stapler validate`.
 15. **Upload the stapled DMG** with `gh release upload --clobber` (the stapled
     ticket is added after tauri-action's own upload, so the asset is replaced).
+    Then, with `if: always()`, `scripts/release-macos-job.sh cleanup` deletes
+    the keychain, takes it off the search list, deletes the key files and the
+    licensed fonts. `gpui-package.yml` ends the same way.
 16. **Use public download URLs in `latest.json`**
     (`scripts/normalize-updater-manifest.mjs`) and upload it again.
     `latest.json` stays the Tauri app's on every platform.
@@ -353,6 +356,82 @@ It deliberately does **not** set `LATTICE_FIRECRAWL_KEY`, and `rust-cache` remov
 The Synara job builds and stages the pinned runtime without a Developer ID certificate, then saves that unsigned directory on the default branch where tag workflows can restore it.
 The release re-signs the restored native binaries before Tauri packages them.
 Changing the Synara pin or preparation script creates a new cache key; the first release can still build on a miss, while later releases restore the warmed result.
+
+## Where the macOS jobs run
+
+`release.yml`'s **release** job and `gpui-package.yml`'s **macos** job (which
+`release.yml` calls as **gpui**) run on the Mac mini, through
+[runner-up](https://github.com/kunchenguid/runner-up), instead of waiting in
+GitHub's macOS queue. They ask for `runs-on: lattice-mac`, runner-up's pool
+label. **publish** stays on `ubuntu-latest`: it only edits the draft. The
+Intel, Windows and Linux workflows still run on GitHub.
+
+**Fall back to GitHub's runners** by setting a repository variable, then
+re-running the failed jobs or pushing the tag again:
+
+```sh
+gh variable set LATTICE_MACOS_RUNNER --body macos-latest -R leo1oel/lattice   # GitHub's runners
+gh variable delete LATTICE_MACOS_RUNNER -R leo1oel/lattice                    # back to the Mac mini
+```
+
+A job that is already waiting for `lattice-mac` keeps waiting after the
+change: cancel the run and start it again. The steps are the same either way;
+the Mac-only ones check `runner.environment`.
+
+### How the Mac mini is set up
+
+- **runner-up** v0.1.13 in `~/.local/bin`, run by the LaunchAgent
+  `~/Library/LaunchAgents/com.github.runner-up.plist` (log:
+  `~/Library/Logs/runner-up.log`). The Mac mini is both the coordinator and
+  the only machine. The coordinator signs in through `gh auth token` (an admin
+  of this repository) and stores no token.
+- **The setup** is `~/Library/Application Support/runner-up/config.json`: this
+  repository only, one pool `lattice-mac`, and one **host** place, `mini-1`,
+  of 8 cores and 10 GB. The Mac's other 4 cores and 6 GB stay its owner's
+  (`roomCores`, `roomMemoryMB`), so one job runs at a time and a second one
+  waits at GitHub. `allowForkPullRequests` is `false`: runner-up's fork guard
+  refuses any job from a fork's pull request.
+- **Why a host place, not a tart VM.** A macOS tart image is 25 to 50 GB and the
+  system disk has about 23 GB free, so the job runs on the Mac itself, as its
+  owner, in a folder runner-up makes for the job and deletes afterwards
+  (`~/.local/state/runner-up/agent/places/mini-1/host`). The checkout, both
+  Cargo targets, `node_modules` and `$RUNNER_TEMP` all live there, apart
+  from the crew's worktrees, `~/.capy/work` and
+  `~/Library/Caches/lattice-gpui-build`. It builds cold every time:
+  `rust-cache` and the pnpm store cache run on GitHub's runners only, and
+  the owner's sccache is turned off for the job.
+
+`runner-up status` shows the place and any waiting job. To stop taking jobs,
+`launchctl bootout gui/$(id -u)/com.github.runner-up` (running jobs carry on),
+then fall back as above.
+
+### What the job does on the Mac mini
+
+`scripts/release-macos-job.sh` keeps a job on the owner's own Mac from
+leaving anything behind:
+
+1. **`begin`** fails the job at once when the disk has under 20 GB free
+   (`LATTICE_RELEASE_MIN_FREE_GB`), sets `CARGO_BUILD_JOBS` to fit the
+   place, and sets `RUSTC_WRAPPER` empty so no compiled-in key reaches the
+   owner's shared sccache. It takes no in-app lock: building, signing,
+   notarizing and publishing never open a window, so a release runs beside
+   an e2e or a `pnpm ci:local` gate and shares the CPU with it. For that,
+   the Tauri build step sets `TAURI_BUNDLER_DMG_IGNORE_CI=false` on the Mac
+   mini: Tauri's `bundle_dmg.sh` then skips the AppleScript that lays out
+   the dmg window in Finder (which would open a Finder window and wait on an
+   Automation prompt), and the dmg opens without the icon layout, as the
+   native app's (`gpui-bundle.mjs`, `hdiutil` alone) always has.
+2. **`import-certificate`** and **`api-key`** put the Developer ID
+   certificate in a keychain of the job's own and the App Store Connect key in
+   a mode-600 file, both under `$RUNNER_TEMP`. The updater key and the
+   other secrets stay in environment variables of the steps that need them.
+3. **`cleanup`** runs whatever happened (`if: always()`): it deletes the
+   keychain and takes it off the search list, deletes the key files, the fonts
+   deploy key and the licensed fonts, and fails the job if a signing keychain
+   is still listed. runner-up then deletes the job's folder.
+
+Secrets live only in GitHub. They reach the Mac mini only as a job's
+environment, and nothing of them is left once the job ends.
 
 ## Required GitHub secrets
 
