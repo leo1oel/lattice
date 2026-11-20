@@ -4,7 +4,7 @@
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, join, relative } from "node:path";
+import { basename, join, relative, sep } from "node:path";
 import { readUpstream, registryOf } from "./upstream-licenses.mjs";
 import { projectRoot } from "./util.mjs";
 
@@ -164,9 +164,11 @@ export function makeEntry({ closure, name, version, declared: declaredField, dir
     if (recorded?.source.unresolved) upstreamUnresolved = recorded.source.unresolved;
     else if (recorded) upstream = recorded;
     for (const path of upstream?.files ?? []) {
+      // Named with `/` on every host, so the notices read the same on Windows.
+      const name = relative(projectRoot, path).split(sep).join("/");
       const text = readNoticeText(path);
-      if (text) texts.push({ name: relative(projectRoot, path), text });
-      else missingVendored.push(relative(projectRoot, path));
+      if (text) texts.push({ name, text });
+      else missingVendored.push(name);
     }
   }
   return { closure, name, version: version ?? "(unknown)", declared, texts, note, vendored, missingVendored, upstream, upstreamUnresolved, undeclared, dir, repository };

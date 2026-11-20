@@ -55,7 +55,9 @@ function runUntilSignalled(body, signals = ["SIGTERM"], graceMs = 10_000) {
   });
 }
 
-describe("perf-bench signal shutdown", () => {
+// Windows has no POSIX signals: a killed child reports `signal: "SIGTERM"`
+// with no exit status, and none of the handlers under test run.
+describe.skipIf(process.platform === "win32")("perf-bench signal shutdown", () => {
   // The leak this prevents: --serve --chrome is only ever stopped by a signal,
   // and exiting at once killed Chrome without removing its profile.
   it("awaits every registered close before exiting with the signal's status", async () => {

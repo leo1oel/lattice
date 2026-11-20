@@ -91,6 +91,19 @@ git unions their entries and only stops when both sides translated the same
 message differently. Run `pnpm i18n:check` after such a merge: it re-extracts
 from the merged source, so a wrong union fails there rather than in CI.
 
+On Windows, `mise run check` runs too and skips the tests of macOS- and
+POSIX-only tooling. A clone made before `.gitattributes` set
+`* text=auto eol=lf` still has CRLF files, and pnpm applied its
+`patches/` from them, so the patched packages carry stray carriage returns
+(`scripts/perf-bench/pdfjs-patch-swap.test.mjs` then fails to apply its patch). pnpm does not patch
+them again on its own: on a clean tree, check the files out again with LF,
+then reinstall from scratch.
+
+```bash
+git rm -rq --cached . && git reset -q --hard
+rm -rf node_modules && pnpm install
+```
+
 ### The pre-commit file-size check
 
 `pnpm install` also installs a pre-commit hook: its `prepare` script runs

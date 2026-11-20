@@ -8,7 +8,8 @@ const HOUR = 3_600_000;
 const now = Date.parse("2026-11-15T12:00:00Z");
 const base = { originSha: "b".repeat(40), latestSha: "a".repeat(40), state: null, now, minIntervalMs: 2 * HOUR, lockHolder: null };
 
-describe("gpui-main-baseline-agent", () => {
+// The agent is a macOS launchd job, and its paths are POSIX ones.
+describe.skipIf(process.platform === "win32")("gpui-main-baseline-agent", () => {
   const scratch = [];
   afterEach(() => {
     for (const dir of scratch.splice(0)) rmSync(dir, { recursive: true, force: true });

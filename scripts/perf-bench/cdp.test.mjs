@@ -118,7 +118,8 @@ function browserPid(dir) {
   return Number(readFileSync(path.join(dir, "browser.pid"), "utf8"));
 }
 
-describe("launchChrome cleanup", () => {
+// The fake browsers are shell scripts, which Windows cannot spawn as executables.
+describe.skipIf(process.platform === "win32")("launchChrome cleanup", () => {
   it("kills a browser that ignores SIGTERM and removes its profile when startup fails", async () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "lattice-cdp-test-"));
     dirs.push(dir);
