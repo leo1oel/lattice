@@ -220,10 +220,13 @@ fn overlapping_edits_stay_marked_up_and_nothing_goes_up() {
         marked.contains("<<<<<<<") && marked.contains("my line") && marked.contains("their line")
     );
     assert_eq!(overleaf.head(), theirs);
-    // Until it is resolved and committed, another sync says so instead of
-    // stacking a second merge on the first.
-    let error = sync_with(&overleaf, &root).unwrap_err();
-    assert!(error.contains("unfinished"), "{error}");
+    assert!(outcome.merge_open);
+    // Until it is finished, another sync stacks no second merge on the first:
+    // it reports the merge still open, with what is still unmerged.
+    let again = sync_with(&overleaf, &root).unwrap();
+    assert!(again.merge_open);
+    assert_eq!(again.conflicts, ["main.tex"]);
+    assert!(again.pushed.is_empty());
 
     fs::write(root.join("main.tex"), "our line\n").unwrap();
     run(&root, &["add", "main.tex"]);
@@ -231,6 +234,62 @@ fn overlapping_edits_stay_marked_up_and_nothing_goes_up() {
     let resolved = sync_with(&overleaf, &root).unwrap();
     assert_eq!(resolved.pushed, ["main.tex"]);
     assert_eq!(overleaf.file("main.tex"), "our line");
+}
+
+/// Finish merge commits what the writer chose, under git's own merge message
+/// with both sides as parents, and sends it up.
+#[test]
+fn finishing_a_merge_commits_the_resolution_and_sends_it_up() {
+    let Some(overleaf) = Overleaf::new(&[("main.tex", "shared line\n")]) else { return };
+    let root = clone_of(&overleaf, "finish");
+    commit(&root, &[("main.tex", "my line\n")], "Mine");
+    overleaf.edit("main.tex", "their line\n");
+    let theirs = overleaf.head();
+    assert!(sync_with(&overleaf, &root).unwrap().merge_open);
+
+    fs::write(root.join("main.tex"), "our line\n").unwrap();
+    let finished = finish_merge(&root, &overleaf.url(), TOKEN).unwrap();
+
+    assert!(!finished.merge_open);
+    assert!(finished.conflicts.is_empty());
+    assert_eq!(finished.pushed, ["main.tex"]);
+    assert_eq!(overleaf.file("main.tex"), "our line");
+    assert_eq!(run(&root, &["rev-parse", "HEAD^2"]), theirs);
+    assert!(run(&root, &["log", "-1", "--format=%s"]).starts_with("Merge"));
+}
+
+/// Cancelling puts the folder back as it was before the sync, and leaves
+/// Overleaf's commits fetched, so the next sync merges them again.
+#[test]
+fn cancelling_a_merge_restores_the_folder_and_the_next_sync_tries_again() {
+    let Some(overleaf) = Overleaf::new(&[("main.tex", "shared line\n")]) else { return };
+    let root = clone_of(&overleaf, "abort");
+    commit(&root, &[("main.tex", "my line\n")], "Mine");
+    let mine = run(&root, &["rev-parse", "HEAD"]);
+    overleaf.edit("main.tex", "their line\n");
+    assert!(sync_with(&overleaf, &root).unwrap().merge_open);
+
+    abort_merge(&root).unwrap();
+
+    assert!(!merge_open(&root));
+    assert_eq!(run(&root, &["rev-parse", "HEAD"]), mine);
+    assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "my line\n");
+    let again = sync_with(&overleaf, &root).unwrap();
+    assert!(again.merge_open);
+    assert_eq!(again.conflicts, ["main.tex"]);
+}
+
+/// With no merge open there is nothing to finish, said plainly; cancelling
+/// then does nothing.
+#[test]
+fn finishing_without_an_open_merge_is_refused_and_cancelling_does_nothing() {
+    let Some(overleaf) = Overleaf::new(&[("main.tex", "one\n")]) else { return };
+    let root = clone_of(&overleaf, "no-merge");
+    let head = run(&root, &["rev-parse", "HEAD"]);
+    let error = finish_merge(&root, &overleaf.url(), TOKEN).unwrap_err();
+    assert_eq!(error, NO_MERGE);
+    abort_merge(&root).unwrap();
+    assert_eq!(run(&root, &["rev-parse", "HEAD"]), head);
 }
 
 /// A folder first linked through the REST sync has a history of its own.

@@ -28,7 +28,7 @@ type OverleafDialogsProps = {
     ReturnType<typeof useOverleafWorkspace>,
     | "overleafPickerOpen" | "setOverleafPickerOpen" | "overleafReviewOpen" | "setOverleafReviewOpen" | "conflictPath"
     | "setConflictPath" | "overleafProjectLinked" | "publishProjectToOverleaf" | "refreshOverleafLink" | "runOverleafSync"
-    | "setOverleafRemoteChanges"
+    | "setOverleafRemoteChanges" | "overleafGitSync"
   >;
   lifecycle: Pick<
     ReturnType<typeof useProjectLifecycle>,
@@ -99,6 +99,7 @@ export const AppOverleafDialogs = memo(function AppOverleafDialogs({
           open
           path={conflictPath}
           sides={isAgentUndoConflict(conflictPath) ? "agent-undo" : "overleaf"}
+          uploadsOnSave={!overleaf.overleafGitSync}
           projectRoot={project?.root ?? ""}
           onClose={() => {
             forgetAgentUndoConflict(conflictPath);

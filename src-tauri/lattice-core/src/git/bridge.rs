@@ -1,9 +1,11 @@
 //! Syncing a project folder with a remote over plain git, the way Overleaf's
 //! git bridge wants it: fetch, merge what is new, push what is committed.
 //!
-//! Nothing here commits for the writer. A sync moves commits that already
-//! exist; edits that are not committed stay where they are and are reported,
-//! so the history in the project's repository is the one the writer wrote.
+//! Nothing here commits the writer's own edits. A sync moves commits that
+//! already exist and makes only the merge commit that brings Overleaf's in;
+//! when that merge stops on a conflict, it is committed only once the writer
+//! asks to finish it. Edits that are not committed stay where they are and
+//! are reported, so the history in the project's repository is the writer's.
 //!
 //! The token never reaches a file, the remote's URL or a command line: it
 //! travels in the environment of the one git process that needs it, scoped to
@@ -31,11 +33,27 @@ pub struct Outcome {
     pub pulled: Vec<String>,
     /// Files in the commits that went up.
     pub pushed: Vec<String>,
-    /// Files left with conflict markers. The merge stays open until the
-    /// writer resolves them and commits; nothing was pushed.
+    /// Files still in conflict while the merge is open: marked up, or (a
+    /// binary file) left as this folder had it. Nothing was pushed.
     pub conflicts: Vec<String>,
     /// Files with changes that are not committed, so did not go up.
     pub uncommitted: Vec<String>,
+    /// A merge with Overleaf is open and waits on the writer: to resolve
+    /// `conflicts`, then finish it, or to cancel it.
+    pub merge_open: bool,
+}
+
+pub const NO_MERGE: &str =
+    "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes.";
+
+/// Whether a merge is open: one a sync stopped on, or one started by hand.
+pub fn merge_open(root: &Path) -> bool {
+    git_output(root, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_ok()
+}
+
+/// Files the open merge has not settled.
+pub fn unmerged(root: &Path) -> Result<Vec<String>, String> {
+    names(root, &["diff", "-z", "--name-only", "--diff-filter=U"])
 }
 
 fn tracking_ref(branch: &str) -> String {
@@ -208,11 +226,10 @@ pub fn sync(root: &Path, url: &str, token: &str) -> Result<Outcome, String> {
     if !rev_parse(root, &["--show-prefix"])?.is_empty() {
         return Err("Git sync needs the project folder to be its own git repository, not a folder inside another one.".to_string());
     }
-    if git_output(root, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_ok() {
-        return Err(
-            "A merge with Overleaf is unfinished. Resolve the conflicts, commit, then sync again."
-                .to_string(),
-        );
+    if merge_open(root) {
+        // Stacking a second merge on an open one would bury the writer's
+        // choices: report it again instead, with what still needs them.
+        return Ok(Outcome { conflicts: unmerged(root)?, merge_open: true, ..Outcome::default() });
     }
     ensure_internal_ignored(root);
     point_remote_at(root, url)?;
@@ -238,10 +255,11 @@ pub fn sync(root: &Path, url: &str, token: &str) -> Result<Outcome, String> {
         let before = rev_parse(root, &["HEAD"])?;
         let output = merge(root, &remote)?;
         if !output.status.success() {
-            outcome.conflicts = names(root, &["diff", "-z", "--name-only", "--diff-filter=U"])?;
+            outcome.conflicts = unmerged(root)?;
             if outcome.conflicts.is_empty() {
                 return Err(commands::stderr_or(&output, "git merge failed."));
             }
+            outcome.merge_open = true;
             return Ok(outcome);
         }
         outcome.pulled = names(root, &["diff", "-z", "--name-only", &before, "HEAD"])?;
@@ -266,12 +284,58 @@ pub fn sync(root: &Path, url: &str, token: &str) -> Result<Outcome, String> {
     Ok(outcome)
 }
 
+/// Conclude the open merge with what the writer chose, then sync, so the
+/// resolution goes up. Every file still unmerged is taken as it is on disk:
+/// the caller has checked that none still carries markers.
+pub fn finish_merge(root: &Path, url: &str, token: &str) -> Result<Outcome, String> {
+    require_git()?;
+    if !merge_open(root) {
+        return Err(NO_MERGE.to_string());
+    }
+    let files = unmerged(root)?;
+    if !files.is_empty() {
+        let mut add = vec!["add", "--"];
+        add.extend(files.iter().map(String::as_str));
+        git_run(root, &add)?;
+    }
+    // git's prepared merge message, signed like the merge that started it.
+    let mut commit = identity_fallback(root);
+    commit.extend(["commit", "--quiet", "--no-edit"]);
+    let output = run_git(root, &commit)?;
+    if !output.status.success() {
+        return Err(commands::stderr_or(&output, "git commit failed."));
+    }
+    let brought_in = names(root, &["diff", "-z", "--name-only", "HEAD^1", "HEAD"])?;
+    let mut outcome = sync(root, url, token)?;
+    outcome.pulled.extend(brought_in);
+    outcome.pulled.sort();
+    outcome.pulled.dedup();
+    Ok(outcome)
+}
+
+/// Cancel the open merge: the folder goes back to how it was before the sync
+/// started it. Overleaf's commits stay fetched, so the next sync tries again.
+/// Nothing open is nothing to do.
+pub fn abort_merge(root: &Path) -> Result<(), String> {
+    require_git()?;
+    if !merge_open(root) {
+        return Ok(());
+    }
+    git_run(root, &["merge", "--abort"])
+}
+
 /// Merge Overleaf's branch in. A folder first linked through the REST sync
 /// has a history of its own, unrelated to Overleaf's, so unrelated histories
 /// are allowed: files that agree merge silently and the rest conflict as usual.
-/// The writer's own name signs the merge when git has one; otherwise a fixed
-/// one does, so the merge cannot fail on a machine with no identity set.
 fn merge(root: &Path, remote: &str) -> Result<Output, String> {
+    let mut args = identity_fallback(root);
+    args.extend(["merge", "--no-edit", "--allow-unrelated-histories", remote]);
+    run_git(root, &args)
+}
+
+/// The writer's own name signs a merge when git has one; otherwise a fixed
+/// one does, so the merge cannot fail on a machine with no identity set.
+fn identity_fallback(root: &Path) -> Vec<&'static str> {
     let configured = |key: &str| {
         git_output(root, &["config", "--get", key]).is_ok_and(|value| !value.trim().is_empty())
     };
@@ -282,8 +346,7 @@ fn merge(root: &Path, remote: &str) -> Result<Output, String> {
     if !configured("user.email") {
         args.extend(["-c", "user.email=lattice@local"]);
     }
-    args.extend(["merge", "--no-edit", "--allow-unrelated-histories", remote]);
-    run_git(root, &args)
+    args
 }
 
 #[cfg(test)]

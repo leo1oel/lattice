@@ -593,6 +593,11 @@ export type OverleafSyncResult = {
    */
   uncommitted?: string[];
   /**
+   * Git sync only: a merge with Overleaf is open, waiting on the writer to
+   * resolve `conflicts` and finish it, or to cancel it.
+   */
+  mergeOpen?: boolean;
+  /**
    * Still marked up from an earlier conflict while Overleaf moved on again:
    * left as they are until resolved, then merged with Overleaf's newer edits.
    */

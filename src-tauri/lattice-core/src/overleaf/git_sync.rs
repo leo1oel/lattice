@@ -49,8 +49,43 @@ fn ready(root: &Path, token: Option<String>) -> Result<(SyncState, String, Strin
 /// Fetch, merge and push the project's repository. Reported in the same shape
 /// as the web sync's result, so everything that reads one reads this too.
 pub fn git_sync(root: &Path, token: Option<String>) -> Result<OverleafSyncResult, String> {
-    let (mut state, url, token) = ready(root, token)?;
+    let (state, url, token) = ready(root, token)?;
     let outcome = bridge::sync(root, &url, &token)?;
+    reported(root, state, outcome)
+}
+
+/// Conclude the merge a sync stopped on, once every marked-up file is
+/// resolved, and send the result up.
+pub fn git_finish_merge(root: &Path, token: Option<String>) -> Result<OverleafSyncResult, String> {
+    let (state, url, token) = ready(root, token)?;
+    let marked: Vec<String> = bridge::unmerged(root)?
+        .into_iter()
+        .filter(|path| conflict(root, path.clone()).markers)
+        .collect();
+    if !marked.is_empty() {
+        return Err(format!(
+            "Resolve the conflicts in {} first, then finish the merge.",
+            marked.join(", ")
+        ));
+    }
+    let outcome = bridge::finish_merge(root, &url, &token)?;
+    reported(root, state, outcome)
+}
+
+/// Cancel the merge a sync stopped on, putting the folder back as it was.
+/// Needs no token: nothing leaves the machine.
+pub fn git_abort_merge(root: &Path) -> Result<(), String> {
+    if load_state(root)?.sync_via != SyncVia::Git {
+        return Err("This project is not set to sync through git.".to_string());
+    }
+    bridge::abort_merge(root)
+}
+
+/// A bridge outcome in the shape of the web sync's result, so everything that
+/// reads one reads this too; the sync time is recorded with it.
+fn reported(
+    root: &Path, mut state: SyncState, outcome: bridge::Outcome,
+) -> Result<OverleafSyncResult, String> {
     state.last_sync = Some(now_iso());
     save_state(root, &state)?;
     Ok(OverleafSyncResult {
@@ -58,6 +93,7 @@ pub fn git_sync(root: &Path, token: Option<String>) -> Result<OverleafSyncResult
         pushed: outcome.pushed,
         conflicts: outcome.conflicts.into_iter().map(|path| conflict(root, path)).collect(),
         uncommitted: outcome.uncommitted,
+        merge_open: outcome.merge_open,
         ..Default::default()
     })
 }
@@ -66,7 +102,9 @@ pub fn git_sync(root: &Path, token: Option<String>) -> Result<OverleafSyncResult
 /// binary file stays as it was, with nothing in it to work through.
 fn conflict(root: &Path, path: String) -> OverleafConflict {
     let markers = std::fs::read(root.join(&path)).is_ok_and(|bytes| has_conflict_markers(&bytes));
-    OverleafConflict { local_copy: path.clone(), path, markers }
+    // Git sets nothing aside: the other side stays in the open merge, which
+    // Finish merge or Cancel merge settles.
+    OverleafConflict { path, set_aside: String::new(), markers, kept: None }
 }
 
 /// Whether Overleaf has commits this folder has not fetched.

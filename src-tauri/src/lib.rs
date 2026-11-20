@@ -606,6 +606,8 @@ pub fn run() {
             ipc::overleaf::overleaf_probe,
             ipc::overleaf::overleaf_restore_set_aside,
             ipc::overleaf::overleaf_sync,
+            ipc::overleaf::overleaf_git_finish_merge,
+            ipc::overleaf::overleaf_git_abort_merge,
             ipc::overleaf_realtime::overleaf_rt_connect,
             ipc::overleaf_realtime::overleaf_rt_disconnect,
             ipc::overleaf_realtime::overleaf_rt_join_doc,

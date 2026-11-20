@@ -1551,9 +1551,9 @@ msgstr "A linked library must be a .bib file."
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 
-#: src/platform/host-errors-overleaf.ts
-msgid "A merge with Overleaf is unfinished. Resolve the conflicts, commit, then sync again."
-msgstr "A merge with Overleaf is unfinished. Resolve the conflicts, commit, then sync again."
+#: src/app/overleaf-git-merge.ts
+msgid "A merge with Overleaf is waiting on you"
+msgstr "A merge with Overleaf is waiting on you"
 
 #: src/platform/host-errors-setup.ts
 msgid "A model name is empty or has spaces in it."
@@ -3383,9 +3383,18 @@ msgstr "Cancel download"
 msgid "Cancel installation"
 msgstr "Cancel installation"
 
+#: src/app/overleaf-git-merge.ts
+#: src/app/use-overleaf-workspace.ts
+msgid "Cancel merge"
+msgstr "Cancel merge"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "Cancel repair"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Cancel the merge with Overleaf?"
+msgstr "Cancel the merge with Overleaf?"
 
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
@@ -6649,6 +6658,10 @@ msgstr "Eta"
 msgid "Every figure is included"
 msgstr "Every figure is included"
 
+#: src/app/overleaf-git-merge.ts
+msgid "Every marked spot is resolved. Finish the merge to send it up, or cancel it to put the project back as it was before this sync."
+msgstr "Every marked spot is resolved. Finish the merge to send it up, or cancel it to put the project back as it was before this sync."
+
 #: src/trellis/trellis-panel-views.tsx
 msgid "Every panel is closed"
 msgstr "Every panel is closed"
@@ -7073,6 +7086,11 @@ msgstr "Finding each note on the PDF…"
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Finding it in the source…"
 msgstr "Finding it in the source…"
+
+#: src/app/overleaf-git-merge.ts
+#: src/app/use-overleaf-workspace.ts
+msgid "Finish merge"
+msgstr "Finish merge"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
@@ -8807,6 +8825,10 @@ msgstr "Keep entry"
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Keep merging"
+msgstr "Keep merging"
+
 #: src/editor/conflict-choices.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Keep mine"
@@ -10053,6 +10075,10 @@ msgstr "Merge \\input files into {rootDocument}"
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Merge cells"
 msgstr "Merge cells"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Merge with Overleaf cancelled"
+msgstr "Merge with Overleaf cancelled"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Mermaid"
@@ -12005,6 +12031,7 @@ msgstr "Outlined"
 msgid "Over arXiv’s size limit"
 msgstr "Over arXiv’s size limit"
 
+#: src/app/overleaf-git-merge.ts
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
@@ -14165,6 +14192,14 @@ msgstr "Resolve conflicts in {path}"
 msgid "Resolve the conflict markers before publishing: {files}."
 msgstr "Resolve the conflict markers before publishing: {files}."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Resolve the conflicts in {files} first, then finish the merge."
+msgstr "Resolve the conflicts in {files} first, then finish the merge."
+
+#: src/app/overleaf-git-merge.ts
+msgid "Resolve the marked spots in {files}, then finish the merge to send it up. Cancel puts the project back as it was before this sync."
+msgstr "Resolve the marked spots in {files}, then finish the merge to send it up. Cancel puts the project back as it was before this sync."
+
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Resolved"
@@ -14712,6 +14747,7 @@ msgstr "Saturation and brightness"
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/latex/citation-reason-editor.ts
+#: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -17584,6 +17620,10 @@ msgstr "The project closed before the comment was saved."
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "The project closed before the Open Slide edit could be saved."
 
+#: src/app/use-overleaf-workspace.ts
+msgid "The project goes back to how it was before this sync, and the spots you resolved are discarded. Overleaf keeps its changes; the next sync brings them in again."
+msgstr "The project goes back to how it was before this sync, and the spots you resolved are discarded. Overleaf keeps its changes; the next sync brings them in again."
+
 #: src/app/app-submission-dialogs.tsx
 msgid "The project or its permissions changed. Check references again."
 msgstr "The project or its permissions changed. Check references again."
@@ -17957,6 +17997,10 @@ msgstr "There is no entry “{key}” in {file}."
 #: src/plugins/plugin-bib.ts
 msgid "There is no entry “{key}” to update any more."
 msgstr "There is no entry “{key}” to update any more."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes."
+msgstr "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes."
 
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "There is no text to comment on in this selection."

@@ -1551,9 +1551,9 @@ msgstr "关联的文献库必须是 .bib 文件"
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "还有修改没传到 Overleaf，暂时不能重新载入"
 
-#: src/platform/host-errors-overleaf.ts
-msgid "A merge with Overleaf is unfinished. Resolve the conflicts, commit, then sync again."
-msgstr "与 Overleaf 的合并还没完成。请解决冲突并提交，然后再同步。"
+#: src/app/overleaf-git-merge.ts
+msgid "A merge with Overleaf is waiting on you"
+msgstr "与 Overleaf 的合并正在等你处理"
 
 #: src/platform/host-errors-setup.ts
 msgid "A model name is empty or has spaces in it."
@@ -3383,9 +3383,18 @@ msgstr "取消下载"
 msgid "Cancel installation"
 msgstr "取消安装"
 
+#: src/app/overleaf-git-merge.ts
+#: src/app/use-overleaf-workspace.ts
+msgid "Cancel merge"
+msgstr "取消合并"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "取消修复"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Cancel the merge with Overleaf?"
+msgstr "取消与 Overleaf 的合并？"
 
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
@@ -6649,6 +6658,10 @@ msgstr "伊塔"
 msgid "Every figure is included"
 msgstr "所有图片均已包含"
 
+#: src/app/overleaf-git-merge.ts
+msgid "Every marked spot is resolved. Finish the merge to send it up, or cancel it to put the project back as it was before this sync."
+msgstr "所有标记处都已解决。完成合并即可上传，或取消合并，让项目回到这次同步之前的样子。"
+
 #: src/trellis/trellis-panel-views.tsx
 msgid "Every panel is closed"
 msgstr "面板都已关闭"
@@ -7073,6 +7086,11 @@ msgstr "正在 PDF 中定位每条批注…"
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Finding it in the source…"
 msgstr "正在源码中查找…"
+
+#: src/app/overleaf-git-merge.ts
+#: src/app/use-overleaf-workspace.ts
+msgid "Finish merge"
+msgstr "完成合并"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
@@ -8807,6 +8825,10 @@ msgstr "保留文献"
 msgid "Keep it on Overleaf"
 msgstr "Overleaf 上保留"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Keep merging"
+msgstr "继续合并"
+
 #: src/editor/conflict-choices.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Keep mine"
@@ -10053,6 +10075,10 @@ msgstr "将 \\input 文件合并到 {rootDocument}"
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Merge cells"
 msgstr "合并单元格"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Merge with Overleaf cancelled"
+msgstr "已取消与 Overleaf 的合并"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Mermaid"
@@ -12005,6 +12031,7 @@ msgstr "描边"
 msgid "Over arXiv’s size limit"
 msgstr "超出 arXiv 的大小限制"
 
+#: src/app/overleaf-git-merge.ts
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
@@ -14165,6 +14192,14 @@ msgstr "处理 {path} 的冲突"
 msgid "Resolve the conflict markers before publishing: {files}."
 msgstr "请先处理这些文件中的冲突标记再发布：{files}"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Resolve the conflicts in {files} first, then finish the merge."
+msgstr "请先解决 {files} 中的冲突，然后再完成合并。"
+
+#: src/app/overleaf-git-merge.ts
+msgid "Resolve the marked spots in {files}, then finish the merge to send it up. Cancel puts the project back as it was before this sync."
+msgstr "请解决 {files} 中的标记处，然后完成合并以上传。取消合并会让项目回到这次同步之前的样子。"
+
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Resolved"
@@ -14712,6 +14747,7 @@ msgstr "饱和度与亮度"
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/latex/citation-reason-editor.ts
+#: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -17584,6 +17620,10 @@ msgstr "项目已关闭，评论没保存"
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "项目已关闭，Open Slide 的修改没保存"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "The project goes back to how it was before this sync, and the spots you resolved are discarded. Overleaf keeps its changes; the next sync brings them in again."
+msgstr "项目会回到这次同步之前的样子，你已解决的标记处会被丢弃。Overleaf 上的更改仍然保留，下次同步时会再次合并进来。"
+
 #: src/app/app-submission-dialogs.tsx
 msgid "The project or its permissions changed. Check references again."
 msgstr "项目已变化，请重新检查引用"
@@ -17957,6 +17997,10 @@ msgstr "{file} 中没有条目“{key}”。"
 #: src/plugins/plugin-bib.ts
 msgid "There is no entry “{key}” to update any more."
 msgstr "条目“{key}”已不存在，无法更新。"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes."
+msgstr "没有需要完成的 Overleaf 合并。同步即可合并 Overleaf 上的更改。"
 
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "There is no text to comment on in this selection."

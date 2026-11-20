@@ -687,6 +687,31 @@ pub async fn overleaf_sync(
         .await
 }
 
+/// Conclude the git merge a sync stopped on, once its conflicts are resolved,
+/// and send the result up. Answers like a sync, so the app reads it as one.
+#[tauri::command]
+pub async fn overleaf_git_finish_merge(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<overleaf::OverleafSyncResult, String> {
+    let _lease = state.lease(&project_root, Lease::Exclusive).await;
+    let root = pinned_root(&state, &window, &project_root, "the merge could finish")?;
+    run_quietly("Finishing the Overleaf merge", move || {
+        overleaf::git_finish_merge(&root, overleaf_git_token::token()?)
+    })
+    .await
+}
+
+/// Cancel the git merge a sync stopped on: the folder goes back to how it was
+/// before that sync.
+#[tauri::command]
+pub async fn overleaf_git_abort_merge(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<(), String> {
+    let _lease = state.lease(&project_root, Lease::Exclusive).await;
+    let root = pinned_root(&state, &window, &project_root, "the merge could be cancelled")?;
+    run_quietly("Cancelling the Overleaf merge", move || overleaf::git_abort_merge(&root)).await
+}
+
 /// Whether an Overleaf git token is saved (the token itself never leaves the
 /// backend).
 #[tauri::command]

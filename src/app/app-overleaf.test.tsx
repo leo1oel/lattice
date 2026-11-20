@@ -3,7 +3,8 @@ import { appHarness } from "./app-test-mount";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { formatAppLogs, getAppLogEntry, getAppToastOptions, getVisibleAppToastIds } from "../telemetry/app-log-store";
 import { describe, expect, it, vi } from "vitest";
 
 const { renderOverleafPaper } = appHarness();
@@ -193,6 +194,54 @@ describe("Overleaf sync", () => {
     expect(invokeCalls("overleaf_sync")).toHaveLength(1);
     expect(invokeCalls("overleaf_preview")).toHaveLength(0);
     expect(screen.queryByText("Review changes")).not.toBeInTheDocument();
+  });
+
+  // The harness renders no toast stack: the merge's offer is read, and its
+  // buttons pressed, through the store the stack draws from.
+  const mergeOffer = () => getVisibleAppToastIds()
+    .map((id) => ({ entry: getAppLogEntry(id), options: getAppToastOptions(id) }))
+    .find(({ entry }) => entry?.title === "A merge with Overleaf is waiting on you");
+
+  it("offers to finish a git merge the sync stopped on, and sends the resolution up", async () => {
+    const conflict = { path: "fig.png", localCopy: "fig.png", markers: false };
+    renderOverleafPaper({
+      overleaf_link: () => overleafLink({ syncVia: "git" }),
+      overleaf_sync: () => overleafSyncResult({ conflicts: [conflict], mergeOpen: true }),
+      overleaf_git_finish_merge: () => overleafSyncResult({ pulled: ["fig.png"], pushed: ["fig.png"] }),
+    }, { syncMode: "live" });
+    fireEvent.click(await screen.findByRole("button", { name: "Sync with Overleaf" }));
+    await waitFor(() => expect(mergeOffer()).toBeDefined());
+    await expectNotification(/Overleaf: waiting on conflict resolution in fig\.png\./);
+    const { options } = mergeOffer()!;
+    expect(options?.timeoutMs).toBe(0);
+    expect(options?.primaryAction?.label).toBe("Finish merge");
+    expect(options?.secondaryAction?.label).toBe("Cancel merge");
+    // A figure has no markers: the web sync's "(local conflict …)" copy does not exist here.
+    expect(formatAppLogs()).not.toMatch(/local conflict/);
+
+    await act(async () => { await options?.primaryAction?.onClick(); });
+    await waitFor(() => expect(invokeCalls("overleaf_git_finish_merge")).toHaveLength(1));
+    expect(invokeCalls("overleaf_git_finish_merge")[0][1]).toMatchObject({ projectRoot: "/tmp/lattice-overleaf-paper" });
+    await expectNotification(/Overleaf: pulled 1, pushed 1\./);
+    await waitFor(() => expect(mergeOffer()).toBeUndefined());
+    expect(invokeCalls("overleaf_sync")).toHaveLength(1);
+  });
+
+  it("cancels a git merge only once asked, and then stops offering it", async () => {
+    renderOverleafPaper({
+      overleaf_link: () => overleafLink({ syncVia: "git" }),
+      overleaf_sync: () => overleafSyncResult({ conflicts: [{ path: "fig.png", localCopy: "fig.png", markers: false }], mergeOpen: true }),
+      overleaf_git_abort_merge: null,
+    }, { syncMode: "live", confirmations: true });
+    fireEvent.click(await screen.findByRole("button", { name: "Sync with Overleaf" }));
+    await waitFor(() => expect(mergeOffer()).toBeDefined());
+    act(() => { void mergeOffer()!.options?.secondaryAction?.onClick(); });
+    const dialog = await screen.findByRole("dialog", { name: "Cancel the merge with Overleaf?" });
+    expect(invokeCalls("overleaf_git_abort_merge")).toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel merge" }));
+    await expectInvoked("overleaf_git_abort_merge", { projectRoot: "/tmp/lattice-overleaf-paper" });
+    await expectNotification(/Merge with Overleaf cancelled/);
+    await waitFor(() => expect(mergeOffer()).toBeUndefined());
   });
 
   it("says which files a sync kept because Overleaf's download would have emptied them", async () => {

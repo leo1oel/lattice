@@ -113,6 +113,10 @@ pub struct OverleafSyncResult {
     /// go up. The writer commits their own work; a sync never does.
     #[serde(default)]
     pub uncommitted: Vec<String>,
+    /// Git sync only: a merge with Overleaf is open, waiting on the writer to
+    /// resolve `conflicts` and finish it, or to cancel it.
+    #[serde(default)]
+    pub merge_open: bool,
 }
 
 /// Of the files this sync holds marked up, those `state` (the last sync's)

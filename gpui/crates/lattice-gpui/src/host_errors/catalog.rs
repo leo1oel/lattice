@@ -1782,8 +1782,13 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "git/bridge.rs",
-        literal: "A merge with Overleaf is unfinished. Resolve the conflicts, commit, then sync again.",
-        text: Text::Message("A merge with Overleaf is unfinished. Resolve the conflicts, commit, then sync again.", &[]),
+        literal: "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes.",
+        text: Text::Message("There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes.", &[]),
+    },
+    Entry {
+        file: "overleaf/git_sync.rs",
+        literal: "Resolve the conflicts in {} first, then finish the merge.",
+        text: Text::Message("Resolve the conflicts in {files} first, then finish the merge.", &[("files", Arg::Param(0))]),
     },
     Entry {
         file: "git/bridge.rs",
