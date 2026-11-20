@@ -407,7 +407,7 @@ async function requestBrowserSession(
   resumeToken?: string,
   entry?: string,
 ): Promise<BrowserRuntimeConfig> {
-  const endpoint = new URL(`http://127.0.0.1:${bridgePort}/__lattice_session`);
+  const endpoint = browserHostUrl("session", bridgePort);
   if (resumeToken) endpoint.searchParams.set("token", resumeToken);
   if (entry !== undefined) endpoint.searchParams.set("entry", entry);
   const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
@@ -433,8 +433,9 @@ async function initializeBrowserRuntime(): Promise<void> {
   // A perf-lab build serves its pages from the lab's own port so it never
   // meets a real Lattice on 18452.
   const entryPort = import.meta.env.VITE_PERF_LAB === "1" ? window.location.port : BROWSER_ENTRY_PORT;
-  const fixedEntry = window.location.hostname === "127.0.0.1"
-    && window.location.port === entryPort;
+  // A page at a proxy's origin is that host's entry: nothing else serves it.
+  const fixedEntry = !isLoopbackPage() || (window.location.hostname === "127.0.0.1"
+    && window.location.port === entryPort);
   const search = new URLSearchParams(window.location.search);
   const developmentEntry = search.get("latticeBrowser") === "1";
   // The app opens the default browser on a single-use `?entry=<nonce>`, never
@@ -468,8 +469,31 @@ function isLoopbackPage(): boolean {
     && (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost");
 }
 
+/**
+ * Where this page reaches the browser host: `/__lattice_<route>`, or the root
+ * for an empty route; the bridge route is a WebSocket.
+ *
+ * A loopback page (the fixed entry, or a development page on Vite's port)
+ * reaches the loopback listener exactly as it always has. Any other page was
+ * served by the host itself, through a reverse proxy at an origin Lattice was
+ * started with (`--browser-public-origin`,
+ * src-tauri/src/browser_host/public_origin.rs): the host answers no other
+ * Host, so that page reaches it through its own origin, `wss:` under https.
+ * The host still checks the Host and Origin of every request against the
+ * same list.
+ */
+export function browserHostUrl(route: "session" | "asset" | "bridge" | "", bridgePort: number): URL {
+  const path = route ? `/__lattice_${route}` : "/";
+  const socket = route === "bridge";
+  if (isLoopbackPage()) return new URL(`${socket ? "ws" : "http"}://127.0.0.1:${bridgePort}${path}`);
+  const url = new URL(path, window.location.origin);
+  if (socket) url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url;
+}
+
 const runtimeWindow = window as unknown as RuntimeWindow;
-if (!runtimeWindow.__TAURI_INTERNALS__ && isLoopbackPage()) {
+const servedOverHttp = window.location.protocol === "http:" || window.location.protocol === "https:";
+if (!runtimeWindow.__TAURI_INTERNALS__ && servedOverHttp) {
   runtimeReady = initializeBrowserRuntime();
 }
 
@@ -490,7 +514,7 @@ export async function readBrowserHostAsset(range: {
   end: number;
 }): Promise<ArrayBuffer> {
   if (!browserSession) throw new Error(runtimeMessage("app-disconnected"));
-  const endpoint = new URL(`http://127.0.0.1:${browserSession.bridgePort}/__lattice_asset`);
+  const endpoint = browserHostUrl("asset", browserSession.bridgePort);
   for (const [name, value] of Object.entries(range)) endpoint.searchParams.set(name, String(value));
   const response = await fetch(endpoint, {
     cache: "no-store",

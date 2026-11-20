@@ -1,5 +1,12 @@
 import { encodeBridgeValue, decodeBridgeValue, type BridgeValue } from "./browser-bridge-value";
-import { detachRuntime, runtimeMessage, showRuntimeStatus, type BrowserRuntimeConfig, type RuntimeStatus } from "./browser-runtime";
+import {
+  browserHostUrl,
+  detachRuntime,
+  runtimeMessage,
+  showRuntimeStatus,
+  type BrowserRuntimeConfig,
+  type RuntimeStatus,
+} from "./browser-runtime";
 
 type Callback = (payload: unknown) => void;
 
@@ -47,7 +54,7 @@ export class BrowserRelay {
     private readonly closePage: () => void = () => window.close(),
     private readonly appReachable: () => Promise<boolean> = () => localAppReachable(config.bridgePort),
   ) {
-    const socketUrl = new URL(`ws://127.0.0.1:${config.bridgePort}/__lattice_bridge`);
+    const socketUrl = browserHostUrl("bridge", config.bridgePort);
     socketUrl.searchParams.set("token", config.token);
     socketUrl.searchParams.set("role", "browser");
     this.socket = new WebSocket(socketUrl);
@@ -221,11 +228,15 @@ export class BrowserRelay {
   }
 }
 
-/** True when the local Lattice app still answers at its address. */
+/**
+ * True when the local Lattice app still answers at its address. Behind a
+ * proxy, the proxy's own answer counts too; the reload that follows then
+ * shows whatever the proxy says.
+ */
 async function localAppReachable(port: number): Promise<boolean> {
   try {
     // Any answer at all, even an opaque or error one, means it is running.
-    await fetch(`http://127.0.0.1:${port}/`, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(2_000) });
+    await fetch(browserHostUrl("", port), { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(2_000) });
     return true;
   } catch {
     return false;
