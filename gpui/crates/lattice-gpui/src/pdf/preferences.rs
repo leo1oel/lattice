@@ -30,13 +30,16 @@ use super::{
 /// How many documents' places a project keeps.
 pub const MAX_PLACES: usize = 200;
 
-/// A window's outer corner and content size, in logical points.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+/// A window's outer corner on its display and its content size, in logical
+/// points, and the UUID of that display (`crate::window_place`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WindowFrame {
     pub x: f32,
     pub y: f32,
     pub width: f32,
     pub height: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -252,15 +255,16 @@ mod tests {
             y: 60.,
             width: 760.,
             height: 880.,
+            display: None,
         };
         let mut preferences = Preferences::default();
         preferences.window_mut(a).open = true;
-        preferences.window_mut(a).frame = Some(frame);
+        preferences.window_mut(a).frame = Some(frame.clone());
         write_json(&file, &preferences).unwrap();
 
         let read_back = read(&file).unwrap();
         assert!(read_back.window(a).open);
-        assert_eq!(read_back.window(a).frame, Some(frame));
+        assert_eq!(read_back.window(a).frame, Some(frame.clone()));
         assert_eq!(read_back.window(b), ProjectWindow::default());
 
         // Docking clears the choice and keeps where the window was left.

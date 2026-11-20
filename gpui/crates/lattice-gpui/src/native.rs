@@ -320,6 +320,16 @@ pub fn request_close(native: Native) {
     }
 }
 
+/// Move the window by `dx`, `dy` points (down for a positive `dy`), as a
+/// drag of its title bar does: AppKit tells the window it moved.
+pub fn move_window_by(native: Native, dx: f64, dy: f64) {
+    unsafe {
+        let frame: NSRect = msg_send![native.window, frame];
+        let origin = NSPoint::new(frame.origin.x + dx, frame.origin.y - dy);
+        let _: () = msg_send![native.window, setFrameOrigin: origin];
+    }
+}
+
 /// A left double click at `position`: AppKit counts a click by the event's
 /// `clickCount`, so the second press says 2.
 pub fn send_double_click(native: Native, position: Point<Pixels>) -> Result<()> {

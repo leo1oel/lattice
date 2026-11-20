@@ -15,14 +15,14 @@ use std::path::{Path, PathBuf};
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, IntoElement,
     ParentElement as _, Render, SharedString, Styled as _, WeakEntity, Window, WindowBounds,
-    WindowOptions, div, point, px, size,
+    WindowOptions, div, px, size,
 };
 use lattice_i18n::n;
 use lattice_ui::{ActiveLattice as _, Icon};
 
 use super::{
     panel::PdfPanel,
-    preferences::{self, WindowFrame},
+    preferences,
     view::{PdfView, PdfViewEvent, ToolbarAction, ViewPlace},
 };
 
@@ -32,6 +32,7 @@ const MIN_SIZE: (f32, f32) = (420., 360.);
 pub struct PdfWindow {
     view: Entity<PdfView>,
     _subscription: gpui::Subscription,
+    _placed: gpui::Subscription,
 }
 
 impl PdfWindow {
@@ -52,22 +53,22 @@ impl PdfWindow {
         focus: bool,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<PdfView>)> {
-        let remembered = project
+        let min = size(px(MIN_SIZE.0), px(MIN_SIZE.1));
+        let (bounds, display_id) = project
             .as_deref()
-            .and_then(|root| preferences::get().window(root).frame);
-        let bounds = match remembered {
-            Some(frame) => Bounds {
-                origin: point(px(frame.x), px(frame.y)),
-                size: size(
-                    px(frame.width.max(MIN_SIZE.0)),
-                    px(frame.height.max(MIN_SIZE.1)),
-                ),
-            },
-            None => Bounds::centered(None, size(px(DEFAULT_SIZE.0), px(DEFAULT_SIZE.1)), cx),
-        };
+            .and_then(|root| preferences::get().window(root).frame)
+            .and_then(|frame| crate::window_place::reopen(&frame, min, cx))
+            .map_or_else(
+                || {
+                    let default = size(px(DEFAULT_SIZE.0), px(DEFAULT_SIZE.1));
+                    (Bounds::centered(None, default, cx), None)
+                },
+                |(bounds, display)| (bounds, Some(display)),
+            );
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
-            window_min_size: Some(size(px(MIN_SIZE.0), px(MIN_SIZE.1))),
+            display_id,
+            window_min_size: Some(min),
             titlebar: Some(gpui::TitlebarOptions {
                 title: Some(title),
                 ..Default::default()
@@ -116,9 +117,17 @@ impl PdfWindow {
                         }
                     }
                 });
+                let placed = project.clone();
                 PdfWindow {
                     view,
                     _subscription: subscription,
+                    _placed: crate::window_place::keep_placed(window, cx, move |frame| {
+                        if let Some(root) = placed.as_deref() {
+                            preferences::update(|preferences| {
+                                preferences.window_mut(root).frame = Some(frame)
+                            });
+                        }
+                    }),
                 }
             })
         })?;
@@ -126,7 +135,7 @@ impl PdfWindow {
         handle.update(cx, |_, window, cx| {
             let owner = owner.clone();
             window.on_window_should_close(cx, move |window, cx| {
-                remember_frame(project.as_deref(), window);
+                remember_frame(project.as_deref(), window, cx);
                 with_owner(&owner, cx, |panel, window, cx| {
                     panel.dock(false, window, cx)
                 });
@@ -143,24 +152,18 @@ impl PdfWindow {
 /// Close the window, remembering where it was left for `project`.
 pub(super) fn close(handle: AnyWindowHandle, project: Option<&Path>, cx: &mut App) {
     handle
-        .update(cx, |_, window, _| {
-            remember_frame(project, window);
+        .update(cx, |_, window, cx| {
+            remember_frame(project, window, cx);
             window.remove_window();
         })
         .ok();
 }
 
-fn remember_frame(project: Option<&Path>, window: &Window) {
+fn remember_frame(project: Option<&Path>, window: &Window, cx: &App) {
     let Some(root) = project else {
         return;
     };
-    let bounds = window.window_bounds().get_bounds();
-    let frame = WindowFrame {
-        x: f32::from(bounds.origin.x),
-        y: f32::from(bounds.origin.y),
-        width: f32::from(bounds.size.width),
-        height: f32::from(bounds.size.height),
-    };
+    let frame = crate::window_place::frame_of(window, cx);
     preferences::update(|preferences| preferences.window_mut(root).frame = Some(frame));
 }
 

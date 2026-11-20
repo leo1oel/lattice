@@ -23,6 +23,7 @@ use gpui::{
 use lattice_i18n::t;
 
 use super::Shell;
+use crate::window_place::{display_named, display_of, reaches};
 
 #[derive(Default)]
 struct Shells(HashMap<WindowId, WeakEntity<Shell>>);
@@ -239,15 +240,7 @@ pub(super) fn launch_bounds(cx: &mut App) -> (WindowBounds, Option<DisplayId>) {
         .filter(|_| !sized)
         .and_then(|placement| {
             let bounds = placement.bounds()?;
-            let display = placement
-                .display
-                .as_deref()
-                .and_then(|uuid| {
-                    cx.displays()
-                        .into_iter()
-                        .find(|display| display.uuid().is_ok_and(|id| id.to_string() == uuid))
-                })
-                .or_else(|| cx.primary_display())?;
+            let display = display_named(placement.display.as_deref(), cx)?;
             reaches(bounds.get_bounds(), display.bounds()).then(|| (bounds, Some(display.id())))
         })
         .unwrap_or_else(|| {
@@ -256,14 +249,6 @@ pub(super) fn launch_bounds(cx: &mut App) -> (WindowBounds, Option<DisplayId>) {
                 None,
             )
         })
-}
-
-/// Whether enough of `bounds` shows on `screen` to grab it, both from the
-/// screen's top left: a display rearranged or swapped since can leave a
-/// place nobody could reach.
-fn reaches(bounds: Bounds<Pixels>, screen: Bounds<Pixels>) -> bool {
-    let overlap = screen.intersect(&bounds);
-    f32::from(overlap.size.width) >= 100. && f32::from(overlap.size.height) >= 40.
 }
 
 /// Keep `bounds` on `display` to be written once the window has settled.
@@ -454,11 +439,7 @@ impl Shell {
     /// the interface size, never wider than the screen.
     fn watch_placement(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         cx.observe_window_bounds(window, |this, window, cx| {
-            let display = window
-                .display(cx)
-                .and_then(|display| display.uuid().ok())
-                .map(|uuid| uuid.to_string());
-            remember(window.window_bounds(), display, cx);
+            remember(window.window_bounds(), display_of(window, cx), cx);
             follow_fullscreen(window, cx);
             this.apply_minimum_size(window, cx);
         })
@@ -843,26 +824,5 @@ mod tests {
             Some(px(900.))
         );
         assert_eq!(older.display, None);
-    }
-
-    #[test]
-    fn a_place_counts_only_when_enough_of_it_shows_on_its_display() {
-        // A 1440×900 display, its own top left at the origin, as GPUI gives
-        // a display's bounds and the window's on it.
-        let screen = Bounds {
-            origin: point(px(0.), px(0.)),
-            size: size(px(1440.), px(900.)),
-        };
-        let at = |x: f32, y: f32| Bounds {
-            origin: point(px(x), px(y)),
-            size: size(px(1200.), px(800.)),
-        };
-        assert!(reaches(at(100., 100.), screen));
-        // 100×40 left on screen is still a titlebar to grab; less is not.
-        assert!(reaches(at(1340., 860.), screen));
-        assert!(!reaches(at(1341., 100.), screen));
-        assert!(!reaches(at(100., 861.), screen));
-        // Left of a display that is no longer there.
-        assert!(!reaches(at(-2000., 100.), screen));
     }
 }

@@ -66,6 +66,7 @@ mod titlebar;
 mod updater;
 mod welcome;
 mod window_material;
+mod window_place;
 
 fn main() {
     // The Agent's sidecar runs this binary as its helpers, as it runs the
