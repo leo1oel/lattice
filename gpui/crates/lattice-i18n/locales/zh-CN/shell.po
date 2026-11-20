@@ -141,6 +141,10 @@ msgstr "显示或隐藏编译日志"
 msgid "Writing layout"
 msgstr "写作布局"
 
+#: lattice-gpui/src/shell/terminal_flow.rs
+msgid "the agent’s turn"
+msgstr "AI 助手正在进行的对话"
+
 #: lattice-gpui/src/shell/pdf_notes.rs
 msgid "{name} is opening live with Overleaf beside the PDF. Comment again once it has opened."
 msgstr "{name} 正在 PDF 旁以 Overleaf 实时编辑打开，打开后再评论一次。"
