@@ -147,6 +147,7 @@ choice!(
         Agent = "agent",
         Mcp = "mcp",
         Usage = "usage",
+        Archived = "archived",
         Environment = "environment",
         ModelEndpoint = "model-endpoint",
         Overleaf = "overleaf",

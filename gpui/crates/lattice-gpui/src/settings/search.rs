@@ -57,8 +57,8 @@ impl Entry {
 /// The index in the interface language now.
 pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
     use SettingsTab::{
-        Acknowledgements, Agent, Api, Appearance, Doctor, Editor, Environment, Literature, Logs,
-        Mcp, ModelEndpoint, Overleaf, Plugins, Usage,
+        Acknowledgements, Agent, Api, Appearance, Archived, Doctor, Editor, Environment,
+        Literature, Logs, Mcp, ModelEndpoint, Overleaf, Plugins, Usage,
     };
     let appearance = t!("Appearance");
     let editor = t!("Editor & builds");
@@ -250,6 +250,8 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         Entry::page(Api, t!("Skills"), agent),
         Entry::page(Usage, t!("Usage & limits"), agent)
             .terms(t!("quota credits rate limit refresh")),
+        Entry::page(Archived, t!("Archived threads"), agent)
+            .terms(t!("restore unarchive conversations chats history")),
         Entry::page(ModelEndpoint, endpoint, agent).terms(format!(
             "OpenAI Anthropic Gemini Pi LLM {}",
             t!("own API base URL custom")
@@ -477,6 +479,7 @@ mod tests {
             ("mcp", SettingsTab::Mcp),
             ("skills", SettingsTab::Api),
             ("quota", SettingsTab::Usage),
+            ("unarchive", SettingsTab::Archived),
             ("anthropic", SettingsTab::ModelEndpoint),
             ("https_proxy", SettingsTab::Environment),
             ("crossref", SettingsTab::Literature),
