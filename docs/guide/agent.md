@@ -22,9 +22,9 @@ Open the **Agent** panel (`⌘⌥3`, or the robot icon on the left). Then use on
 - **Annotate** a passage (select it, choose **Annotate**, write what should change), then **Save and revise now**: the Agent proposes an edit for each annotation and you accept or reject it in place. **Revise from annotations** in the command palette does every open annotation in rounds.
 - A failed build's **Ask the agent** sends that problem straight here.
 
-Threads are kept per project; the clock next to the thread name lists earlier ones. The **×** on a thread archives it rather than deleting it: **Settings › Agent › Archived threads** lists archived threads, including ones archived after a while unused, and can restore one to the history or delete it for good.
+Threads are kept per project; the clock next to the thread name lists earlier ones. **Settings › Agent › Archived threads** lists archived threads, such as ones archived after a while unused, and can restore one to the history or delete it for good.
 
-In the native Lattice, the threads you had in the classic version show up as well. Each time its Agent starts, it adds the classic version's threads it doesn't have yet and says how many in a short notice. Continuing one picks up from its earlier messages.
+In the native Lattice, the threads you had in the classic version show up as well. Each time its Agent starts, it adds the classic version's threads it doesn't have yet and says how many in a short notice. When you continue one, the Agent's first reply gets a condensed recap of it: the last few messages in more detail, older ones shortened, and the oldest left out of a long thread. It doesn't get the classic version's tool calls, checkpoints or session.
 
 ## A window of its own
 

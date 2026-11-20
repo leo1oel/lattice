@@ -1,16 +1,16 @@
 {
   "version": "0.19.1",
-  "date": "2026-11-20",
+  "date": "2026-11-21",
   "highlights": [
     {
       "icon": "message",
       "title": {
         "en": "Your Agent conversations come along to the native Lattice",
-        "zh": "你的 Agent 对话会一起带到原生 Lattice"
+        "zh": "你的 AI 助手对话会一起带到原生 Lattice"
       },
       "body": {
-        "en": "The native Lattice now shows the Agent conversations you had in the classic version, with their messages and attachments, without anything to do. Each time its Agent starts, it adds the classic version's conversations it doesn't have yet, including ones started there after a switch back, and a short notice says how many. It only reads the classic version's data, never changes it, and leaves the conversations you started in the native Lattice as they are. Continuing an imported conversation picks up from its earlier messages, but not from the tool calls, checkpoints or session the classic version had.",
-        "zh": "原生 Lattice 现在会显示你在经典版本里的 Agent 对话，包括消息和附件，无需任何操作。每次原生版本的 Agent 启动时，都会补上经典版本里它还没有的对话，包括切换回经典版本后新开的对话，并用一条简短的提示告诉你带来了多少个。它只读取经典版本的数据，不会改动，也不会影响你在原生 Lattice 里开始的对话。继续一个带过来的对话时，会接着之前的消息，但不包括经典版本中的工具调用、检查点和会话状态。"
+        "en": "The native Lattice now shows the Agent conversations you had in the classic version, with their messages and attachments, without anything to do. Each time its Agent starts, it adds the classic version's conversations it doesn't have yet, including ones started there after a switch back, and a short notice says how many. It only reads the classic version's data, never changes it, and leaves the conversations you started in the native Lattice as they are. When you continue an imported conversation, the Agent's first reply gets a condensed recap of it: the last few messages in more detail, older ones shortened, and the oldest left out of a long one. It doesn't get the tool calls, checkpoints or session the classic version had.",
+        "zh": "原生 Lattice 现在会显示你在经典版本里的 AI 助手对话，包括消息和附件，无需任何操作。每次原生版本的助手启动时，都会补上经典版本里它还没有的对话，包括切换回经典版本后新开的对话，并用一条简短的提示告诉你带来了多少个。它只读取经典版本的数据，不会改动，也不会影响你在原生 Lattice 里开始的对话。继续一个带过来的对话时，助手的第一次回复会收到它的精简回顾：最近几条消息较详细，较早的消息被缩短，很长的对话会略去最早的部分。经典版本中的工具调用、检查点和会话状态不会带过来。"
       }
     },
     {
@@ -20,7 +20,7 @@
         "zh": "Overleaf 按句子合并合作者的修改"
       },
       "body": {
-        "en": "When you and a co-author both changed a file between syncs, Lattice now merges the two against the last synced version, sentence by sentence in prose, so edits to different sentences of the same paragraph both survive. Only a spot you both rewrote is marked, right in the file, with This Mac and Overleaf's text side by side and Keep mine, Keep theirs or Keep both on it; no \"(local conflict …)\" copy is written beside it any more. When a figure or other binary file changed on both sides, the newer copy stays, and a notice offers Use mine or Use Overleaf's to swap. The PDF of every main document in the project now stays on this Mac, not only the first one's.",
+        "en": "When you and a co-author both changed a file between syncs, Lattice now merges the two against the last synced version, sentence by sentence in prose, so edits to different sentences of the same paragraph both survive. Only a spot you both rewrote is marked, right in the file, with your text and Overleaf's side by side and Keep mine, Keep theirs or Keep both on it; no \"(local conflict …)\" copy is written beside it any more. When a figure or other binary file changed on both sides, the newer copy stays, and a notice offers Use mine or Use Overleaf's to swap. The PDF of every main document in the project now stays on this Mac, not only the first one's.",
         "zh": "如果你和合作者在两次同步之间都改了同一个文件，Lattice 现在会以上次同步的版本为基准合并两边的修改；正文按句子合并，所以同一段里改了不同句子，两边的修改都会保留。只有两人都改写过的地方才会被标出，直接标在文件里，并排显示你的和 Overleaf 的文字，上面有「保留我的」「保留对方的」和「保留两者」可选；旁边不再另存带「(local conflict …)」的副本。图片等二进制文件两边都改过时，保留较新的那份，并弹出提示，可以用「用我的」或「用 Overleaf 的」换回来。项目里每个主文档的 PDF 现在都只留在本机，不再只限于第一个主文档。"
       }
     },
@@ -39,11 +39,11 @@
       "icon": "undo",
       "title": {
         "en": "Archived conversations, back where you can find them",
-        "zh": "已归档的对话，又能找到了"
+        "zh": "已归档的 AI 助手对话，又能找到了"
       },
       "body": {
-        "en": "Settings › Agent › Archived threads lists the Agent conversations you closed with ×, and the ones archived after a while unused, in both versions of Lattice. Restore one to bring it back into the Agent's history, or delete it for good.",
-        "zh": "设置 › AI 助手 › 已归档的对话 列出了你用 × 关掉的 Agent 对话，以及闲置一段时间后被自动归档的对话，两个版本的 Lattice 都有。可以恢复一个对话，让它回到助手的历史记录里，也可以把它永久删除。"
+        "en": "Settings › Agent › Archived threads lists archived Agent conversations, such as ones archived after a while unused, in both versions of Lattice. Restore one to bring it back into the Agent's history, or delete it for good.",
+        "zh": "设置 › AI 助手 › 已归档的对话 列出已归档的 AI 助手对话（例如闲置一段时间后自动归档的），两个版本的 Lattice 都有。可以恢复一个对话，让它回到助手的历史记录里，也可以把它永久删除。"
       }
     }
   ],
@@ -77,16 +77,16 @@
       "zh": "AI 助手面板较宽时，对话历史菜单可以正常打开了。"
     },
     {
-      "en": "When a build or Format document suggests adding a missing package or tool, it names the TeX distribution you actually have, such as TinyTeX, MiKTeX or BasicTeX. Key labels show Ctrl instead of ⌘ on Android phones and Chromebooks.",
-      "zh": "编译或格式化文档提示添加缺少的宏包或工具时，会写出你实际安装的 TeX 发行版，例如 TinyTeX、MiKTeX 或 BasicTeX。在 Android 手机和 Chromebook 上，快捷键标签显示 Ctrl 而不是 ⌘。"
+      "en": "When a build or Format document suggests adding a missing package or tool, it names the TeX distribution you actually have, such as TinyTeX, MiKTeX or BasicTeX. In the browser version, key labels show Ctrl instead of ⌘ on Android phones and Chromebooks.",
+      "zh": "编译或格式化文档提示添加缺少的宏包或工具时，会写出你实际安装的 TeX 发行版，例如 TinyTeX、MiKTeX 或 BasicTeX。在浏览器版中，Android 手机和 Chromebook 上的快捷键标签显示 Ctrl 而不是 ⌘。"
     },
     {
-      "en": "Updates now come from Lattice's new home on GitHub, lattice-writer/lattice, with the old address as a fallback.",
-      "zh": "更新现在从 Lattice 在 GitHub 上的新地址 lattice-writer/lattice 获取，旧地址作为备用。"
+      "en": "Lattice now checks for updates at its new GitHub home, lattice-writer/lattice, first, and then at the current address.",
+      "zh": "Lattice 现在先在它在 GitHub 上的新地址 lattice-writer/lattice 检查更新，再查现在的地址。"
     },
     {
-      "en": "On Linux, the browser version can run behind a reverse proxy: --browser-public-origin names the exact address it is served at.",
-      "zh": "在 Linux 上，浏览器版可以放在反向代理后面运行：用 --browser-public-origin 指定它对外的确切地址。"
+      "en": "The browser version can run behind a reverse proxy: --browser-public-origin names the exact address it is served at.",
+      "zh": "浏览器版可以放在反向代理后面运行：用 --browser-public-origin 指定它对外的确切地址。"
     }
   ]
 }
