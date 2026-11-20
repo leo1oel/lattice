@@ -40,9 +40,9 @@ If your Overleaf plan includes the git integration, a linked project can sync th
 
 In this mode you commit your own work, and **Sync with Overleaf** fetches Overleaf's commits, merges them and pushes yours. Lattice never commits your edits for you: files with uncommitted changes are listed after a sync, and they don't go to Overleaf. Live editing, chat and comments are off, and syncing is always manual. In **History › Versions**, commits that are on Overleaf but not yet merged are marked **On Overleaf, not merged yet**.
 
-When you and a co-author changed the same lines, the merge stops and the conflict resolver opens on the file, so you can choose your text, Overleaf's, or both for each marked spot. A notice then stays up until you choose one of its two buttons:
+When you and a co-author changed the same lines, the merge stops and the file opens in the editor at the first marked spot. Each spot offers **Keep mine**, **Keep theirs** and **Keep both**. A notice then stays up until you choose one of its two buttons:
 
 - **Finish merge** commits the merge and sends it to Overleaf. It refuses while a file still has conflict markers. A figure or PDF that changed on both sides keeps your version.
 - **Cancel merge** puts the project back as it was before the sync, and drops the spots you resolved. Overleaf keeps its changes, and the next sync merges them again.
 
-If you close the resolver before you're done, choose **Sync with Overleaf** again to reopen it.
+To find the marked spots again later, choose **Sync with Overleaf**: it opens the file at the first spot still marked.
