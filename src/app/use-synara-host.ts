@@ -337,7 +337,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
       }
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [contextFor, frameMounted, latest, projectRef, projectRoot, serviceIdentity]);
+  }, [contextFor, frameMounted, latest, projectRef, projectRoot, serviceIdentity, trellis?.ui]);
   useEffect(() => () => publishAgentDeckPresence(null), []);
   const notifyPanelOpened = useCallback(() => {
     if (frameReady) void postMessage({ type: LATTICE_AGENT_PANEL_OPENED });
