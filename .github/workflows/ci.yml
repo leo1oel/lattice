@@ -67,7 +67,8 @@ jobs:
       lint-build: ${{ steps.tier.outputs.lint-build }}
       perf-bench: ${{ steps.tier.outputs.perf-bench }}
       rust: ${{ steps.tier.outputs.rust }}
-      macos-local: ${{ steps.tier.outputs.macos-local }}
+      macos-local-rust: ${{ steps.tier.outputs.macos-local-rust }}
+      macos-local-webkit: ${{ steps.tier.outputs.macos-local-webkit }}
       literature-worker: ${{ steps.tier.outputs.literature-worker }}
       open-slide-runtime: ${{ steps.tier.outputs.open-slide-runtime }}
       research-env: ${{ steps.tier.outputs.research-env }}
@@ -370,7 +371,7 @@ jobs:
   perf-bench-webkit-shard:
     name: perf-bench-webkit (${{ matrix.shard }}/2)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' && needs.changes.outputs.macos-local != 'true' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' && needs.changes.outputs.macos-local-webkit != 'true' }}
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -397,7 +398,7 @@ jobs:
   # The one check that reports the WebKit benchmark, under its old name.
   perf-bench-webkit:
     needs: [changes, perf-bench-webkit-shard]
-    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' && needs.changes.outputs.macos-local != 'true' }}
+    if: ${{ !cancelled() && needs.changes.outputs.perf-bench != 'false' && needs.changes.outputs.macos-local-webkit != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - env:
@@ -408,7 +409,7 @@ jobs:
 
   rust:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.rust != 'false' && needs.changes.outputs.macos-local != 'true' }}
+    if: ${{ !cancelled() && needs.changes.outputs.rust != 'false' && needs.changes.outputs.macos-local-rust != 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7

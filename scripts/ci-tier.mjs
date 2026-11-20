@@ -37,10 +37,13 @@
  * commit with a `CI: full` trailer, or an open pull request labelled
  * `ci:full`. A push to main is compared with the commit before it; any
  * other push or dispatch with its merge base with origin/main, or with the
- * dispatch's `base`. A head commit whose `CI-local: macos <tree>` trailer
+ * dispatch's `base`. A head commit whose `CI-local: macos <tree> …` trailer
  * names its own tree (printed by `pnpm ci:local` after a green local pass)
- * skips the macOS jobs (Rust, GPUI and the WebKit benchmark), which it ran on
- * the Mac; Linux and Windows still run.
+ * skips each macOS job (Rust, GPUI, the WebKit benchmark) whose stages the
+ * trailer records and whose needs they cover (scripts/ci-local-select.mjs):
+ * a GPUI change that needs the whole e2e is covered only by `e2e=full`, one
+ * that needs some modules by an e2e that ran them, and a release path by
+ * nothing. Linux and Windows always run.
  *
  * Usage:
  *   node scripts/ci-tier.mjs [--base REF] [--full]   print the tier as JSON
@@ -50,6 +53,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { coveredJobs, macosNeeds, parseTrailer } from "./ci-local-select.mjs";
 import { changedFiles, rustIncludes } from "./gate-changed.mjs";
 import { isMain } from "./lib/util.mjs";
 import { harnessInputs } from "./perf-bench/harness-inputs.mjs";
@@ -129,7 +133,7 @@ function gpuiIncludes() {
 export function ciTier(files, { full = false, scan = null } = {}) {
   const jobs = Object.fromEntries(JOBS.map((job) => [job, full]));
   const why = Object.fromEntries(JOBS.map((job) => [job, full ? ["full run"] : []]));
-  if (full) return { full, jobs, why, vitestFiles: [], docsOnly: false };
+  if (full) return { full, jobs, why, vitestFiles: [], gpuiFiles: [], docsOnly: false };
   const { testReads, rustTargets, gpuiTargets, harness } = scan ?? {
     testReads: testReadPaths(),
     rustTargets: rustIncludes().map(({ target, prefix }) => ({ target, prefix })),
@@ -139,8 +143,10 @@ export function ciTier(files, { full = false, scan = null } = {}) {
   const harnessSet = new Set(harness);
   const vitestFiles = new Set();
   let vitestAll = false;
+  const gpuiFiles = [];
   const on = (job, file) => {
     jobs[job] = true;
+    if (job === "gpui" && !gpuiFiles.includes(file)) gpuiFiles.push(file);
     if (why[job].length < 5 && !why[job].includes(file)) why[job].push(file);
   };
   for (const file of files) {
@@ -182,13 +188,13 @@ export function ciTier(files, { full = false, scan = null } = {}) {
     on("vitest", file);
     on("lint-build", file);
   }
-  return { full, jobs, why, vitestFiles: vitestAll ? [] : [...vitestFiles].sort(), docsOnly: files.length > 0 && JOBS.every((job) => !jobs[job]) };
+  return { full, jobs, why, vitestFiles: vitestAll ? [] : [...vitestFiles].sort(), gpuiFiles, docsOnly: files.length > 0 && JOBS.every((job) => !jobs[job]) };
 }
 
-/** Whether a `CI-local: macos <tree>` trailer in the commit message names `tree`. */
+/** Whether a `CI-local: macos <tree> …` trailer in the commit message names `tree` (scripts/ci-local-select.mjs reads what it covers). */
 export function localMacosPass(message, tree) {
-  const match = /^CI-local:\s*macos\s+([0-9a-f]{7,40})\s*$/im.exec(message);
-  return Boolean(match && tree.startsWith(match[1]));
+  const cover = parseTrailer(message);
+  return Boolean(cover && tree.startsWith(cover.tree));
 }
 
 /** Whether the head commit or the branch's open pull request asks for every job. */
@@ -237,10 +243,18 @@ function github() {
   const files = base ? git("-c", "core.quotePath=false", "diff", "--no-renames", "--name-only", base, "HEAD").split("\n").filter(Boolean) : [];
   if (!reason && event === "workflow_dispatch" && files.length === 0) reason = "a dispatch of a branch that changes nothing (a baseline)";
   const tier = ciTier(files, { full: Boolean(reason) });
-  const macosLocal = !tier.full && localMacosPass(message, git("rev-parse", "HEAD^{tree}"));
+  const cover = !tier.full && localMacosPass(message, git("rev-parse", "HEAD^{tree}")) ? parseTrailer(message) : null;
+  const local = coveredJobs(cover, macosNeeds(tier, files));
+  const groups = { rust: "Rust", gpui: "GPUI", webkit: "WebKit benchmark" };
+  const needed = Object.keys(groups).filter((group) => (group === "webkit" ? tier.jobs["perf-bench"] : tier.jobs[group]));
   const lines = [
     reason ? `Every job: ${reason}.` : `Compared with ${base.slice(0, 9)}: ${files.length} changed file(s).`,
-    ...(macosLocal ? ["The head commit's CI-local trailer names this tree, so the macOS jobs (Rust, GPUI, WebKit benchmark) skip."] : []),
+    ...(cover
+      ? [
+          `The head commit's CI-local trailer names this tree (${message.match(/^CI-local:.*$/im)[0]}).`,
+          ...needed.map((group) => (local[group].covered ? `- macOS ${groups[group]}: skipped, the trailer covers it.` : `- macOS ${groups[group]}: runs, ${local[group].reason}.`)),
+        ]
+      : []),
     "",
     "| jobs | run | first inputs |",
     "| --- | --- | --- |",
@@ -249,7 +263,14 @@ function github() {
   ];
   console.log(lines.join("\n"));
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## CI tier\n\n${lines.join("\n")}\n`);
-  const outputs = { ...tier.jobs, "vitest-files": tier.vitestFiles.join(" "), "macos-local": macosLocal, full: tier.full };
+  const outputs = {
+    ...tier.jobs,
+    "vitest-files": tier.vitestFiles.join(" "),
+    "macos-local-rust": Boolean(cover) && local.rust.covered,
+    "macos-local-gpui": Boolean(cover) && local.gpui.covered,
+    "macos-local-webkit": Boolean(cover) && local.webkit.covered,
+    full: tier.full,
+  };
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(outputs).map(([key, value]) => `${key}=${value}\n`).join(""));
 }
 
