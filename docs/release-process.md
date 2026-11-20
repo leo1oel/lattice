@@ -414,10 +414,13 @@ leaving anything behind:
    (`LATTICE_RELEASE_MIN_FREE_GB`), sets `CARGO_BUILD_JOBS` to fit the
    place, and sets `RUSTC_WRAPPER` empty so no compiled-in key reaches the
    owner's shared sccache. It takes no in-app lock: building, signing,
-   notarizing and publishing never open a window (Tauri's `bundle_dmg.sh`
-   skips its Finder script under `CI=true`, and `gpui-bundle.mjs` uses
-   `hdiutil` alone), so a release runs beside an e2e or a `pnpm ci:local`
-   gate and shares the CPU with it.
+   notarizing and publishing never open a window, so a release runs beside
+   an e2e or a `pnpm ci:local` gate and shares the CPU with it. For that,
+   the Tauri build step sets `TAURI_BUNDLER_DMG_IGNORE_CI=false` on the Mac
+   mini: Tauri's `bundle_dmg.sh` then skips the AppleScript that lays out
+   the dmg window in Finder (which would open a Finder window and wait on an
+   Automation prompt), and the dmg opens without the icon layout, as the
+   native app's (`gpui-bundle.mjs`, `hdiutil` alone) always has.
 2. **`import-certificate`** and **`api-key`** put the Developer ID
    certificate in a keychain of the job's own and the App Store Connect key in
    a mode-600 file, both under `$RUNNER_TEMP`. The updater key and the

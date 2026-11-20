@@ -266,6 +266,13 @@ jobs:
           # compile time (option_env! in firecrawl.rs). Extractable from the
           # shipped app — acceptable for small-scale use, rotate on abuse.
           LATTICE_FIRECRAWL_KEY: ${{ secrets.LATTICE_FIRECRAWL_KEY }}
+          # tauri-action defaults this to true, so bundle_dmg.sh lays out the
+          # dmg window through Finder by AppleScript. On the Mac mini that
+          # opens a Finder window and waits on an Automation prompt nobody
+          # answers (AppleEvent timed out, -1712), so it builds the plain dmg
+          # (the Applications link without the icon layout), as gpui-bundle.mjs
+          # always does.
+          TAURI_BUNDLER_DMG_IGNORE_CI: ${{ runner.environment == 'github-hosted' && 'true' || 'false' }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Lattice ${{ github.ref_name }}"
