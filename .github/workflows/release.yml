@@ -286,9 +286,7 @@ jobs:
           # Generate and upload latest.json so the in-app updater can find updates.
           uploadUpdaterJson: true
           # Apple silicon only. This makes the updater platform key darwin-aarch64.
-          # --verbose prints what the bundler's own scripts (bundle_dmg.sh) say,
-          # which a failure otherwise hides.
-          args: --target aarch64-apple-darwin --verbose
+          args: --target aarch64-apple-darwin
 
       # The fonts may only reach users inside the app's web assets, which the
       # binary embeds. Check the built app before it is packaged any further: no
