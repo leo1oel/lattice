@@ -296,6 +296,22 @@
       "followup": "LEO-14"
     },
     {
+      "step": "in Split, a click moves the keyboard between the source and the page's child frame, one of them focused at a time",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in every main run since #1196 (44733890089, 44734249294, 44759657308, 44767427945, 44781141164); passes on the Mac mini. As the click into the page above: on the hosted runner a native click never reaches the page (presses_reported 0); observed {\"rounds\":[{\"in_page\":false,\"at_page\":[true,false],\"left\":true,\"at_source\":[true,false]}],\"presses_reported\":0}",
+      "followup": "LEO-14"
+    },
+    {
+      "step": "native clicks from the Agent's child frame to the preview's, back, and to the source leave the keyboard, AppKit's and GPUI's, with what was clicked alone",
+      "platforms": [
+        "macos"
+      ],
+      "reason": "macOS: failed in every main run since #1196 (44733890089, 44734249294, 44759657308, 44767427945, 44781141164); passes on the Mac mini. As the click into the page above: on the hosted runner a native click never reaches the page; observed {\"framed\":true,\"clicked\":\"agent\",\"ok\":false,\"state\":{\"source\":true,\"agent\":{\"page_focused\":false,\"gpui_focus\":false,\"appkit\":false}}}",
+      "followup": "LEO-14"
+    },
+    {
       "step": "a rectangle drawn with native input on the board is in the .tldr after its tab closes at once",
       "platforms": [
         "macos"
