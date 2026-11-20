@@ -26,7 +26,7 @@ const projectRef = { current: project };
 const bridge = {
   openProviderSettings: () => undefined, openProjectPath: vi.fn(), openReview: () => undefined,
   clearSelection: () => undefined, flushVisualMarkdown: () => undefined, agentCommentsOptions: () => null,
-  annotationTools: () => null, projectDocumentCreator: () => null, onHistorySnapshot: () => undefined,
+  annotationTools: () => null, projectDocumentCreator: () => null, onHistorySnapshot: vi.fn(),
 };
 
 const hostRef = { current: null as ReturnType<typeof useSynaraHost> | null };
@@ -213,6 +213,30 @@ it("keeps each project's turn, host messages and approvals with its own frame", 
   }), ORIGIN);
 });
 
+
+// A parked turn's own writes, a deferred-history `cite` among them, reach
+// History through its checkpoints: the project's History takes them when the
+// writer comes back, and the other project's never does.
+it("gives a parked turn's history to its project's History when that project is selected again", async () => {
+  const view = await mountReady("light");
+  const originalWindow = frame().contentWindow!;
+  receive(originalWindow, activity(project.root, "running"));
+  await host.retainBackgroundProject(project.root);
+  projectRef.current = otherProject;
+  view.rerender(<Harness theme="light" current={otherProject} />);
+  await act(() => vi.advanceTimersByTimeAsync(50));
+  embedReady();
+
+  const snapshot = { type: "lattice:project-history", activeThreadId: "parked-thread", entries: [] };
+  receive(originalWindow, snapshot);
+  await act(() => vi.advanceTimersByTimeAsync(50));
+  expect(bridge.onHistorySnapshot).not.toHaveBeenCalled();
+
+  projectRef.current = project;
+  view.rerender(<Harness theme="light" current={project} />);
+  await act(() => vi.advanceTimersByTimeAsync(50));
+  expect(bridge.onHistorySnapshot).toHaveBeenCalledWith(snapshot);
+});
 
 it("invalidates parked activity and readiness when the runtime is replaced", async () => {
   const view = await mountReady("light");
