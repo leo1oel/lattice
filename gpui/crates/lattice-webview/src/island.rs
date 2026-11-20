@@ -47,6 +47,12 @@
 //!   the page's while the island is on screen. After every layout change
 //!   ([`check_drawn_after_frame`]) and every 250 ms while shown, an island
 //!   whose node is gone hides its page until it is drawn again.
+//! - **Windows.** An island is drawn in one window at a time, and its page
+//!   follows the window that draws it: drawn in another (the Agent moved
+//!   into a window of its own), the page's view moves there as it is,
+//!   without a reload ([`Island::move_to_window`]), and what the island
+//!   hears of its window (activation, the page's focus, its tasks) is that
+//!   window's from then on.
 //! - **Overlays and drags.** GPUI's presses outside the page reach it as
 //!   `host:outside-pointerdown`, so it closes its own popups; while a dock
 //!   panel is dragged anywhere in the window every island steps aside
@@ -92,6 +98,10 @@ use crate::{
 mod build;
 mod file_drops;
 mod page_focus;
+mod windows;
+
+use windows::activation;
+pub(crate) use windows::update_in_home;
 
 /// How long a hidden island keeps its page: the Tauri app's
 /// `HIBERNATE_AFTER_MS`.
@@ -196,6 +206,9 @@ pub struct Island {
     /// The island was in the last frame the window drew.
     drawn: bool,
     pub(crate) window: gpui::AnyWindowHandle,
+    /// The window the island was made in, where its tasks fall back to
+    /// while the window it moved to is closing.
+    origin: gpui::AnyWindowHandle,
     page_ready: bool,
     page_focused: bool,
     /// The webview's bridge token, which only its main frame knows.
@@ -218,22 +231,17 @@ pub struct Island {
     _keyboard: Option<Task<()>>,
     _drawn_poll: Option<Task<()>>,
     _webview_subscriptions: Vec<Subscription>,
+    /// The window's activation, in the window the island is in.
+    _window_subscriptions: Vec<Subscription>,
     _subscriptions: Vec<Subscription>,
 }
 
 impl Island {
     pub fn new(config: IslandConfig, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let served = Served::new(config.bundle.clone(), config.files.clone());
-        let subscriptions = vec![
-            cx.observe_global_in::<lattice_ui::LatticeTheme>(window, |this, _, cx| {
-                this.push_theme(cx);
-            }),
-            cx.observe_window_activation(window, |this, window, cx| {
-                if window.is_window_active() {
-                    this.sync_native_focus(window, cx);
-                }
-            }),
-        ];
+        let subscriptions = vec![cx.observe_global::<lattice_ui::LatticeTheme>(|this, cx| {
+            this.push_theme(cx);
+        })];
         Registry::add(cx.entity().downgrade(), cx);
         Self {
             config,
@@ -248,6 +256,7 @@ impl Island {
             stepped_aside: false,
             drawn: true,
             window: window.window_handle(),
+            origin: window.window_handle(),
             page_ready: false,
             page_focused: false,
             token: String::new(),
@@ -263,6 +272,7 @@ impl Island {
             _keyboard: None,
             _drawn_poll: None,
             _webview_subscriptions: Vec::new(),
+            _window_subscriptions: vec![activation(window, cx)],
             _subscriptions: subscriptions,
         }
     }
@@ -285,6 +295,11 @@ impl Island {
 
     pub fn page_focused(&self) -> bool {
         self.page_focused
+    }
+
+    /// The window the page is in.
+    pub fn window(&self) -> gpui::AnyWindowHandle {
+        self.window
     }
 
     /// Whether the page's view holds AppKit's keyboard now (macOS; false
@@ -700,6 +715,14 @@ impl Render for Island {
         if !self.drawn {
             self.drawn = true;
             self.sync_native_visibility(cx);
+        }
+        // Drawn in another window than the page is in: the page follows.
+        if self.window.window_id() != window.window_handle().window_id() {
+            let this = cx.entity().downgrade();
+            window.defer(cx, move |window, cx| {
+                this.update(cx, |this, cx| this.move_to_window(window, cx))
+                    .ok();
+            });
         }
         // Built lazily, after this frame: the first time the island is shown,
         // and again after a hibernation.

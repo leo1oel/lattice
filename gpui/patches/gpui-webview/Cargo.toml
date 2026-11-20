@@ -78,7 +78,9 @@ version = "0.3"
 features = [
     "std",
     "NSAppearance",
+    "NSResponder",
     "NSView",
+    "NSWindow",
 ]
 default-features = false
 

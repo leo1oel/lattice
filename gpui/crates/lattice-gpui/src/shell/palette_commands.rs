@@ -4,7 +4,9 @@
 //! the editor; a Markdown or HTML file's Edit, Split and Preview under the
 //! names their switch gives them, the one shown left out; the PDF's own
 //! window (Open the PDF in a separate window, Return the PDF to the
-//! workspace) and Dark or Light PDF pages; and the Project panel's New
+//! workspace) and Dark or Light PDF pages; the Agent's own window, as the
+//! PDF's (#1202, GPUI only: Open the Agent in a separate window, Return the
+//! Agent to the workspace); and the Project panel's New
 //! folder, Import files… and Refresh file tree (`project-panel-commands.ts`),
 //! which bring the panel up first. Registered as a window part (`parts.rs`), so other
 //! features' rows land beside these without editing the table.
@@ -30,6 +32,7 @@ actions!(
         ShowDocumentSplit,
         ShowDocumentPreview,
         TogglePdfWindow,
+        ToggleAgentWindow,
         TogglePdfDarkPages,
         NewLatexFileInProject,
         NewMarkdownFileInProject,
@@ -149,6 +152,18 @@ fn commands(context: &CommandContext, out: &mut Vec<Command>) {
             TogglePdfWindow,
         ));
     }
+    if context.in_project && cfg!(target_os = "macos") {
+        out.push(Command::new(
+            "agent-window",
+            if context.agent_window {
+                t!("Return the Agent to the workspace")
+            } else {
+                t!("Open the Agent in a separate window")
+            },
+            Section::Layout,
+            ToggleAgentWindow,
+        ));
+    }
     out.push(Command::new(
         "pdf-dark-pages",
         if context.pdf_dark {
@@ -217,6 +232,17 @@ pub(super) const PART: Part = Part {
                             panel.dock(true, window, cx)
                         } else {
                             panel.detach(window, cx)
+                        }
+                    })
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Shell, _: &ToggleAgentWindow, _, cx| {
+                    this.agent.panel.update(cx, |panel, cx| {
+                        if panel.is_detached() {
+                            panel.dock(true, cx)
+                        } else {
+                            panel.detach(cx)
                         }
                     })
                 }),
@@ -350,5 +376,20 @@ mod tests {
                 .iter()
                 .any(|label| label.contains("separate window"))
         );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_agent_row_says_where_the_agent_goes() {
+        let project = CommandContext {
+            in_project: true,
+            ..CommandContext::default()
+        };
+        assert!(labels(&project).contains(&"Open the Agent in a separate window".to_string()));
+        let detached = CommandContext {
+            agent_window: true,
+            ..project
+        };
+        assert!(labels(&detached).contains(&"Return the Agent to the workspace".to_string()));
     }
 }

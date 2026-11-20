@@ -5,10 +5,10 @@
 
 use anyhow::{Context as _, Result};
 use futures::{StreamExt as _, channel::mpsc};
-use gpui::{AppContext as _, Context, Focusable as _, Rgba, Window};
+use gpui::{AppContext as _, Context, Rgba, Window};
 use gpui_webview::WebView;
 
-use super::{DRAWN_POLL, Island, IslandState};
+use super::{DRAWN_POLL, Island, IslandState, update_in_home};
 use crate::{
     bridge,
     native::{
@@ -195,9 +195,9 @@ impl Island {
         } = built;
         refuse_keyboard_while_hidden(&webview, window);
         self._keyboard = watch_keyboard(&webview).map(|mut took| {
-            cx.spawn_in(window, async move |this, cx| {
+            cx.spawn(async move |this, cx| {
                 while took.next().await.is_some() {
-                    let alive = this.update_in(cx, |this, window, cx| {
+                    let alive = update_in_home(&this, cx, |this, window, cx| {
                         // Asked again: the message comes after the view took
                         // the keyboard, which it may have given up since.
                         if this.native_focus(cx) == Some(true) {
@@ -216,17 +216,15 @@ impl Island {
         self.handle = Some(webview.handle());
         self.token = token;
         let webview = cx.new(|_| webview);
-        let focus = webview.read(cx).focus_handle(cx);
-        self._webview_subscriptions =
-            vec![cx.on_focus_out(&focus, window, |this, _, window, cx| {
-                this.sync_native_focus(window, cx);
-            })];
         self.webview = Some(webview);
+        self.listen_to_focus(window, cx);
         self.sync_native_visibility(cx);
-        self._drawn_poll = Some(cx.spawn_in(window, async move |this, cx| {
+        // Each update in the window the island is in by then, which moving
+        // the page changes (`Island::move_to_window`).
+        self._drawn_poll = Some(cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(DRAWN_POLL).await;
-                let alive = this.update_in(cx, |this, window, cx| {
+                let alive = update_in_home(&this, cx, |this, window, cx| {
                     if this.active {
                         this.check_drawn(window, cx);
                     }
@@ -236,13 +234,12 @@ impl Island {
                 }
             }
         }));
-        self._inbox = Some(cx.spawn_in(window, async move |this, cx| {
+        self._inbox = Some(cx.spawn(async move |this, cx| {
             while let Some((sender, body)) = inbox.next().await {
-                if this
-                    .update_in(cx, |this, window, cx| {
-                        this.receive(&sender, &body, window, cx)
-                    })
-                    .is_err()
+                if update_in_home(&this, cx, |this, window, cx| {
+                    this.receive(&sender, &body, window, cx)
+                })
+                .is_err()
                 {
                     break;
                 }
