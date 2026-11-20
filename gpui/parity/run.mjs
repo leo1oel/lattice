@@ -93,6 +93,9 @@ try {
       const prefix = `${screen}-${theme}`;
       writeImages(images, join(out, prefix));
       results.push({ report, prefix });
+      // After each screen: a run stopped part-way (CI's step timeout) still
+      // leaves a report of the screens it measured.
+      writeReport();
     }
   }
 } finally {
@@ -100,10 +103,12 @@ try {
   bench.stop();
 }
 
-const meta = { date: new Date().toISOString(), app, benchUrl: bench.url };
-const markdown = markdownReport(results, meta);
-writeFileSync(join(out, "report.md"), markdown);
-writeFileSync(join(out, "report.json"), JSON.stringify({ ...meta, screens: results.map((r) => r.report) }, null, 2));
+function writeReport() {
+  const meta = { date: new Date().toISOString(), app, benchUrl: bench.url };
+  writeFileSync(join(out, "report.md"), markdownReport(results, meta));
+  writeFileSync(join(out, "report.json"), JSON.stringify({ ...meta, screens: results.map((r) => r.report) }, null, 2));
+}
+
 for (const { report: { screen, theme, summary: s } } of results) {
   log(`${screen} · ${theme}: bounds ${s.bounds.passed}/${s.bounds.total}, text ${s.text.passed}/${s.text.total}, chrome ${s.chrome.passed}/${s.chrome.total}, pixels ${s.pixels ? `${(s.pixels.rate * 100).toFixed(2)}% (budget ${(s.pixels.budget * 100).toFixed(2)}%, GPUI run-to-run ${(s.pixels.gpuiNoiseRate * 100).toFixed(2)}%)` : "not compared"}`);
 }

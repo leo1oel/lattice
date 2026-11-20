@@ -220,20 +220,22 @@ jobs:
       # page, region by region and pixel by pixel. A report for now, not a
       # gate: these steps never fail the job. The runner's screen shrinks the
       # window (about 1015 px wide), and the reference is drawn at whatever
-      # size and scale the GPUI window got. Since it gates nothing, a release
-      # tag skips it (about 5-15 minutes of Chromium and both renders); the
-      # weekly run and a dispatch still write it.
+      # size and scale the GPUI window got. Since it gates nothing, only the
+      # weekly run and a dispatch write it: every screen in both themes is
+      # about 25 minutes of Chromium and both renders on the runner, which a
+      # push would wait for. run.mjs writes the report after each screen, so
+      # a run cut short still leaves what it measured.
       - name: Parity report
-        if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && !startsWith(github.ref, 'refs/tags/') }}
         continue-on-error: true
-        timeout-minutes: 15
+        timeout-minutes: 35
         working-directory: .
         run: |
           pnpm exec playwright-core install chromium
           node --test gpui/parity/*.test.mjs
           node gpui/parity/run.mjs --out "$RUNNER_TEMP/parity" --app gpui/target/release/lattice-gpui
           sed '/^!\[/d' "$RUNNER_TEMP/parity/report.md" >> "$GITHUB_STEP_SUMMARY"
-      - if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') }}
+      - if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v7
         with:
           name: gpui-parity-macos
