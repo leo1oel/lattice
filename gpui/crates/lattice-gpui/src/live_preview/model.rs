@@ -335,6 +335,41 @@ impl PreviewModel {
         set
     }
 
+    /// Whether a live result for unit `par_id` is set in none of the fonts the
+    /// last layout set the unit in. rtex's live engine can typeset a unit
+    /// without what its surroundings give it in the document: a cas-sc caption
+    /// came back in the body's 10 pt serif, double spaced, where the layout
+    /// has the class's 9 pt sans (#1177). Painted, it would replace the right
+    /// text with the wrong one until the next layout. A result that keeps any
+    /// of the unit's fonts (a word made bold beside plain ones) passes, and so
+    /// does one with nothing to compare: no glyphs, or no laid-out page of the
+    /// unit in the model (`fontsDisjoint`).
+    pub fn fonts_disjoint(&self, par_id: u64, dl: &DisplayList) -> bool {
+        let live = glyph_fonts(dl, dl.lines.iter());
+        if live.is_empty() {
+            return false;
+        }
+        let pages: HashSet<u32> = self
+            .placements
+            .get(&par_id)
+            .into_iter()
+            .flatten()
+            .map(|fragment| fragment.page)
+            .collect();
+        let mut laid = HashSet::new();
+        for page in pages {
+            let Some(update) = self.pages.get(&page) else {
+                continue;
+            };
+            let own = self.own_lines(page, par_id);
+            laid.extend(glyph_fonts(
+                &update.dl,
+                own.iter().filter_map(|ix| update.dl.lines.get(*ix)),
+            ));
+        }
+        !laid.is_empty() && live.is_disjoint(&laid)
+    }
+
     /// Overlay rows to draw on `page`, with the translation of each row into
     /// page coordinates.
     pub fn overlays_on(&self, page: u32) -> Vec<PageOverlay> {
@@ -366,6 +401,17 @@ impl PreviewModel {
         }
         out
     }
+}
+
+/// The font resources (`FontDesc::key`) the glyphs of `lines` are drawn in.
+fn glyph_fonts<'a>(dl: &DisplayList, lines: impl Iterator<Item = &'a Line>) -> HashSet<String> {
+    lines
+        .flat_map(|line| &line.items)
+        .filter_map(|item| match item {
+            Item::Glyph { font, .. } => dl.fonts.get(&font.to_string()).map(|desc| desc.key()),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Place a unit's rows at a layout's placement rows (the algorithm of rtex
@@ -510,6 +556,7 @@ pub fn cached_picture_moves(
 
 #[cfg(test)]
 mod tests {
+    use super::super::protocol::FontDesc;
     use super::*;
 
     fn line(x: f64, y: f64, unit: Option<u64>) -> Line {
@@ -682,5 +729,81 @@ mod tests {
         assert!(!model.pages_disagree(Some(2)));
         model.set_base(2);
         assert!(!model.pages_disagree(Some(3)));
+    }
+
+    // #1177: rtex's live engine set a cas-sc caption in the body's serif where
+    // the layout has the class's sans.
+    #[test]
+    fn a_live_result_in_none_of_its_units_laid_out_fonts_is_told_apart() {
+        let fonts = |names: &[&str]| -> HashMap<String, FontDesc> {
+            names
+                .iter()
+                .enumerate()
+                .map(|(i, name)| {
+                    let id = i as u64 + 1;
+                    let desc = FontDesc {
+                        id,
+                        name: Some((*name).into()),
+                        ..FontDesc::default()
+                    };
+                    (id.to_string(), desc)
+                })
+                .collect()
+        };
+        let glyphs = |x: f64, y: f64, unit: Option<u64>, ids: &[u64]| Line {
+            items: ids
+                .iter()
+                .map(|font| Item::Glyph {
+                    font: *font,
+                    char: 65,
+                    index: None,
+                    x: 0.,
+                    y: 0.,
+                    ef: 0.,
+                })
+                .collect(),
+            ..line(x, y, unit)
+        };
+        let mut model = PreviewModel::default();
+        let page_dl = DisplayList {
+            fonts: fonts(&["ec-lmss9", "ec-lmssbx10", "t1-stixgeneral"]),
+            lines: vec![
+                glyphs(10., 100., Some(4), &[1, 2]),
+                glyphs(10., 200., Some(9), &[3]),
+            ],
+            ..DisplayList::default()
+        };
+        layout(
+            &mut model,
+            1,
+            vec![PageUpdate {
+                page: 1,
+                exact: true,
+                dl: page_dl,
+            }],
+            vec![Placement {
+                par_id: 8,
+                fragments: vec![fragment(1, &[10.], &[100.])],
+            }],
+        );
+        let live = |names: &[&str]| DisplayList {
+            fonts: fonts(names),
+            lines: vec![glyphs(
+                0.,
+                7.,
+                None,
+                &(1..=names.len() as u64).collect::<Vec<_>>(),
+            )],
+            ..DisplayList::default()
+        };
+        assert!(model.fonts_disjoint(8, &live(&["t1-stixgeneral"])));
+        assert!(!model.fonts_disjoint(8, &live(&["t1-stixgeneral", "ec-lmss9"])));
+        // Nothing to compare: no glyphs, or a unit the layout did not place.
+        let bare = DisplayList {
+            lines: vec![line(0., 7., None)],
+            ..DisplayList::default()
+        };
+        assert!(!model.fonts_disjoint(8, &bare));
+        assert!(!model.fonts_disjoint(3, &live(&["t1-stixgeneral"])));
     }
 }

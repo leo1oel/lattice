@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DisplayList, Fragment, Line, PageUpdate } from "./rtex-protocol";
+import type { DisplayList, Fragment, Item, Line, PageUpdate } from "./rtex-protocol";
 import { PreviewModel, reanchor } from "./rtex-model";
 
 // Coordinates in points, stored in sp (the plugin's model tests, with Lattice's base PDF added).
@@ -114,5 +114,26 @@ describe("the live preview model", () => {
     expect(fragments).toHaveLength(1);
     expect(fragments[0].baselines).toEqual([200 * U, 212 * U, 224 * U]);
     expect(fragments[0].approximate).toBe(true);
+  });
+
+  // #1177: rtex's live engine set a cas-sc caption in the body's serif where the layout has the class's sans.
+  it("tells a live result set in none of its unit's laid-out fonts from one that keeps any", () => {
+    const g = (font: number): Item => ["g", font, 65, null, 0, 0, 0, 0];
+    const fonts = (names: string[]) => Object.fromEntries(names.map((name, i) => [String(i + 1), { id: i + 1, name }]));
+    const model = new PreviewModel();
+    model.applyLayout({
+      pages: [{ page: 1, exact: true, hash: 1, dl: { ...dl([line(10, 100, { unit: 4, items: [g(1), g(2)] }), line(10, 200, { unit: 9, items: [g(3)] })]), fonts: fonts(["ec-lmss9", "ec-lmssbx10", "t1-stixgeneral"]) } }],
+      pagesTotal: 1,
+      placements: [{ par_id: 8, fragments: [frag(1, [10], [100])], lines: 1, kind: "par" }],
+      revision: 1,
+      layoutVersion: 1,
+      hasFallback: false,
+    });
+    const live = (names: string[]): DisplayList => ({ ...dl([line(0, 7, { items: names.map((_, i) => g(i + 1)) })], "paragraph"), fonts: fonts(names) });
+    expect(model.fontsDisjoint(8, live(["t1-stixgeneral"]))).toBe(true);
+    expect(model.fontsDisjoint(8, live(["t1-stixgeneral", "ec-lmss9"]))).toBe(false);
+    // Nothing to compare: no glyphs, or a unit the layout did not place.
+    expect(model.fontsDisjoint(8, dl([line(0, 7)], "paragraph"))).toBe(false);
+    expect(model.fontsDisjoint(3, live(["t1-stixgeneral"]))).toBe(false);
   });
 });
