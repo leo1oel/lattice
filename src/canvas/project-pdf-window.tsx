@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo } from "@tauri-apps/api/event";
@@ -14,9 +14,12 @@ import { listenInThisWindow } from "../app/window-events";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import type { LivePreviewRelay } from "../live-preview/live-preview-mirror";
+import type { LivePreviewSession } from "../live-preview/live-preview-session";
+import { loadLivePreviewModule } from "../live-preview/use-live-preview";
 import { pdfBytesFingerprint } from "../pdf/pdf-bytes";
 import {
-  PDF_WINDOW_ACTION_EVENT, PDF_WINDOW_CLOSED_EVENT, PDF_WINDOW_FRAME_EVENT, PDF_WINDOW_STATE_EVENT,
+  PDF_WINDOW_ACTION_EVENT, PDF_WINDOW_CLOSED_EVENT, PDF_WINDOW_FRAME_EVENT, PDF_WINDOW_LIVE_EVENT, PDF_WINDOW_STATE_EVENT,
   runPdfWindowAction, type PdfWindowAction, type PdfWindowState,
 } from "../pdf/pdf-window-protocol";
 import type {
@@ -45,6 +48,8 @@ type ProjectPdfWindowProps = Readonly<{
   outline: ProjectPdfOutline;
   selection: ProjectPdfSelection;
   viewState: ProjectPdfViewState;
+  /** The running live preview, drawn over the window's pages too. */
+  liveSession: LivePreviewSession | null;
 }>;
 
 /** The window's label once it has opened: what it is addressed and recognized by. */
@@ -92,10 +97,11 @@ export function PdfInWindowPlaceholder({ onDock }: { onDock: () => void }) {
  * window forward, to the line. Renders nothing.
  */
 export function ProjectPdfWindow(props: ProjectPdfWindowProps) {
-  const { projectRoot, pdf, citations, outline } = props;
+  const { projectRoot, pdf, citations, outline, liveSession } = props;
   const [label, dispatch] = useReducer(labelReducer, null);
   const latest = useLatestRef(props);
   const labelRef = useLatestRef(label);
+  const relay = useRef<LivePreviewRelay | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -138,12 +144,28 @@ export function ProjectPdfWindow(props: ProjectPdfWindowProps) {
     outlineActiveId, citationList,
   ]);
 
+  // The live preview follows the PDF into the window: its model goes there
+  // as it changes, and the window draws it over its own pages.
+  useEffect(() => {
+    if (!label) return;
+    // The session exists only once its chunk has loaded, so the relay is here.
+    const Relay = liveSession ? loadLivePreviewModule.loaded()?.LivePreviewRelay : undefined;
+    if (!liveSession || !Relay) return;
+    const current = new Relay(liveSession, (message) => emitTo(label, PDF_WINDOW_LIVE_EVENT, message));
+    relay.current = current;
+    return () => {
+      relay.current = null;
+      current.dispose();
+    };
+  }, [label, liveSession]);
+
   useEffect(() => subscribeTauriEvent<PdfWindowAction>(PDF_WINDOW_ACTION_EVENT, (action) => {
     const current = latest.current;
     const window = labelRef.current;
     runPdfWindowAction(action, window, {
       ready: () => {
         if (window) sendState(window, latest.current);
+        relay.current?.restart();
       },
       forwardSync: current.pdf.onForwardSync,
       source: (page, x, y, word) => {
@@ -158,6 +180,9 @@ export function ProjectPdfWindow(props: ProjectPdfWindowProps) {
       page: current.pdf.onPdfPageChange,
       viewState: (state) => current.viewState.onFileViewState?.(current.previewPath, { pdf: state }),
       select: current.selection.onPdfTextSelect,
+      liveBasePromoted: () => current.liveSession?.basePromoted(),
+      liveWaitForLayout: () => current.liveSession?.waitForLayout(),
+      liveResync: () => relay.current?.restart(),
     }, current.citations.canOpenCitation);
   }), [labelRef, latest]);
 

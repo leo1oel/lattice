@@ -171,9 +171,10 @@ function LiveProjectPdf({
     viewState.onFileViewState?.(previewPath, { pdf: state });
     if (shown.document && shown.document !== previewPath) viewState.onFileViewState?.(shown.document, { pdf: state });
   };
+  const liveSession = livePreview?.state.kind === "running" ? livePreview.state.session : null;
   // In its own window, the PDF leaves the panel: a layout that brings the
   // panel up anyway shows the way back. The window shows the paper's own
-  // PDF, without review mode's marks or the live preview's layer.
+  // PDF, without review mode's marks, and the live preview over it.
   if (pdfWindow?.open) {
     return (
       <>
@@ -187,13 +188,13 @@ function LiveProjectPdf({
           outline={outline}
           selection={selection}
           viewState={viewState}
+          liveSession={liveSession}
         />
         {host && createPortal(<div className="pdf-column"><PdfInWindowPlaceholder onDock={pdfWindow.onDock} /></div>, host)}
       </>
     );
   }
   if (!host) return null;
-  const liveSession = livePreview?.state.kind === "running" ? livePreview.state.session : null;
   // The session exists only once its chunk has loaded, so the layer is here.
   const LiveLayer = liveSession ? loadLivePreviewModule.loaded()?.LivePreviewLayer : undefined;
   const activatePdf = () => {

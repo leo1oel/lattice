@@ -2,8 +2,9 @@
 //! one screen and the PDF on another (`src-tauri/src/pdf_window.rs`,
 //! `src/pdf/pdf-window-page.tsx`).
 //!
-//! The window holds a viewer and nothing else; the PDF panel that opened it
-//! keeps the build, SyncTeX and the documents, and everything the reader
+//! The window holds a viewer and nothing else (with the live preview's layer
+//! over it, which the panel hands it); the PDF panel that opened it keeps the
+//! build, SyncTeX and the documents, and everything the reader
 //! asks there (a jump to the source, Reveal cursor in PDF, Build, Return to
 //! workspace) goes back to it. It opens where it was last left for the
 //! project, at the place the panel showed, 760 by 880 the first time;
