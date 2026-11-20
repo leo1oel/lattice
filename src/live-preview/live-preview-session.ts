@@ -487,6 +487,12 @@ export class LivePreviewSession {
       return;
     }
     if (revision <= this.model.baseRevision) return;
+    // Typeset without what the document gives the unit (its environment's font and
+    // spacing): the next whole-document pass shows it.
+    if (this.model.fontsDisjoint(event.par_id, event.dl)) {
+      this.awaitLayout(revision);
+      return;
+    }
     const fragments = event.pagination_stale ? event.fragments : this.model.placeLive(event.par_id, event.fragments);
     this.markPages(this.change({ op: "paragraph", parId: event.par_id, dl: event.dl, fragments, revision }));
     if (event.pagination_stale) this.awaitLayout(revision);

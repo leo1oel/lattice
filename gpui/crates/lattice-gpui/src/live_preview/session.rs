@@ -704,6 +704,12 @@ impl Session {
         if revision <= self.model.base_revision {
             return;
         }
+        // Typeset without what the document gives the unit (its environment's
+        // font and spacing): the next whole-document pass shows it.
+        if self.model.fonts_disjoint(event.par_id, &event.dl) {
+            self.await_layout(Some(revision), cx);
+            return;
+        }
         let fragments = if event.pagination_stale {
             event.fragments
         } else {
