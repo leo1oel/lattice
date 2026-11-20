@@ -55,6 +55,8 @@ const SEND_AFTER: Duration = Duration::from_millis(250);
 const DRAIN: Duration = Duration::from_secs(15);
 /// Overleaf's hash rides on an update at most this often.
 const HASH_EVERY: Duration = Duration::from_secs(5);
+/// A project switch waits this long for its documents to be answered.
+const SWITCH_WAIT: Duration = Duration::from_secs(5);
 
 struct LiveDoc {
     path: String,
@@ -208,6 +210,27 @@ impl OverleafBridge {
         self.reconsider_live(cx);
         // The toolbar's explanation and the menu bar follow the shown file.
         cx.notify();
+    }
+
+    /// The window is about to leave its project (#1208): the live document
+    /// goes now, unsent typing and all, and the task waits (at most
+    /// [`SWITCH_WAIT`]) for what is still draining, so each leave records
+    /// its agreed copy while the project, its link and its editor are here.
+    pub fn leave_before_switch(&mut self, cx: &mut Context<Self>) -> Task<()> {
+        self.editor_shown(None, cx);
+        cx.spawn(async move |this, cx| {
+            let deadline = std::time::Instant::now() + SWITCH_WAIT;
+            let owed = |this: &Self| {
+                !this.documents.leaving.is_empty() || !this.documents.checkpoints.is_empty()
+            };
+            while std::time::Instant::now() < deadline
+                && this.read_with(cx, |this, _| owed(this)).unwrap_or(false)
+            {
+                cx.background_executor()
+                    .timer(Duration::from_millis(25))
+                    .await;
+            }
+        })
     }
 
     /// The shown editor holds a file the channel cannot carry: one Overleaf

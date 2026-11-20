@@ -23,6 +23,7 @@ import { OtDocument, preciseOps, type OtOp } from "./ot";
 import { channelFields, projectAccess } from "./overleaf-connection-store";
 import { DocumentProofs, joinDelivery } from "./overleaf-document-proof";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
+import { leaveEveryDocument } from "./overleaf-realtime-leave";
 import { useOverleafRealtimeConnection } from "./use-overleaf-realtime-connection";
 import type { Suggester } from "./overleaf-suggestions";
 import { useOpenDocReview } from "./use-open-doc-review";
@@ -69,11 +70,10 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
   const suspendedPaths = useRef(new Set<string>());
   useEffect(() => () => suspendedPaths.current.clear(), [options.projectRoot]);
   /**
-   * Every document this connection is holding, which is not the same as the
-   * one on screen. A document that still owes the server an operation stays
-   * here after the writer has moved on, because the answer is addressed to it
-   * and arrives on the channel regardless of what is being looked at — throw
-   * it away at the moment of switching and the last edit made in it goes too.
+   * Every document this connection is holding, not only the one on screen: a
+   * document that still owes the server an operation stays after the writer
+   * moves on, because the answer is addressed to it. Thrown away at the
+   * switch, the last edit made in it would go too.
    */
   const documents = useRef<Map<string, OtDocument>>(new Map());
   const { docs, entities, livePaths, pathsByDocId, publishLivePaths, noteDocumentTree } = useOverleafDocumentTree(documents, store);
@@ -247,14 +247,13 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
   /**
    * Stop editing the open document, without necessarily letting go of it.
    *
-   * Typing not yet sent goes in first — typing a sentence and immediately
-   * clicking another file is the ordinary way to use the app, and cancelling
-   * that timer on the way out is how the sentence used to vanish. If the document still owes the server an operation after that,
-   * it is kept and stays in its room until the answer arrives: releasing it
-   * first would forget the document the acknowledgement and any rejection are
-   * for. (Current Overleaf broadcasts to the whole project and treats
-   * `leaveDoc` as a no-op, but older deployments still route by document
-   * room — docs/overleaf-protocol.md.)
+   * Typing not yet sent goes in first: cancelling that timer on the way out
+   * is how a sentence typed just before clicking another file used to vanish.
+   * A document that still owes the server an operation stays in its room
+   * until the answer, which is addressed to it, arrives. (Current Overleaf
+   * broadcasts to the whole project and treats `leaveDoc` as a no-op, but
+   * older deployments still route by document room —
+   * docs/overleaf-protocol.md.)
    */
   const stopDocument = useCallback(() => {
     documentEpoch.current += 1;
@@ -505,11 +504,10 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
     // with its connection must still be recognised as ours when it is
     // replayed under this id after a reconnect.
     doc?.noteSubmitted(publicId.current);
-    // Now and then, say what the document should read once this lands.
-    // Overleaf rejects the update when its copy disagrees, so a copy that has
-    // drifted fails loudly — and falls back to syncing — instead of every
-    // later edit landing in the wrong place. Like Overleaf's own editor, not
-    // on every keystroke: hashing the whole document costs.
+    // Now and then, say what the document should read once this lands:
+    // Overleaf rejects the update when its copy disagrees, so drift fails
+    // loudly and falls back to syncing. Not on every keystroke, like
+    // Overleaf's own editor: hashing the whole document costs.
     const sentText = doc && doc.version === send.version ? doc.sentText : null;
     const now = Date.now();
     const hashDue = sentText !== null && now - (lastHashed.current.get(doc!) ?? -Infinity) >= HASH_INTERVAL_MS;
@@ -972,6 +970,10 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
       bumpReloadNonce();
     },
     pushLocal,
+    /** Before the window leaves its project (./overleaf-realtime-leave). */
+    leaveProject: () => leaveEveryDocument({ root: connectionRoot, documents, leaving, stopDocument, release }),
+    /** After a switch that left, then failed. */
+    rejoin: bumpReloadNonce,
     suspendPaths,
     resumePaths,
     anchorComment,

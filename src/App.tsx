@@ -436,9 +436,8 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   // ---- Overleaf bridge -----------------------------------------------------
   // Link discovery, syncing, the realtime channel and everything that rides it
   // (presence, chat, comment threads, tracked changes) live in
-  // `src/app/use-overleaf-workspace.ts`. It has to be called here rather than
-  // beside the rest of App's state: every sync path goes through save, compile,
-  // loadFile and refreshProject, all of which are declared above.
+  // `src/app/use-overleaf-workspace.ts`, called here because every sync path
+  // goes through save, compile, loadFile and refreshProject, declared above.
   const wholeFileEditingPaths = useMemo(() => (
     !activePaper && !activeAsset && canvasMode !== "pdf" && isWholeFileEditorPath(activeFile) ? [activeFile] : []
   ), [activeAsset, activeFile, activePaper, canvasMode]);
@@ -521,7 +520,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     resetCompileTracking: resetAgentCompileTracking,
     overleafSync: {
       syncingRef: overleafSyncingRef, settledRef: overleafSyncSettledRef,
-      flushWholeFilesRef: flushWholeFilesBeforeProjectTransitionRef,
+      flushWholeFilesRef: flushWholeFilesBeforeProjectTransitionRef, live: overleafRealtime,
     },
     resetProjectUi: () => {
       resetAgentSelection();

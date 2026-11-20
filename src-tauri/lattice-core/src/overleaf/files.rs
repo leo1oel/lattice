@@ -502,6 +502,8 @@ pub(super) fn merge_three_way(
 
 #[cfg(test)]
 mod build_pdf_tests;
+#[cfg(test)]
+mod realtime_checkpoint_tests;
 
 #[cfg(test)]
 mod tests {

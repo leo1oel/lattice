@@ -660,7 +660,23 @@ impl Shell {
                 None => true,
             };
             if saved {
+                // Live editing hands its documents back while this project
+                // is still shown (#1208), and takes the shown one up again
+                // when the open fails.
+                let left = this.update(cx, |this, cx| {
+                    this.overleaf
+                        .update(cx, |bridge, cx| bridge.leave_before_switch(cx))
+                });
+                if let Ok(left) = left {
+                    left.await;
+                }
                 Self::enter_opened(&this, root, closing, cx).await;
+                this.update(cx, |this, cx| {
+                    let editor = this.active_editor();
+                    this.overleaf
+                        .update(cx, |bridge, cx| bridge.editor_shown(editor.as_ref(), cx));
+                })
+                .ok();
             }
             // The welcome screen may say the project is opening (an Overleaf
             // download's, `PickerEvent::Open`): the open has settled.
