@@ -5,6 +5,7 @@ function handlers(): PdfWindowHandlers {
   return {
     ready: vi.fn(), forwardSync: vi.fn(), source: vi.fn(), build: vi.fn(), dock: vi.fn(), openCitation: vi.fn(),
     navigateOutline: vi.fn(), pageCount: vi.fn(), page: vi.fn(), viewState: vi.fn(), select: vi.fn(),
+    liveBasePromoted: vi.fn(), liveWaitForLayout: vi.fn(), liveResync: vi.fn(),
   };
 }
 
@@ -33,6 +34,9 @@ describe("the PDF window's actions", () => {
       { window: "pdf-1", kind: "page", page: 4 },
       { window: "pdf-1", kind: "view-state", state: { page: 4, scale: 1.25, fitMode: null, scrollTop: 900, scrollLeft: 0 } },
       { window: "pdf-1", kind: "select", text: "attention" },
+      { window: "pdf-1", kind: "live-base-promoted" },
+      { window: "pdf-1", kind: "live-wait-for-layout" },
+      { window: "pdf-1", kind: "live-resync" },
     ];
     for (const action of actions) expect(runPdfWindowAction(action, "pdf-1", run, () => true)).toBe(true);
     expect(run.ready).toHaveBeenCalledOnce();
@@ -44,6 +48,9 @@ describe("the PDF window's actions", () => {
     expect(run.page).toHaveBeenCalledWith(4);
     expect(run.viewState).toHaveBeenCalledWith(expect.objectContaining({ page: 4, scrollTop: 900 }));
     expect(run.select).toHaveBeenCalledWith("attention");
+    expect(run.liveBasePromoted).toHaveBeenCalledOnce();
+    expect(run.liveWaitForLayout).toHaveBeenCalledOnce();
+    expect(run.liveResync).toHaveBeenCalledOnce();
   });
 
   it("open a citation only when the owner could open it, as the docked PDF offers it", () => {

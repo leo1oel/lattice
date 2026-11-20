@@ -248,10 +248,10 @@ impl Run {
             }),
         );
 
-        // The separate window shows the paper's own PDF, as the Tauri app's
-        // does (project-pdf-panel.tsx): the live layer stays with the panel,
-        // and is still there once the PDF returns to the workspace. The
-        // typing step below then shows it still paints.
+        // The live layer goes with the PDF into its separate window (#1177:
+        // typing stopped showing there), leaves the panel's viewer meanwhile,
+        // and comes back with the PDF. The typing step below then shows it
+        // still paints.
         let pdf = cx.update(|cx| self.shell.read(cx).pdf().clone());
         self.with_window(cx, |_, window, cx| {
             pdf.update(cx, |pdf, cx| pdf.detach(window, cx));
@@ -261,9 +261,12 @@ impl Run {
                 shell.read(cx).pdf().read(cx).in_window()
             })
             .await;
-        let window_layer = cx.update(|cx| {
+        let (window_layer, panel_layer_while_detached) = cx.update(|cx| {
             let pdf = pdf.read(cx);
-            pdf.in_window() && pdf.live_view().read(cx).live_layer().is_some()
+            (
+                pdf.in_window() && pdf.live_view().read(cx).live_layer().is_some(),
+                view.read(cx).live_layer().is_some(),
+            )
         });
         self.with_window(cx, |_, window, cx| {
             pdf.update(cx, |pdf, cx| pdf.dock(true, window, cx));
@@ -278,11 +281,12 @@ impl Run {
             pdf.live_view() == &view && view.read(cx).live_layer().is_some()
         });
         steps.check(
-            "Open in separate window shows the PDF without the live layer, and the panel keeps it on return",
-            detached && !window_layer && docked && panel_layer,
+            "Open in separate window takes the live layer with the PDF, and Return to workspace brings it back",
+            detached && window_layer && !panel_layer_while_detached && docked && panel_layer,
             json!({
                 "detached": detached,
                 "window_has_live_layer": window_layer,
+                "panel_has_live_layer_while_detached": panel_layer_while_detached,
                 "docked": docked,
                 "panel_has_live_layer": panel_layer,
             }),

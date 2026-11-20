@@ -9,8 +9,9 @@
  * jump from the PDF to the source, Reveal cursor in PDF, the outline, a
  * citation, Build, Return to workspace. Theme, language, fonts and interface
  * scale follow the other windows through the settings they share
- * (useAppearance). Annotations, review mode's marks, the live preview's layer
- * and the build's diagnostics stay in the workspace.
+ * (useAppearance). Annotations, review mode's marks and the build's
+ * diagnostics stay in the workspace. The live preview runs there too, and
+ * draws here through a mirror of its model (live-preview-mirror.ts).
  */
 import { useEffect, useReducer } from "react";
 import { useLingui } from "@lingui/react/macro";
@@ -23,11 +24,14 @@ import { disposeWhenSettled } from "../app/effect-helpers";
 import { listenInThisWindow } from "../app/window-events";
 import { PdfPreviewLoading } from "../canvas/canvas-lazy-editors";
 import { DocumentOutline } from "../canvas/document-outline";
+import { LivePreviewSessionContext } from "../live-preview/live-preview-context";
+import type { LivePreviewMirror, LivePreviewRelayMessage } from "../live-preview/live-preview-mirror";
+import { loadLivePreviewModule } from "../live-preview/use-live-preview";
 import { useAppearance } from "../settings/use-appearance";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf-bytes";
 import { PdfPreview } from "./pdf-viewer";
 import {
-  PDF_WINDOW_ACTION_EVENT, PDF_WINDOW_STATE_EVENT, type PdfWindowAction, type PdfWindowState,
+  PDF_WINDOW_ACTION_EVENT, PDF_WINDOW_LIVE_EVENT, PDF_WINDOW_STATE_EVENT, type PdfWindowAction, type PdfWindowState,
 } from "./pdf-window-protocol";
 
 type Action = PdfWindowAction extends infer Each ? Each extends unknown ? Omit<Each, "window"> : never : never;
@@ -113,30 +117,65 @@ function windowReducer(state: WindowState, action: WindowAction): WindowState {
   }
 }
 
-/** Hear the state the workspace window that opened this one sends, and ask for it once listening. */
-function useOwnerState(dispatch: (action: WindowAction) => void) {
+/**
+ * Hear the state the workspace window that opened this one sends, and the
+ * live preview's model, and ask for both once listening. The live preview's
+ * mirror is made on its first start, once its chunk has loaded; what arrives
+ * meanwhile waits for it.
+ */
+function useOwnerState(dispatch: (action: WindowAction) => void): LivePreviewMirror | null {
+  const [mirror, setMirror] = useReducer((_: LivePreviewMirror | null, next: LivePreviewMirror) => next, null);
   useEffect(() => {
     let disposed = false;
-    const listening = listenInThisWindow<PdfWindowState>(PDF_WINDOW_STATE_EVENT, ({ payload }) => {
+    let created: LivePreviewMirror | null = null;
+    let loading = false;
+    const early: LivePreviewRelayMessage[] = [];
+    const state = listenInThisWindow<PdfWindowState>(PDF_WINDOW_STATE_EVENT, ({ payload }) => {
       if (!disposed) dispatch({ type: "owner-state", state: payload });
     });
+    const live = listenInThisWindow<LivePreviewRelayMessage>(PDF_WINDOW_LIVE_EVENT, ({ payload }) => {
+      if (disposed) return;
+      if (created) {
+        created.receive(payload);
+        return;
+      }
+      early.push(payload);
+      if (loading || payload.kind !== "start") return;
+      loading = true;
+      void loadLivePreviewModule().then(({ LivePreviewMirror }) => {
+        if (disposed) return;
+        created = new LivePreviewMirror({
+          basePromoted: () => send({ kind: "live-base-promoted" }),
+          waitForLayout: () => send({ kind: "live-wait-for-layout" }),
+          resync: () => send({ kind: "live-resync" }),
+        });
+        for (const message of early.splice(0)) created.receive(message);
+        setMirror(created);
+      }, () => undefined);
+    });
     // Asked for once listening, so the first state is not sent before anyone hears it.
-    void listening.then(() => {
+    void Promise.all([state, live]).then(() => {
       if (!disposed) send({ kind: "ready" });
     }, () => undefined);
-    const stop = disposeWhenSettled(listening);
+    const stopState = disposeWhenSettled(state);
+    const stopLive = disposeWhenSettled(live);
     return () => {
       disposed = true;
-      stop();
+      stopState();
+      stopLive();
+      created?.dispose();
     };
   }, [dispatch]);
+  return mirror;
 }
 
 export function PdfWindowPage() {
   useAppearance();
   const { t } = useLingui();
   const [{ owner: state, outlineOpen }, dispatch] = useReducer(windowReducer, { owner: null, outlineOpen: false });
-  useOwnerState(dispatch);
+  const mirror = useOwnerState(dispatch);
+  // The mirror exists only once its chunk has loaded, so the layer is here.
+  const LiveLayer = mirror ? loadLivePreviewModule.loaded()?.LivePreviewLayer : undefined;
   const { pdf, waiting } = useCompiledPdf(state?.projectRoot ?? null, state?.pdfKey ?? null, Boolean(state?.building));
   // Until the first PDF is read, the viewer's frame rather than its "No PDF yet".
   if (!state || waiting) {
@@ -146,6 +185,7 @@ export function PdfWindowPage() {
   return (
     <div className="canvas-body pdf-window">
       <div className="pdf-column">
+        <LivePreviewSessionContext value={mirror}>
         <PdfPreview
           key={state.projectRoot}
           url={pdf?.url ?? null}
@@ -181,7 +221,9 @@ export function PdfWindowPage() {
             />
           )}
           toolbarAction={{ label: t`Return to workspace`, icon: SquareArrowDownLeft, run: () => send({ kind: "dock" }) }}
+          pageLayer={LiveLayer}
         />
+        </LivePreviewSessionContext>
       </div>
     </div>
   );

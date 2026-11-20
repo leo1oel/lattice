@@ -134,6 +134,9 @@ pub struct PdfPanel {
     compounds: Option<super::CompoundSource>,
     /// The project's notes, carried into the window.
     notes: Option<super::PdfNotes>,
+    /// The live preview, drawn over the live PDF wherever it is: the panel's
+    /// viewer, or the window's while it has one.
+    live_preview: Option<Entity<crate::live_preview::LivePreview>>,
     /// The project, the document (project-relative) whose place this
     /// panel's PDF keeps, and that document's PDF: a place taken in any
     /// other PDF shown here (the marked one) is not that document's.
@@ -292,21 +295,24 @@ impl PdfPanel {
             citations: None,
             compounds: None,
             notes: None,
+            live_preview: None,
             place_key: None,
             marking: Default::default(),
             _subscriptions: subscriptions,
         }
     }
 
-    /// Draw `preview` over the live PDF's pages in this panel only: the
-    /// separate window shows the paper's own PDF, without the live layer.
+    /// Draw `preview` over the live PDF's pages, in the viewer it is in:
+    /// the separate window's while it has one, so typing shows there too.
     pub fn set_live_preview(
         &mut self,
         preview: Option<Entity<crate::live_preview::LivePreview>>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.view
+        self.live_preview = preview.clone();
+        self.live_view()
+            .clone()
             .update(cx, |view, cx| view.set_live_preview(preview, cx));
     }
 
@@ -602,13 +608,19 @@ impl PdfPanel {
         );
         match opened {
             Ok((handle, view)) => {
-                // The panel's own viewer lets go of its pages.
-                self.view.update(cx, |view, cx| view.close(window, cx));
+                // The panel's own viewer lets go of its pages, and the live
+                // layer moves with the PDF.
+                self.view.update(cx, |view, cx| {
+                    view.close(window, cx);
+                    view.set_live_preview(None, cx);
+                });
                 let compounds = self.compounds.clone();
                 let notes = self.notes.clone();
+                let live_preview = self.live_preview.clone();
                 view.update(cx, |view, cx| {
                     view.set_compounds(compounds, cx);
                     view.set_notes(notes, cx);
+                    view.set_live_preview(live_preview, cx);
                 });
                 self.window = Some((handle, view));
                 if let Some(root) = project {
@@ -639,13 +651,18 @@ impl PdfPanel {
             return;
         };
         let place = view.read(cx).view_place();
+        view.update(cx, |view, cx| view.set_live_preview(None, cx));
         if close_window {
             window::close(handle, self.project.as_deref(), cx);
         }
-        if let Some(source) = self.source.clone() {
-            self.view
-                .update(cx, |view, cx| view.open_at(source, place, window, cx));
-        }
+        let live_preview = self.live_preview.clone();
+        let source = self.source.clone();
+        self.view.update(cx, |view, cx| {
+            view.set_live_preview(live_preview, cx);
+            if let Some(source) = source {
+                view.open_at(source, place, window, cx);
+            }
+        });
         if let Some(root) = self.project.clone() {
             preferences::update(|preferences| preferences.window_mut(&root).open = false);
         }

@@ -88,6 +88,7 @@ function props(overrides: { pdfUrl?: string | null; target?: { id: string; page:
       getFileViewState: () => ({ pdf: { page: 3, scale: 1.2, fitMode: null, scrollTop: 640, scrollLeft: 0 } }),
       onFileViewState: vi.fn(),
     },
+    liveSession: null,
   };
   return view;
 }

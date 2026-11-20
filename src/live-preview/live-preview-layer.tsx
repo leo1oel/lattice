@@ -19,8 +19,11 @@ import { pdfPageView, type ViewerRecord } from "../pdf/pdf-slick";
 import { cachedPictureMoves, type Rect } from "./rtex-model";
 import { inexactReason, Painter, type Mat } from "./rtex-render";
 import { SP_PER_BP } from "./rtex-protocol";
-import type { LivePreviewSession } from "./live-preview-session";
-import { LivePreviewSessionContext } from "./live-preview-context";
+import { LivePreviewSessionContext, type LivePreviewSurface } from "./live-preview-context";
+// The canvas's positioning lives there: the PDF's separate window draws this layer without
+// the status pill that otherwise brings the stylesheet in, and an unpositioned canvas falls
+// below the page, out of sight (#1177).
+import "./live-preview.css";
 
 const PT = 65536;
 /**
@@ -80,7 +83,7 @@ class PagePainter {
   private token = 0;
   private disposed = false;
 
-  constructor(private readonly session: LivePreviewSession, private readonly record: ViewerRecord) {}
+  constructor(private readonly session: LivePreviewSurface, private readonly record: ViewerRecord) {}
 
   invalidate(pages: ReadonlySet<number> | "all"): void {
     if (pages === "all") this.all = true;
