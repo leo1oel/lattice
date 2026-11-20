@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { logAction } from "../telemetry/app-notify";
+import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { showError, showNotice, showWarning } from "./notify";
 import { clearTimer, restartTimer, visibleInterval } from "./effect-helpers";
@@ -10,7 +11,7 @@ import { minimumSyncGap, startOverleafLivePoll } from "./overleaf-live-poll";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { useStoreSlice } from "../hooks/use-store-slice";
 import { useSharedSetting } from "../settings/shared-setting";
-import { confirmAction, isWholeFileEditorPath, toMessage } from "../app-utils";
+import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useOverleafRemoteDeletes } from "./use-overleaf-remote-deletes";
 import { onOverleafEvent, onOverleafSessionChanged } from "../overleaf/overleaf-realtime-listen";
 import {
@@ -39,7 +40,6 @@ import type {
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
 import { overleafSyncWarnings } from "./overleaf-sync-warnings";
 import { conflictOpener, reportSyncOutcome } from "./overleaf-sync-outcome";
-import { dismissOverleafGitMerge, showOverleafGitMerge } from "./overleaf-git-merge";
 import { overleafSyncSummary } from "./overleaf-sync-summary";
 import { unsettledPaths } from "./overleaf-sync-unsettled";
 import { useBuildAutoversion } from "./use-build-autoversion";
@@ -266,40 +266,27 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   const settleRemoteDeletes = useOverleafRemoteDeletes(overleafRemoteDeletePolicy, overleafEntitiesRef, projectGuard);
 
-  /**
-   * Cancel the merge a git sync stopped on. Asked first: the spots already
-   * resolved are discarded with it. The editor is saved before, so a stale
-   * buffer cannot write the merge's text back over the restored file.
-   */
+  /** Cancel the merge a git sync stopped on (overleaf-git-merge.ts, loaded only once one is open). */
   const cancelOverleafGitMerge = useCallback(async () => {
     if (!project || overleafSyncingRef.current) return;
     const root = project.root;
     const generation = projectOperationGenerationRef.current;
     const stillCurrent = projectGuard(root, generation);
-    const confirmed = await confirmAction({
-      title: t`Cancel the merge with Overleaf?`,
-      message: t`The project goes back to how it was before this sync, and the spots you resolved are discarded. Overleaf keeps its changes; the next sync brings them in again.`,
-      confirmLabel: t`Cancel merge`,
-      cancelLabel: t`Keep merging`,
-      destructive: true,
-    }).catch(() => false);
-    if (!confirmed || !stillCurrent() || !(await save()) || !stillCurrent()) return;
-    const trace = logAction("Overleaf", t`Cancel merge`, root);
-    try {
-      await invoke("overleaf_git_abort_merge", { projectRoot: root });
-      if (!stillCurrent()) return;
-      dismissOverleafGitMerge();
-      setConflictPath(null);
-      await refreshProject({ expectedRoot: root, generation });
-      const active = activeFileRef.current;
-      if (active && stillCurrent()) {
-        await loadFile(active, { restoreView: false, expectedProjectRoot: root, projectGeneration: generation });
-      }
-      trace.ok(t`Merge with Overleaf cancelled`);
-    } catch (reason) {
-      trace.fail(reason);
-    }
-  }, [activeFileRef, loadFile, overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshProject, save, setConflictPath, t]);
+    const { cancelOverleafGitMerge: cancel } = await import("./overleaf-git-merge");
+    await cancel({
+      projectRoot: root,
+      stillCurrent,
+      save,
+      reload: async () => {
+        setConflictPath(null);
+        await refreshProject({ expectedRoot: root, generation });
+        const active = activeFileRef.current;
+        if (active && stillCurrent()) {
+          await loadFile(active, { restoreView: false, expectedProjectRoot: root, projectGeneration: generation });
+        }
+      },
+    });
+  }, [activeFileRef, loadFile, overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshProject, save, setConflictPath]);
 
   const runOverleafSync = useCallback(async (options?: OverleafSyncOptions) => {
     if (!project || overleafSyncingRef.current) return;
@@ -418,13 +405,16 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       // A merge a git sync stopped on blocks every later one until it is
       // finished or cancelled, so both stay on offer until one is taken.
       // Offered once this sync is done: a Finish pressed while it still ran
-      // would find the sync gate shut and do nothing.
+      // would find the sync gate shut and do nothing. The offer's module
+      // loads only for a git-synced project, for the eager-JS budget.
       if (result.mergeOpen) {
-        showOverleafGitMerge(result, {
+        void import("./overleaf-git-merge").then(({ showOverleafGitMerge }) => showOverleafGitMerge(result, {
           finish: () => void overleafSyncRef.current({ finishMerge: true }),
           cancel: () => void cancelOverleafGitMerge(),
-        });
-      } else if (overleafGitSync) dismissOverleafGitMerge();
+        }));
+      } else if (overleafGitSync) {
+        void import("./overleaf-git-merge").then(({ MERGE_TOAST }) => dismissAppToastByDedupeKey(MERGE_TOAST));
+      }
       // Only a real content change becomes a version: committing a no-op woke
       // the filesystem watcher and reloaded unrelated previews. A project that
       // syncs through git is committed by its writer alone.
