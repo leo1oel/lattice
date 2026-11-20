@@ -381,16 +381,35 @@ that header before changing anything under `overleaf_rt/`.
 
 A linked project can instead sync through Overleaf's **git bridge**
 (`SyncState::sync_via`, set per project in Settings → Overleaf). Then
-`overleaf_sync` runs `overleaf/git_sync.rs` → `git/bridge.rs`: fetch
-`overleaf/master`, merge it (unrelated histories allowed, so a folder first
-linked through the web sync merges when its files agree), and push `HEAD`.
-Nothing commits for the writer: no post-sync or build auto-commit, and
-uncommitted files are reported, not sent. There is no live channel
-(`realtime_config` refuses, the frontend opens none), no preview, and the web
-sync's `.research/` table is left untouched so switching back resumes from it.
-The token lives in the system keychain (`overleaf_git_token.rs`) and reaches git
-only through the environment of the one process that needs it, scoped to the
-remote's URL.
+`overleaf_sync` runs `overleaf/git_sync.rs` → `git/bridge.rs`: fetch the
+branch the bridge serves (its symref, else `master`, else `main`, else the
+only branch) into the `overleaf-git` remote, merge it (unrelated histories
+allowed, so a folder first linked through the web sync merges when its files
+agree), and push `HEAD`. Lattice never commits the writer's edits: no
+post-sync or build auto-commit, and uncommitted files are reported, not sent.
+Its only commit is the merge that brings Overleaf's commits in.
+
+A merge that stops on a conflict stays open (`MERGE_HEAD`) and the result
+says so (`mergeOpen`). Later syncs report the still-unmerged files and change
+nothing else. `src/app/overleaf-git-merge.ts` keeps a toast up offering
+**Finish merge** (`overleaf_git_finish_merge`) and **Cancel merge**
+(`overleaf_git_abort_merge`) until one succeeds. Finish refuses while an
+unmerged file still has conflict markers. Otherwise it stages only the
+unmerged files, commits with git's own merge message and syncs, which pushes
+the result. A file git cannot mark up (a figure, a PDF) keeps this
+computer's version. Cancel runs `git merge --abort`. Overleaf's commits stay
+fetched, so the next sync merges them again.
+
+There is no live channel (`realtime_config` refuses, the frontend opens
+none) and no preview. The web sync's `.research/` table is left untouched,
+so switching back resumes from it. The token lives in the system keychain
+(`overleaf_git_token.rs`) and reaches git only through the environment of the
+one process that needs it, scoped to the remote's URL.
+
+The marker parser that both sync modes and Agent Undo share
+(`src/history/conflict-markers.ts`) matches markers whether lines end in
+`\n` or `\r\n`, as git writes them in the file's own line endings. The lines
+it keeps carry their `\r`, so a resolved file keeps its line endings.
 
 `overleaf` handles the non-realtime side: login/session (`overleaf/account.rs`,
 `overleaf-session.json` in app data), linking and clone (`overleaf/link.rs`),
