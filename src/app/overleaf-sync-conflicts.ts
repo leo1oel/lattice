@@ -33,11 +33,15 @@ export async function reportConflicts({ result, projectRoot, stillCurrent, openC
     if (content === null || spot) marked.push({ ...item, line: spot?.line ?? 1 });
     if (!stillCurrent()) return false;
   }
-  if (marked.length) {
+  // An open git merge has its own toast, which names the marked files and
+  // offers Finish and Cancel. Neither message here holds for it: nothing goes
+  // up "until" a spot is resolved, only once the merge is finished, and a file
+  // git cannot mark up kept this computer's version, with nothing set aside.
+  if (marked.length && !result.mergeOpen) {
     const files = marked.map((item) => item.path).join(", ");
     showError(i18n._(msg`${files} changed in the same place here and on Overleaf. Choose what to keep at each marked spot in the editor; nothing uploads until then.`), "Overleaf");
   }
-  for (const item of result.conflicts.filter((conflict) => conflict.markers === false)) {
+  for (const item of result.mergeOpen ? [] : result.conflicts.filter((conflict) => conflict.markers === false)) {
     const file = item.path;
     const message = item.kept === "thisMac"
       ? i18n._(msg`${file} changed here and on Overleaf. Yours is newer, so it stays and goes up; Overleaf's is kept aside.`)

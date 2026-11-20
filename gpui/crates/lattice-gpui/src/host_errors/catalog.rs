@@ -1761,6 +1761,76 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("Overleaf's root folder has no id.", &[]),
     },
     Entry {
+        file: "overleaf/git_sync.rs",
+        literal: "Add your Overleaf git token in Settings → Overleaf to sync through git.",
+        text: Text::Message("Add your Overleaf git token in Settings → Overleaf to sync through git.", &[]),
+    },
+    Entry {
+        file: "overleaf/git_sync.rs",
+        literal: "This project is not set to sync through git.",
+        text: Text::Message("This project is not set to sync through git.", &[]),
+    },
+    Entry {
+        file: "overleaf/git_sync.rs",
+        literal: "This project's Overleaf id is not valid for git.",
+        text: Text::Message("This project's Overleaf id is not valid for git.", &[]),
+    },
+    Entry {
+        file: "overleaf/link.rs",
+        literal: "This project syncs through git, which has no live editing. Switch back to Overleaf sync in Settings → Overleaf to edit live.",
+        text: Text::Message("This project syncs through git, which has no live editing. Switch back to Overleaf sync in Settings → Overleaf to edit live.", &[]),
+    },
+    Entry {
+        file: "ipc/overleaf.rs",
+        literal: "This project syncs through git, so there is no Overleaf preview. Review the changes with git.",
+        text: Text::Message("This project syncs through git, so there is no Overleaf preview. Review the changes with git.", &[]),
+    },
+    Entry {
+        file: "git/bridge.rs",
+        literal: "Git sync needs the project folder to be its own git repository, not a folder inside another one.",
+        text: Text::Message("Git sync needs the project folder to be its own git repository, not a folder inside another one.", &[]),
+    },
+    Entry {
+        file: "git/bridge.rs",
+        literal: "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes.",
+        text: Text::Message("There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes.", &[]),
+    },
+    Entry {
+        file: "overleaf/git_sync.rs",
+        literal: "Resolve the conflicts in {} first, then finish the merge.",
+        text: Text::Message("Resolve the conflicts in {files} first, then finish the merge.", &[("files", Arg::Param(0))]),
+    },
+    Entry {
+        file: "git/bridge.rs",
+        literal: "Overleaf did not accept the git token. Check it in Settings → Overleaf. Git access needs an Overleaf plan that includes the git integration.",
+        text: Text::Message("Overleaf did not accept the git token. Check it in Settings → Overleaf. Git access needs an Overleaf plan that includes the git integration.", &[]),
+    },
+    Entry {
+        file: "git/bridge.rs",
+        literal: "Overleaf's git bridge has no such project. It may not be available for this account or host.",
+        text: Text::Message("Overleaf's git bridge has no such project. It may not be available for this account or host.", &[]),
+    },
+    Entry {
+        file: "git/bridge.rs",
+        literal: "Overleaf's git bridge has no branch for this project yet.",
+        text: Text::Message("Overleaf's git bridge has no branch for this project yet.", &[]),
+    },
+    Entry {
+        file: "git/bridge.rs",
+        literal: "Overleaf changed while this was syncing. Sync again to merge those changes.",
+        text: Text::Message("Overleaf changed while this was syncing. Sync again to merge those changes.", &[]),
+    },
+    Entry {
+        file: "overleaf_git_token.rs",
+        literal: "The git token is empty.",
+        text: Text::Message("The git token is empty.", &[]),
+    },
+    Entry {
+        file: "overleaf_git_token.rs",
+        literal: "That does not look like an Overleaf git token.",
+        text: Text::Message("That does not look like an Overleaf git token.", &[]),
+    },
+    Entry {
         file: "papers/import.rs",
         literal: "Enter an arXiv id, a DOI, a URL, or a paper title.",
         text: Text::Message("Enter an arXiv id, a DOI, a URL, or a paper title.", &[]),

@@ -9,7 +9,7 @@ pub use super::overleaf_history::*;
 use super::workspace::documents_folder;
 use super::{current_root, in_project, pinned_root, run_blocking, run_quietly, scoped_root};
 use crate::app_state::{AppState, Lease, ProjectLease};
-use crate::{command_diagnostics, git, overleaf, wide_event};
+use crate::{command_diagnostics, git, overleaf, overleaf_git_token, wide_event};
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -541,6 +541,9 @@ pub async fn overleaf_preview(
 ) -> Result<overleaf::OverleafPreview, String> {
     let live = live_paths(live);
     leased_rest_call(&app, &state, &window, &project_root, COMPARISON, move |config, root| {
+        if overleaf::sync_via(root) == overleaf::SyncVia::Git {
+            return Err("This project syncs through git, so there is no Overleaf preview. Review the changes with git.".to_string());
+        }
         overleaf::preview(config, root, &live)
     })
     .await
@@ -561,6 +564,21 @@ pub async fn overleaf_set_paused(
     run_blocking("Overleaf sync setting", move || overleaf::set_paused(&root, paused)).await
 }
 
+/// Switch the open project between Overleaf's web sync and the git bridge.
+#[tauri::command]
+pub async fn overleaf_set_sync_via(
+    state: State<'_, AppState>, window: Window, project_root: String, via: overleaf::SyncVia,
+) -> Result<(), String> {
+    let lease = state.lease(&project_root, Lease::Exclusive).await;
+    let root = scoped_root(&state, &window, &project_root)?;
+    if via == overleaf::SyncVia::Git {
+        // Git has no live channel: a socket left open would keep writing
+        // edits into files the repository is about to track.
+        lease.project.shutdown_realtime();
+    }
+    run_blocking("Overleaf sync setting", move || overleaf::set_sync_via(&root, via)).await
+}
+
 #[tauri::command]
 pub async fn overleaf_probe(
     app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
@@ -569,6 +587,13 @@ pub async fn overleaf_probe(
     let lease = state.lease(&project_root, Lease::Shared).await;
     let config = overleaf_config_dir(&app)?;
     let root = scoped_root(&state, &window, &project_root)?;
+    // A git-synced project has no web version to poll: ask the git remote.
+    if overleaf::sync_via(&root) == overleaf::SyncVia::Git {
+        return run_quietly("The Overleaf git check", move || {
+            overleaf::git_probe(&root, overleaf_git_token::token()?)
+        })
+        .await;
+    }
     let local_live_paths =
         check_local.unwrap_or(false).then(|| with_joined_paths(&lease, &root, live));
     let probed = run_quietly("The Overleaf check", move || {
@@ -590,6 +615,17 @@ pub async fn overleaf_sync(
             let config = overleaf_config_dir(&app)?;
             let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
             wide_event::project(&root);
+            // A project set to sync through git fetches, merges and pushes its
+            // own repository; none of the web sync below applies to it.
+            if overleaf::sync_via(&root) == overleaf::SyncVia::Git {
+                let _lease = state.lease(&project_root, Lease::Exclusive).await;
+                let root =
+                    pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
+                return run_quietly("The Overleaf git sync", move || {
+                    overleaf::git_sync(&root, overleaf_git_token::token()?)
+                })
+                .await;
+            }
             // Round again whenever the link moved past what was read ahead
             // while the lease was free; past `READ_AHEAD_ROUNDS`, download
             // under the lease instead.
@@ -649,6 +685,48 @@ pub async fn overleaf_sync(
             }
         }))
         .await
+}
+
+/// Conclude the git merge a sync stopped on, once its conflicts are resolved,
+/// and send the result up. Answers like a sync, so the app reads it as one.
+#[tauri::command]
+pub async fn overleaf_git_finish_merge(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<overleaf::OverleafSyncResult, String> {
+    let _lease = state.lease(&project_root, Lease::Exclusive).await;
+    let root = pinned_root(&state, &window, &project_root, "the merge could finish")?;
+    run_quietly("Finishing the Overleaf merge", move || {
+        overleaf::git_finish_merge(&root, overleaf_git_token::token()?)
+    })
+    .await
+}
+
+/// Cancel the git merge a sync stopped on: the folder goes back to how it was
+/// before that sync.
+#[tauri::command]
+pub async fn overleaf_git_abort_merge(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<(), String> {
+    let _lease = state.lease(&project_root, Lease::Exclusive).await;
+    let root = pinned_root(&state, &window, &project_root, "the merge could be cancelled")?;
+    run_quietly("Cancelling the Overleaf merge", move || overleaf::git_abort_merge(&root)).await
+}
+
+/// Whether an Overleaf git token is saved (the token itself never leaves the
+/// backend).
+#[tauri::command]
+pub async fn get_overleaf_git_token_status(
+) -> Result<overleaf_git_token::OverleafGitTokenStatus, String> {
+    overleaf_git_token::get_status().await
+}
+
+/// Save the Overleaf git token in the system keychain, or forget it when
+/// `token` is `None`.
+#[tauri::command]
+pub async fn set_overleaf_git_token(
+    token: Option<String>,
+) -> Result<overleaf_git_token::OverleafGitTokenStatus, String> {
+    overleaf_git_token::set_token(token).await
 }
 
 #[cfg(test)]

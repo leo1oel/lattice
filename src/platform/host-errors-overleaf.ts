@@ -110,4 +110,20 @@ export const OVERLEAF_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["overleaf_rt/tree.rs", "Overleaf's project has an empty rootFolder.", () => t`Overleaf's project has an empty rootFolder.`],
   ["overleaf_rt/tree.rs", "Overleaf's project has an unexpected rootFolder.", () => t`Overleaf's project has an unexpected rootFolder.`],
   ["overleaf_rt/tree.rs", "Overleaf's root folder has no id.", () => t`Overleaf's root folder has no id.`],
+
+  // Syncing through Overleaf's git bridge (git/bridge.rs, overleaf/git_sync.rs, overleaf_git_token.rs)
+  ["overleaf/git_sync.rs", "Add your Overleaf git token in Settings → Overleaf to sync through git.", () => t`Add your Overleaf git token in Settings → Overleaf to sync through git.`],
+  ["overleaf/git_sync.rs", "This project is not set to sync through git.", () => t`This project is not set to sync through git.`],
+  ["overleaf/git_sync.rs", "This project's Overleaf id is not valid for git.", () => t`This project's Overleaf id is not valid for git.`],
+  ["overleaf/link.rs", "This project syncs through git, which has no live editing. Switch back to Overleaf sync in Settings → Overleaf to edit live.", () => t`This project syncs through git, which has no live editing. Switch back to Overleaf sync in Settings → Overleaf to edit live.`],
+  ["ipc/overleaf.rs", "This project syncs through git, so there is no Overleaf preview. Review the changes with git.", () => t`This project syncs through git, so there is no Overleaf preview. Review the changes with git.`],
+  ["git/bridge.rs", "Git sync needs the project folder to be its own git repository, not a folder inside another one.", () => t`Git sync needs the project folder to be its own git repository, not a folder inside another one.`],
+  ["git/bridge.rs", "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes.", () => t`There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes.`],
+  ["overleaf/git_sync.rs", "Resolve the conflicts in {} first, then finish the merge.", ([files]) => t`Resolve the conflicts in ${files} first, then finish the merge.`],
+  ["git/bridge.rs", "Overleaf did not accept the git token. Check it in Settings → Overleaf. Git access needs an Overleaf plan that includes the git integration.", () => t`Overleaf did not accept the git token. Check it in Settings → Overleaf. Git access needs an Overleaf plan that includes the git integration.`],
+  ["git/bridge.rs", "Overleaf's git bridge has no such project. It may not be available for this account or host.", () => t`Overleaf's git bridge has no such project. It may not be available for this account or host.`],
+  ["git/bridge.rs", "Overleaf's git bridge has no branch for this project yet.", () => t`Overleaf's git bridge has no branch for this project yet.`],
+  ["git/bridge.rs", "Overleaf changed while this was syncing. Sync again to merge those changes.", () => t`Overleaf changed while this was syncing. Sync again to merge those changes.`],
+  ["overleaf_git_token.rs", "The git token is empty.", () => t`The git token is empty.`],
+  ["overleaf_git_token.rs", "That does not look like an Overleaf git token.", () => t`That does not look like an Overleaf git token.`],
 ];

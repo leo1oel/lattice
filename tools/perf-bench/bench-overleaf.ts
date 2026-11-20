@@ -11,7 +11,10 @@
  * `?overleaf=expired` keeps the link but has Overleaf turn the stored session
  * away, the state Settings offers to reconnect from; `expired-long` gives the
  * account a 45-character address. `?overleaf=offline` links it but never
- * reaches the live channel, as with the network down.
+ * reaches the live channel, as with the network down. `?overleaf=git` links it
+ * through Overleaf's git bridge: no live channel, a saved git token (`&gitToken=none`
+ * for none), two Overleaf commits fetched but not merged in Versions, and a
+ * Sync that merges one file, pushes one and leaves an uncommitted one behind.
  * Overleaf acknowledges each live update after a round trip; `&ack=held`
  * never does, the edit still on its way that the save slot calls Syncing.
  * The comments are in the page's language (`?lang=`).
@@ -186,6 +189,31 @@ function presence() {
   }));
 }
 
+/** The link's transport, switchable from Settings as the backend's is. */
+let syncVia: "rest" | "git" | null = null;
+let gitTokenSaved: boolean | null = null;
+/** `?gitConflict=1`: whether the git merge the first sync stopped on is still open. */
+let gitMergeOpen = false;
+
+/** Versions of a git-synced project: Overleaf's fetched commits first, then the merged ones. */
+function gitLog() {
+  const entries: Array<[string, string, string, number, string, boolean]> = [
+    ["Rephrase the multi-head attention paragraph", PEOPLE.mina.name, "main.tex", 12 * MINUTE, "modified", true],
+    ["Add Bahdanau et al. to the bibliography", PEOPLE.alex.name, "references.bib", 40 * MINUTE, "modified", true],
+    ["Tighten the abstract", PEOPLE.me.name, "main.tex", 2 * HOUR, "modified", false],
+    ["Draft the related work section", PEOPLE.me.name, "main.tex", 5 * HOUR, "modified", false],
+    ["Fix figure numbering", PEOPLE.sofia.name, "main.tex", DAY, "modified", false],
+    ["Start notes for the rebuttal", PEOPLE.me.name, "notes.md", 2 * DAY, "added", false],
+  ];
+  return entries.map(([message, authorName, path, ago, kind, remoteOnly], index) => {
+    const hash = ((index + 7) * 2654435761 >>> 0).toString(16).padStart(8, "0").repeat(5);
+    return {
+      hash, shortHash: hash.slice(0, 7), authorName, message, timestamp: new Date(Date.now() - ago).toISOString(),
+      files: [{ path, kind }], ...(remoteOnly ? { remoteOnly } : {}),
+    };
+  });
+}
+
 export function overleafAnswer(command: string, args: Record<string, unknown> | undefined, context: Context): unknown {
   const mode = context.params.get("overleaf") ?? "";
   if (mode === "picker") {
@@ -212,7 +240,9 @@ export function overleafAnswer(command: string, args: Record<string, unknown> | 
         return NOT_HANDLED;
     }
   }
-  if (!["review", "long", "expired", "expired-long", "offline"].includes(mode)) return NOT_HANDLED;
+  if (!["review", "long", "expired", "expired-long", "offline", "git"].includes(mode)) return NOT_HANDLED;
+  syncVia ??= mode === "git" ? "git" : "rest";
+  gitTokenSaved ??= context.params.get("gitToken") !== "none";
   const entities = DOCS.map((doc) => ({ ...doc, kind: "doc" }));
   switch (command) {
     case "overleaf_status": {
@@ -223,10 +253,29 @@ export function overleafAnswer(command: string, args: Record<string, unknown> | 
     case "overleaf_link":
       return {
         projectId: "ol-understanding-attention", projectName: "Understanding Attention", host: "https://www.overleaf.com",
-        lastSync: new Date(Date.now() - 4 * MINUTE).toISOString(), paused: false,
+        lastSync: new Date(Date.now() - 4 * MINUTE).toISOString(), paused: false, syncVia,
       };
     case "overleaf_probe":
       return { changed: false, localChanged: false, versionKnown: true, remoteVersion: 143, lastSync: new Date(Date.now() - 4 * MINUTE).toISOString() };
+    case "overleaf_set_sync_via":
+      syncVia = args?.via === "git" ? "git" : "rest";
+      // The backend closes the live channel for git, which reports the drop.
+      if (syncVia === "git") context.emit("overleaf-realtime", { projectRoot: context.root(), type: "disconnected", reason: "Switched to git sync" });
+      return null;
+    case "get_overleaf_git_token_status":
+      return { saved: gitTokenSaved };
+    case "set_overleaf_git_token":
+      gitTokenSaved = typeof args?.token === "string" && args.token.length > 0;
+      return { saved: gitTokenSaved };
+    case "git_status":
+      if (syncVia !== "git") return NOT_HANDLED;
+      return { available: true, repository: true, branch: "master", remote: "overleaf-git", upstream: "overleaf-git/master", ahead: 0, behind: 2, files: [] };
+    case "git_log":
+      if (syncVia !== "git") return NOT_HANDLED;
+      return gitLog().slice(0, Number(args?.limit ?? 100));
+    // The web history has nothing to list here; Versions shows the git log.
+    case "overleaf_history_updates":
+      return { updates: [], nextBefore: null };
     case "overleaf_rt_connect":
       if (mode === "offline") throw new Error("The network connection was lost.");
       // The channel names our connection and the tree once it is up, which seeds presence.
@@ -269,7 +318,29 @@ export function overleafAnswer(command: string, args: Record<string, unknown> | 
     case "overleaf_change_authors":
       return { users: Object.values(PEOPLE).map((person) => ({ id: person.id, email: person.email, first_name: person.first, last_name: person.last })) };
     case "overleaf_sync":
+      // Git sync merges Overleaf's commits and pushes HEAD; loose edits stay here.
+      if (syncVia === "git" && (gitMergeOpen || context.params.has("gitConflict"))) {
+        // A merge that stopped on main.tex: the caller writes the markers into
+        // the file first, as git would, since this backend cannot. Synced
+        // again while open, it reports the merge still waiting.
+        gitMergeOpen = true;
+        const markers = context.text("main.tex").includes("<<<<<<<");
+        return { pulled: [], pushed: [], merged: [], conflicts: [{ path: "main.tex", setAside: "", markers }], deletedLocal: [], skippedRemoteDeletes: [], refusedIncoming: [], mergeOpen: true };
+      }
+      if (syncVia === "git") {
+        return { pulled: ["references.bib"], pushed: ["main.tex"], merged: [], conflicts: [], deletedLocal: [], skippedRemoteDeletes: [], refusedIncoming: [], uncommitted: ["notes.md"] };
+      }
       return { pulled: [], pushed: [], merged: [], conflicts: [], deletedLocal: [], skippedRemoteDeletes: [], refusedIncoming: [] };
+    case "overleaf_git_finish_merge":
+      if (!gitMergeOpen) throw new Error("There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes.");
+      if (context.text("main.tex").includes("<<<<<<<")) throw new Error("Resolve the conflicts in main.tex first, then finish the merge.");
+      gitMergeOpen = false;
+      return { pulled: ["main.tex"], pushed: ["main.tex"], merged: [], conflicts: [], deletedLocal: [], skippedRemoteDeletes: [], refusedIncoming: [] };
+    // The real backend puts the files back as they were; this one has no
+    // record of that, so only the merge closes.
+    case "overleaf_git_abort_merge":
+      gitMergeOpen = false;
+      return null;
     default:
       return NOT_HANDLED;
   }

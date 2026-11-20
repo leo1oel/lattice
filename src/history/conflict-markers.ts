@@ -10,6 +10,11 @@
  * Everything works on line arrays rather than joined strings, so an empty side
  * (one side deleted the whole region) resolves to no lines at all instead of
  * leaving a stray blank line where the region used to be.
+ *
+ * Lines are split on "\n" and keep any "\r": git writes its markers in the
+ * file's own line endings, so a CRLF file has "=======\r". Markers match with
+ * the "\r" ignored, and the kept lines carry theirs back, so a resolved file
+ * keeps its line endings.
  */
 
 export type ConflictHunk = {
@@ -42,9 +47,14 @@ const BASE = "|||||||";
 const MIDDLE = "=======";
 const END = ">>>>>>>";
 
-const isMarker = (line: string, marker: string) => (
-  line === marker || line.startsWith(`${marker} `)
-);
+const isMarker = (raw: string, marker: string) => {
+  const line = withoutCr(raw);
+  return line === marker || line.startsWith(`${marker} `);
+};
+
+function withoutCr(line: string): string {
+  return line.endsWith("\r") ? line.slice(0, -1) : line;
+}
 
 /**
  * Split a file into plain stretches and conflict blocks. Unterminated or
@@ -116,16 +126,19 @@ export function parseConflictBlocks(content: string): Block[] {
   return blocks;
 }
 
+/** The spots still to decide, with each side's text as shown: line endings dropped. */
 export function conflictHunks(content: string): ConflictHunk[] {
   const hunks: ConflictHunk[] = [];
   parseConflictBlocks(content).forEach((block, index) => {
     if (block.kind === "conflict") {
+      const oursLines = block.ours.map(withoutCr);
+      const theirsLines = block.theirs.map(withoutCr);
       hunks.push({
         index,
-        ours: block.ours.join("\n"),
-        theirs: block.theirs.join("\n"),
-        oursLines: block.ours,
-        theirsLines: block.theirs,
+        ours: oursLines.join("\n"),
+        theirs: theirsLines.join("\n"),
+        oursLines,
+        theirsLines,
         line: block.line,
       });
     }

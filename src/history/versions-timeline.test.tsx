@@ -236,4 +236,18 @@ describe("VersionsTimeline", () => {
     expect(question).toMatch(/replaces the project on Overleaf too, including co-authors' changes made there since this version/);
     expect(invoke).not.toHaveBeenCalledWith("git_restore_project", expect.anything());
   });
+
+  it("marks a version that is on Overleaf but not merged into the project yet", async () => {
+    const onOverleaf: GitLogEntry = {
+      hash: "ccc333", shortHash: "ccc333", authorName: "Co-author", timestamp: "2026-07-25T00:00:00Z",
+      message: "Fix the intro on Overleaf", files: [{ path: "intro.tex", kind: "modified" }], remoteOnly: true,
+    };
+    mockGitLog({ git_log: [onOverleaf, ...logEntries] });
+    renderVersions(<VersionsTimeline />);
+
+    const row = (await screen.findByRole("button", { name: /Fix the intro on Overleaf/ })).closest("li")!;
+    expect(within(row).getByText("On Overleaf, not merged yet")).toBeInTheDocument();
+    const merged = screen.getByRole("button", { name: /Tighten the abstract/ }).closest("li")!;
+    expect(within(merged).queryByText("On Overleaf, not merged yet")).not.toBeInTheDocument();
+  });
 });

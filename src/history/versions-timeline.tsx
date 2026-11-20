@@ -54,6 +54,7 @@ export function VersionRow(props: {
         <>
           <HistoryPerson name={entry.authorName || t`Unknown`} />
           <span className="history-row-count">{count === 1 ? t`1 file` : t`${formatCount(count)} files`}</span>
+          {entry.remoteOnly && <span className="history-row-count">{t`On Overleaf, not merged yet`}</span>}
         </>
       )}
       time={clockTime(at, i18n.locale)}
@@ -70,7 +71,7 @@ export function VersionRow(props: {
             className="history-tool"
             title={t`Restore project to this version`}
             aria-label={t`Restore project to this version`}
-            disabled={versions.busy}
+            disabled={versions.busy || entry.remoteOnly}
             onClick={() => void versions.restoreProject(entry.hash)}
           >
             <RotateCcw size={13} aria-hidden="true" />
@@ -199,7 +200,7 @@ function VersionBody(props: { entry: GitLogEntry; versions: GitVersions; project
             <RotateCcw size={12} /> {t`Restore this file`}
           </button>
         )}
-        <button type="button" className="version-action" disabled={versions.busy} onClick={() => void versions.restoreProject(entry.hash)}>
+        <button type="button" className="version-action" disabled={versions.busy || entry.remoteOnly} onClick={() => void versions.restoreProject(entry.hash)}>
           <RotateCcw size={12} /> {t`Restore project to this version`}
         </button>
       </div>

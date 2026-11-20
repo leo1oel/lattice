@@ -209,6 +209,11 @@ export function ConflictResolverDialog(props: {
   onClose: () => void;
   /** Called after the resolved file is written, so the editor can reload and sync can upload it. */
   onResolved: (path: string) => void;
+  /**
+   * False when saving sends nothing: in a git-synced project the resolved
+   * file goes up only when the merge is finished.
+   */
+  uploadsOnSave?: boolean;
 }) {
   const { t } = useLingui();
   const [content, setContent] = useState("");
@@ -427,8 +432,9 @@ export function ConflictResolverDialog(props: {
               {saving
                 ? t`Saving…`
                 : stage === "edit" || remaining === 0
-                  // A settled file is queued for upload (App's onResolved), so the button says so.
-                  ? t`Save and upload`
+                  // A settled file is queued for upload (App's onResolved), so the
+                  // button says so, unless a git merge still has to be finished.
+                  ? props.uploadsOnSave === false ? t`Save` : t`Save and upload`
                   : t`Save decided spots`}
             </MotionButton>
           )}

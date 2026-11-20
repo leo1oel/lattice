@@ -475,6 +475,7 @@ export type LocalCopy = {
 };
 /** The folder "Open from Overleaf" downloads into (`overleaf_download_parent`). */
 export type DownloadParent = LocalCopy;
+export type OverleafSyncVia = "rest" | "git";
 export type OverleafLink = {
   projectId: string;
   projectName: string;
@@ -482,6 +483,12 @@ export type OverleafLink = {
   lastSync: string | null;
   /** Linked, but not syncing until it is resumed. */
   paused: boolean;
+  /**
+   * How the project's files travel. "git" is Overleaf's git bridge: the
+   * project's own repository is synced, nothing commits for the writer, and
+   * there is no live editing.
+   */
+  syncVia: OverleafSyncVia;
 };
 type OverleafConflict = {
   path: string;
@@ -581,6 +588,16 @@ export type OverleafSyncResult = {
    */
   refusedIncoming?: string[];
   /**
+   * Git sync only: files with changes that are not committed, so did not go
+   * up. The writer commits their own work; a sync never does.
+   */
+  uncommitted?: string[];
+  /**
+   * Git sync only: a merge with Overleaf is open, waiting on the writer to
+   * resolve `conflicts` and finish it, or to cancel it.
+   */
+  mergeOpen?: boolean;
+  /**
    * Still marked up from an earlier conflict while Overleaf moved on again:
    * left as they are until resolved, then merged with Overleaf's newer edits.
    */
@@ -632,6 +649,8 @@ export type GitLogEntry = {
   timestamp: string;
   message: string;
   files: GitLogFile[];
+  /** On Overleaf's branch (fetched by a git sync) but not merged into this one yet. */
+  remoteOnly?: boolean;
 };
 export type GitFileDiff = {
   before: string | null;

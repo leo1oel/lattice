@@ -3,7 +3,7 @@
 import type { Commands } from "./app-test-utils";
 
 export const overleafLink = (link: object = {}) => ({
-  projectId: "ol-project", projectName: "Overleaf paper", host: "https://www.overleaf.com", lastSync: null, paused: false, ...link,
+  projectId: "ol-project", projectName: "Overleaf paper", host: "https://www.overleaf.com", lastSync: null, paused: false, syncVia: "rest", ...link,
 });
 export const overleafStatus = (status: object = {}) => ({
   connected: true, expired: false, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com", ...status,

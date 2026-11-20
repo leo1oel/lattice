@@ -53,6 +53,16 @@ describe("overleafSyncWarnings", () => {
     }]);
   });
 
+  it("says which files git sync left behind because they are not committed", () => {
+    expect(overleafSyncWarnings(result({ uncommitted: ["main.tex", "refs.bib"] }), vi.fn())).toEqual([{
+      message: "Not sent to Overleaf, because they are not committed: main.tex, refs.bib. Commit them, then sync again.",
+    }]);
+    const many = Array.from({ length: 7 }, (_, index) => `f${index}.tex`);
+    expect(overleafSyncWarnings(result({ uncommitted: many }), vi.fn())[0].message).toBe(
+      "Not sent to Overleaf, because they are not committed: f0.tex, f1.tex, f2.tex, f3.tex, f4.tex and 2 more. Commit them, then sync again.",
+    );
+  });
+
   it("says nothing for a sync whose uploads met no one else's edit", () => {
     expect(overleafSyncWarnings(result({ pushed: ["a.tex"], uploadedOverEdits: [] }), vi.fn())).toEqual([]);
   });

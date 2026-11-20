@@ -60,9 +60,9 @@ use lattice_core::{
     agent_literature, app_identity, app_state, citation_audit, citation_health,
     command_diagnostics, commands, diagnostic_logs, doctor, export, flashtex_preview, format_latex,
     fs_watch, git, harper, http, latex, link_preview, literature, literature_credentials,
-    live_preview, model_endpoint, models, overleaf, overleaf_rt, paper_pdf_proxy, papers,
-    pdf_pages, presentation, project, research_env, review_pdf, spelling, synara, terminal,
-    tex_setup, texcount, texlab, util, wide_event, zotero,
+    live_preview, model_endpoint, models, overleaf, overleaf_git_token, overleaf_rt,
+    paper_pdf_proxy, papers, pdf_pages, presentation, project, research_env, review_pdf, spelling,
+    synara, terminal, tex_setup, texcount, texlab, util, wide_event, zotero,
 };
 
 // Also the label Tauri gives the window declared in tauri.conf.json.
@@ -600,9 +600,14 @@ pub fn run() {
             ipc::overleaf_comments::overleaf_delete_thread,
             ipc::overleaf::overleaf_preview,
             ipc::overleaf::overleaf_set_paused,
+            ipc::overleaf::overleaf_set_sync_via,
+            ipc::overleaf::get_overleaf_git_token_status,
+            ipc::overleaf::set_overleaf_git_token,
             ipc::overleaf::overleaf_probe,
             ipc::overleaf::overleaf_restore_set_aside,
             ipc::overleaf::overleaf_sync,
+            ipc::overleaf::overleaf_git_finish_merge,
+            ipc::overleaf::overleaf_git_abort_merge,
             ipc::overleaf_realtime::overleaf_rt_connect,
             ipc::overleaf_realtime::overleaf_rt_disconnect,
             ipc::overleaf_realtime::overleaf_rt_join_doc,

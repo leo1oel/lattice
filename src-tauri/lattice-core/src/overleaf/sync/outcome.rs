@@ -109,6 +109,14 @@ pub struct OverleafSyncResult {
     /// by the sync that clears the rest.
     #[serde(default)]
     pub kept_folders: Vec<KeptFolder>,
+    /// Git sync only: files with changes that are not committed, so did not
+    /// go up. The writer commits their own work; a sync never does.
+    #[serde(default)]
+    pub uncommitted: Vec<String>,
+    /// Git sync only: a merge with Overleaf is open, waiting on the writer to
+    /// resolve `conflicts` and finish it, or to cancel it.
+    #[serde(default)]
+    pub merge_open: bool,
 }
 
 /// Of the files this sync holds marked up, those `state` (the last sync's)

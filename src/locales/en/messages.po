@@ -1551,6 +1551,10 @@ msgstr "A linked library must be a .bib file."
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 
+#: src/app/overleaf-git-merge.ts
+msgid "A merge with Overleaf is waiting on you"
+msgstr "A merge with Overleaf is waiting on you"
+
 #: src/platform/host-errors-setup.ts
 msgid "A model name is empty or has spaces in it."
 msgstr "A model name is empty or has spaces in it."
@@ -1968,6 +1972,14 @@ msgstr "Add to the main document's preamble: {lines}"
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
 msgstr "Add your first paper"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Add your Overleaf git token"
+msgstr "Add your Overleaf git token"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Add your Overleaf git token in Settings → Overleaf to sync through git."
+msgstr "Add your Overleaf git token in Settings → Overleaf to sync through git."
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -3371,9 +3383,18 @@ msgstr "Cancel download"
 msgid "Cancel installation"
 msgstr "Cancel installation"
 
+#: src/app/overleaf-git-merge.ts
+#: src/app/use-overleaf-workspace.ts
+msgid "Cancel merge"
+msgstr "Cancel merge"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "Cancel repair"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Cancel the merge with Overleaf?"
+msgstr "Cancel the merge with Overleaf?"
 
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
@@ -3703,6 +3724,10 @@ msgstr "Checking out files…"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
 msgstr "Checking the connection to {linkedHost}…"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Checking the keychain…"
+msgstr "Checking the keychain…"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
@@ -4870,6 +4895,10 @@ msgid "Could not be read: {failed}"
 msgstr "Could not be read: {failed}"
 
 #: src/overleaf/overleaf-connect.tsx
+msgid "Could not change how this project syncs"
+msgstr "Could not change how this project syncs"
+
+#: src/overleaf/overleaf-connect.tsx
 msgid "Could not change Overleaf sync"
 msgstr "Could not change Overleaf sync"
 
@@ -5176,6 +5205,10 @@ msgstr "Could not save {name}"
 msgid "Could not save the diagnostic log: {error}"
 msgstr "Could not save the diagnostic log: {error}"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Could not save the Overleaf git token"
+msgstr "Could not save the Overleaf git token"
+
 #: src/app/use-document-save.ts
 msgid "Could not save the project"
 msgstr "Could not save the project"
@@ -5408,6 +5441,10 @@ msgstr "Create a research project"
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Create file"
 msgstr "Create file"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Create one in Overleaf under Account Settings → Git integration. Git access needs a plan that includes it"
+msgstr "Create one in Overleaf under Account Settings → Git integration. Git access needs a plan that includes it"
 
 #: src/history/file-diff-view.tsx
 msgid "created"
@@ -6493,6 +6530,10 @@ msgstr "Enter a replacement"
 msgid "Enter a replacement key"
 msgstr "Enter a replacement key"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Enter a replacement token"
+msgstr "Enter a replacement token"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Enter a template name and a short version."
 msgstr "Enter a template name and a short version."
@@ -6616,6 +6657,10 @@ msgstr "Eta"
 #: src/project/arxiv-export.ts
 msgid "Every figure is included"
 msgstr "Every figure is included"
+
+#: src/app/overleaf-git-merge.ts
+msgid "Every marked spot is resolved. Finish the merge to send it up, or cancel it to put the project back as it was before this sync."
+msgstr "Every marked spot is resolved. Finish the merge to send it up, or cancel it to put the project back as it was before this sync."
 
 #: src/trellis/trellis-panel-views.tsx
 msgid "Every panel is closed"
@@ -7042,6 +7087,11 @@ msgstr "Finding each note on the PDF…"
 msgid "Finding it in the source…"
 msgstr "Finding it in the source…"
 
+#: src/app/overleaf-git-merge.ts
+#: src/app/use-overleaf-workspace.ts
+msgid "Finish merge"
+msgstr "Finish merge"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
 msgstr "Finish the current text composition, then switch projects again."
@@ -7376,6 +7426,11 @@ msgstr "Git (optional project status / commit panel)"
 msgid "git bridge"
 msgstr "git bridge"
 
+#: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
+msgid "Git bridge"
+msgstr "Git bridge"
+
 #. Search words for the Clone a Git repository command, space-separated
 #: src/app/use-command-table.ts
 msgid "git clone GitHub GitLab"
@@ -7397,6 +7452,24 @@ msgstr "Git isn’t installed. Install the Xcode Command Line Tools, then try ag
 #: src/settings/appearance-settings-pane.tsx
 msgid "Git status and commit"
 msgstr "Git status and commit"
+
+#: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
+msgid "Git sync"
+msgstr "Git sync"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Git sync needs it below before it can sync"
+msgstr "Git sync needs it below before it can sync"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Git sync needs the project folder to be its own git repository, not a folder inside another one."
+msgstr "Git sync needs the project folder to be its own git repository, not a folder inside another one."
+
+#: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
+msgid "Git token"
+msgstr "Git token"
 
 #: src/app/app-history-drawers.tsx
 msgid "Git workspace"
@@ -8752,6 +8825,10 @@ msgstr "Keep entry"
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Keep merging"
+msgstr "Keep merging"
+
 #: src/editor/conflict-choices.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Keep mine"
@@ -9549,6 +9626,10 @@ msgstr "Live editing unavailable, syncing instead"
 msgid "Live editing with Overleaf could not start ({detail}). Your project still syncs every few seconds."
 msgstr "Live editing with Overleaf could not start ({detail}). Your project still syncs every few seconds."
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Live editing, chat and comments are off. You commit your own changes; Sync fetches, merges and pushes them"
+msgstr "Live editing, chat and comments are off. You commit your own changes; Sync fetches, merges and pushes them"
+
 #: src/live-preview/live-preview-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Live preview"
@@ -10002,6 +10083,10 @@ msgstr "Merge \\input files into {rootDocument}"
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Merge cells"
 msgstr "Merge cells"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Merge with Overleaf cancelled"
+msgstr "Merge with Overleaf cancelled"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Mermaid"
@@ -11163,6 +11248,14 @@ msgstr "Not reviewed"
 msgid "Not saved"
 msgstr "Not saved"
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "Not sent to Overleaf, because they are not committed: {files} and {more} more. Commit them, then sync again."
+msgstr "Not sent to Overleaf, because they are not committed: {files} and {more} more. Commit them, then sync again."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Not sent to Overleaf, because they are not committed: {files}. Commit them, then sync again."
+msgstr "Not sent to Overleaf, because they are not committed: {files}. Commit them, then sync again."
+
 #: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -11383,6 +11476,10 @@ msgstr "On “{0}”"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "on line"
+
+#: src/history/versions-timeline.tsx
+msgid "On Overleaf, not merged yet"
+msgstr "On Overleaf, not merged yet"
 
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
@@ -11807,6 +11904,10 @@ msgid "Open the link in your browser and choose Join project on Overleaf, then p
 msgstr "Open the link in your browser and choose Join project on Overleaf, then paste it here again."
 
 #: src/overleaf/overleaf-connect.tsx
+msgid "Open the linked Overleaf project before changing how it syncs."
+msgstr "Open the linked Overleaf project before changing how it syncs."
+
+#: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "Open the linked Overleaf project before changing its sync setting."
 
@@ -11942,6 +12043,7 @@ msgstr "Outlined"
 msgid "Over arXiv’s size limit"
 msgstr "Over arXiv’s size limit"
 
+#: src/app/overleaf-git-merge.ts
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
@@ -11960,6 +12062,10 @@ msgstr "Overleaf acknowledged version {version} while this document is at {curre
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
 msgstr "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf changed while this was syncing. Sync again to merge those changes."
+msgstr "Overleaf changed while this was syncing. Sync again to merge those changes."
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf chat messages"
@@ -11997,6 +12103,10 @@ msgstr "Overleaf could not replay from the last version Lattice trusts"
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf created {host}/project/{id}, but Lattice could not link this folder: {error}"
 msgstr "Overleaf created {host}/project/{id}, but Lattice could not link this folder: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf did not accept the git token. Check it in Settings → Overleaf. Git access needs an Overleaf plan that includes the git integration."
+msgstr "Overleaf did not accept the git token. Check it in Settings → Overleaf. Git access needs an Overleaf plan that includes the git integration."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf did not report that document in this project."
@@ -12184,6 +12294,8 @@ msgid "Overleaf source pack"
 msgstr "Overleaf source pack"
 
 #: src/history/version-messages.ts
+#: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Overleaf sync"
 msgstr "Overleaf sync"
 
@@ -12229,8 +12341,20 @@ msgid "Overleaf's full history needs a paid plan on this project."
 msgstr "Overleaf's full history needs a paid plan on this project."
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's git bridge has no branch for this project yet."
+msgstr "Overleaf's git bridge has no branch for this project yet."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's git bridge has no such project. It may not be available for this account or host."
+msgstr "Overleaf's git bridge has no such project. It may not be available for this account or host."
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's history since the last sync is longer than Lattice reads at once."
 msgstr "Overleaf's history since the last sync is longer than Lattice reads at once."
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Overleaf’s own sync. Choose Git bridge to sync the project’s repository through Overleaf’s git bridge instead"
+msgstr "Overleaf’s own sync. Choose Git bridge to sync the project’s repository through Overleaf’s git bridge instead"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's project has an empty rootFolder."
@@ -12499,6 +12623,10 @@ msgstr "Paste the value"
 #: src/settings/model-endpoint-settings.tsx
 msgid "Paste your API key"
 msgstr "Paste your API key"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Paste your Overleaf git token"
+msgstr "Paste your Overleaf git token"
 
 #: src/project/project-file-tree.tsx
 #: src/project/project-tree-clipboard.ts
@@ -13654,6 +13782,11 @@ msgstr "Remove the {name} field"
 msgid "Remove theme"
 msgstr "Remove theme"
 
+#: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
+msgid "Remove token"
+msgstr "Remove token"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "removed"
 msgstr "removed"
@@ -14070,6 +14203,14 @@ msgstr "Resolve conflicts in {path}"
 #: src/platform/host-errors-overleaf.ts
 msgid "Resolve the conflict markers before publishing: {files}."
 msgstr "Resolve the conflict markers before publishing: {files}."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Resolve the conflicts in {files} first, then finish the merge."
+msgstr "Resolve the conflicts in {files} first, then finish the merge."
+
+#: src/app/overleaf-git-merge.ts
+msgid "Resolve the marked spots in {files}, then finish the merge to send it up. Cancel puts the project back as it was before this sync."
+msgstr "Resolve the marked spots in {files}, then finish the merge to send it up. Cancel puts the project back as it was before this sync."
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -14618,8 +14759,10 @@ msgstr "Saturation and brightness"
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/latex/citation-reason-editor.ts
+#: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
+#: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/plugins/plugin-settings.tsx
 #: src/settings/literature-settings.tsx
@@ -14797,6 +14940,11 @@ msgstr "Saved and synced"
 #: src/settings/model-endpoint-settings.tsx
 msgid "Saved in the keychain. Enter a new one to replace it."
 msgstr "Saved in the keychain. Enter a new one to replace it."
+
+#: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
+msgid "Saved in the system keychain"
+msgstr "Saved in the system keychain"
 
 #: src/canvas/status-save-state.tsx
 msgid "Saved on this Mac"
@@ -16147,6 +16295,11 @@ msgstr "Sync behavior"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
+msgid "Sync files with"
+msgstr "Sync files with"
+
+#: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Sync mode"
 msgstr "Sync mode"
 
@@ -16502,6 +16655,10 @@ msgstr "That cookie did not open the Overleaf dashboard. Copy a fresh session co
 #: src/settings/literature-settings.tsx
 msgid "That didn’t work. Check the input and keychain access"
 msgstr "That didn’t work. Check the input and keychain access"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "That does not look like an Overleaf git token."
+msgstr "That does not look like an Overleaf git token."
 
 #: src/platform/host-errors-workspace.ts
 msgid "That file is not part of this history entry."
@@ -17116,6 +17273,10 @@ msgstr "The folder to clone into doesn’t exist"
 msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
 msgstr "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "The git token is empty."
+msgstr "The git token is empty."
+
 #: src/papers/audit-messages.ts
 msgid "The inline reference agrees with the verified record."
 msgstr "The inline reference agrees with the verified record."
@@ -17474,6 +17635,10 @@ msgstr "The project closed before the comment was saved."
 #: src/app/use-apply-open-slide-mutation.ts
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "The project closed before the Open Slide edit could be saved."
+
+#: src/app/use-overleaf-workspace.ts
+msgid "The project goes back to how it was before this sync, and the spots you resolved are discarded. Overleaf keeps its changes; the next sync brings them in again."
+msgstr "The project goes back to how it was before this sync, and the spots you resolved are discarded. Overleaf keeps its changes; the next sync brings them in again."
 
 #: src/app/app-submission-dialogs.tsx
 msgid "The project or its permissions changed. Check references again."
@@ -17848,6 +18013,10 @@ msgstr "There is no entry “{key}” in {file}."
 #: src/plugins/plugin-bib.ts
 msgid "There is no entry “{key}” to update any more."
 msgstr "There is no entry “{key}” to update any more."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes."
+msgstr "There is no merge with Overleaf to finish. Sync to bring in Overleaf's changes."
 
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "There is no text to comment on in this selection."
@@ -18227,6 +18396,18 @@ msgstr "This project is not inside a Git repository."
 msgid "This project is not linked to an Overleaf project."
 msgstr "This project is not linked to an Overleaf project."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "This project is not set to sync through git."
+msgstr "This project is not set to sync through git."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "This project syncs through git, so there is no Overleaf preview. Review the changes with git."
+msgstr "This project syncs through git, so there is no Overleaf preview. Review the changes with git."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "This project syncs through git, which has no live editing. Switch back to Overleaf sync in Settings → Overleaf to edit live."
+msgstr "This project syncs through git, which has no live editing. Switch back to Overleaf sync in Settings → Overleaf to edit live."
+
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
 msgid "This project syncs with “{0}”"
@@ -18243,6 +18424,10 @@ msgstr "This project's annotations are still being read. Try again in a moment."
 #: src/app/use-editor-comments.ts
 msgid "This project's annotations could not be read, so changes to them are not saved: {error}"
 msgstr "This project's annotations could not be read, so changes to them are not saved: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "This project's Overleaf id is not valid for git."
+msgstr "This project's Overleaf id is not valid for git."
 
 #: src/canvas/annotation-review.tsx
 msgid "This proposal has been decided."

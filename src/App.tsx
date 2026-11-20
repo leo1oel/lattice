@@ -678,9 +678,10 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     setBibliographyAuditOpen(true);
   };
   // Manual mode is a review step, not a button that quietly rewrites files:
-  // show what would change and let the user decide.
+  // show what would change and let the user decide. A git-synced project has
+  // no Overleaf preview (git itself is the review), so it syncs directly.
   const syncOverleaf = () => {
-    if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
+    if (overleafSyncMode === "manual" && overleafLink?.syncVia !== "git") setOverleafReviewOpen(true);
     else void runOverleafSync();
   };
   const saveSlot = useSaveSlot(documents, overleaf, syncOverleaf);

@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { logAction } from "../telemetry/app-notify";
+import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { showError, showNotice, showWarning } from "./notify";
 import { clearTimer, restartTimer, visibleInterval } from "./effect-helpers";
@@ -48,6 +49,8 @@ type OverleafSyncOptions = {
   observedRemoteVersion?: number | null;
   /** Whole-file editors normally stay protected; these paths are ready to flush. */
   includeWholeFilePaths?: readonly string[];
+  /** Git sync: conclude the merge a sync stopped on, instead of a plain sync. */
+  finishMerge?: boolean;
 };
 
 /** Quiet time after a save before local work is pushed up. */
@@ -125,7 +128,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     collabTab: overleafCollabTab, conflictPath, selfId: overleafSelfId, docPaths: overleafDocPaths,
   } = useStoreSlice(overleafStore, bridgeFields);
   // Every window's, so a switch to manual in one stops live syncing in all.
-  const [overleafSyncMode] = useSharedSetting(overleafSyncModeSetting);
+  const [sharedSyncMode] = useSharedSetting(overleafSyncModeSetting);
   const {
     setLinkFor: setOverleafLinkFor, setSyncing: setOverleafSyncing, setRemoteChanges: setOverleafRemoteChanges,
     setPickerOpen: setOverleafPickerOpen, setReviewOpen: setOverleafReviewOpen, setCollabOpen: setOverleafCollabOpen,
@@ -134,6 +137,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const overleafLinkLoadGenerationRef = useRef(0);
   const currentOverleafLink = overleafLinkFor?.root === project?.root ? overleafLinkFor : null;
   const overleafLink = currentOverleafLink?.active ? currentOverleafLink.link : null;
+  // Git has no live channel and nothing in it syncs on its own, so such a
+  // project behaves as manual whatever the shared setting says.
+  const overleafGitSync = overleafLink?.syncVia === "git";
+  const overleafSyncMode = overleafGitSync ? "manual" : sharedSyncMode;
   const overleafProjectLinked = currentOverleafLink !== null;
   const overleafStartupCheckedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: OverleafSyncOptions) => Promise<void>>(async () => {});
@@ -259,13 +266,37 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   const settleRemoteDeletes = useOverleafRemoteDeletes(overleafRemoteDeletePolicy, overleafEntitiesRef, projectGuard);
 
+  /** Cancel the merge a git sync stopped on (overleaf-git-merge.ts, loaded only once one is open). */
+  const cancelOverleafGitMerge = useCallback(async () => {
+    if (!project || overleafSyncingRef.current) return;
+    const root = project.root;
+    const generation = projectOperationGenerationRef.current;
+    const stillCurrent = projectGuard(root, generation);
+    const { cancelOverleafGitMerge: cancel } = await import("./overleaf-git-merge");
+    await cancel({
+      projectRoot: root,
+      stillCurrent,
+      save,
+      reload: async () => {
+        setConflictPath(null);
+        await refreshProject({ expectedRoot: root, generation });
+        const active = activeFileRef.current;
+        if (active && stillCurrent()) {
+          await loadFile(active, { restoreView: false, expectedProjectRoot: root, projectGeneration: generation });
+        }
+      },
+    });
+  }, [activeFileRef, loadFile, overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshProject, save, setConflictPath]);
+
   const runOverleafSync = useCallback(async (options?: OverleafSyncOptions) => {
     if (!project || overleafSyncingRef.current) return;
     const syncRoot = project.root;
     const syncGeneration = projectOperationGenerationRef.current;
     const stillCurrent = projectGuard(syncRoot, syncGeneration);
     const release = holdSyncGate();
-    const trace = logAction("Overleaf", t`Sync`, options?.auto ? t`automatic` : t`requested`, SYNC_OPERATION);
+    // Finishing a merge reports as itself, so a refusal reads "Finish merge failed".
+    const action = options?.finishMerge ? t`Finish merge` : t`Sync`;
+    const trace = logAction("Overleaf", action, options?.auto ? t`automatic` : t`requested`, SYNC_OPERATION);
     // Saving below clears the dirty flag, cancelling the pending autosave
     // compile; remember it so the PDF still catches up with the edit.
     const hadUnsavedEdits = sourceRef.current !== savedSourceRef.current;
@@ -275,11 +306,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       const livePaths = currentOverleafLivePaths(options?.auto ? options.includeWholeFilePaths : wholeFileEditingPathsRef.current);
       const externalBatch = new Map(externalChangesRef.current);
       const reviewed = await reviewMode.beforeSync();
-      const result = await diagnosticInvoke<OverleafSyncResult>("overleaf_sync", {
-        projectRoot: syncRoot,
-        live: livePaths,
-        observedRemoteVersion: options?.observedRemoteVersion ?? null,
-      }, { operationId: trace.id });
+      const result = options?.finishMerge
+        ? await diagnosticInvoke<OverleafSyncResult>("overleaf_git_finish_merge", { projectRoot: syncRoot }, { operationId: trace.id })
+        : await diagnosticInvoke<OverleafSyncResult>("overleaf_sync", {
+          projectRoot: syncRoot,
+          live: livePaths,
+          observedRemoteVersion: options?.observedRemoteVersion ?? null,
+        }, { operationId: trace.id });
       if (!stillCurrent()) return;
       overleafTransportRetryRef.current = false;
       overleafRefusalsRef.current = 0;
@@ -369,9 +402,23 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       if (!options?.auto || result.pulled.length || result.pushed.length || result.merged.length) {
         trace.ok(overleafSyncSummary(result));
       } else trace.finish("success", overleafSyncSummary(result));
+      // A merge a git sync stopped on blocks every later one until it is
+      // finished or cancelled, so both stay on offer until one is taken.
+      // Offered once this sync is done: a Finish pressed while it still ran
+      // would find the sync gate shut and do nothing. The offer's module
+      // loads only for a git-synced project, for the eager-JS budget.
+      if (result.mergeOpen) {
+        void import("./overleaf-git-merge").then(({ showOverleafGitMerge }) => showOverleafGitMerge(result, {
+          finish: () => void overleafSyncRef.current({ finishMerge: true }),
+          cancel: () => void cancelOverleafGitMerge(),
+        }));
+      } else if (overleafGitSync) {
+        void import("./overleaf-git-merge").then(({ MERGE_TOAST }) => dismissAppToastByDedupeKey(MERGE_TOAST));
+      }
       // Only a real content change becomes a version: committing a no-op woke
-      // the filesystem watcher and reloaded unrelated previews.
-      if (incoming || hadUnsavedEdits || result.pushed.length > 0) {
+      // the filesystem watcher and reloaded unrelated previews. A project that
+      // syncs through git is committed by its writer alone.
+      if (!overleafGitSync && (incoming || hadUnsavedEdits || result.pushed.length > 0)) {
         void invoke<string | null>("git_auto_commit", {
           message: AUTO_COMMIT_MESSAGES.overleafSync, author: null, projectRoot: syncRoot,
         }).catch(() => {});
@@ -422,8 +469,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       release();
     }
   }, [
-    activeFileRef, compile, currentOverleafLivePaths, holdSyncGate, loadFile, oweSync, openOverleafSettingsRef, openProjectFile,
-    overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
+    activeFileRef, cancelOverleafGitMerge, compile, currentOverleafLivePaths, holdSyncGate, loadFile, oweSync, openOverleafSettingsRef,
+    openProjectFile,
+    overleafGitSync, overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
     save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
   ]);
 
@@ -516,7 +564,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // Editing through Overleaf's own channel.
   const overleafRealtime = useOverleafRealtime({
     store: overleafStore,
-    enabled: overleafLink !== null,
+    // Git has no live channel: nothing here would write behind the repository.
+    enabled: overleafLink !== null && !overleafGitSync,
     documents: overleafSyncMode === "live",
     projectRoot: project?.root ?? null,
     // Whole-file editors (slides, boards, sheets) serialize at once; character OT would compete.
@@ -643,8 +692,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       .map(({ name, hue, row, column }) => ({ name: name || t`Anonymous`, hue, row, column }));
   }, [activeAsset, activeFile, activePaper, overleafDocPaths, overleafPresence.peers, overleafPresence.reconnecting, overleafRealtime.docId, t]);
 
-  // Chat, comment threads and suggestions ride the linked project's channel.
-  const overleafChannel = { enabled: overleafLink !== null, projectRoot: project?.root ?? null };
+  // Chat, comment threads and suggestions ride the linked project's channel,
+  // which a project syncing through git does not open.
+  const overleafChannel = { enabled: overleafLink !== null && !overleafGitSync, projectRoot: project?.root ?? null };
   const overleafChat = useOverleafChat(overleafChannel);
 
   // Where each thread sits in the live document: the channel's copy moves with
@@ -753,11 +803,12 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     };
   }, [overleafLink, overleafSyncMode, project?.root, setOverleafRemoteChanges]);
 
-  useBuildAutoversion(build, overleafLink);
+  // A git-synced project is committed by its writer alone.
+  useBuildAutoversion(build, overleafGitSync ? null : overleafLink);
 
   return {
     overleafLink, overleafProjectLinked, overleafSyncing,
-    overleafSyncMode,
+    overleafSyncMode, overleafGitSync,
     overleafRemoteChanges, setOverleafRemoteChanges,
     overleafPickerOpen, setOverleafPickerOpen,
     overleafReviewOpen, setOverleafReviewOpen,
@@ -768,7 +819,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     overleafSyncRef, overleafSyncingRef,
     refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync, settleRemoteDeletes,
     openCurrentOverleafProject, jumpToOverleafPeer,
-    overleafRealtime, overleafPresence, overleafChat, overleafComments,
+    // The editor is writable only while the channel says so, and a git-synced
+    // project has none: nothing on Overleaf's side decides what is editable.
+    overleafRealtime: overleafGitSync ? { ...overleafRealtime, canWrite: true } : overleafRealtime,
+    overleafPresence, overleafChat, overleafComments,
     /** The comment handlers in App reach the newest actions through this ref. */
     overleafCommentsRef,
     overleafTrackChanges, overleafDocPaths, overleafEditorComments, overleafActiveCursors,

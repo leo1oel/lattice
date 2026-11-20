@@ -14,6 +14,7 @@ use std::process::{Command, Output};
 use std::sync::{LazyLock, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+pub mod bridge;
 pub mod clone;
 mod compare;
 mod parse;
@@ -160,7 +161,7 @@ pub fn log(root: &Path, limit: usize) -> Result<Vec<GitLogEntry>, String> {
     // A project can sit inside a larger repository: `-- .` keeps the commits
     // that touched the folder and `--relative` names their files from it, as
     // every other command here reads them.
-    let args = [
+    let mut args = vec![
         "log",
         "--no-ext-diff",
         "--no-textconv",
@@ -169,10 +170,23 @@ pub fn log(root: &Path, limit: usize) -> Result<Vec<GitLogEntry>, String> {
         "-M",
         &limit_arg,
         format,
-        "--",
-        ".",
     ];
-    Ok(parse_log(&git_output(root, &args)?))
+    // What a git sync fetched from Overleaf belongs to the paper's history
+    // before it is merged in, so it is listed beside this branch's own.
+    let remote = bridge::remote_tip(root);
+    if let Some(remote) = &remote {
+        args.extend(["HEAD", remote.as_str()]);
+    }
+    args.extend(["--", "."]);
+    let mut entries = parse_log(&git_output(root, &args)?);
+    if let Some(remote) = &remote {
+        let unmerged = git_output(root, &["rev-list", &format!("HEAD..{remote}")])?;
+        let unmerged: HashSet<&str> = unmerged.lines().map(str::trim).collect();
+        for entry in &mut entries {
+            entry.remote_only = unmerged.contains(entry.hash.as_str());
+        }
+    }
+    Ok(entries)
 }
 
 pub fn show_diff(root: &Path, rev: &str, path: &str) -> Result<GitFileDiff, String> {
@@ -538,6 +552,9 @@ pub struct GitLogEntry {
     pub timestamp: String,
     pub message: String,
     pub files: Vec<GitLogFile>,
+    /// On Overleaf's branch (fetched by a git sync) but not merged into this
+    /// one yet.
+    pub remote_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -502,3 +502,38 @@ describe("Overleaf live polling off screen", () => {
     }
   });
 });
+
+describe("a project that syncs through git", () => {
+  it("opens no live channel, syncs only on request, and never commits for the writer", async () => {
+    try {
+      const { view, advance, synced } = mountWorkspace("live", () => {
+        const web = vi.mocked(invoke).getMockImplementation()!;
+        vi.mocked(invoke).mockImplementation(async (command, args) => {
+          // The token, not a web session, is what git sync signs in with.
+          if (command === "overleaf_link") return { projectId: "ol-paper", projectName: "Paper", host: "https://www.overleaf.com", paused: false, syncVia: "git" };
+          if (command === "overleaf_status") return { connected: false, expired: false, host: "https://www.overleaf.com" };
+          return web(command, args);
+        });
+      });
+      await waitFor(() => expect(view.result.current.overleafLink?.syncVia).toBe("git"));
+      // Whatever the shared setting says, nothing syncs by itself.
+      expect(view.result.current.overleafSyncMode).toBe("manual");
+      // No live channel says who may write, yet the editor must not fail closed to read-only.
+      expect(view.result.current.overleafRealtime.status).toBe("off");
+      expect(view.result.current.overleafRealtime.canWrite).toBe(true);
+
+      // The sync reports a pushed file, which would be committed for the writer on the web sync.
+      await act(async () => { await view.result.current.runOverleafSync(); });
+      expect(synced()).toBe(true);
+      const syncs = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync").length;
+      const before = syncs();
+      await advance(60_000);
+
+      expect(syncs()).toBe(before);
+      expect(invoke).not.toHaveBeenCalledWith("git_auto_commit", expect.anything());
+      expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "overleaf_rt_connect")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

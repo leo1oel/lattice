@@ -46,6 +46,16 @@ export function overleafSyncWarnings(
   if (files) {
     warnings.push(t`Kept your copy of ${files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again.`);
   }
+  // Git sync sends commits, never loose edits, so what is not committed is
+  // still only here. Said plainly: to the writer it looks synced.
+  const uncommitted = result.uncommitted ?? [];
+  if (uncommitted.length) {
+    files = uncommitted.slice(0, 5).join(", ");
+    const more = uncommitted.length - 5;
+    warnings.push(more > 0
+      ? t`Not sent to Overleaf, because they are not committed: ${files} and ${more} more. Commit them, then sync again.`
+      : t`Not sent to Overleaf, because they are not committed: ${files}. Commit them, then sync again.`);
+  }
   // Without the live channel a document goes up whole, and someone's edit
   // reached the project while one did. Which file they were in is not known,
   // so this says "may", and points to where their words are kept.
