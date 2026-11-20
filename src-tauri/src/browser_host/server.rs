@@ -184,16 +184,35 @@ fn allow_origin(response: &mut Response, origin: &str) {
     }
 }
 
+/// Whether a bridge upgrade comes from the page `role` belongs to: the tab
+/// from the session's browser origin, the hidden host from Lattice's bundled
+/// frontend (`app_origins`). A browser always sends `Origin` on a WebSocket
+/// handshake and no page can set it, so a missing one is refused as well.
+/// Without the host's check, any site holding a session token could attach as
+/// the host, displace the real one and read and answer every IPC call of the
+/// tab.
+fn bridge_origin_allowed(
+    headers: &HeaderMap, session: &BrowserSession, role: session::BridgeRole,
+    app_origins: &[String],
+) -> bool {
+    let origin = headers.get(header::ORIGIN).and_then(|origin| origin.to_str().ok());
+    match role {
+        session::BridgeRole::Browser => origin == Some(session.browser_origin.as_str()),
+        session::BridgeRole::Host => {
+            origin.is_some_and(|origin| app_origins.iter().any(|allowed| allowed == origin))
+        }
+    }
+}
+
 async fn upgrade_bridge(
     State(state): State<ServerState>, Query(query): Query<BridgeQuery>, headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
+    let app_origins = crate::ipc::terminal::local_origins(&state.app);
     let allowed = valid_loopback_host(&headers, state.port)
         && state.sessions.lock().ok().is_some_and(|sessions| {
             sessions.get(&query.token).is_some_and(|session| {
-                query.role == session::BridgeRole::Host
-                    || headers.get(header::ORIGIN).and_then(|origin| origin.to_str().ok())
-                        == Some(session.browser_origin.as_str())
+                bridge_origin_allowed(&headers, session, query.role, &app_origins)
             })
         });
     if !allowed {
@@ -396,6 +415,33 @@ mod tests {
                 "{host} {request_origin}"
             );
         }
+    }
+
+    #[test]
+    fn bridge_peers_must_come_from_their_own_page() {
+        use session::BridgeRole::{Browser, Host};
+        let browser = "http://127.0.0.1:18452";
+        let app = ["tauri://localhost".to_string(), "http://tauri.localhost".to_string()];
+        let session = BrowserSession::new("browser-host-1".to_string(), browser.to_string());
+        let upgrade = |origin: Option<&str>, role| {
+            let mut headers = HeaderMap::new();
+            if let Some(origin) = origin {
+                headers.insert(header::ORIGIN, origin.parse().unwrap());
+            }
+            bridge_origin_allowed(&headers, &session, role, &app)
+        };
+        assert!(upgrade(Some("tauri://localhost"), Host));
+        assert!(upgrade(Some("http://tauri.localhost"), Host));
+        assert!(upgrade(Some(browser), Browser));
+        // A foreign site, the browser tab itself, or no Origin at all, cannot be the host.
+        assert!(!upgrade(Some("https://attacker.example"), Host));
+        assert!(!upgrade(Some("null"), Host));
+        assert!(!upgrade(Some(browser), Host));
+        assert!(!upgrade(None, Host));
+        // Nor can they be the tab, and the app's own origin is not the tab either.
+        assert!(!upgrade(Some("https://attacker.example"), Browser));
+        assert!(!upgrade(Some("tauri://localhost"), Browser));
+        assert!(!upgrade(None, Browser));
     }
 
     #[test]
