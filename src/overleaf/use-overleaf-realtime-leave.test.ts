@@ -98,4 +98,14 @@ describe("leaving a project before the window switches", () => {
     expect(joinsOf(DOC_A)).toHaveLength(2);
     expect(view.result.current.livePaths).toEqual(["a.tex"]);
   });
+
+  it("leaves a live document alone when a switch that never left is undone", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const view = await mountLive({ projectRoot: A, onRemoteText: () => true });
+    act(() => { view.result.current.rejoin(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(joinsOf(DOC_A)).toHaveLength(1);
+    expect(leavesFor(A)).toHaveLength(0);
+    expect(view.result.current.liveFile).toBe(true);
+  });
 });

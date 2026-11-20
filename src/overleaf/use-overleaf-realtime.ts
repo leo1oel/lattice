@@ -169,10 +169,9 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
   /**
    * Say whether the open document holds local work Overleaf has not
    * acknowledged: typing not yet sent, an operation on the wire or queued
-   * behind one, or a send whose outcome is unknown. Being
-   * connected is not the same as being synchronized, and the save slot only
-   * says "Synced" once this is false. Called wherever one of those changes,
-   * as they all live in refs and OtDocument, which React does not watch.
+   * behind one, or a send of unknown outcome. The save slot says "Synced"
+   * only once this is false. Called wherever one of those changes: they
+   * live in refs and OtDocument, which React does not watch.
    */
   const publishUnacknowledged = useCallback(() => {
     const id = docId.current;
@@ -971,7 +970,8 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
     pushLocal,
     /** Before the window leaves its project (#1208). */
     leaveProject: () => loadLeave().then(({ leaveEveryDocument }) => leaveEveryDocument({ root: connectionRoot, documents, leaving, stopDocument, release })),
-    rejoin: bumpReloadNonce,
+    /** Undo leaveProject unless a doc is open. */
+    rejoin: () => docId.current ?? bumpReloadNonce(),
     suspendPaths,
     resumePaths,
     anchorComment,

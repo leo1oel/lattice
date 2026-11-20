@@ -661,8 +661,7 @@ impl Shell {
             };
             if saved {
                 // Live editing hands its documents back while this project
-                // is still shown (#1208), and takes the shown one up again
-                // when the open fails.
+                // is still shown (#1208).
                 let left = this.update(cx, |this, cx| {
                     this.overleaf
                         .update(cx, |bridge, cx| bridge.leave_before_switch(cx))
@@ -671,13 +670,15 @@ impl Shell {
                     left.await;
                 }
                 Self::enter_opened(&this, root, closing, cx).await;
-                this.update(cx, |this, cx| {
-                    let editor = this.active_editor();
-                    this.overleaf
-                        .update(cx, |bridge, cx| bridge.editor_shown(editor.as_ref(), cx));
-                })
-                .ok();
             }
+            // Ended however it went, a failed save included, and by the last
+            // open asked for when one replaced another mid-switch.
+            this.update(cx, |this, cx| {
+                let editor = this.active_editor();
+                this.overleaf
+                    .update(cx, |bridge, cx| bridge.switch_ended(editor.as_ref(), cx));
+            })
+            .ok();
             // The welcome screen may say the project is opening (an Overleaf
             // download's, `PickerEvent::Open`): the open has settled.
             this.update(cx, |this, cx| this.set_busy(None, cx)).ok();
