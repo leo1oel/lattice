@@ -1,0 +1,1 @@
+import{S as e,_ as t,v as n}from"./pdf-reader-Ci7M0oT8.js";import{t as r}from"./pdfjs-runtime-CDYsoNuG.js";r();export{t as PDFDataRangeTransport,n as PDFDateString,e as getDocument};
