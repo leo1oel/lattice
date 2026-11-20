@@ -52,7 +52,8 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   agentVisible: boolean;
   bridge: SynaraHostBridge;
   openProject?: (root: string) => Promise<boolean>;
-  trellis?: Pick<TrellisController, "showPanel" | "ui">;
+  /** Where the Agent panel shows and takes the width its composer needs: the window's TrellisController, or the GPUI page's stand-in. */
+  trellis?: Pick<TrellisController, "showPanel"> & { ui: { set: (patch: { agentMinWidth: number }) => void } };
   /** What the agent's host-theme snapshot is read from (agent-host-theme.ts). */
   appearance: Parameters<typeof readAgentHostTheme>[0];
 }) {
