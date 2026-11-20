@@ -53,6 +53,10 @@
       "zh": "Overleaf 同步不再卡在 Overleaf 不接受的文件名上（例如含反斜杠的文件名）：这个文件留在本机，其他文件照常同步，并有一条提示说明是哪个文件以及原因。Lattice 也不会再把参考文献写到这样的路径。"
     },
     {
+      "en": "Switching a window to another project while an Overleaf file is open no longer shows a false \"Could not hand this file back to Overleaf sync\" notice.",
+      "zh": "在打开 Overleaf 文件时把窗口切换到另一个项目，不会再误报「此文件暂停同步」。"
+    },
+    {
       "en": "In the native Lattice, pasting or typing in the Agent's message box while a .tex file is open goes to the message box, not into the document.",
       "zh": "在原生 Lattice 中，打开 .tex 文件时在 AI 助手的输入框里粘贴或输入，内容会进入输入框，而不是文档。"
     },
