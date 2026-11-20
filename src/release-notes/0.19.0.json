@@ -47,6 +47,17 @@
       }
     },
     {
+      "icon": "feather",
+      "title": {
+        "en": "Live preview in the PDF's separate window",
+        "zh": "PDF 独立窗口中的实时预览"
+      },
+      "body": {
+        "en": "The PDF's separate window now shows the live preview too, updating as you type, just like the PDF beside the editor. This works in the native Lattice as well.",
+        "zh": "PDF 的独立窗口现在也会显示实时预览，随输入更新，和编辑器旁的 PDF 一样。原生 Lattice 中也是如此。"
+      }
+    },
+    {
       "icon": "git",
       "title": {
         "en": "Lattice Beta is now Lattice",
