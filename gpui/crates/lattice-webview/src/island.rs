@@ -287,6 +287,12 @@ impl Island {
         self.page_focused
     }
 
+    /// Whether the page's view holds AppKit's keyboard now (macOS; false
+    /// where the platform cannot say), for the scripted checks.
+    pub fn holds_keyboard(&self, cx: &App) -> bool {
+        self.native_focus(cx) == Some(true)
+    }
+
     pub fn stats(&self) -> &IslandStats {
         &self.stats
     }
@@ -664,7 +670,13 @@ impl Island {
         };
         let handle = webview.read(cx).focus_handle(cx);
         if self.page_focused && !handle.is_focused(window) {
-            if let Err(error) = webview.read(cx).focus_parent() {
+            // Only while the page's view still has it: another page's view
+            // that has just taken it (a click from the Agent's composer into
+            // the HTML preview) keeps it, or GPUI would show the preview
+            // focused while its keys went to GPUI's view.
+            if self.native_focus(cx) != Some(false)
+                && let Err(error) = webview.read(cx).focus_parent()
+            {
                 log::warn!("{}: focus_parent: {error}", self.config.name);
             }
             self.page_focused = false;
