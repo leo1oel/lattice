@@ -536,6 +536,8 @@ impl Run {
                 island.bounds(cx).map(|b| f32::from(b.size.width)),
             )
         });
+        self.keyboard_between_source_and_page(cx, steps, panel, &island)
+            .await?;
         self.with_window(cx, set(DocumentView::Preview))?;
         self.pause(cx, Duration::from_millis(400)).await;
         let (preview_shown, preview_width) = cx.update(|cx| {

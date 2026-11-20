@@ -84,7 +84,11 @@ pub(crate) fn refuse_keyboard_while_hidden(webview: &WebView, window: &gpui::Win
             else {
                 return Bool::YES;
             };
-            msg_send![super(this, superclass), becomeFirstResponder]
+            let became: Bool = msg_send![super(this, superclass), becomeFirstResponder];
+            if became.as_bool() {
+                took_keyboard(std::ptr::from_ref(this).addr());
+            }
+            became
         }
     }
 
@@ -160,6 +164,59 @@ pub(crate) fn refuse_keyboard_while_hidden(webview: &WebView, window: &gpui::Win
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn refuse_keyboard_while_hidden(_: &WebView, _: &gpui::Window) {}
+
+/// Each page's view, by address, and its island's ear for
+/// [`watch_keyboard`]; an entry whose island is gone drops at the next send
+/// or watch.
+#[cfg(target_os = "macos")]
+type KeyboardWatchers = Vec<(usize, futures::channel::mpsc::UnboundedSender<()>)>;
+
+#[cfg(target_os = "macos")]
+thread_local! {
+    static KEYBOARD_WATCHERS: std::cell::RefCell<KeyboardWatchers> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// A message, each time the page's view becomes AppKit's first responder (a
+/// click in it, or WebKit focusing an element of its own), for its island to
+/// give GPUI's focus to the page. The page's bridge cannot be relied on for
+/// it: when the page's keyboard is in a child frame (the Agent's Synara
+/// composer, the HTML preview's sandboxed document), the focus and blur the
+/// view's first responder changes bring reach that frame alone, never the
+/// main frame the bridge listens in, and a press in it never reaches the
+/// main frame either. GPUI's focus then stayed on the .tex editor: its caret
+/// kept blinking beside the composer's and it took the composer's ⌘V.
+/// Only once [`refuse_keyboard_while_hidden`] has put the methods on Wry's
+/// class; `None` off macOS.
+#[cfg(target_os = "macos")]
+pub(crate) fn watch_keyboard(
+    webview: &WebView,
+) -> Option<futures::channel::mpsc::UnboundedReceiver<()>> {
+    use wry::WebViewExtMacOS as _;
+    let view = objc2::rc::Retained::as_ptr(&webview.raw().webview()).addr();
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    KEYBOARD_WATCHERS.with(|watchers| {
+        let mut watchers = watchers.borrow_mut();
+        watchers.retain(|(watched, sender)| *watched != view && !sender.is_closed());
+        watchers.push((view, sender));
+    });
+    Some(receiver)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn watch_keyboard(_: &WebView) -> Option<futures::channel::mpsc::UnboundedReceiver<()>> {
+    None
+}
+
+/// The view at `view` became first responder: tell its island.
+#[cfg(target_os = "macos")]
+fn took_keyboard(view: usize) {
+    KEYBOARD_WATCHERS.with(|watchers| {
+        watchers
+            .borrow_mut()
+            .retain(|(watched, sender)| *watched != view || sender.unbounded_send(()).is_ok());
+    });
+}
 
 /// Whether AppKit's first responder is the page's view or inside it.
 #[cfg(target_os = "macos")]

@@ -11,7 +11,10 @@ use gpui_webview::WebView;
 use super::{DRAWN_POLL, Island, IslandState};
 use crate::{
     bridge,
-    native::{keep_drawing_when_occluded, lab_ignore_occlusion, refuse_keyboard_while_hidden},
+    native::{
+        keep_drawing_when_occluded, lab_ignore_occlusion, refuse_keyboard_while_hidden,
+        watch_keyboard,
+    },
     navigation::{navigable, origin_of},
     protocol,
 };
@@ -191,6 +194,22 @@ impl Island {
             token,
         } = built;
         refuse_keyboard_while_hidden(&webview, window);
+        self._keyboard = watch_keyboard(&webview).map(|mut took| {
+            cx.spawn_in(window, async move |this, cx| {
+                while took.next().await.is_some() {
+                    let alive = this.update_in(cx, |this, window, cx| {
+                        // Asked again: the message comes after the view took
+                        // the keyboard, which it may have given up since.
+                        if this.native_focus(cx) == Some(true) {
+                            this.set_page_focused(true, window, cx);
+                        }
+                    });
+                    if alive.is_err() {
+                        break;
+                    }
+                }
+            })
+        });
         if lab_ignore_occlusion() {
             keep_drawing_when_occluded(&webview);
         }
