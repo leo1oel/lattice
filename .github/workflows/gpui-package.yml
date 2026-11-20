@@ -2,16 +2,30 @@ name: GPUI package
 
 # Builds, signs and notarizes the GPUI app for Apple silicon macOS and keeps
 # the result as this run's artifact: the .dmg, the .zip, and the updater's
-# .app.tar.gz with its .sig and the GPUI channel's latest.json
-# (scripts/gpui-bundle.mjs, gpui/docs/updater.md). It runs only on demand
-# (Actions > GPUI package > Run workflow) and publishes nothing: no release,
-# no tag, no upload to the lattice-beta prerelease. The Tauri release path
-# (release.yml) is untouched; this reads the same secrets the same way.
+# .app.tar.gz with its .sig and the flavor's manifest for it
+# (scripts/gpui-bundle.mjs, gpui/docs/updater.md). The flavor is Lattice Beta
+# (Lattice-Beta_* files, latest.json) or Lattice, the native app under the
+# Tauri app's identity (Lattice-native_* files, latest-native.json;
+# scripts/gpui-bundle.mjs FLAVORS). It runs on demand (Actions > GPUI package
+# > Run workflow) or from release.yml, which publishes the native app beside
+# the Tauri app; this workflow itself publishes nothing: no release, no tag,
+# no upload. It reads the release secrets the way release.yml does.
 on:
   workflow_dispatch:
+    inputs:
+      flavor:
+        description: "beta (Lattice Beta) or main (Lattice, the native app release.yml publishes)"
+        type: choice
+        options: [beta, main]
+        default: beta
+  workflow_call:
+    inputs:
+      flavor:
+        type: string
+        default: main
 
 concurrency:
-  group: gpui-package-${{ github.ref }}
+  group: gpui-package-${{ github.ref }}-${{ inputs.flavor }}
   cancel-in-progress: false
 
 permissions:
@@ -47,6 +61,36 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+
+      # As release.yml fetches them for the Tauri app: the Timeless faces
+      # lattice-ui's build.rs embeds in the binary, so Lattice draws its
+      # interface in the Tauri app's type. With no key (a fork) the build
+      # keeps the open-licensed faces; with one, a failed fetch or an
+      # incomplete copy fails the build instead.
+      - name: Fetch the licensed interface fonts
+        env:
+          LATTICE_FONTS_DEPLOY_KEY: ${{ secrets.LATTICE_FONTS_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$LATTICE_FONTS_DEPLOY_KEY" ]]; then
+            echo "No fonts deploy key: building with the open-licensed interface fonts."
+            echo "LATTICE_PRIVATE_FONTS_DIR=" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          ssh_dir="$(mktemp -d "$RUNNER_TEMP/lattice-fonts-ssh.XXXXXX")"
+          trap 'rm -rf "$ssh_dir"' EXIT
+          (umask 077 && printf '%s\n' "$LATTICE_FONTS_DEPLOY_KEY" > "$ssh_dir/deploy-key")
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" \
+            > "$ssh_dir/known_hosts"
+
+          fonts_checkout="$RUNNER_TEMP/lattice-fonts"
+          GIT_SSH_COMMAND="ssh -i $ssh_dir/deploy-key -o IdentitiesOnly=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$ssh_dir/known_hosts -o StrictHostKeyChecking=yes" \
+            git clone --quiet --depth=1 git@github.com:leo1oel/lattice-fonts.git "$fonts_checkout"
+
+          echo "LATTICE_PRIVATE_FONTS_DIR=$fonts_checkout/Timeless-Type-Family-1.094" >> "$GITHUB_ENV"
+          echo "LATTICE_PRIVATE_FONTS_REQUIRED=1" >> "$GITHUB_ENV"
 
       # The workspace build gpui.yml makes, without the offscreen-shots test
       # feature: the binary users run.
@@ -123,6 +167,7 @@ jobs:
 
       - name: Bundle, sign and notarize
         env:
+          FLAVOR: ${{ inputs.flavor }}
           NODE_OPTIONS: --max-old-space-size=4096
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -130,9 +175,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           node scripts/gpui-bundle.mjs \
+            --flavor "$FLAVOR" \
             --binary gpui/target/release/lattice-gpui \
             --out "$RUNNER_TEMP/gpui-bundle"
-          rm -rf "$RUNNER_TEMP/gpui-bundle/Lattice Beta.app"
+          app="$(find "$RUNNER_TEMP/gpui-bundle" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app"
+          rm -rf "$app"
 
       - name: Check the installed app size
         run: |
@@ -140,10 +188,13 @@ jobs:
           mount_path="$(mktemp -d "$RUNNER_TEMP/gpui-size.XXXXXX")"
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_path"
           trap 'hdiutil detach "$mount_path"' EXIT
-          du -sh "$mount_path/Lattice Beta.app"/Contents/* "$mount_path/Lattice Beta.app"/Contents/Resources/* | tee -a "$GITHUB_STEP_SUMMARY"
+          app_path="$(find "$mount_path" -maxdepth 1 -name '*.app' -print -quit)"
+          du -sh "$app_path"/Contents/* "$app_path"/Contents/Resources/* | tee -a "$GITHUB_STEP_SUMMARY"
 
       # release.yml's checks of the signed and notarized disk image.
       - name: Verify signed and notarized artifacts
+        env:
+          FLAVOR: ${{ inputs.flavor }}
         run: |
           dmg="$(find "$RUNNER_TEMP/gpui-bundle" -maxdepth 1 -name '*.dmg' -print -quit)"
           test -n "$dmg"
@@ -154,24 +205,26 @@ jobs:
           mount_path="$(mktemp -d "$RUNNER_TEMP/gpui-dmg.XXXXXX")"
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_path"
           trap 'hdiutil detach "$mount_path"' EXIT
-          app_path="$mount_path/Lattice Beta.app"
+          app_path="$(find "$mount_path" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app_path"
           codesign --verify --deep --strict --verbose=2 "$app_path"
           spctl --assess --type execute --verbose=4 "$app_path"
           xcrun stapler validate "$app_path"
 
-          test -s "$RUNNER_TEMP/gpui-bundle/latest.json"
+          manifest="$(node --input-type=module -e 'const { FLAVORS } = await import("./scripts/gpui-bundle.mjs"); console.log(FLAVORS[process.env.FLAVOR].manifest)')"
+          test -s "$RUNNER_TEMP/gpui-bundle/$manifest"
           for archive in "$RUNNER_TEMP"/gpui-bundle/*.app.tar.gz; do
             test -s "$archive.sig"
           done
 
       - uses: actions/upload-artifact@v7
         with:
-          name: lattice-gpui-macos-aarch64
+          name: lattice-gpui-macos-aarch64-${{ inputs.flavor }}
           path: |
             ${{ runner.temp }}/gpui-bundle/*.dmg
             ${{ runner.temp }}/gpui-bundle/*.zip
             ${{ runner.temp }}/gpui-bundle/*.app.tar.gz
             ${{ runner.temp }}/gpui-bundle/*.app.tar.gz.sig
-            ${{ runner.temp }}/gpui-bundle/latest.json
+            ${{ runner.temp }}/gpui-bundle/latest*.json
           if-no-files-found: error
           retention-days: 14

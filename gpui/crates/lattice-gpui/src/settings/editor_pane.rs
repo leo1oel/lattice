@@ -383,10 +383,12 @@ fn updates(
     width: PageWidth,
     cx: &mut Context<SettingsDialog>,
 ) -> AnyElement {
-    // Lattice Beta updates itself only from its own channel, and only once
-    // the writer turns that on (`crate::updater`); until then each release
-    // is on GitHub, as the Tauri app says where it cannot update itself.
-    let on = super::get(cx).app_updates;
+    // Lattice updates itself always, as the Tauri app does. Lattice Beta
+    // updates itself only from its own channel, and only once the writer
+    // turns that on (`crate::updater`); until then each release is on
+    // GitHub, as the Tauri app says where it cannot update itself.
+    let always = crate::flavor::current().native_lattice;
+    let on = always || super::get(cx).app_updates;
     let version = if on {
         Button::new("check-for-updates", t!("Check for updates"))
             .compact()
@@ -404,8 +406,9 @@ fn updates(
             .on_click(|_, _, cx| cx.open_url(LATEST_RELEASE_URL))
             .into_any_element()
     };
-    let rows = vec![
-        row(
+    let mut rows = Vec::new();
+    if !always {
+        rows.push(row(
             dialog,
             Row::new("app-updates", t!("Beta updates"))
                 .control(controls::switch("app-updates", on, false, |on, _, cx| {
@@ -414,17 +417,55 @@ fn updates(
                 .description(t!("Check Lattice Beta’s own release channel at launch and every six hours, and offer each new version. Off until you turn it on."), cx),
             width,
             cx,
-        ),
-        row(
+        ));
+    }
+    rows.push(row(
+        dialog,
+        Row::new("version", t!("Version"))
+            .description(t!("Version {version}", version = lattice_core::VERSION), cx)
+            .control(version),
+        width,
+        cx,
+    ));
+    // Lattice is the native app a writer chose over the classic (Tauri)
+    // one, so the choice can be undone here: the classic version's release
+    // installed in place of this one (`updater::switch_to_classic`).
+    if crate::updater::offers_classic() {
+        let switch = Button::new("switch-to-classic", t!("Switch back"))
+            .compact()
+            .on_click(|_, _, cx| ask_switch_to_classic(cx));
+        rows.push(row(
             dialog,
-            Row::new("version", t!("Version"))
-                .description(t!("Version {version}", version = lattice_core::VERSION), cx)
-                .control(version),
+            Row::new(
+                "switch-to-classic",
+                t!("Switch back to the classic version"),
+            )
+            .description(
+                t!("Install the classic Lattice in place of this one, then restart into it."),
+                cx,
+            )
+            .control(switch),
             width,
             cx,
-        ),
-    ];
+        ));
+    }
     controls::group(Some(t!("App updates").into()), rows, cx)
+}
+
+/// The switch back's confirmation: what the classic version opens with,
+/// and that nothing done here goes with it.
+fn ask_switch_to_classic(cx: &mut App) {
+    crate::confirm::ask(
+        crate::confirm::Confirm::new(t!("Switch back to the classic version?"))
+            .body(t!("The classic version opens with its data as it was before you switched to this one. Changes made here, such as settings and themes, don’t flow back to it. Lattice restarts once it is installed."))
+            .confirm_label(t!("Switch back"))
+            .on_confirm(|_, cx| {
+                if let Some(updater) = crate::updater::global(cx) {
+                    updater.update(cx, |updater, cx| updater.switch_to_classic(cx));
+                }
+            }),
+        cx,
+    );
 }
 
 /// Settings › TeX doctor: the doctor's report, as its sheet shows it.

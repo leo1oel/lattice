@@ -4,7 +4,10 @@ import { isMain } from "./lib/util.mjs";
 // Public downloads must not consume GitHub's anonymous REST API quota.
 // Resolve against release metadata rather than guessing platform filenames.
 export function normalizeUpdaterManifest(manifest, release) {
-  if (release.tag_name !== `v${manifest.version}`) {
+  // A rehearsal tag (v1.2.3-rc.1, release.yml keeps its release a draft)
+  // carries its version's manifest.
+  const tag = release.tag_name ?? "";
+  if (tag !== `v${manifest.version}` && !tag.startsWith(`v${manifest.version}-`)) {
     throw new Error("Updater version does not match the release tag");
   }
   if (!manifest.platforms || Object.keys(manifest.platforms).length === 0) {

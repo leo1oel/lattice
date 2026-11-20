@@ -47,8 +47,15 @@ describe("public updater downloads", () => {
     })).toThrow("Invalid public");
   });
 
+  it("takes a rehearsal tag's draft for its version", () => {
+    const rcUrl = downloadUrl.replace("/v1.2.3/", "/v1.2.3-rc.1/");
+    const rc = { tag_name: "v1.2.3-rc.1", assets: [{ ...release.assets[0], browser_download_url: rcUrl }] };
+    expect(normalizeUpdaterManifest(manifest, rc).platforms["darwin-aarch64"].url).toBe(rcUrl);
+  });
+
   it("rejects the wrong release and missing assets instead of publishing broken URLs", () => {
     expect(() => normalizeUpdaterManifest(manifest, { ...release, tag_name: "v1.2.4" })).toThrow("release tag");
+    expect(() => normalizeUpdaterManifest(manifest, { ...release, tag_name: "v1.2.30" })).toThrow("release tag");
     expect(() => normalizeUpdaterManifest(manifest, { ...release, assets: [] })).toThrow("Missing uploaded");
     expect(() => normalizeUpdaterManifest({ ...manifest, platforms: {} }, release)).toThrow("no platforms");
     expect(() => normalizeUpdaterManifest(manifest, {

@@ -100,7 +100,10 @@ pub struct AppDirs {
 }
 
 pub fn app_dirs() -> AppDirs {
-    let base = |dir: Option<PathBuf>| dir.unwrap_or_else(std::env::temp_dir).join("lattice-gpui");
+    let base = |dir: Option<PathBuf>| {
+        dir.unwrap_or_else(std::env::temp_dir)
+            .join(crate::flavor::current().folder)
+    };
     AppDirs {
         data: base(dirs::data_dir()),
         cache: base(dirs::cache_dir()),

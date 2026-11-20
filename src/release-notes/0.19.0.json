@@ -1,0 +1,73 @@
+{
+  "version": "0.19.0",
+  "date": "2026-11-19",
+  "highlights": [
+    {
+      "icon": "sparkles",
+      "title": {
+        "en": "A native Lattice on Apple silicon Macs, when you want it",
+        "zh": "Apple 芯片 Mac 上的原生 Lattice，由你决定是否切换"
+      },
+      "body": {
+        "en": "On a Mac with Apple silicon, Lattice can now switch to its native version, drawn by the Mac's graphics hardware instead of a web page. It looks and works the way Lattice does. Switching is your choice: Lattice asks once after this update, and Settings › Editor & builds › Switch to the new Lattice offers it any time. On the first switch your recent projects, settings, themes, plugins, project templates, Agent skills and Overleaf links come with you. The native version has no grammar check and no dictionaries for other languages, and past Agent threads don't show in it. This version's data stays untouched, and changes made in the native version don't flow back; its Settings can switch back to the classic version at any time. Intel Macs, Windows and Linux keep the current Lattice.",
+        "zh": "在搭载 Apple 芯片的 Mac 上，Lattice 现在可以切换到它的原生版本：界面由 Mac 的图形硬件直接绘制，而不再是网页。它的外观和用法与 Lattice 一致。是否切换由你决定：这次更新后 Lattice 会询问一次，之后也可以随时在设置 › 编辑编译 › 切换到新的 Lattice 中切换。第一次切换时，最近的项目、设置、主题、插件、项目模板、Agent 技能和 Overleaf 关联都会一并带过去。原生版本没有语法检查和其他语言的词典，过去的 Agent 对话也不会显示。这个版本的数据原样保留，不会被改动；在原生版本里做的改动不会同步回来。原生版本的设置里随时可以切换回经典版本。Intel 芯片的 Mac、Windows 和 Linux 继续使用现在的 Lattice。"
+      }
+    },
+    {
+      "icon": "feather",
+      "title": {
+        "en": "Spell check in the native Lattice",
+        "zh": "原生 Lattice 的拼写检查"
+      },
+      "body": {
+        "en": "The native Lattice checks spelling in .tex, Markdown and text files with macOS's own spell checker, in the language macOS detects for each paragraph, so Chinese prose is never marked. Right-click a marked word for suggestions, Ignore Spelling or Learn Spelling. Words in the project dictionary are left alone, and Settings › Editor & builds › Check spelling turns the check off. Grammar checking and the dictionaries for other languages are not part of the native version.",
+        "zh": "原生 Lattice 用 macOS 自带的拼写检查器检查 .tex、Markdown 和纯文本文件，按 macOS 识别出的每段语言检查，中文不会被标记。右键点击标出的词，可以选择建议、忽略拼写或学习拼写。项目词典里的词不会被标出，在设置 › 编辑编译 › 检查拼写中可以关闭检查。语法检查和其他语言的词典不在原生版本中。"
+      }
+    },
+    {
+      "icon": "menu",
+      "title": {
+        "en": "More recent projects",
+        "zh": "更多最近项目"
+      },
+      "body": {
+        "en": "Lattice now keeps your last 100 projects instead of 8. Below the three cards on the welcome screen, More projects lists the next 20, and Open a recent project… searches all of them by name and folder; the project switcher, File › Open Recent and the command palette open it too. Folders linked to Overleaf are marked, and a folder that has gone missing stays in the list, marked, instead of being dropped.",
+        "zh": "Lattice 现在会保留最近的 100 个项目，而不是 8 个。欢迎页三张卡片下方的「更多项目」列出接下来的 20 个，「打开最近项目…」可以按名称和文件夹搜索全部项目；项目切换器、文件 › 打开最近使用和命令面板也都能打开它。关联了 Overleaf 的文件夹会有标记，找不到的文件夹会留在列表里并标出，而不是被删掉。"
+      }
+    },
+    {
+      "icon": "shapes",
+      "title": {
+        "en": "Side panels share one surface",
+        "zh": "侧边栏使用同一种底色"
+      },
+      "body": {
+        "en": "Project, Papers, the outline and the Agent's page now sit on one surface, a tone below the editor, which follows your theme and light or dark. In the native Lattice, the Agent's page follows named themes such as Nord too.",
+        "zh": "项目、文献、大纲和 Agent 页面现在使用同一种底色，比编辑器低一个色阶，并跟随主题和浅色/深色外观。在原生 Lattice 中，Agent 页面也会跟随 Nord 等命名主题。"
+      }
+    },
+    {
+      "icon": "feather",
+      "title": {
+        "en": "Live preview in the PDF's separate window",
+        "zh": "PDF 独立窗口中的实时预览"
+      },
+      "body": {
+        "en": "The PDF's separate window now shows the live preview too, updating as you type, just like the PDF beside the editor. This works in the native Lattice as well.",
+        "zh": "PDF 的独立窗口现在也会显示实时预览，随输入更新，和编辑器旁的 PDF 一样。原生 Lattice 中也是如此。"
+      }
+    },
+    {
+      "icon": "git",
+      "title": {
+        "en": "Lattice Beta is now Lattice",
+        "zh": "Lattice Beta 已并入 Lattice"
+      },
+      "body": {
+        "en": "If you tried Lattice Beta, you can delete it: the native Lattice is now offered in Lattice itself. Lattice Beta keeps its own data and gets no more updates.",
+        "zh": "如果你试用过 Lattice Beta，现在可以把它删掉了：原生 Lattice 已经可以直接在 Lattice 里切换。Lattice Beta 保留它自己的数据，之后不再更新。"
+      }
+    }
+  ],
+  "fixes": []
+}

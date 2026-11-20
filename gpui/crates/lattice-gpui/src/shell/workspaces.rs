@@ -463,7 +463,7 @@ pub(crate) fn state_dir(scripted: bool) -> Option<PathBuf> {
         Some(dir) if dir.is_empty() => None,
         Some(dir) => Some(PathBuf::from(dir)),
         None if scripted => None,
-        None => dirs::data_dir().map(|dir| dir.join("lattice-gpui")),
+        None => dirs::data_dir().map(|dir| dir.join(crate::flavor::current().folder)),
     }
 }
 

@@ -227,6 +227,20 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         t!("Beta updates"),
     ));
     out.push(Entry::row(Editor, editor, "version", t!("Version")));
+    if crate::updater::offers_classic() {
+        out.push(
+            Entry::row(
+                Editor,
+                editor,
+                "switch-to-classic",
+                t!("Switch back to the classic version"),
+            )
+            .terms("Tauri")
+            .description(t!(
+                "Install the classic Lattice in place of this one, then restart into it."
+            )),
+        );
+    }
     let agent = t!("Agent");
     let endpoint = t!("Model endpoint");
     let environment = t!("Environment");

@@ -331,7 +331,7 @@ msgstr "{added} annotations in {path}"
 msgid "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
 msgstr "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "{agentTurns} Agent tasks"
 msgstr "{agentTurns} Agent tasks"
 
@@ -355,7 +355,7 @@ msgstr "{author} suggests inserting text"
 msgid "{begin} is closed by {end}"
 msgstr "{begin} is closed by {end}"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "{builds} compiles"
 msgstr "{builds} compiles"
 
@@ -1131,7 +1131,7 @@ msgstr "{span} left"
 msgid "{target} has not been changed."
 msgstr "{target} has not been changed."
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "{terminalCommands} terminal commands"
 msgstr "{terminalCommands} terminal commands"
 
@@ -1459,7 +1459,7 @@ msgstr "A command is still running. Closing stops it."
 msgid "A comment cannot be empty. Delete it instead."
 msgstr "A comment cannot be empty. Delete it instead."
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "a compile"
 msgstr "a compile"
 
@@ -1644,7 +1644,7 @@ msgstr "A spreadsheet must contain at least one sheet"
 msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "A spreadsheet must contain between 1 and 200 sheets"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "a terminal command"
 msgstr "a terminal command"
 
@@ -2264,7 +2264,7 @@ msgstr "American English"
 msgid "An & outside a table"
 msgstr "An & outside a table"
 
-#: src/telemetry/app-updater.tsx
+#: src/telemetry/app-restart.ts
 msgid "an Agent task"
 msgstr "an Agent task"
 
@@ -2422,6 +2422,10 @@ msgstr "Another compile repair is already starting for this project. Wait for it
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "Another file in this project"
+
+#: src/app/native-app-dialog.tsx
+msgid "Another Lattice window is installing an update. Try again when it finishes."
+msgstr "Another Lattice window is installing an update. Try again when it finishes."
 
 #: src/telemetry/app-updater.tsx
 #: src/telemetry/update-recovery.ts
@@ -5905,6 +5909,10 @@ msgstr "DOI metadata corrections are available."
 msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
 
+#: src/app/native-app-dialog.tsx
+msgid "Don’t ask again"
+msgstr "Don’t ask again"
+
 #: src/app/whats-new-dialog.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
@@ -6062,6 +6070,14 @@ msgstr "Downloading TeX Live…"
 msgid "Downloading the {name} spelling dictionary"
 msgstr "Downloading the {name} spelling dictionary"
 
+#: src/app/native-app-dialog.tsx
+msgid "Downloading the native Lattice…"
+msgstr "Downloading the native Lattice…"
+
+#: src/app/native-app-dialog.tsx
+msgid "Downloading the native Lattice… {percent}%"
+msgstr "Downloading the native Lattice… {percent}%"
+
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Downloading update…"
@@ -6079,6 +6095,10 @@ msgstr "DPI unknown"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "draft pass {run}"
 msgstr "draft pass {run}"
+
+#: src/app/native-app-dialog.tsx
+msgid "Drawn natively by your Mac instead of as a web page: faster and lighter, with the same look and the same ways of working."
+msgstr "Drawn natively by your Mac instead of as a web page: faster and lighter, with the same look and the same ways of working."
 
 #: src/app/use-project-tree.ts
 msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
@@ -8407,6 +8427,7 @@ msgstr "Installing TeX Live…"
 msgid "Installing update…"
 msgstr "Installing update…"
 
+#: src/app/native-app-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Installing…"
 msgstr "Installing…"
@@ -9714,6 +9735,10 @@ msgstr "Long quotation"
 msgid "Look up and add"
 msgstr "Look up and add"
 
+#: src/app/native-app-dialog.tsx
+msgid "Looking for the native Lattice…"
+msgstr "Looking for the native Lattice…"
+
 #: src/papers/bib-entry-detail.tsx
 msgid "Looking through the manuscript…"
 msgstr "Looking through the manuscript…"
@@ -10256,6 +10281,11 @@ msgstr "Names as the endpoint spells them. Test connection tries the first."
 msgid "Native app"
 msgstr "Native app"
 
+#. Search words for the Switch to the new Lattice setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "native app faster"
+msgstr "native app faster"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Natural"
 msgstr "Natural"
@@ -10602,6 +10632,10 @@ msgstr "No free name was found for the figure."
 #: src/papers/bib-entry-detail.tsx
 msgid "No full text to download"
 msgstr "No full text to download"
+
+#: src/app/native-app-dialog.tsx
+msgid "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Past Agent threads don’t show. Apple silicon Macs only."
+msgstr "No grammar check and no dictionaries for other languages: spell check uses macOS’s own checker. Past Agent threads don’t show. Apple silicon Macs only."
 
 #: src/project/paper-list-toolbar.tsx
 msgid "No grouping"
@@ -11074,6 +11108,10 @@ msgstr "Not installed, so the default is shown"
 msgid "Not needed here"
 msgstr "Not needed here"
 
+#: src/app/native-app-dialog.tsx
+msgid "Not now"
+msgstr "Not now"
+
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Not on this PDF"
 msgstr "Not on this PDF"
@@ -11094,6 +11132,10 @@ msgstr "Not saved"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
+
+#: src/app/native-app-dialog.tsx
+msgid "Not there yet"
+msgstr "Not there yet"
 
 #: src/app/project-index-load.ts
 msgid "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
@@ -14012,6 +14054,7 @@ msgstr "Restart Lattice"
 msgid "Restart Lattice now?"
 msgstr "Restart Lattice now?"
 
+#: src/app/native-app-dialog.tsx
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Restart now"
@@ -14038,6 +14081,7 @@ msgstr "Restarting now stops {running}."
 msgid "Restarting the agent stops any running turns."
 msgstr "Restarting the agent stops any running turns."
 
+#: src/app/native-app-dialog.tsx
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Restarting…"
@@ -15911,9 +15955,21 @@ msgstr "Surface / area integral"
 msgid "SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice."
 msgstr "SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice."
 
+#: src/app/native-app-dialog.tsx
+msgid "Switch anyway"
+msgstr "Switch anyway"
+
 #: src/app/leave-project.ts
 msgid "Switch away from “{name}”?"
 msgstr "Switch away from “{name}”?"
+
+#: src/app/native-app-dialog.tsx
+msgid "Switch now"
+msgstr "Switch now"
+
+#: src/app/native-app-dialog.tsx
+msgid "Switch progress"
+msgstr "Switch progress"
 
 #: src/app/app-titlebar.tsx
 #: src/app/leave-project.ts
@@ -15940,6 +15996,11 @@ msgstr "Switch to that window"
 msgid "Switch to the Bibliography layout"
 msgstr "Switch to the Bibliography layout"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Switch to the new Lattice"
+msgstr "Switch to the new Lattice"
+
 #: src/app/use-command-table.ts
 msgid "Switch to the Reading layout"
 msgstr "Switch to the Reading layout"
@@ -15947,6 +16008,10 @@ msgstr "Switch to the Reading layout"
 #: src/app/use-command-table.ts
 msgid "Switch to the Writing layout"
 msgstr "Switch to the Writing layout"
+
+#: src/settings/settings-dialog.tsx
+msgid "Switch…"
+msgstr "Switch…"
 
 #: src/build/build-log-messages.ts
 msgid "Switched this project from {from} to pdfLaTeX: the document uses `{command}`, which only works in pdfLaTeX, and loads nothing that needs {from}."
@@ -15959,6 +16024,10 @@ msgstr "Switching interrupts what is still running there: {list}."
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
 msgstr "Switching project…"
+
+#: src/app/native-app-dialog.tsx
+msgid "Switching restarts Lattice and stops {running}."
+msgstr "Switching restarts Lattice and stops {running}."
 
 #: src/project/references-panel.tsx
 msgid "Symbol references"
@@ -17048,6 +17117,19 @@ msgstr "The model {model} is listed twice."
 #: src/settings/model-endpoint-probe.ts
 msgid "The model answered but didn’t call the test tool. The agent may not manage to edit files with it."
 msgstr "The model answered but didn’t call the test tool. The agent may not manage to edit files with it."
+
+#: src/app/native-app-dialog.tsx
+msgid "The native Lattice is installed and opens the next time Lattice starts."
+msgstr "The native Lattice is installed and opens the next time Lattice starts."
+
+#: src/app/native-app-dialog.tsx
+msgid "The native Lattice isn’t available right now. Check your connection and try again."
+msgstr "The native Lattice isn’t available right now. Check your connection and try again."
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "The native Mac app: faster and lighter, with the same look."
+msgstr "The native Mac app: faster and lighter, with the same look."
 
 #: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "the network became available"
@@ -18157,6 +18239,10 @@ msgstr "This version of the agent runtime cannot proofread yet. Update Lattice t
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 
+#: src/app/native-app-dialog.tsx
+msgid "This version’s data stays as it is, and changes you make in the native app don’t come back here. If you switch back and later switch again, the native app keeps its own settings, themes, plugins and Overleaf session, and adds the recent projects you opened here."
+msgstr "This version’s data stays as it is, and changes you make in the native app don’t come back here. If you switch back and later switch again, the native app keeps its own settings, themes, plugins and Overleaf session, and adds the recent projects you opened here."
+
 #: src/agent/synara-unsupported-notice.tsx
 msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
 msgstr "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
@@ -18387,6 +18473,7 @@ msgstr "Triangle right"
 msgid "Try"
 msgstr "Try"
 
+#: src/app/native-app-dialog.tsx
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
@@ -18421,6 +18508,10 @@ msgstr "Try now"
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "Try that again now"
+
+#: src/app/native-app-dialog.tsx
+msgid "Try the new native Lattice"
+msgstr "Try the new native Lattice"
 
 #: src/telemetry/update-recovery.ts
 msgid "Trying again ({next} of 3)…"
@@ -19347,6 +19438,7 @@ msgstr "What the agent should do"
 msgid "What you leave unticked is not offered again."
 msgstr "What you leave unticked is not offered again."
 
+#: src/app/native-app-dialog.tsx
 #: src/app/whats-new-dialog.tsx
 msgid "What’s new"
 msgstr "What’s new"
@@ -19586,6 +19678,10 @@ msgstr "You are still signed in. Check that the project still opens on Overleaf;
 msgid "You can close this once the transfer finishes"
 msgstr "You can close this once the transfer finishes"
 
+#: src/app/native-app-dialog.tsx
+msgid "You can switch back any time from the native app’s Settings."
+msgstr "You can switch back any time from the native app’s Settings."
+
 #: src/platform/host-errors-overleaf.ts
 msgid "You have read-only access to this Overleaf project, so edits stay on this machine."
 msgstr "You have read-only access to this Overleaf project, so edits stay on this machine."
@@ -19638,6 +19734,10 @@ msgstr "Your comment on {name} did not reach Overleaf: {message}"
 #: src/app/use-editor-comments.ts
 msgid "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
 msgstr "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
+
+#: src/app/native-app-dialog.tsx
+msgid "Your data"
+msgstr "Your data"
 
 #: src/history/review-mode-store.ts
 msgid "Your edits stay in the files. The changes waiting for review are no longer marked."
@@ -19700,6 +19800,10 @@ msgstr "Your Overleaf session expired. Sign in again"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"
 msgstr "Your project files are safe"
+
+#: src/app/native-app-dialog.tsx
+msgid "Your recent projects, settings, themes, plugins, templates, Agent skills and Overleaf links come along the first time you switch."
+msgstr "Your recent projects, settings, themes, plugins, templates, Agent skills and Overleaf links come along the first time you switch."
 
 #: src/app/use-tex-update-reminder.ts
 msgid "Your TeX packages are out of date"

@@ -7,6 +7,14 @@
 
 Lattice needs macOS 14 or later. Linux (AppImage) and Windows builds are experimental and have no Agent.
 
+## The native Lattice on Apple silicon
+
+On a Mac with Apple silicon, Lattice can switch to its native version, which the Mac draws itself instead of as a web page. It looks and works the same. Lattice offers the switch once after the update that brings it; **Settings › Editor & builds › Switch to the new Lattice** offers it any time after **Not now** or **Don't ask again**.
+
+- **What comes with you:** on the first switch, your recent projects, settings, themes, plugins, project templates, Agent skills and Overleaf links. Your project folders are untouched either way.
+- **What's different:** the native version checks spelling with macOS's own checker and has no grammar check or dictionaries for other languages. Past Agent threads don't show in it.
+- **Switching back:** **Settings › Editor & builds › Switch back to the classic version** in the native version installs the classic one in its place. The classic version opens with its data as it was before the switch; changes made in the native version don't flow back. If you switch again later, the native version keeps its own settings, themes, plugins and Overleaf session, and adds the recent projects you opened in the classic version.
+
 ## Set up TeX
 
 Lattice builds PDFs with your own TeX installation (MacTeX or TeX Live). If you have none, Lattice offers to install **BasicTeX** for you: it is the first step of the Get started checklist, and a build that finds no TeX offers it too. A missing LaTeX package found during a build can also be installed from the build problem itself.

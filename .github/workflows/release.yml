@@ -3,6 +3,15 @@ name: Release
 # Push a version tag (e.g. v0.1.38) to build, sign, and publish a GitHub
 # Release for Apple silicon macOS. tauri-action also generates latest.json,
 # which the in-app updater reads to offer updates to installed copies.
+#
+# Every release also carries the native app for Apple silicon (the GPUI app
+# as Lattice, gpui/docs/updater.md) beside the Tauri app, under its own names:
+# Lattice-native_<version>_aarch64.dmg, .app.tar.gz and .sig, and its own feed,
+# latest-native.json. latest.json stays the Tauri app's on every platform;
+# moving to the native app is the writer's choice, which the Tauri app offers
+# from latest-native.json on Apple silicon. Intel Macs, Windows and Linux
+# never see it (macos-intel.yml and the others add their entries to
+# latest.json afterwards and leave the native files alone).
 on:
   push:
     tags:
@@ -56,7 +65,8 @@ jobs:
           # without one, so a tag without its lead slipped past it: stop
           # before the release ships with only its commit subjects.
           : > "$notes_path"
-          highlights_path=".github/release-notes/${GITHUB_REF_NAME}.md"
+          # A rehearsal tag (v0.19.0-rc.1) uses its version's lead.
+          highlights_path=".github/release-notes/${GITHUB_REF_NAME%%-*}.md"
           if [[ ! -f "$highlights_path" ]]; then
             echo "::error file=$highlights_path::No release lead for $GITHUB_REF_NAME. Commit $highlights_path (and its src/release-notes JSON) and tag again."
             exit 1
@@ -337,9 +347,37 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
 
+  # The native app for Apple silicon: the GPUI app under the Tauri app's
+  # identity, built, signed and notarized as gpui-package.yml builds it, with
+  # its updater archive and latest-native.json.
+  gpui:
+    uses: ./.github/workflows/gpui-package.yml
+    with:
+      flavor: main
+    secrets: inherit
+
+  # The release is still a draft here; nothing reaches users until the last
+  # step. A failure in either build skips this job and leaves the draft: a
+  # release without the native app would leave its feed on the previous
+  # version while the Tauri app moves on, so it does not ship half.
+  publish:
+    needs: [release, gpui]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: lattice-gpui-macos-aarch64-main
+          path: ${{ runner.temp }}/gpui
+
       - name: Use public download URLs in the updater manifest
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # tauri-action can emit REST asset URLs, which consume the user's
           # anonymous API quota and return 403 when their IP is rate-limited.
@@ -350,20 +388,45 @@ jobs:
           release_id="$(gh release view "$GITHUB_REF_NAME" --json databaseId --jq .databaseId)"
           gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > "$manifest_dir/release.json"
           node scripts/normalize-updater-manifest.mjs "$manifest_dir/latest.json" "$manifest_dir/release.json"
-          gh release upload "$GITHUB_REF_NAME" "$manifest_dir/latest.json" --clobber
+          echo "MANIFEST_DIR=$manifest_dir" >> "$GITHUB_ENV"
+
+      - name: Upload the updater manifest
+        run: gh release upload "$GITHUB_REF_NAME" "$MANIFEST_DIR/latest.json" --clobber
+
+      # gpui-package.yml checked the dmg (stapled, notarized, Developer ID)
+      # and the app inside it. check-native-feed.mjs fails the release when a
+      # native file is missing, the archive's signature does not verify
+      # against the updater key (tauri.conf.json), or latest-native.json does
+      # not name this tag's Lattice-native archive with that signature; it
+      # prints the files to upload, latest-native.json last. Their names are
+      # the native app's own, so nothing of the Tauri app's is replaced.
+      - name: Upload the native app beside the Tauri app
+        run: |
+          set -euo pipefail
+          native="$(node scripts/check-native-feed.mjs "$GITHUB_REF_NAME" "$RUNNER_TEMP/gpui")"
+          mapfile -t files <<< "$native"
+          test "${#files[@]}" -eq 4
+          gh release upload "$GITHUB_REF_NAME" "${files[@]:0:3}" --clobber
+          gh release upload "$GITHUB_REF_NAME" "${files[3]}" --clobber
 
       # Check what the release actually offers for download: only the signed
       # artifacts, none of them a font. Failing here leaves the release a draft.
       - name: Check the release assets for font files
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           assets_dir="$(mktemp -d "$RUNNER_TEMP/lattice-release-assets.XXXXXX")"
           gh release download "$GITHUB_REF_NAME" --dir "$assets_dir"
           node scripts/check-font-leaks.mjs assets "$assets_dir"
 
+      # A tag with a suffix (v0.19.0-rc.1) rehearses this workflow: everything
+      # above runs against its own draft, which stays a draft, so the feed
+      # installed copies poll (the latest release's latest.json and
+      # latest-native.json) never sees it.
+      # Delete the draft and the tag afterwards.
       - name: Publish verified release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false
+        run: |
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            echo "::notice::$GITHUB_REF_NAME is a rehearsal tag: the release stays a draft."
+            exit 0
+          fi
+          gh release edit "$GITHUB_REF_NAME" --draft=false

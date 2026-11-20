@@ -33,7 +33,7 @@ describe("the Linux AppImage workflow", () => {
     expect(linux.on.workflow_run).toEqual({ workflows: [release.name], types: ["completed"] });
     expect(Object.keys(release.on)).not.toContain("workflow_run");
     expect(Object.keys(release.on)).not.toContain("workflow_call");
-    expect(Object.values(release.jobs).filter((job) => "uses" in job)).toEqual([]);
+    expect(Object.values(release.jobs).filter((job) => "uses" in job && String(job.uses).includes("linux-appimage"))).toEqual([]);
   });
 
   it("builds, checks and attaches, with the release's secrets, for a published tag release", () => {

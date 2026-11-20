@@ -277,7 +277,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             .tooltip(t!(
                 "{name} — not in {app} yet",
                 name = name,
-                app = crate::APP_NAME
+                app = crate::flavor::current().name
             ))
     };
     // Settings › Appearance › Title bar tools hides each of these.

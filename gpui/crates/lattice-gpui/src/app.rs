@@ -131,7 +131,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     load_code_themes(cx);
     // The rest of the Tauri app's state, carried over once, before the
     // recent projects, plugins and themes below are first read.
-    crate::settings::migrate_from_tauri(scripted);
+    let carried_from_tauri = crate::settings::migrate_from_tauri(scripted);
     // The writer's settings (or the Tauri app's, imported) before anything
     // is drawn: appearance, tint, accent, code theme, editor type, keymap,
     // language.
@@ -160,11 +160,15 @@ pub fn init(scripted: bool, cx: &mut App) {
     let state = crate::shell::workspaces::state_dir(scripted);
     crate::app_log::install(state.clone(), cx);
     crate::app_log::capture::install(cx);
-    // Off until the GPUI app has a release channel (`updater.rs`).
+    // Always on for Lattice, behind Beta updates for Lattice Beta (`updater.rs`).
     crate::updater::install(scripted, cx);
     crate::updater::register_actions(cx);
     crate::get_started::progress::install(state.clone(), cx);
-    crate::help::whats_new::announce_update(state.clone(), cx);
+    crate::help::whats_new::announce_update(
+        state.clone(),
+        carried_from_tauri && crate::flavor::current().native_lattice,
+        cx,
+    );
     // Windows open where the last one was left.
     crate::shell::windows::init_placements((!scripted).then(|| state.clone()).flatten(), cx);
     // A Mac app outlives its windows until ⌘Q, and the Dock icon opens one

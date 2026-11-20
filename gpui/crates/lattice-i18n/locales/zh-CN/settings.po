@@ -10,6 +10,26 @@ msgstr "在启动时和每六小时检查一次 Lattice Beta 自己的发布渠�
 msgid "Could not save the setting"
 msgstr "设置没保存成功"
 
+#: lattice-gpui/src/settings/editor_pane.rs
+msgid "Install the classic Lattice in place of this one, then restart into it."
+msgstr "安装经典版 Lattice 替换当前版本，然后重启进入经典版。"
+
+#: lattice-gpui/src/settings/editor_pane.rs
+msgid "Switch back"
+msgstr "切换回去"
+
+#: lattice-gpui/src/settings/editor_pane.rs
+msgid "Switch back to the classic version"
+msgstr "切换回经典版本"
+
+#: lattice-gpui/src/settings/editor_pane.rs
+msgid "Switch back to the classic version?"
+msgstr "切换回经典版本？"
+
+#: lattice-gpui/src/settings/editor_pane.rs
+msgid "The classic version opens with its data as it was before you switched to this one. Changes made here, such as settings and themes, don’t flow back to it. Lattice restarts once it is installed."
+msgstr "经典版本打开时，数据保持你切换到此版本之前的样子。在这里做的更改（例如设置和主题）不会同步回经典版本。安装完成后 Lattice 会重新启动。"
+
 #: lattice-gpui/src/settings/logs_export.rs
 msgid "This run keeps no log folder."
 msgstr "此次运行不保留日志文件夹。"

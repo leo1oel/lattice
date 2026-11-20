@@ -30,6 +30,8 @@ describe("release asset check", () => {
     write(root, "Lattice.app.tar.gz", "archive");
     write(root, "Lattice.app.tar.gz.sig", "signature");
     write(root, "latest.json", "{\"timeless\": true}");
+    write(root, "Lattice-native_0.1.0_aarch64.dmg", "the native app's disk image");
+    write(root, "latest-native.json", "{}");
     write(root, "Lattice_0.1.0_amd64.AppImage", "AppImage");
     write(root, "Lattice_0.1.0_amd64.AppImage.tar.gz", "an updater archive Linux does not publish");
     write(root, "notes.txt", "release notes");

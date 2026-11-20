@@ -130,21 +130,28 @@ fn tauri_storage(scripted: bool) -> Option<PathBuf> {
 /// smaller lists the Tauri app keeps in localStorage. The Tauri app's data
 /// folder (Tauri's `app_data_dir`, and `app_config_dir` for Overleaf) is
 /// read only on an ordinary run; `LATTICE_GPUI_TAURI_DATA` names a stand-in
-/// holding both, as a scenario's copy.
-pub fn migrate_from_tauri(scripted: bool) {
+/// holding both, as a scenario's copy. True when this launch carried some.
+///
+/// Lattice (the native one, `crate::flavor`) can be switched back to the
+/// Tauri app and to itself again. A launch after such a later switch finds
+/// the first launch's marker and carries nothing more, except that the
+/// projects opened in the Tauri app meanwhile join the recent projects
+/// (`migrate::merge_recent_projects`); that is no update to announce, so it
+/// returns false.
+pub fn migrate_from_tauri(scripted: bool) -> bool {
     use lattice_settings::{import::TAURI_BUNDLE_ID, migrate};
     let Some(state) = crate::shell::workspaces::state_dir(scripted) else {
-        return;
+        return false;
     };
     let (data, config) = match std::env::var_os("LATTICE_GPUI_TAURI_DATA") {
-        Some(dir) if dir.is_empty() => return,
+        Some(dir) if dir.is_empty() => return false,
         Some(dir) => (PathBuf::from(&dir), PathBuf::from(dir)),
-        None if scripted => return,
+        None if scripted => return false,
         None => match (dirs::data_dir(), dirs::config_dir()) {
             (Some(data), Some(config)) => {
                 (data.join(TAURI_BUNDLE_ID), config.join(TAURI_BUNDLE_ID))
             }
-            _ => return,
+            _ => return false,
         },
     };
     let tauri = migrate::Tauri {
@@ -157,18 +164,32 @@ pub fn migrate_from_tauri(scripted: bool) {
         data: crate::structured::resources::app_dirs().data,
         overleaf: crate::overleaf::config_dir(),
     };
-    if let Some(report) = migrate::migrate(&tauri, &gpui) {
-        log::info!(
-            "carried the Tauri app's state over from {}: {:?}{}",
-            tauri.data.display(),
-            report.carried,
-            if report.failed.is_empty() {
-                String::new()
-            } else {
-                format!("; will try again next launch: {:?}", report.failed)
-            }
-        );
+    if crate::flavor::current().native_lattice {
+        // Before `RecentProjects::init` reads the list (`app.rs`).
+        match migrate::merge_recent_projects(&tauri, &gpui) {
+            Some(Ok(merged)) => log::info!(
+                "merged the Tauri app's recent projects after a switch back: {merged} new or newer"
+            ),
+            Some(Err(error)) => log::warn!(
+                "could not merge the Tauri app's recent projects, will try again next launch: {error:#}"
+            ),
+            None => {}
+        }
     }
+    let Some(report) = migrate::migrate(&tauri, &gpui) else {
+        return false;
+    };
+    log::info!(
+        "carried the Tauri app's state over from {}: {:?}{}",
+        tauri.data.display(),
+        report.carried,
+        if report.failed.is_empty() {
+            String::new()
+        } else {
+            format!("; will try again next launch: {:?}", report.failed)
+        }
+    );
+    !report.carried.is_empty()
 }
 
 /// Read (or import) the settings and apply them, before the first window

@@ -44,10 +44,11 @@ import { isMain, projectRoot, sha256, walkFiles } from "./lib/util.mjs";
 
 /**
  * The files a release may publish: what tauri-action uploads plus the stapled
- * image, and the Linux AppImage linux-appimage.yml attaches once its own checks pass
+ * image, the native app's files and its feed (Lattice-native_*, latest-native.json),
+ * and the Linux AppImage linux-appimage.yml attaches once its own checks pass
  * (it has no updater archive or signature: Linux copies update by hand).
  */
-const RELEASE_ASSETS = [/\.dmg$/, /\.app\.tar\.gz$/, /\.app\.tar\.gz\.sig$/, /^latest\.json$/, /_amd64\.AppImage$/,
+const RELEASE_ASSETS = [/\.dmg$/, /\.app\.tar\.gz$/, /\.app\.tar\.gz\.sig$/, /^latest\.json$/, /^latest-native\.json$/, /_amd64\.AppImage$/,
   /^Lattice_\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?_windows-x64-experimental(?:-setup\.exe|\.sha256|\.build-info\.json|\.README\.txt)$/];
 const FONT_EXTENSION = /\.(?:woff2?|[ot]tf|ttc|eot|dfont|pfb|pfa)$/i;
 const FONT_SIGNATURES = new Set(["wOF2", "wOFF", "OTTO", "true", "typ1", "ttcf", "\0\x01\0\0"]);

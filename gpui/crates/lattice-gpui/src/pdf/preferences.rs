@@ -144,7 +144,7 @@ fn state_dir() -> Option<PathBuf> {
         Some(dir) if dir.is_empty() => None,
         Some(dir) => Some(PathBuf::from(dir)),
         None if std::env::args().any(|arg| arg == "--scenario") => None,
-        None => dirs::data_dir().map(|dir| dir.join("lattice-gpui")),
+        None => dirs::data_dir().map(|dir| dir.join(crate::flavor::current().folder)),
     }
 }
 

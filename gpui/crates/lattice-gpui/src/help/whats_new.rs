@@ -177,9 +177,11 @@ pub fn long_date(date: &str, locale: Locale) -> String {
 
 /// On the first launch after an update, one notice: the version now
 /// running, its first highlights in a line, and See what's new, which opens
-/// the sheet in the window it is pressed in.
-pub fn announce_update(state: Option<PathBuf>, cx: &mut App) {
-    if take_updated_from(state, RUNNING_VERSION).is_none() {
+/// the sheet in the window it is pressed in. `replaced_tauri`: this is
+/// Lattice's first launch in place of the Tauri app (`crate::flavor`), an
+/// update its new state folder has no record of.
+pub fn announce_update(state: Option<PathBuf>, replaced_tauri: bool, cx: &mut App) {
+    if take_updated_from(state, RUNNING_VERSION).is_none() && !replaced_tauri {
         return;
     }
     let notes = release_notes(RUNNING_VERSION);

@@ -63,6 +63,17 @@ export function takeUpdatedFrom(running = RUNNING_VERSION): string | null {
   return previous && compareVersions(running, previous) > 0 ? previous : null;
 }
 
+let thisLaunch: { updatedFrom: string | null } | null = null;
+
+/**
+ * `takeUpdatedFrom`, asked once per page: the toast and the native app's offer
+ * (native-app.ts) both want to know, and the first ask records the version.
+ */
+export function updatedFromThisLaunch(): string | null {
+  thisLaunch ??= { updatedFrom: takeUpdatedFrom() };
+  return thisLaunch.updatedFrom;
+}
+
 /** A note's text in the interface language; Chinese falls back to English while untranslated. */
 export const inLocale = (text: BilingualText, locale: string) => (locale.startsWith("zh") && text.zh ? text.zh : text.en);
 
@@ -72,7 +83,7 @@ export const inLocale = (text: BilingualText, locale: string) => (locale.startsW
  * cancel for a window that goes away before the notes load.
  */
 export function announceUpdate(open: () => void): () => void {
-  if (!takeUpdatedFrom()) return () => {};
+  if (!updatedFromThisLaunch()) return () => {};
   let cancelled = false;
   void loadReleaseNotes().then(([latest]) => {
     if (cancelled) return;

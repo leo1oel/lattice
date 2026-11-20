@@ -1,0 +1,11 @@
+/* The native Lattice offer (app/native-app-dialog.tsx). Its rows are the
+   What's new sheet's (styles/dialogs.css); this adds the note, the switch's
+   progress and the split actions. */
+.native-app-note { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.native-app-progress { display: grid; gap: var(--space-3); }
+.native-app-progress > span { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.native-app-progress-track { height: var(--space-3); overflow: hidden; border-radius: var(--radius-pill); background: var(--border-subtle); }
+.native-app-progress-fill { height: 100%; border-radius: inherit; corner-shape: inherit; background: var(--control-active); transition: width var(--motion-slow); }
+.native-app-progress-indeterminate { width: 100%; opacity: .45; }
+.modal-actions.native-app-actions { margin-top: var(--space-4); justify-content: space-between; align-items: center; }
+.native-app-actions-end { display: inline-flex; gap: var(--space-4); }

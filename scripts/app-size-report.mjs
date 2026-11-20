@@ -224,7 +224,12 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // under the desk, the finder and the folder check all load on demand; what
 // stays eager is their mounts and the lifecycle's finder state, about 2.4 KB
 // of which main's headroom took the first 0.9 (1,469,494 bytes locally).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.4 * 1024 * 1024) + 1_488;
+// Raised by 640 bytes for the native app's offer on Apple silicon: the offer,
+// its dialog and the Settings row all load on demand; what stays eager is the
+// offer's lazy mount beside What's new, the update-launch answer both share,
+// and the restart helpers moved out of the updater for the dialog to reuse
+// (1,469,395 -> 1,470,028 bytes locally).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.4 * 1024 * 1024) + 2_128;
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

@@ -657,7 +657,7 @@ impl Shell {
             window.set_window_title(&format!(
                 "{} — {}",
                 root.file_name().unwrap_or_default().to_string_lossy(),
-                crate::APP_NAME
+                crate::flavor::current().name
             ));
         }
     }

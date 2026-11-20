@@ -192,11 +192,11 @@ impl Run {
         let help = menu("Help").unwrap_or_default();
         let window = menu("Window").unwrap_or_default();
         let view = menu("View").unwrap_or_default();
-        let app = menu(crate::APP_NAME).unwrap_or_default();
-        let about = format!("About {}", crate::APP_NAME);
+        let app = menu(crate::flavor::current().name).unwrap_or_default();
+        let about = format!("About {}", crate::flavor::current().name);
         steps.check(
             "the menu bar is the Tauri app's: Lattice, File, Edit, View, Window, Help",
-            titles == [crate::APP_NAME, "File", "Edit", "View", "Window", "Help"]
+            titles == [crate::flavor::current().name, "File", "Edit", "View", "Window", "Help"]
                 && app.first().is_some_and(|item| *item == about)
                 && file.contains(&"Open from Overleaf…".to_string())
                 && file.contains(&"Export for arXiv…".to_string())

@@ -31,7 +31,7 @@ fn lattice_menu_items(cx: &mut AsyncApp) -> Vec<String> {
     cx.update(|cx| cx.get_menus())
         .unwrap_or_default()
         .into_iter()
-        .find(|menu| menu.name == crate::APP_NAME)
+        .find(|menu| menu.name == crate::flavor::current().name)
         .map(|menu| {
             menu.items
                 .into_iter()

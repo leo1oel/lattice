@@ -25,6 +25,7 @@ mod macos_window;
 #[cfg(not(target_os = "macos"))]
 #[path = "macos_window_stub.rs"]
 mod macos_window;
+mod native_app;
 mod native_locale;
 mod open_slide_presenter;
 mod pdf_window;
@@ -398,6 +399,8 @@ pub fn run() {
             app_restart::install_update,
             app_restart::set_agent_turn_running,
             app_restart::restart_impact,
+            native_app::native_app_supported,
+            native_app::check_native_app,
             ipc::windows::set_window_material,
             ipc::windows::set_native_locale,
             ipc::windows::native_edit_history,

@@ -52,7 +52,7 @@ pub fn config_dir() -> PathBuf {
         .unwrap_or_else(|| {
             dirs::data_dir()
                 .unwrap_or_else(std::env::temp_dir)
-                .join("lattice-gpui")
+                .join(crate::flavor::current().folder)
                 .join("overleaf")
         })
 }
