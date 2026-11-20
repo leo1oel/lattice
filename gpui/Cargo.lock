@@ -6757,7 +6757,7 @@ dependencies = [
 
 [[package]]
 name = "lattice-core"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "anydoc",
  "axum",

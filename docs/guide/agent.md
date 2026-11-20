@@ -22,4 +22,10 @@ Open the **Agent** panel (`⌘⌥3`, or the robot icon on the left). Then use on
 - **Annotate** a passage (select it, choose **Annotate**, write what should change), then **Save and revise now**: the Agent proposes an edit for each annotation and you accept or reject it in place. **Revise from annotations** in the command palette does every open annotation in rounds.
 - A failed build's **Ask the agent** sends that problem straight here.
 
-Threads are kept per project; the clock next to the thread name lists earlier ones.
+Threads are kept per project; the clock next to the thread name lists earlier ones. The **×** on a thread archives it rather than deleting it: **Settings › Agent › Archived threads** lists archived threads, including ones archived after a while unused, and can restore one to the history or delete it for good.
+
+In the native Lattice, the threads you had in the classic version show up as well. Each time its Agent starts, it adds the classic version's threads it doesn't have yet and says how many in a short notice. Continuing one picks up from its earlier messages.
+
+## A window of its own
+
+In the native Lattice, **Open in separate window** in the Agent panel's header moves the Agent into its own window, with the thread, your draft and a running reply intact. **Return to workspace**, the same command in the command palette, or closing the window puts it back. The window keeps its place and size for each project, and opens again with the project.
