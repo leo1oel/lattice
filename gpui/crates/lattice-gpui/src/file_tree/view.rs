@@ -5,8 +5,9 @@ use std::{rc::Rc, time::Duration};
 
 use gpui::{
     Animation, AnimationExt as _, AppContext as _, Context, DragMoveEvent, ExternalPaths,
-    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render,
-    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent,
+    ParentElement as _, Render, StatefulInteractiveElement as _, Styled as _, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::{input::Input, list::ListItem, tree::tree};
 use lattice_i18n::t;
@@ -29,6 +30,10 @@ use super::{
 /// section's left padding, the tree surface's right one); the scrollbar
 /// stands in the right one.
 const ROW_INSET: gpui::Pixels = px(12.);
+/// How far the name field's border and padding reach left of the name, so
+/// the name stays where it was; less than the gap after the icon, so the
+/// field never covers the icon (`[data-item-rename-input]`).
+const NAME_FIELD_LEAD: gpui::Pixels = px(3.);
 
 /// A row as a folder's motion draws it this frame: slid from where it was,
 /// its bottom still covered while the folder uncovers it, or, for the
@@ -121,6 +126,7 @@ impl Render for FileTreePanel {
             .map(|naming| (naming.path.clone(), naming.input.clone()));
         let aimed = self.aim.borrow().folder(cx);
         let row_aim = self.aim.clone();
+        let row_pressed = self.pressed_row.clone();
         let marks = self.marks.clone();
         let figures = self.figures.clone();
         // The tree's hover is one fill gliding between rows, as the app's
@@ -253,6 +259,23 @@ impl Render for FileTreePanel {
                     .relative()
                     .flex_1()
                     .min_h_0()
+                    // A press that lands on no row clears the selection
+                    // (`project-file-tree.tsx`): the rows mark their presses
+                    // on the way up, before this sees them.
+                    .capture_any_mouse_down(
+                        cx.listener(|this, _, _, _| this.pressed_row.set(false)),
+                    )
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                            if !this.pressed_row.get()
+                                && this.naming.is_none()
+                                && !event.modifiers.modified()
+                            {
+                                this.clear_selection(cx);
+                            }
+                        }),
+                    )
                     .child(
                         // Rows scrolling up are cut off at the pinned rows' bottom
                         // edge (`--trees-sticky-overlay-height`), so none shows
@@ -319,8 +342,8 @@ impl Render for FileTreePanel {
                                                         .flex()
                                                         .items_center()
                                                         .h(px(20.))
-                                                        .ml(px(-9.))
-                                                        .px(px(8.))
+                                                        .ml(-NAME_FIELD_LEAD)
+                                                        .px(NAME_FIELD_LEAD - px(1.))
                                                         .rounded(px(4.))
                                                         .border_1()
                                                         .border_color(palette.field_border_hover)
@@ -370,6 +393,7 @@ impl Render for FileTreePanel {
                                                 (target.clone(), target.clone());
                                             let files_target = target.clone();
                                             let menu_target = (relative.clone(), is_folder);
+                                            let pressed = row_pressed.clone();
                                             let mut item = row.into_list_item(cx);
                                             if let Some((frame, gone)) = &frame {
                                                 window.request_animation_frame();
@@ -427,6 +451,7 @@ impl Render for FileTreePanel {
                             })
                             .ok();
                         })
+                        .on_mouse_down(MouseButton::Left, move |_, _, _| pressed.set(true))
                         .on_click(move |event, window, cx| {
                             open.update(cx, |this, cx| {
                                 this.click_row(&click_path, is_folder, event, window, cx);
@@ -464,5 +489,19 @@ impl Render for FileTreePanel {
                     ),
             )
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use lattice_ui::components::TREE_ROW_LABEL_GAP;
+
+    use super::*;
+
+    // Leo: the name field of a new file covered its icon. Its reach left of
+    // the name has to stay inside the gap after the icon, with room to spare.
+    #[test]
+    fn the_name_field_clears_the_rows_icon() {
+        assert!(NAME_FIELD_LEAD + px(2.) <= TREE_ROW_LABEL_GAP);
     }
 }

@@ -8,6 +8,8 @@
 //! - Enter names the one selected row anew.
 //! - A template's `.sty` stays out of the tree until Show hidden files.
 //! - The open folders are kept for the project when it is shown again.
+//! - A press on the empty space clears the selection, so + makes the next
+//!   file at the project root; the open file stays open.
 //! - What a Finder drop brings in is selected.
 
 use std::{path::Path, time::Duration};
@@ -330,6 +332,36 @@ impl Run {
         std::fs::remove_dir_all(root.join("dest")).ok();
         cx.update(|cx| tree.update(cx, |tree, cx| tree.refresh(cx)));
         self.pause(cx, Duration::from_millis(300)).await;
+
+        // A press on the tree's empty space clears the selection, as in
+        // Finder, so + makes the next file at the project root; the open
+        // file stays open.
+        self.open(cx, &root.join("main.tex"), Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let chapters = self.tree_row_center(cx, "chapters")?;
+        self.click_with(cx, chapters, Modifiers::default()).await?;
+        let (picked, _) = selection(cx);
+        let folder_before = cx.update(|cx| tree.read(cx).new_entry_folder(cx));
+        let below = self.tree_below_rows(cx)?;
+        self.click_with(cx, below, Modifiers::default()).await?;
+        let (cleared, _) = selection(cx);
+        let folder_after = cx.update(|cx| tree.read(cx).new_entry_folder(cx));
+        let front = cx.update(|cx| self.shell.read(cx).active_editor_path(cx));
+        steps.check(
+            "a press on the tree's empty space clears the selection, so + makes the next file at the root, and the open file stays",
+            picked == ["chapters".to_string()]
+                && folder_before == "chapters"
+                && cleared.is_empty()
+                && folder_after.is_empty()
+                && front.as_deref() == Some("main.tex"),
+            json!({
+                "picked": picked,
+                "folder_before": folder_before,
+                "cleared": cleared,
+                "folder_after": folder_after,
+                "front": front,
+            }),
+        );
 
         // What a Finder drop brings in is selected.
         let finder =

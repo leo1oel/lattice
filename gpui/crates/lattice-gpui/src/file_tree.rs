@@ -48,7 +48,12 @@
 //! gliding between rows, never on the open file's row, and dark for 150 ms
 //! after a scroll; its scrollbar is Lattice's (`lattice_ui::scrollbar`).
 
-use std::{cell::RefCell, collections::HashSet, path::PathBuf, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashSet,
+    path::PathBuf,
+    rc::Rc,
+};
 
 use gpui::{
     Anchor, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
@@ -148,6 +153,9 @@ pub struct FileTreePanel {
     row_menu: Option<Entity<ContextMenu<(String, bool)>>>,
     /// Where a drag over the tree is aimed.
     aim: Rc<RefCell<Aim>>,
+    /// Whether the press going down landed on a row, pinned or not; a press
+    /// on the tree that landed on none clears the selection.
+    pressed_row: Rc<Cell<bool>>,
     selection: Selection,
     /// Rows to open the folders down to and bring into view once they are
     /// in the tree; `reveal_selects` when they are to be selected too.
@@ -202,6 +210,7 @@ impl FileTreePanel {
             figures: Rc::default(),
             copied: None,
             aim: Rc::default(),
+            pressed_row: Rc::default(),
             selection: Selection::default(),
             reveal: None,
             reveal_selects: false,

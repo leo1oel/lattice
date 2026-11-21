@@ -242,6 +242,10 @@ describe("shared surface contracts", () => {
       '[data-u-comp="formula-bar"] > div:first-child { flex: 0 0 calc(6rem + 4px); }',
       /\[data-u-comp="defined-name"\] input,[^}]+background: #FAFAFA !important;/,
     ]],
+    // WebKit selects a canvas a secondary click lands on, tinting the whole sheet.
+    ["keeps a right-click from selecting the spreadsheet canvas in WebKit", [
+      ".spreadsheet-univer-host canvas { -webkit-user-select: none; user-select: none; }",
+    ]],
     ["gives the spreadsheet ribbon a slightly deeper neutral surface", [
       /\[data-u-comp="ribbon-header-menu"\] \+ div:has\(> \[data-u-comp="ribbon-toolbar"\]\) \{\s*background: #F4F4F5;/,
     ]],

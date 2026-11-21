@@ -408,6 +408,22 @@ describe("ProjectFileTree", () => {
     await waitFor(() => expect(props.onCopyEntries).toHaveBeenCalledWith(["sections"], ""));
   });
 
+  it("clears the selection on a click in the empty space, so a new file goes to the root and the open file stays", async () => {
+    expandSections();
+    const view = renderTree();
+    const sections = await findTreeItem("sections/");
+    fireEvent.click(sections);
+    await waitFor(() => expect(sections).toHaveAttribute("data-item-selected", "true"));
+    const emptySpace = treeRoot()!.querySelector<HTMLElement>('[data-file-tree-virtualized-scroll="true"]')!;
+    fireEvent.click(emptySpace);
+    await waitFor(() => expect(treeRoot()!.querySelector('[data-item-selected="true"]')).toBeNull());
+    view.rerenderWith({ newEntryRequest: { type: "latex", serial: 1 } });
+    await findTreeItem("untitled.tex");
+    expect(treeItem("sections/untitled.tex")).toBeNull();
+    expect(view.props.onFile).not.toHaveBeenCalled();
+    expect(view.props.onAsset).not.toHaveBeenCalled();
+  });
+
   it("renames the selected file with Enter and confirms from the rename input", async () => {
     const { props } = renderTree();
     const main = await findTreeItem("main.tex");

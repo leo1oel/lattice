@@ -69,6 +69,13 @@ impl FileTreePanel {
         (self.selected_paths(cx), open)
     }
 
+    /// The folder + makes a new LaTeX file in, "" for the project root, for
+    /// a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn new_entry_folder(&self, cx: &App) -> String {
+        self.selection_folder(cx)
+    }
+
     /// The folders kept open for the project across runs, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn remembered_open(&self, cx: &App) -> Vec<String> {
