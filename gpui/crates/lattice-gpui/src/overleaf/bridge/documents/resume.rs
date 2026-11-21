@@ -182,7 +182,8 @@ impl OverleafBridge {
         if saw_ours || doc.ot.settled() || send.is_some() {
             self.proven(doc_id, &doc.path);
         }
-        let shown = self.documents.shown.as_ref() == Some(&doc.editor);
+        // A switch under way takes nothing up live, a resumed document included.
+        let shown = self.documents.shown.as_ref() == Some(&doc.editor) && !self.documents.switching;
         if shown && self.documents.live.is_none() {
             self.documents.live = Some(doc);
         } else {

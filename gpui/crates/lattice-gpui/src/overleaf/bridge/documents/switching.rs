@@ -76,6 +76,12 @@ impl OverleafBridge {
         })
     }
 
+    /// A document is live or being joined: what a switch under way must not
+    /// take up again.
+    pub fn holds_live(&self) -> bool {
+        self.documents.live.is_some() || self.documents.joining.is_some()
+    }
+
     /// The switch is over, entered or not: `editor` is the one shown now,
     /// and may be joined again.
     pub fn switch_ended(&mut self, editor: Option<&Entity<EditorPanel>>, cx: &mut Context<Self>) {
