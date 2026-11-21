@@ -112,7 +112,7 @@ describe("the failed install's toast", () => {
     expect(retry).toHaveBeenCalledOnce();
     options.secondaryAction?.onClick();
     expect(opener.openUrl).toHaveBeenCalledWith(releasePageUrl("0.16.1"));
-    expect(releasePageUrl("0.16.1")).toBe("https://github.com/leo1oel/lattice/releases/tag/v0.16.1");
+    expect(releasePageUrl("0.16.1")).toBe("https://github.com/lattice-writer/lattice/releases/tag/v0.16.1");
   });
 
   it.each([["a 404", "Download request failed with status: 404 Not Found"], ["a bad signature", "signature verification failed"]])(

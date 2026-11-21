@@ -32,4 +32,4 @@ You don't need to change anything in Zotero, and it can be open or closed.
 2. Open **My Library** or a folder; turn on **Include subfolders** to see everything below it.
 3. Tick the papers you want, or **Select all**, and choose **Add N papers**. Papers already in the library show **In Papers**.
 
-Annotations you made on a paper's PDF in Zotero come along into its note (`notes/<key>.md`), each with a link to its page. Lattice only reads from Zotero; it never writes back. If Lattice can't find your library, choose its folder with **Choose Zotero folder…**. More detail, including connecting Zotero to the Agent, is in [Zotero, Heptabase and the Agent panel](https://github.com/leo1oel/lattice/blob/main/docs/zotero-and-notes.md).
+Annotations you made on a paper's PDF in Zotero come along into its note (`notes/<key>.md`), each with a link to its page. Lattice only reads from Zotero; it never writes back. If Lattice can't find your library, choose its folder with **Choose Zotero folder…**. More detail, including connecting Zotero to the Agent, is in [Zotero, Heptabase and the Agent panel](https://github.com/lattice-writer/lattice/blob/main/docs/zotero-and-notes.md).

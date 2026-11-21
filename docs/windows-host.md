@@ -7,7 +7,7 @@ It requires Windows 10 version 1809 or later (Windows 11 recommended).
 This is an experimental target. Releases whose Windows installer checks pass
 also provide a per-user x64 NSIS installer, clearly marked experimental.
 Download the `windows-x64-experimental-setup.exe` and its matching `.sha256`
-from [GitHub Releases](https://github.com/leo1oel/lattice/releases). Release
+from [GitHub Releases](https://github.com/lattice-writer/lattice/releases). Release
 downloads need no GitHub account and have no Actions artifact expiry.
 The installer is **unsigned**: SmartScreen may show an unknown-publisher warning.
 Check the source and checksum before deciding whether to run it; do not disable

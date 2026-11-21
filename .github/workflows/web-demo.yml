@@ -9,7 +9,7 @@ name: Web demo
 #   code, the startup size), smoke-tests it in Chrome and uploads it as an artifact.
 # - After the Release workflow succeeds, the demo is built from that release's
 #   commit, so it always matches the version people download, and published
-#   to the website's gh-pages branch under demo/ (https://leo1oel.github.io/lattice/demo/).
+#   to the website's gh-pages branch under demo/ (https://lattice-writer.github.io/lattice/demo/).
 #   Only demo/ is written: the site's own files belong to the website. A
 #   release whose demo fails to build or check publishes nothing, and the
 #   previous demo stays up. Only a release publishes.

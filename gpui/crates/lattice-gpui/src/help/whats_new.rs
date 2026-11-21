@@ -221,7 +221,7 @@ pub fn announce_update(state: Option<PathBuf>, replaced_tauri: bool, cx: &mut Ap
 
 /// Where a release's full notes live: the generated list under its lead.
 pub fn release_url(version: &str) -> String {
-    format!("https://github.com/leo1oel/lattice/releases/tag/v{version}")
+    format!("https://github.com/lattice-writer/lattice/releases/tag/v{version}")
 }
 
 /// The glyph a highlight names; anything else draws the sparkle.

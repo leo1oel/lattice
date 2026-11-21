@@ -43,7 +43,7 @@ import "./get-started.css";
 
 const CLAUDE_CODE_URL = "https://github.com/anthropics/claude-code";
 const CODEX_URL = "https://github.com/openai/codex";
-const DOWNLOAD_URL = "https://github.com/leo1oel/lattice/releases/latest";
+const DOWNLOAD_URL = "https://github.com/lattice-writer/lattice/releases/latest";
 /* eslint-disable lingui/no-unlocalized-strings -- product names, the same in every language */
 const CLAUDE_CODE = "Claude Code";
 const CODEX = "Codex";

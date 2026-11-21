@@ -13,10 +13,10 @@
 
 ```sh
 mkdir hello && cd hello
-curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice/main/plugin-sdk/lattice-plugin.mjs
+curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice/main/plugin-sdk/lattice-plugin.mjs
 ```
 
-`lattice-plugin.mjs` 就是 SDK：一个 MIT 许可、没有依赖的文件，替你处理通信协议。它要放在你的文件夹里，因为插件只能读取自己的文件夹。它的 TypeScript 类型在 [plugin-sdk](https://github.com/leo1oel/lattice/tree/main/plugin-sdk) 里（`index.d.ts` 和 `api.d.ts`）。
+`lattice-plugin.mjs` 就是 SDK：一个 MIT 许可、没有依赖的文件，替你处理通信协议。它要放在你的文件夹里，因为插件只能读取自己的文件夹。它的 TypeScript 类型在 [plugin-sdk](https://github.com/lattice-writer/lattice/tree/main/plugin-sdk) 里（`index.d.ts` 和 `api.d.ts`）。
 
 ## 2. 编写清单文件
 
@@ -212,4 +212,4 @@ definePlugin({
 
 - [插件清单与 API](plugin-reference.md)：所有权限、Lattice 调用、结果和操作。
 - [发布插件](plugin-publishing.md)：打包 Hello，上架插件市场，发布更新。
-- 两个可以照抄的真实插件：[bib-check](https://github.com/leo1oel/lattice/tree/main/examples/plugins/bib-check)（检查 `.bib` 文件的问题）和 [zotero-search](https://github.com/leo1oel/lattice/tree/main/examples/plugins/zotero-search)（搜索 Zotero 并插入引用）。
+- 两个可以照抄的真实插件：[bib-check](https://github.com/lattice-writer/lattice/tree/main/examples/plugins/bib-check)（检查 `.bib` 文件的问题）和 [zotero-search](https://github.com/lattice-writer/lattice/tree/main/examples/plugins/zotero-search)（搜索 Zotero 并插入引用）。

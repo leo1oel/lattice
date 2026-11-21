@@ -60,7 +60,7 @@ The plugin can also live in a subfolder of a bigger repository; the entry's `pat
 Pack a clean checkout of the tag with Lattice's pack script:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice/main/plugin-sdk/scripts/pack-plugin.mjs
+curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice/main/plugin-sdk/scripts/pack-plugin.mjs
 git clone --quiet --depth 1 --branch v0.1.0 https://github.com/yourname/lattice-hello release
 node pack-plugin.mjs release dist/hello-0.1.0.zip
 ```

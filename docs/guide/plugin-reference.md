@@ -1,6 +1,6 @@
 # Plugin manifest and API
 
-This page lists what a plugin can declare, ask for, call and return, with the rules the plugin market adds. The complete protocol, with every field and error code, is [docs/plugins.md](https://github.com/leo1oel/lattice/blob/main/docs/plugins.md); the schema it is generated from is [plugin-api/schema/level-1.json](https://github.com/leo1oel/lattice/blob/main/plugin-api/schema/level-1.json).
+This page lists what a plugin can declare, ask for, call and return, with the rules the plugin market adds. The complete protocol, with every field and error code, is [docs/plugins.md](https://github.com/lattice-writer/lattice/blob/main/docs/plugins.md); the schema it is generated from is [plugin-api/schema/level-1.json](https://github.com/lattice-writer/lattice/blob/main/plugin-api/schema/level-1.json).
 
 ## The manifest
 
@@ -101,4 +101,4 @@ Each action also takes an optional `title`. Lattice checks every action before s
 
 ## Compatibility
 
-Plugin API levels only add things: new methods, optional fields, result kinds and action types. A plugin that declares `api = 1` keeps working on every later Lattice until level 1 is retired, which is announced at least two minor releases ahead in [docs/plugins.md](https://github.com/leo1oel/lattice/blob/main/docs/plugins.md#deprecation-register). Read only the fields you know, since results and contexts may gain fields.
+Plugin API levels only add things: new methods, optional fields, result kinds and action types. A plugin that declares `api = 1` keeps working on every later Lattice until level 1 is retired, which is announced at least two minor releases ahead in [docs/plugins.md](https://github.com/lattice-writer/lattice/blob/main/docs/plugins.md#deprecation-register). Read only the fields you know, since results and contexts may gain fields.

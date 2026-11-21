@@ -141,7 +141,7 @@ describe("a download that fails", () => {
     await waitFor(() => expect(installEvent()).toMatchObject({ outcome: "error", attempts: 3, http_status: 504, error_kind: "update_server" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Open releases page", hidden: true }));
-    expect(tauri.openUrl).toHaveBeenCalledWith("https://github.com/leo1oel/lattice/releases/tag/v0.16.1");
+    expect(tauri.openUrl).toHaveBeenCalledWith("https://github.com/lattice-writer/lattice/releases/tag/v0.16.1");
 
     // The update is still held: Try again installs it.
     fireEvent.click(screen.getByRole("button", { name: "Try again", hidden: true }));

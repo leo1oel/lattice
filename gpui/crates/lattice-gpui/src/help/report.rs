@@ -43,7 +43,7 @@ fn form_encode(value: &str) -> String {
 pub fn new_issue_url(os_version: Option<&str>, arch: &str, lattice_version: &str) -> String {
     let macos = format!("macOS {} ({arch})", os_version.unwrap_or("unknown"));
     format!(
-        "https://github.com/leo1oel/lattice/issues/new?template={}&lattice-version={}&macos-version={}",
+        "https://github.com/lattice-writer/lattice/issues/new?template={}&lattice-version={}&macos-version={}",
         form_encode("bug_report.yml"),
         form_encode(lattice_version),
         form_encode(&macos)
@@ -156,7 +156,7 @@ mod tests {
         let url = new_issue_url(Some("15.1"), "aarch64", "0.16.1");
         assert_eq!(
             url,
-            "https://github.com/leo1oel/lattice/issues/new?template=bug_report.yml&lattice-version=0.16.1&macos-version=macOS+15.1+%28aarch64%29"
+            "https://github.com/lattice-writer/lattice/issues/new?template=bug_report.yml&lattice-version=0.16.1&macos-version=macOS+15.1+%28aarch64%29"
         );
         assert!(new_issue_url(None, "x86_64", "1.0.0").ends_with("macOS+unknown+%28x86_64%29"));
     }

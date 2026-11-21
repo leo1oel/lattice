@@ -61,7 +61,7 @@ describe("the GPUI bundle", () => {
 
   it("names the releases of the repository the workflow runs in", () => {
     expect(releaseRepository({ GITHUB_REPOSITORY: "lattice-writer/lattice" })).toBe("lattice-writer/lattice");
-    expect(releaseRepository({})).toBe("leo1oel/lattice");
+    expect(releaseRepository({})).toBe("lattice-writer/lattice");
   });
 
   it("writes Lattice Beta's manifest for a feed apart from the Tauri app's", () => {

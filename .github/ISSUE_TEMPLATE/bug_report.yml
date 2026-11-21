@@ -10,8 +10,8 @@ body:
 
         > [!CAUTION]
         > **Do not report a security vulnerability here.** Use
-        > [private vulnerability reporting](https://github.com/leo1oel/lattice/security/advisories/new)
-        > instead — see [SECURITY.md](https://github.com/leo1oel/lattice/blob/main/.github/SECURITY.md).
+        > [private vulnerability reporting](https://github.com/lattice-writer/lattice/security/advisories/new)
+        > instead — see [SECURITY.md](https://github.com/lattice-writer/lattice/blob/main/.github/SECURITY.md).
 
         > [!WARNING]
         > **Everything you paste below is public.** Before you attach logs,
@@ -27,9 +27,9 @@ body:
     attributes:
       label: Before you file
       options:
-        - label: I searched the [existing issues](https://github.com/leo1oel/lattice/issues?q=is%3Aissue) and this is not a duplicate.
+        - label: I searched the [existing issues](https://github.com/lattice-writer/lattice/issues?q=is%3Aissue) and this is not a duplicate.
           required: true
-        - label: I am on the [latest release](https://github.com/leo1oel/lattice/releases/latest) and the problem still happens.
+        - label: I am on the [latest release](https://github.com/lattice-writer/lattice/releases/latest) and the problem still happens.
           required: true
 
   - type: input

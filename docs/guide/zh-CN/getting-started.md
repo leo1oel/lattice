@@ -2,7 +2,7 @@
 
 ## 安装 Lattice
 
-1. 从 [最新版本](https://github.com/leo1oel/lattice/releases/latest) 下载 `.dmg`，把 Lattice 拖进「应用程序」。Intel Mac 请下载以 `_x64.dmg` 结尾的文件。也可以用 Homebrew：`brew install --cask lattice`。
+1. 从 [最新版本](https://github.com/lattice-writer/lattice/releases/latest) 下载 `.dmg`，把 Lattice 拖进「应用程序」。Intel Mac 请下载以 `_x64.dmg` 结尾的文件。也可以用 Homebrew：`brew install --cask lattice`。
 2. 打开 Lattice。它会自动更新：新版本下载好后，**Lattice › 重新启动以更新…** 即可安装。可在 **设置 › 编辑编译 › 更新** 中修改。
 
 Lattice 需要 macOS 14 或更高版本。Linux（AppImage）和 Windows 版本仍是实验性的，没有 AI 助手。

@@ -24,7 +24,7 @@ use super::{
 use crate::project::Project;
 
 /// Where every release is published.
-const LATEST_RELEASE_URL: &str = "https://github.com/leo1oel/lattice/releases/latest";
+const LATEST_RELEASE_URL: &str = "https://github.com/lattice-writer/lattice/releases/latest";
 
 /// A row Settings search can reveal: measured as it is drawn, washed when
 /// revealed.

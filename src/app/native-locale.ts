@@ -161,7 +161,7 @@ export function nativeMenuLabels(): NativeMenuLabels {
 
 /** The user guide's pages on the website (scripts/user-guide.mjs): the Chinese under zh-CN/, the English for every other language. */
 function userGuideUrl(locale: string): string {
-  return locale === "zh-CN" ? "https://leo1oel.github.io/lattice/guide/zh-CN/" : "https://leo1oel.github.io/lattice/guide/";
+  return locale === "zh-CN" ? "https://lattice-writer.github.io/lattice/guide/zh-CN/" : "https://lattice-writer.github.io/lattice/guide/";
 }
 
 /**

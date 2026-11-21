@@ -18,4 +18,4 @@
 
 **文字丢了。** 打开 [历史](history.md)：每次保存、每次助手修改、每次 Overleaf 上的改动都在里面，**恢复文件** 可以把文件找回来。
 
-**遇到其他问题。** **帮助 › 报告问题…** 会保存一份去除隐私信息的日志，你可以附到 issue 里，并打开 [GitHub Issues](https://github.com/leo1oel/lattice/issues)。**设置 › 日志** 可以在应用内查看日志。
+**遇到其他问题。** **帮助 › 报告问题…** 会保存一份去除隐私信息的日志，你可以附到 issue 里，并打开 [GitHub Issues](https://github.com/lattice-writer/lattice/issues)。**设置 › 日志** 可以在应用内查看日志。

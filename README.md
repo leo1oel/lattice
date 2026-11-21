@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://leo1oel.github.io/lattice/">
+<a href="https://lattice-writer.github.io/lattice/">
   <img src="./src-tauri/icons/app-icon.svg" alt="Lattice" width="80" />
 </a>
 
@@ -8,10 +8,10 @@
 
 A local-first LaTeX workspace for macOS, with your papers, your co-authors and an AI agent in the same window
 
-[Download](https://github.com/leo1oel/lattice/releases/latest)&emsp;[Try it in your browser](https://leo1oel.github.io/lattice/demo/)&emsp;[Website](https://leo1oel.github.io/lattice/)&emsp;[Watch the film](https://leo1oel.github.io/lattice/#film)&emsp;[Release notes](https://github.com/leo1oel/lattice/releases)&emsp;[Developer docs](docs/README.md)&emsp;[Issues](https://github.com/leo1oel/lattice/issues)&emsp;[中文](README.zh-CN.md)
+[Download](https://github.com/lattice-writer/lattice/releases/latest)&emsp;[Try it in your browser](https://lattice-writer.github.io/lattice/demo/)&emsp;[Website](https://lattice-writer.github.io/lattice/)&emsp;[Watch the film](https://lattice-writer.github.io/lattice/#film)&emsp;[Release notes](https://github.com/lattice-writer/lattice/releases)&emsp;[Developer docs](docs/README.md)&emsp;[Issues](https://github.com/lattice-writer/lattice/issues)&emsp;[中文](README.zh-CN.md)
 
-[![Release](https://img.shields.io/github/v/release/leo1oel/lattice?style=flat-square&label=release&color=556324)](https://github.com/leo1oel/lattice/releases/latest)
-[![CI](https://img.shields.io/github/actions/workflow/status/leo1oel/lattice/ci.yml?branch=main&style=flat-square&label=checks)](https://github.com/leo1oel/lattice/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/lattice-writer/lattice?style=flat-square&label=release&color=556324)](https://github.com/lattice-writer/lattice/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/lattice-writer/lattice/ci.yml?branch=main&style=flat-square&label=checks)](https://github.com/lattice-writer/lattice/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-556324?style=flat-square)](LICENSE)
 
 </div>
@@ -94,7 +94,7 @@ The Git panel shows changes and pull requests when the project is a repository.
 Lattice runs on Macs with macOS 14 or later, Apple silicon or Intel, and builds with your own [MacTeX](https://tug.org/mactex/) or TeX Live.
 No TeX yet? Lattice offers to install BasicTeX for you: it is the first step of the Get started checklist, and a build that finds no TeX offers it too.
 
-1. Download the `.dmg` from the [latest release](https://github.com/leo1oel/lattice/releases/latest) and drag Lattice into Applications.
+1. Download the `.dmg` from the [latest release](https://github.com/lattice-writer/lattice/releases/latest) and drag Lattice into Applications.
    On a Mac with an Intel processor, download the one ending in `_x64.dmg` (Apple menu → About This Mac shows **Chip** on Apple silicon and **Processor** on Intel).
    Or install it with Homebrew: `brew install --cask lattice`. The app updates itself, so Homebrew leaves upgrades to it.
 2. Open a folder, start from a template, or connect an Overleaf project.
@@ -116,7 +116,7 @@ its setup dialog, or you can install it yourself. See the
 ## Contributing
 
 To build from source, see [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture docs](docs/README.md).
-Bug reports and pull requests are welcome; please open an [issue](https://github.com/leo1oel/lattice/issues) before a large refactor.
+Bug reports and pull requests are welcome; please open an [issue](https://github.com/lattice-writer/lattice/issues) before a large refactor.
 
 ## Acknowledgements
 

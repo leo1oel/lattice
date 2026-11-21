@@ -72,7 +72,7 @@
 | `syntax` | 编辑器的 16 种语法颜色，例如 `keyword`、`command` 和 `comment` |
 | `terminal` | `black` … `white` 和 `bright-black` … `bright-white` |
 
-Lattice 会保证文字可读：文字、状态和语法颜色在其背景上达不到 4.5:1 对比度时，会在保持色相的前提下调整到够为止，强调色则保证 4.6:1。只有经过大幅校正才可读的主题看起来会不对劲，所以请自己检查配色。完整的角色列表见 [docs/themes.md](https://github.com/leo1oel/lattice/blob/main/docs/themes.md#roles)（英文）和 [JSON Schema](https://github.com/leo1oel/lattice/blob/main/design-system/themes/theme-1.schema.json)。
+Lattice 会保证文字可读：文字、状态和语法颜色在其背景上达不到 4.5:1 对比度时，会在保持色相的前提下调整到够为止，强调色则保证 4.6:1。只有经过大幅校正才可读的主题看起来会不对劲，所以请自己检查配色。完整的角色列表见 [docs/themes.md](https://github.com/lattice-writer/lattice/blob/main/docs/themes.md#roles)（英文）和 [JSON Schema](https://github.com/lattice-writer/lattice/blob/main/design-system/themes/theme-1.schema.json)。
 
 ## 2. 在 Lattice 中试用
 

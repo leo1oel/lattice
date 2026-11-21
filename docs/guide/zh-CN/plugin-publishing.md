@@ -60,7 +60,7 @@ git push origin v0.1.0
 用 Lattice 的打包脚本打包该标签的一份干净检出：
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice/main/plugin-sdk/scripts/pack-plugin.mjs
+curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice/main/plugin-sdk/scripts/pack-plugin.mjs
 git clone --quiet --depth 1 --branch v0.1.0 https://github.com/yourname/lattice-hello release
 node pack-plugin.mjs release dist/hello-0.1.0.zip
 ```

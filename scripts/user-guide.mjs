@@ -3,7 +3,7 @@
  * The user guide (docs/guide/): English pages at its root, the same pages in
  * Simplified Chinese under zh-CN/, and the screenshots both use in images/.
  * The Markdown reads as it is on GitHub; this script also renders it to the
- * static pages the website serves at https://leo1oel.github.io/lattice/guide/
+ * static pages the website serves at https://lattice-writer.github.io/lattice/guide/
  * (published by .github/workflows/user-guide.yml), which Help ▸ User Guide
  * opens in both apps.
  *
