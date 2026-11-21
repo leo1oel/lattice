@@ -1,6 +1,6 @@
 # @lattice-app/plugin-api
 
-Types and a one-file runtime for writing [Lattice](https://github.com/leo1oel/lattice)
+Types and a one-file runtime for writing [Lattice](https://github.com/lattice-writer/lattice)
 plugins. MIT licensed. The contract is [`docs/plugins.md`](../docs/plugins.md).
 It is not on npm yet; copy the files from here. For a step-by-step walkthrough, from
 a hello-world plugin to the plugin market, read

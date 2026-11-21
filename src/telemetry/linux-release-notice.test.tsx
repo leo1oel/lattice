@@ -27,7 +27,7 @@ it("checks on startup, offers the release without installing, and does not repea
   expect(addAppLog).toHaveBeenCalledOnce();
   const entry = vi.mocked(addAppLog).mock.calls[0][0];
   entry.toastOptions?.primaryAction?.onClick?.();
-  await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://github.com/leo1oel/lattice/releases/latest"));
+  await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://github.com/lattice-writer/lattice/releases/latest"));
   expect(vi.mocked(invoke).mock.calls.every(([command]) => command === "check_linux_release")).toBe(true);
 });
 

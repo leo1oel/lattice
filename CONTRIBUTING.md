@@ -9,7 +9,7 @@ Everyone taking part is expected to follow the
 ## Report a bug or suggest an improvement
 
 Before opening an issue, please search the
-[existing issues](https://github.com/leo1oel/lattice/issues) to see whether it
+[existing issues](https://github.com/lattice-writer/lattice/issues) to see whether it
 has already been reported.
 
 For a bug, include:
@@ -24,7 +24,7 @@ For a feature request, describe the research workflow you want to improve and
 the problem you currently encounter. Explaining the use case is more useful
 than prescribing a particular implementation.
 
-[Open an issue](https://github.com/leo1oel/lattice/issues/new)
+[Open an issue](https://github.com/lattice-writer/lattice/issues/new)
 
 ## Open a pull request
 

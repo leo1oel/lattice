@@ -10,10 +10,10 @@ use tauri::{AppHandle, Runtime};
 const ABOUT: &str = "about";
 /// Menu ids of Help's project links; the part after the prefix is the URL.
 const OPEN_LINK_PREFIX: &str = "open-link:";
-const REPOSITORY_URL: &str = "https://github.com/leo1oel/lattice";
-const WEBSITE_URL: &str = "https://leo1oel.github.io/lattice/";
+const REPOSITORY_URL: &str = "https://github.com/lattice-writer/lattice";
+const WEBSITE_URL: &str = "https://lattice-writer.github.io/lattice/";
 /// The user guide's English contents (docs/guide/, published by user-guide.yml).
-const USER_GUIDE_URL: &str = "https://leo1oel.github.io/lattice/guide/";
+const USER_GUIDE_URL: &str = "https://lattice-writer.github.io/lattice/guide/";
 
 /// The attribution Trellis's license asks shipped apps to show.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -104,7 +104,7 @@ mod tests {
 
     #[test]
     fn user_guide_opens_only_the_guide() {
-        let chinese = "https://leo1oel.github.io/lattice/guide/zh-CN/";
+        let chinese = "https://lattice-writer.github.io/lattice/guide/zh-CN/";
         assert_eq!(user_guide_link(chinese), chinese);
         assert_eq!(user_guide_link("https://example.com/guide/"), USER_GUIDE_URL);
         assert_eq!(user_guide_link("file:///etc/passwd"), USER_GUIDE_URL);

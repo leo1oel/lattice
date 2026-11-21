@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://leo1oel.github.io/lattice/">
+<a href="https://lattice-writer.github.io/lattice/">
   <img src="./src-tauri/icons/app-icon.svg" alt="Lattice" width="80" />
 </a>
 
@@ -8,7 +8,7 @@
 
 macOS 上的本地优先 LaTeX 工作区：论文、文献、合作者和 AI 智能体在同一个窗口里
 
-[下载](https://github.com/leo1oel/lattice/releases/latest)&emsp;[在浏览器中试用](https://leo1oel.github.io/lattice/demo/)&emsp;[官网](https://leo1oel.github.io/lattice/)&emsp;[观看短片](https://leo1oel.github.io/lattice/#film)&emsp;[更新日志](https://github.com/leo1oel/lattice/releases)&emsp;[开发者文档](docs/README.md)&emsp;[反馈](https://github.com/leo1oel/lattice/issues)&emsp;[English](README.md)
+[下载](https://github.com/lattice-writer/lattice/releases/latest)&emsp;[在浏览器中试用](https://lattice-writer.github.io/lattice/demo/)&emsp;[官网](https://lattice-writer.github.io/lattice/)&emsp;[观看短片](https://lattice-writer.github.io/lattice/#film)&emsp;[更新日志](https://github.com/lattice-writer/lattice/releases)&emsp;[开发者文档](docs/README.md)&emsp;[反馈](https://github.com/lattice-writer/lattice/issues)&emsp;[English](README.md)
 
 </div>
 
@@ -85,7 +85,7 @@ Lattice 不自带模型，也没有自己的 AI 订阅。
 ## 安装
 
 需要 macOS 14 或更高版本的 Mac（Apple 芯片或 Intel 处理器均可），以及你自己的 [MacTeX](https://tug.org/mactex/) 或 TeX Live。还没有装 TeX？Lattice 启动时会发现，并提出替你安装 BasicTeX。
-从 [最新版本](https://github.com/leo1oel/lattice/releases/latest) 下载 `.dmg`（Intel 处理器的 Mac 请下载以 `_x64.dmg` 结尾的那个），把 Lattice 拖入“应用程序”，然后打开一个文件夹、从模板新建，或连接 Overleaf 项目。项目菜单里的 **新手教程** 会打开一篇示例论文。
+从 [最新版本](https://github.com/lattice-writer/lattice/releases/latest) 下载 `.dmg`（Intel 处理器的 Mac 请下载以 `_x64.dmg` 结尾的那个），把 Lattice 拖入“应用程序”，然后打开一个文件夹、从模板新建，或连接 Overleaf 项目。项目菜单里的 **新手教程** 会打开一篇示例论文。
 也可以用 Homebrew 安装：`brew install --cask lattice`。应用会自行更新，Homebrew 不负责升级它。
 官方版本经过签名和 Apple 公证，并会自动更新。
 

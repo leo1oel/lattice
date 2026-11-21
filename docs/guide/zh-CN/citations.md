@@ -32,4 +32,4 @@
 2. 打开 **我的文库** 或某个分类；打开 **包含子分类** 可以看到下面的全部论文。
 3. 勾选需要的论文，或者 **全选**，再点 **添加 N 篇论文**。已经在库里的论文显示 **已在论文库**。
 
-你在 Zotero 里对论文 PDF 做的批注会一起带进它的笔记（`notes/<key>.md`），每条都链接到对应页。Lattice 只读取 Zotero，从不写回。如果 Lattice 找不到你的文库，用 **选择 Zotero 文件夹…** 指定位置。更多内容（包括把 Zotero 接入 AI 助手）见 [Zotero, Heptabase and the Agent panel](https://github.com/leo1oel/lattice/blob/main/docs/zotero-and-notes.md)（英文）。
+你在 Zotero 里对论文 PDF 做的批注会一起带进它的笔记（`notes/<key>.md`），每条都链接到对应页。Lattice 只读取 Zotero，从不写回。如果 Lattice 找不到你的文库，用 **选择 Zotero 文件夹…** 指定位置。更多内容（包括把 Zotero 接入 AI 助手）见 [Zotero, Heptabase and the Agent panel](https://github.com/lattice-writer/lattice/blob/main/docs/zotero-and-notes.md)（英文）。

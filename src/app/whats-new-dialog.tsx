@@ -14,7 +14,7 @@ const ICONS: Record<string, ComponentType<{ size?: number; "aria-hidden"?: boole
 };
 
 /** Where a release's full notes live: the generated list under its lead. */
-const releaseUrl = (version: string) => `https://github.com/leo1oel/lattice/releases/tag/v${version}`;
+const releaseUrl = (version: string) => `https://github.com/lattice-writer/lattice/releases/tag/v${version}`;
 
 /** Unmounted while closed, so each opening starts at the running version. */
 export function WhatsNewDialog({ open, ...props }: { open: boolean; onClose: () => void; onOpenUrl: (url: string) => void }) {

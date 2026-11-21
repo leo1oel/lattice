@@ -60,7 +60,7 @@ import { codesign, signMachOTree } from "./lib/codesign.mjs";
  * lattice-writer organization names its own address and never leans on
  * GitHub's redirect from the old one.
  */
-export const releaseRepository = (env = process.env) => env.GITHUB_REPOSITORY || "leo1oel/lattice";
+export const releaseRepository = (env = process.env) => env.GITHUB_REPOSITORY || "lattice-writer/lattice";
 
 /**
  * The apps the GPUI binary ships as; it reads which one it is from the

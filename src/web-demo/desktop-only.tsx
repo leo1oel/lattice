@@ -22,7 +22,7 @@ import attentionMapStill from "./attention-map-board.webp";
 import "./desktop-only.css";
 
 // The latest release's page, where the disk image is.
-const DOWNLOAD_URL = "https://github.com/leo1oel/lattice/releases/latest";
+const DOWNLOAD_URL = "https://github.com/lattice-writer/lattice/releases/latest";
 
 function DesktopOnlyCard({ icon, title, description, still }: {
   icon: ReactNode;

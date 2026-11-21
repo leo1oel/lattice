@@ -6,7 +6,7 @@
  */
 import "./demo-chrome.css";
 
-const DOWNLOAD_URL = "https://github.com/leo1oel/lattice/releases/latest";
+const DOWNLOAD_URL = "https://github.com/lattice-writer/lattice/releases/latest";
 /** The website, one level up from the demo's folder (gh-pages /demo/). */
 const SITE_URL = "../";
 

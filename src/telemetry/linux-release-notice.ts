@@ -8,7 +8,7 @@ import { i18n } from "../i18n";
 import { addAppLog } from "./app-log-store";
 import { updatesItself } from "./updates-itself";
 
-const RELEASES = "https://github.com/leo1oel/lattice/releases/latest";
+const RELEASES = "https://github.com/lattice-writer/lattice/releases/latest";
 
 export function useLinuxReleaseNotice(intervalMs: number, enabled: boolean) {
   const offered = useRef<string | null>(null);

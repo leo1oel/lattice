@@ -222,7 +222,7 @@ it is green locally but red in CI, suspect its freshness cache first:
 ## A failed check
 
 A red CI check that your change cannot reach is probably a known flake: search
-the pinned [Known flakes](https://github.com/leo1oel/lattice/issues/342) issue
+the pinned [Known flakes](https://github.com/lattice-writer/lattice/issues/342) issue
 for the test's name before you investigate it. When CI fails on `main`,
 `flake-rerun.yml` re-runs the failed jobs once; on any branch, a re-run that
 passes records what failed the attempt before. `synara-pin` is never recorded:

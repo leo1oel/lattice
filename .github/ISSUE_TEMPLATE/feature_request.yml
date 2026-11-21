@@ -18,14 +18,14 @@ body:
         For a large feature, a protocol change, or anything that spans the
         editor, the collaboration server, and the Rust backend, expect a design
         conversation on this issue before code — see
-        [CONTRIBUTING.md](https://github.com/leo1oel/lattice/blob/main/CONTRIBUTING.md).
+        [CONTRIBUTING.md](https://github.com/lattice-writer/lattice/blob/main/CONTRIBUTING.md).
 
   - type: checkboxes
     id: preflight
     attributes:
       label: Before you file
       options:
-        - label: I searched the [existing issues](https://github.com/leo1oel/lattice/issues?q=is%3Aissue) and this has not been requested.
+        - label: I searched the [existing issues](https://github.com/lattice-writer/lattice/issues?q=is%3Aissue) and this has not been requested.
           required: true
 
   - type: textarea

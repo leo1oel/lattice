@@ -114,7 +114,7 @@ export type SettingsDialogProps = DoctorSettingsProps & {
 };
 
 /** Where Linux copies, which do not update themselves, get each new release. */
-const LATEST_RELEASE_URL = "https://github.com/leo1oel/lattice/releases/latest";
+const LATEST_RELEASE_URL = "https://github.com/lattice-writer/lattice/releases/latest";
 const NativeAppDialog = lazy(() => import("../app/native-app-dialog").then((module) => ({ default: module.NativeAppDialog })));
 
 /** Below this dialog width the sections and the page take turns (dialogs.css holds the same number). */

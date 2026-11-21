@@ -7,7 +7,7 @@ version = "0.1.0"
 api = 1
 license = "MIT"
 description = "Search the Zotero library on this Mac (Better BibTeX or Zotero's local API) and cite or add the result."
-repository = "https://github.com/leo1oel/lattice/tree/main/examples/plugins/zotero-search"
+repository = "https://github.com/lattice-writer/lattice/tree/main/examples/plugins/zotero-search"
 runtime = "node"
 main = "main.mjs"
 

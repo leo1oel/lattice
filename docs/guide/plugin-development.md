@@ -13,10 +13,10 @@ You need:
 
 ```sh
 mkdir hello && cd hello
-curl -fsSLO https://raw.githubusercontent.com/leo1oel/lattice/main/plugin-sdk/lattice-plugin.mjs
+curl -fsSLO https://raw.githubusercontent.com/lattice-writer/lattice/main/plugin-sdk/lattice-plugin.mjs
 ```
 
-`lattice-plugin.mjs` is the SDK: one MIT-licensed file with no dependencies that speaks the protocol for you. It lives in your folder because a plugin can read only its own folder. TypeScript types for it are in [plugin-sdk](https://github.com/leo1oel/lattice/tree/main/plugin-sdk) (`index.d.ts` and `api.d.ts`).
+`lattice-plugin.mjs` is the SDK: one MIT-licensed file with no dependencies that speaks the protocol for you. It lives in your folder because a plugin can read only its own folder. TypeScript types for it are in [plugin-sdk](https://github.com/lattice-writer/lattice/tree/main/plugin-sdk) (`index.d.ts` and `api.d.ts`).
 
 ## 2. Write the manifest
 
@@ -212,4 +212,4 @@ Now **Hello: Say hello** names the file you're editing, and **Hello: Count words
 
 - [Plugin manifest and API](plugin-reference.md): every permission, host call, result and action.
 - [Publishing a plugin](plugin-publishing.md): pack Hello, list it in the plugin market, and ship updates.
-- Two real plugins to copy: [bib-check](https://github.com/leo1oel/lattice/tree/main/examples/plugins/bib-check) (diagnostics for `.bib` files) and [zotero-search](https://github.com/leo1oel/lattice/tree/main/examples/plugins/zotero-search) (search Zotero and cite).
+- Two real plugins to copy: [bib-check](https://github.com/lattice-writer/lattice/tree/main/examples/plugins/bib-check) (diagnostics for `.bib` files) and [zotero-search](https://github.com/lattice-writer/lattice/tree/main/examples/plugins/zotero-search) (search Zotero and cite).

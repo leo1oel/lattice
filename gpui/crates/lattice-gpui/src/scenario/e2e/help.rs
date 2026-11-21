@@ -209,7 +209,7 @@ impl Run {
             exported["includes_raw_diagnostic"] == false
                 && exported["entries"].as_array().is_some_and(|entries| !entries.is_empty())
                 && !contents.contains("secret-paper")
-                && url.starts_with("https://github.com/leo1oel/lattice/issues/new?template=bug_report.yml")
+                && url.starts_with("https://github.com/lattice-writer/lattice/issues/new?template=bug_report.yml")
                 && url.contains(&format!("lattice-version={RUNNING_VERSION}"))
                 && url.contains("macos-version=macOS+")
                 && !url.contains("secret")

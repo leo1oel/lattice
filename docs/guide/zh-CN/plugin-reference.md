@@ -1,6 +1,6 @@
 # 插件清单与 API
 
-本页列出插件可以声明、申请、调用和返回的内容，以及插件市场额外的规则。完整的协议（每个字段和错误码）见 [docs/plugins.md](https://github.com/leo1oel/lattice/blob/main/docs/plugins.md)（英文），它所依据的 schema 是 [plugin-api/schema/level-1.json](https://github.com/leo1oel/lattice/blob/main/plugin-api/schema/level-1.json)。
+本页列出插件可以声明、申请、调用和返回的内容，以及插件市场额外的规则。完整的协议（每个字段和错误码）见 [docs/plugins.md](https://github.com/lattice-writer/lattice/blob/main/docs/plugins.md)（英文），它所依据的 schema 是 [plugin-api/schema/level-1.json](https://github.com/lattice-writer/lattice/blob/main/plugin-api/schema/level-1.json)。
 
 ## 清单文件
 
@@ -101,4 +101,4 @@ const work = JSON.parse(response.body).message;
 
 ## 兼容性
 
-插件 API 级别只会增加内容：新方法、可选字段、结果类型和操作类型。声明 `api = 1` 的插件在之后的每个 Lattice 版本上都能继续运行，直到级别 1 退役；退役至少提前两个次版本在 [docs/plugins.md](https://github.com/leo1oel/lattice/blob/main/docs/plugins.md#deprecation-register) 中公布。只读取你认识的字段，因为结果和上下文以后可能增加字段。
+插件 API 级别只会增加内容：新方法、可选字段、结果类型和操作类型。声明 `api = 1` 的插件在之后的每个 Lattice 版本上都能继续运行，直到级别 1 退役；退役至少提前两个次版本在 [docs/plugins.md](https://github.com/lattice-writer/lattice/blob/main/docs/plugins.md#deprecation-register) 中公布。只读取你认识的字段，因为结果和上下文以后可能增加字段。

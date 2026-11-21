@@ -72,7 +72,7 @@ The `$schema` line lets editors such as VS Code check the file and complete role
 | `syntax` | the editor's 16 token colors, such as `keyword`, `command` and `comment` |
 | `terminal` | `black` … `white` and `bright-black` … `bright-white` |
 
-Lattice keeps text readable: text, status and syntax colors that don't reach a 4.5:1 contrast on their surfaces are moved, keeping their hue, until they do, and the accent is held to 4.6:1. A theme that only reads after heavy correction will look off, so check your colors yourself. The full list of roles is in [docs/themes.md](https://github.com/leo1oel/lattice/blob/main/docs/themes.md#roles) and the [JSON Schema](https://github.com/leo1oel/lattice/blob/main/design-system/themes/theme-1.schema.json).
+Lattice keeps text readable: text, status and syntax colors that don't reach a 4.5:1 contrast on their surfaces are moved, keeping their hue, until they do, and the accent is held to 4.6:1. A theme that only reads after heavy correction will look off, so check your colors yourself. The full list of roles is in [docs/themes.md](https://github.com/lattice-writer/lattice/blob/main/docs/themes.md#roles) and the [JSON Schema](https://github.com/lattice-writer/lattice/blob/main/design-system/themes/theme-1.schema.json).
 
 ## 2. Try it in Lattice
 

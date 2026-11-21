@@ -52,7 +52,7 @@ Pushing the **tag** is what triggers the release. The workflow listens on
 
 **GitHub Releases is the changelog. There is deliberately no `CHANGELOG.md`.**
 
-<https://github.com/leo1oel/lattice/releases>
+<https://github.com/lattice-writer/lattice/releases>
 
 The reasoning, so nobody re-opens this without new information:
 
@@ -343,13 +343,13 @@ repository's secrets are available — and attaches nothing.
 
 ### `web-demo.yml`
 
-Once the Release workflow succeeds, `web-demo.yml` builds the website's interactive demo (`tools/web-demo/`, `node scripts/web-demo.mjs`) from the release's commit and publishes it to the `gh-pages` branch under `demo/`, so <https://leo1oel.github.io/lattice/demo/> always runs the version people download.
+Once the Release workflow succeeds, `web-demo.yml` builds the website's interactive demo (`tools/web-demo/`, `node scripts/web-demo.mjs`) from the release's commit and publishes it to the `gh-pages` branch under `demo/`, so <https://lattice-writer.github.io/lattice/demo/> always runs the version people download.
 It writes nothing outside `demo/`: the rest of `gh-pages` is the website.
 The build is checked before anything is published (no Timeless font, by name or by bytes; no bench code; the startup download within its budget; the app opens in headless Chrome), and a failed check leaves the previous demo up.
 
 ### `user-guide.yml`
 
-Once the Release workflow succeeds, `user-guide.yml` renders the user guide (`docs/guide/`, `node scripts/user-guide.mjs --out DIR`) from the release's commit and publishes it to the `gh-pages` branch under `guide/`, so <https://leo1oel.github.io/lattice/guide/>, which Help ▸ User Guide opens in both apps, describes the version people download.
+Once the Release workflow succeeds, `user-guide.yml` renders the user guide (`docs/guide/`, `node scripts/user-guide.mjs --out DIR`) from the release's commit and publishes it to the `gh-pages` branch under `guide/`, so <https://lattice-writer.github.io/lattice/guide/>, which Help ▸ User Guide opens in both apps, describes the version people download.
 It writes nothing outside `guide/`, and shares `web-demo.yml`'s publish group so the two never push to `gh-pages` at once.
 Run it by hand (`gh workflow run user-guide.yml --ref main`) to publish a guide fix without waiting for a release.
 
@@ -377,8 +377,8 @@ Intel, Windows and Linux workflows still run on GitHub.
 re-running the failed jobs or pushing the tag again:
 
 ```sh
-gh variable set LATTICE_MACOS_RUNNER --body macos-latest -R leo1oel/lattice   # GitHub's runners
-gh variable delete LATTICE_MACOS_RUNNER -R leo1oel/lattice                    # back to the Mac mini
+gh variable set LATTICE_MACOS_RUNNER --body macos-latest -R lattice-writer/lattice   # GitHub's runners
+gh variable delete LATTICE_MACOS_RUNNER -R lattice-writer/lattice                    # back to the Mac mini
 ```
 
 A job that is already waiting for `lattice-mac` keeps waiting after the

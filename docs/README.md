@@ -62,4 +62,4 @@ protected-file freeze that lapsed without ever being announced — is archived a
 | [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) | Attribution and license notes for vendored and bundled third-party code. |
 | [`../LICENSE`](../LICENSE), [`../NOTICE`](../NOTICE) | Apache-2.0, with Trellis carved out under its own license. |
 | [`../literature-worker/README.md`](../literature-worker/README.md) | Checking the public literature proxy Worker; its operation is in [`public-literature-service.md`](public-literature-service.md). |
-| [GitHub Releases](https://github.com/leo1oel/lattice/releases) | **The changelog.** There is no `CHANGELOG.md`; each tag's release notes are generated from the commit range. See [`release-process.md`](release-process.md#where-the-changelog-lives). |
+| [GitHub Releases](https://github.com/lattice-writer/lattice/releases) | **The changelog.** There is no `CHANGELOG.md`; each tag's release notes are generated from the commit range. See [`release-process.md`](release-process.md#where-the-changelog-lives). |

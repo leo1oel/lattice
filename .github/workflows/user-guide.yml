@@ -1,7 +1,7 @@
 name: User guide
 
 # The user guide (docs/guide/, rendered by scripts/user-guide.mjs) on the
-# website's gh-pages branch under guide/ (https://leo1oel.github.io/lattice/guide/),
+# website's gh-pages branch under guide/ (https://lattice-writer.github.io/lattice/guide/),
 # which Help ▸ User Guide opens in both apps.
 #
 # - After the Release workflow succeeds, the guide is rendered from that

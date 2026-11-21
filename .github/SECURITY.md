@@ -13,7 +13,7 @@ versions, and fixes are delivered as a new release rather than a backport.
 
 | Version | Supported |
 | --- | --- |
-| Latest [release](https://github.com/leo1oel/lattice/releases/latest) | ✅ |
+| Latest [release](https://github.com/lattice-writer/lattice/releases/latest) | ✅ |
 | Any earlier release | ❌ — update first, then re-test |
 | Builds from `main` or from a fork | ❌ — see [Out of scope](#out-of-scope) |
 
@@ -28,7 +28,7 @@ problem.**
 
 Use **GitHub private vulnerability reporting**:
 
-👉 **<https://github.com/leo1oel/lattice/security/advisories/new>**
+👉 **<https://github.com/lattice-writer/lattice/security/advisories/new>**
 
 That form is private to you and the maintainer, gives us a place to work on a
 fix together, and turns into the published advisory and CVE request when the
@@ -202,7 +202,7 @@ imported paper content, project chat, or comments matters here because
 - **Automated scanner output without a working proof of concept**, and
   dependency advisories with no reachable call path. A reachable one is very
   welcome — as a normal
-  [issue](https://github.com/leo1oel/lattice/issues), not an advisory.
+  [issue](https://github.com/lattice-writer/lattice/issues), not an advisory.
 - Missing security headers, missing rate limits, or best-practice checklists
   applied to a local desktop app without a concrete attack.
 

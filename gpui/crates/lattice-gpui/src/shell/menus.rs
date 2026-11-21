@@ -25,17 +25,17 @@ actions!(
 );
 
 /// The project's repository and website (`about_links.rs`).
-pub const REPOSITORY_URL: &str = "https://github.com/leo1oel/lattice";
-pub const WEBSITE_URL: &str = "https://leo1oel.github.io/lattice/";
+pub const REPOSITORY_URL: &str = "https://github.com/lattice-writer/lattice";
+pub const WEBSITE_URL: &str = "https://lattice-writer.github.io/lattice/";
 
 /// Help ▸ User Guide: the guide's pages on the website (docs/guide/), in the
 /// interface language, as the Tauri app opens them (`userGuideUrl` in
 /// src/app/native-locale.ts).
 fn user_guide_url(locale: lattice_i18n::Locale) -> &'static str {
     if locale.is_chinese() {
-        "https://leo1oel.github.io/lattice/guide/zh-CN/"
+        "https://lattice-writer.github.io/lattice/guide/zh-CN/"
     } else {
-        "https://leo1oel.github.io/lattice/guide/"
+        "https://lattice-writer.github.io/lattice/guide/"
     }
 }
 
@@ -378,11 +378,11 @@ mod tests {
     fn user_guide_follows_the_interface_language() {
         assert_eq!(
             user_guide_url(lattice_i18n::Locale::En),
-            "https://leo1oel.github.io/lattice/guide/"
+            "https://lattice-writer.github.io/lattice/guide/"
         );
         assert_eq!(
             user_guide_url(lattice_i18n::Locale::ZhCn),
-            "https://leo1oel.github.io/lattice/guide/zh-CN/"
+            "https://lattice-writer.github.io/lattice/guide/zh-CN/"
         );
     }
 }

@@ -19,7 +19,7 @@ import { startWideEvent } from "./wide-event";
 /** The waits before the second and third attempts; three attempts in all. */
 export const RETRY_DELAYS_MS = [2_000, 6_000];
 
-export const releasePageUrl = (version: string) => `https://github.com/leo1oel/lattice/releases/tag/v${version}`;
+export const releasePageUrl = (version: string) => `https://github.com/lattice-writer/lattice/releases/tag/v${version}`;
 
 type FailureKind = "signature" | "not-found" | "server" | "network" | "other";
 

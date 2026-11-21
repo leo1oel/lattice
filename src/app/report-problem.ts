@@ -26,7 +26,7 @@ type ProblemReport = { osVersion: string | null; arch: string };
 
 /** The bug report form, with its version fields (`.github/ISSUE_TEMPLATE/bug_report.yml`) filled in. */
 export function newIssueUrl(report: ProblemReport, latticeVersion = version): string {
-  const url = new URL("https://github.com/leo1oel/lattice/issues/new");
+  const url = new URL("https://github.com/lattice-writer/lattice/issues/new");
   url.searchParams.set("template", "bug_report.yml");
   url.searchParams.set("lattice-version", latticeVersion);
   url.searchParams.set("macos-version", `macOS ${report.osVersion ?? "unknown"} (${report.arch})`);
