@@ -27,5 +27,7 @@ mod theme;
 pub use files::FileScope;
 pub use island::{HIBERNATE_AFTER, Island, IslandConfig, IslandEvent, IslandState, IslandStats};
 pub use protocol::{Bundle, BundleFile};
-pub use registry::{check_drawn_after_frame, set_dock_dragging, set_hibernate_after};
+pub use registry::{
+    check_drawn_after_frame, focused_island, set_dock_dragging, set_hibernate_after,
+};
 pub use theme::{IslandTheme, theme_payload};

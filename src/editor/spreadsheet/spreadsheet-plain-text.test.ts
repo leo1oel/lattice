@@ -6,6 +6,8 @@ describe("plainCellText", () => {
     expect(plainCellText("TiMtiMMIT\x1f")).toBe("TiMtiMMIT");
     expect(plainCellText("\x1flink\x1e \bblock \x1atable\x0f \x00")).toBe("link block table ");
     expect(plainCellText("a\x1cb\x1dc\x0ed\x7f")).toBe("abcd");
+    expect(plainCellText("TiMtiMMIT\uf702\uf703\uf72b")).toBe("TiMtiMMIT");
+    expect(plainCellText("\ue000\uf6ff\uf900")).toBe("\ue000\uf6ff\uf900");
     expect(plainCellText("a\tb\nc\r\nd")).toBe("a\tb\nc\r\nd");
     expect(plainCellText("Kaiming He 何恺明")).toBe("Kaiming He 何恺明");
   });

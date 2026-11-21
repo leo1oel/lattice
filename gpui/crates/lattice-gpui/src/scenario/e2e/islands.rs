@@ -211,6 +211,7 @@ impl Run {
         );
 
         self.island_shortcuts(cx, steps, &island).await?;
+        self.island_function_key_text(cx, steps, &island).await?;
         #[cfg(target_os = "macos")]
         self.toast_above_island(cx, steps, &panel, &island).await?;
         self.island_views(cx, steps, &panel, &preview, root).await?;

@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use gpui::{App, WeakEntity, Window};
+use gpui::{App, Entity, WeakEntity, Window};
 
 use crate::island::Island;
 
@@ -28,6 +28,16 @@ impl Registry {
         cx.try_global::<Registry>()
             .and_then(|registry| registry.hibernate_after)
     }
+}
+
+/// The island GPUI's keyboard focus is on, for the Edit menu's Undo and
+/// Redo, which a press of ⌘Z in a page arrives as ([`Island::undo`]).
+pub fn focused_island(window: &Window, cx: &App) -> Option<Entity<Island>> {
+    cx.try_global::<Registry>()?
+        .islands
+        .iter()
+        .filter_map(WeakEntity::upgrade)
+        .find(|island| island.read(cx).focused(window, cx))
 }
 
 /// While a dock panel is dragged, every island steps aside: the page would

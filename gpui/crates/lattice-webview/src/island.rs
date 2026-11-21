@@ -88,7 +88,7 @@ use crate::{
     held::hold,
     keys,
     masked::Masked,
-    native::{native_frame, native_page_focused},
+    native::{insert_text, native_frame, native_page_focused, page_undo_script},
     navigation::{FrameOrigins, exact_origin},
     protocol::{self, Bundle, Served},
     registry::Registry,
@@ -337,6 +337,33 @@ impl Island {
         self.webview
             .as_ref()
             .and_then(|webview| native_frame(webview.read(cx)))
+    }
+
+    /// The Edit menu's Undo or Redo, with the page focused. The menu holds ⌘Z
+    /// and ⌘⇧Z, so a press of either in the page reaches GPUI as the menu's
+    /// action and never reaches the page: in the visual Markdown page nothing
+    /// typed could be undone. The page gets the press it stands for.
+    pub fn undo(&self, redo: bool, cx: &App) {
+        drop(self.evaluate(&page_undo_script(redo), cx));
+    }
+
+    /// Whether the keyboard is in the page in `window`: AppKit's first
+    /// responder is its view.
+    pub fn focused(&self, window: &Window, cx: &App) -> bool {
+        self.window == window.window_handle()
+            && self
+                .webview
+                .as_ref()
+                .and_then(|webview| native_page_focused(webview.read(cx)))
+                .unwrap_or(false)
+    }
+
+    /// Commit `text` to the page's view as an input method does (macOS), for
+    /// a scenario.
+    pub fn insert_text(&self, text: &str, cx: &App) {
+        if let Some(webview) = &self.webview {
+            insert_text(webview.read(cx), text);
+        }
     }
 
     /// Let the page load the project file `relative` through the protocol.

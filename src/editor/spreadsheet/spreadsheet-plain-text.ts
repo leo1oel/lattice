@@ -8,9 +8,14 @@ import type { SpreadsheetWorkbookData } from "./spreadsheet-types";
  * and the cell editor reads it as structure: with \x1c the formula bar opens
  * empty, and with \x1c, \x1d, \x0e or \x0f what is typed stays hidden until
  * editing ends. Tab and line breaks are text and stay.
+ *
+ * AppKit's function-key characters (U+F700–U+F8FF, ← is U+F702) are never
+ * text either: an input method that commits one leaves the same box, and the
+ * page's view drops them as they are typed (`lattice-webview`'s
+ * `native.rs`), so a value saved before that still loses them here.
  */
 // eslint-disable-next-line no-control-regex -- the control characters are what this removes
-const RESERVED_CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
+const RESERVED_CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\uf700-\uf8ff]/g;
 
 export function plainCellText(text: string): string {
   return text.replace(RESERVED_CONTROLS, "");

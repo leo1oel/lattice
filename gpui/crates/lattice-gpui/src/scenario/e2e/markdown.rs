@@ -13,8 +13,10 @@
 //!   buffer is clean;
 //! - a word typed into the visual editor with native keys lands in the file
 //!   as exactly that word, every other byte as it was (front matter, table
-//!   and maths included); ⌘Z typed there undoes it through the buffer, and the
-//!   file is back to its first bytes;
+//!   and maths included), with the arrows' characters an input method
+//!   commits mid-word (U+F700–U+F703) dropped; ⌘Z typed there, once the word
+//!   is saved, undoes it through the buffer, and the file is back to its
+//!   first bytes;
 //! - text typed into the source appears in the visual editor;
 //! - Preview shows the visual editor alone, which takes a jump to a line;
 //! - a word typed into the visual editor just before its tab closes is in
@@ -347,7 +349,16 @@ impl Run {
         path: &Path,
         island: &Entity<Island>,
     ) -> Result<()> {
-        let placed = self.markdown_type(cx, island, " quokka").await?;
+        // An input method that answers ↑ ↓ ← → with `insertText:` of each
+        // key's character (U+F700–U+F703) mid-word adds nothing to the file.
+        let placed = self.markdown_type(cx, island, " quo").await?;
+        cx.update(|cx| island.read(cx).insert_text("\u{F700}\u{F701}\u{F702}\u{F703}", cx));
+        self.pause(cx, Duration::from_millis(100)).await;
+        let native = self.native(cx)?;
+        for character in "kka".chars() {
+            native::send_key(native, character, false)?;
+            self.pause(cx, Duration::from_millis(40)).await;
+        }
         let expected = NOTES.replacen(
             "[link](https://example.com).",
             "[link](https://example.com). quokka",
@@ -360,7 +371,7 @@ impl Run {
             .await;
         let text = std::fs::read_to_string(path).unwrap_or_default();
         steps.check(
-            "a word typed into the visual editor with native keys is saved as exactly that word, every other byte of the file (front matter, table, maths) as it was",
+            "a word typed into the visual editor with native keys, an input method's arrow characters committed mid-word, is saved as exactly that word, every other byte of the file (front matter, table, maths) as it was",
             saved && text == expected,
             json!({ "placed": placed, "saved": saved, "exact": text == expected, "text": if text == expected { Value::Null } else { json!(text) } }),
         );
@@ -399,6 +410,38 @@ impl Run {
                 "page": page,
                 "text": if undone { Value::Null } else { json!(std::fs::read_to_string(path).unwrap_or_default()) },
             }),
+        );
+
+        // A real ⌘Z goes through the window server, where the Edit menu holds
+        // it: it reaches GPUI as the menu's Undo, never the page's keys. With
+        // the page focused, that Undo undoes the page's edit.
+        self.markdown_type(cx, island, " kiwi").await?;
+        let typed = self
+            .wait_for(cx, Duration::from_secs(10), |_, _| {
+                std::fs::read_to_string(path).is_ok_and(|text| text.contains("kiwi"))
+            })
+            .await;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_action(Box::new(editor::actions::Undo), cx)
+        })?;
+        let undone = self
+            .wait_for(cx, Duration::from_secs(10), |_, _| {
+                std::fs::read_to_string(path).is_ok_and(|text| !text.contains("kiwi"))
+            })
+            .await;
+        if !undone {
+            for _ in 0..4 {
+                self.with_window(cx, |_, window, cx| {
+                    window.dispatch_action(Box::new(editor::actions::Undo), cx)
+                })?;
+                self.pause(cx, Duration::from_millis(300)).await;
+            }
+        }
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        steps.check(
+            "the Edit menu's Undo, which a real ⌘Z in the page arrives as, undoes the visual editor's typing once it is saved",
+            typed && text == NOTES,
+            json!({ "typed": typed, "undone_at_once": undone, "text": if text == NOTES { Value::Null } else { json!(text) } }),
         );
         Ok(())
     }
