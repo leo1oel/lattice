@@ -552,6 +552,11 @@
 .lx-md-editor .lx-md-surface :is(th, td) > p { margin: 0; }
 .lx-md-editor .lx-md-surface .selectedCell { background: var(--editor-selection-surface); }
 .lx-md-editor .lx-md-surface .tableWrapper.ProseMirror-selectednode > table { box-shadow: 0 0 0 2px var(--control-active-border-strong); }
+/* Columns the writer sized (table-column-widths.ts) keep their width: a long word breaks rather than spilling over. */
+.lx-md-editor .lx-md-surface table[data-sized] :is(th, td) { min-width: 0; overflow-wrap: anywhere; }
+/* A column border under the pointer, or being dragged. */
+.lx-md-editor[data-column-resize],
+.lx-md-editor[data-column-resize] * { cursor: col-resize; }
 
 .lx-md-editor .lx-md-table-controls { position: absolute; inset: 0; pointer-events: none; }
 .lx-md-editor .lx-md-table-handle {

@@ -11,6 +11,7 @@ import type { VisualMarkdownEditorProps } from "../../visual-editor-props";
 import { ENGINE_SHORTCUTS } from "../engine-shortcuts";
 import { BlockControls, BlockMoveKeymap } from "./block-controls";
 import { DrawnCaret } from "../drawn-caret";
+import { TableColumnWidthsExtension } from "../table-column-widths";
 import { createChromeHost, type ChromeHost } from "./chrome-host";
 import { FindBar, FindReplace, findShortcuts } from "./find-replace";
 import { EngineInputRules } from "./input-rules";
@@ -36,7 +37,7 @@ export function createChrome(props: VisualMarkdownEditorProps): Chrome {
   return { host: createChromeHost(props), slash: createMenuStore(), wiki: createMenuStore(), citation: createMenuStore() };
 }
 
-/** Everything the chrome adds to the editor itself: menus, shortcuts, input rules, drops. */
+/** Everything the chrome adds to the editor itself: menus, shortcuts, input rules, drops, table widths. */
 export function chromeExtensions(chrome: Chrome): AnyExtension[] {
   return [
     slashExtension(chrome.slash, chrome.host),
@@ -48,6 +49,7 @@ export function chromeExtensions(chrome: Chrome): AnyExtension[] {
     findShortcuts(chrome.host),
     BlockMoveKeymap,
     DrawnCaret,
+    TableColumnWidthsExtension.configure({ source: () => chrome.host.props().tableColumnWidths }),
     Extension.create({
       name: "latticeLinkShortcut",
       addKeyboardShortcuts: () => ({

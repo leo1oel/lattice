@@ -399,6 +399,8 @@ impl StructuredDocument {
         payload["files"] = session.files.clone();
         payload["texSources"] = json!(session.tex_sources);
         payload["papers"] = session.papers.clone();
+        payload["tableWidths"] =
+            crate::editor_panel::table_widths::page_widths(&self.root, &self.relative);
         payload["paper"] = session
             .paper
             .as_ref()
@@ -480,6 +482,14 @@ impl StructuredDocument {
                 MarkdownEvent::Edit { base, source, join }
             }
             "md:selection" => return self.visual_selection_changed(payload, cx),
+            "md:table-widths" => {
+                return crate::editor_panel::table_widths::page_changed(
+                    &self.root,
+                    &self.relative,
+                    payload,
+                    cx,
+                );
+            }
             "md:overleaf-accept" => match text(payload, "id") {
                 Some(id) => MarkdownEvent::OverleafAccept(id),
                 None => return,

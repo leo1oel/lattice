@@ -126,7 +126,7 @@ fn store() -> &'static Mutex<Store> {
     })
 }
 
-fn state_dir() -> Option<PathBuf> {
+pub(crate) fn state_dir() -> Option<PathBuf> {
     let scripted = std::env::args().any(|arg| arg == "--scenario");
     crate::shell::workspaces::state_dir(scripted)
 }
@@ -182,7 +182,7 @@ pub fn paths_moved(root: &Path, moved: impl Fn(&str) -> Option<String>, cx: &mut
     update(|places| places.remap(root, moved), cx);
 }
 
-fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
+pub(crate) fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -235,12 +235,18 @@ impl EditorPanel {
         });
     }
 
-    /// The file moved from `from` (project-relative): its place follows,
-    /// unless the move already took it there.
+    /// The file moved from `from` (project-relative): its place, and a
+    /// Markdown file's table widths, follow, unless the move already took
+    /// them there.
     pub(super) fn place_moved(&self, from: &str, cx: &mut Context<Self>) {
         let root = self.project.read(cx).root().to_path_buf();
         let to = self.relative.clone();
         paths_moved(&root, |file| (file == from).then(|| to.clone()), cx);
+        crate::editor_panel::table_widths::paths_moved(
+            &root,
+            |file| (file == from).then(|| to.clone()),
+            cx,
+        );
     }
 }
 

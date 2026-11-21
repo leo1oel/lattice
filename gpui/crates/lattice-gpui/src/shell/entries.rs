@@ -316,6 +316,7 @@ impl Shell {
             return;
         };
         place_memory::paths_moved(&root, |file| remap(file, changes), cx);
+        crate::editor_panel::table_widths::paths_moved(&root, |file| remap(file, changes), cx);
         for editor in self.open_editors() {
             let relative = editor.read(cx).relative().to_string();
             let Some(moved) = remap(&relative, changes) else {
