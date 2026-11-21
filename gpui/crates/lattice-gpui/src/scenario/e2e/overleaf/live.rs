@@ -6,7 +6,9 @@
 //! - typing here (native keys) reaches Overleaf as live operations;
 //! - typing on both sides at once converges on Overleaf's text;
 //! - moving to another file hands main.tex back to regular sync with
-//!   Overleaf's text as the agreed copy.
+//!   Overleaf's text as the agreed copy;
+//! - a project switch under way joins nothing, though the old editor is
+//!   focused and typed in, and goes live again once it ends.
 
 use std::time::Duration;
 
@@ -155,6 +157,46 @@ impl Run {
             "moving to another file hands main.tex back with Overleaf's text as the agreed copy",
             moved && agreed,
             json!({ "moved": moved, "agreed": agreed, "rejected": mock.rejected(), "updates": mock.updates() }),
+        );
+
+        // A switch under way joins nothing, even when the writer focuses the
+        // old editor and types in it, or the leave would go unrecorded
+        // (#1208); once it has ended, the shown editor goes live again.
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_path(main.clone(), None, window, cx)
+            })
+        })?;
+        let back = self
+            .wait_for(cx, Duration::from_secs(20), |shell, cx| {
+                shell.read(cx).overleaf.read(cx).live_file() == Some("main.tex")
+            })
+            .await;
+        let overleaf = self.with_window(cx, |shell, _, cx| shell.read(cx).overleaf.clone())?;
+        let leaving =
+            cx.update(|cx| overleaf.update(cx, |bridge, cx| bridge.leave_before_switch(cx)));
+        leaving.await;
+        let editor = cx.update(|cx| {
+            self.shell
+                .update(cx, |shell, cx| shell.open_editor(&main, cx))
+        });
+        cx.update(|cx| overleaf.update(cx, |bridge, cx| bridge.editor_shown(editor.as_ref(), cx)));
+        self.type_text(cx, "held ").await?;
+        let rejoined_early = self
+            .wait_for(cx, Duration::from_secs(2), |shell, cx| {
+                shell.read(cx).overleaf.read(cx).holds_live()
+            })
+            .await;
+        cx.update(|cx| overleaf.update(cx, |bridge, cx| bridge.switch_ended(editor.as_ref(), cx)));
+        let rejoined = self
+            .wait_for(cx, Duration::from_secs(20), |shell, cx| {
+                shell.read(cx).overleaf.read(cx).live_file() == Some("main.tex")
+            })
+            .await;
+        steps.check(
+            "a project switch under way joins nothing, though the old editor is focused and typed in; ended, it goes live again",
+            back && !rejoined_early && rejoined,
+            json!({ "back": back, "joined_during_switch": rejoined_early, "rejoined": rejoined }),
         );
         Ok(())
     }
