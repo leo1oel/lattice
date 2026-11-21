@@ -61,6 +61,8 @@ export type ProjectLifecycleDeps = {
     syncingRef: RefObject<boolean>;
     settledRef: RefObject<Promise<void> | null>;
     flushWholeFilesRef: RefObject<() => Promise<void>>;
+    /** Live editing hands its documents back before the window moves. */
+    live: { leaveProject: () => Promise<void>; rejoin: () => void };
   };
   /** Put per-project panels back to their defaults, synchronously, as the new project is published. */
   resetProjectUi: () => void;
@@ -91,9 +93,13 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const { projectState, documents, library, build, resetCompileTracking, cancelPrewarm, shellRef, browserHosted } = deps;
   const { syncingRef, settledRef, flushWholeFilesRef } = deps.overleafSync;
   const {
-    project, setProject, projectRef, projectBeforeTransitionRef, beginTransition, cancelProjectTransition,
-    captureProjectScope,
+    project, setProject, projectRef, projectBeforeTransitionRef, beginTransition, captureProjectScope,
+    cancelProjectTransition: cancelClaim,
   } = projectState;
+  const cancelProjectTransition = useCallback(() => {
+    cancelClaim();
+    depsRef.current.overleafSync.live.rejoin();
+  }, [cancelClaim, depsRef]);
   const { claim, clear, flush, save, hasUnsavedEdits, enter: enterDocuments, chooseMode } = documents;
   const {
     claimBibliographyRefresh, resetBibliographyIndex, applyCitations, applyReferences, failIndex, publishPapers, failPapers,
@@ -147,17 +153,11 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
 
   /**
    * Claim the right to switch projects, waiting out an Overleaf sync rather
-   * than refusing.
-   *
-   * A sync must finish its disk refresh before a switch — cancelling only its
-   * UI phase could leave newly pulled bytes hidden behind an old editor buffer
-   * that later overwrites them. But a linked project auto-syncs on open and
-   * live mode re-syncs every few seconds, so simply rejecting the click meant
-   * "open that project" often did nothing at all and had to be clicked again
-   * with no way to tell when. Queueing behind the sync honors the same
-   * constraint while making one click enough. The timeout is the escape hatch
-   * for a sync that never settles: fall back to the old refusal rather than
-   * leaving the window wedged.
+   * than refusing (see beginProjectTransition): a linked project auto-syncs
+   * on open and live mode re-syncs every few seconds, so a refused click
+   * often did nothing at all. The timeout is the escape hatch for a sync that
+   * never settles. Once claimed, live editing hands its documents back while
+   * the window still shows their project, so their merge base is written.
    */
   const startProjectTransition = useCallback(async () => {
     if (syncingRef.current) {
@@ -175,7 +175,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     if (saved === "changed") showNotice(t`The document changed while saving. Save it, then switch projects again.`);
     if (saved !== "saved") return false;
     depsRef.current.documents.persistSession();
-    if (beginProjectTransition()) return true;
+    if (beginProjectTransition()) return depsRef.current.overleafSync.live.leaveProject().then(() => true);
     showNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
     return false;
   }, [beginProjectTransition, depsRef, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);

@@ -47,6 +47,7 @@ use crate::{editor_panel::EditorPanel, history::conflicts::has_conflict_markers}
 mod joining;
 mod resume;
 mod reviewing;
+mod switching;
 mod uncertain;
 
 /// Typing goes out this long after the first unsent keystroke.
@@ -98,8 +99,12 @@ pub(super) struct DocumentsState {
     join_generation: u64,
     /// Updates for a document being joined or resumed, for the replay.
     early: Vec<RealtimeEvent>,
-    /// Agreed copies to record once the running sync is over.
-    checkpoints: Vec<(String, String)>,
+    /// Agreed copies to record once the running sync is over, by root.
+    checkpoints: switching::Checkpoints,
+    /// Saves still to land before their agreed copy is recorded.
+    checkpoint_saves: usize,
+    /// The window is leaving its project: nothing is joined meanwhile.
+    switching: bool,
     /// The U+FFFD notice was shown this session.
     replaced_told: bool,
     /// Paths handed back to regular sync: not joined again until a sync
@@ -284,6 +289,7 @@ impl OverleafBridge {
     /// The editor, path and document id to be live now, if any.
     fn wanted_live(&self, cx: &App) -> Option<(WeakEntity<EditorPanel>, String, String)> {
         if self.staged
+            || self.documents.switching
             || self.mode != OverleafSyncMode::Live
             || self.channel != ChannelStatus::Live
             || self.client.is_none()
@@ -619,23 +625,24 @@ impl OverleafBridge {
         };
         let (path, text) = (doc.path.clone(), doc.ot.server_text().to_string());
         if panel.read(cx).saved_text() == text {
-            return self.record_checkpoint(path, text);
+            return self.record_checkpoint(root, path, text);
         }
         if panel.read(cx).overleaf_text(cx) != text {
             return;
         }
         let save = panel.update(cx, |panel, cx| panel.save(cx));
         let editor = doc.editor.clone();
+        self.documents.checkpoint_saves += 1;
         cx.spawn(async move |this, cx| {
-            if !matches!(save.await, Ok(true)) {
-                return;
-            }
+            let saved = matches!(save.await, Ok(true));
             this.update(cx, |this, cx| {
-                let saved = editor
-                    .upgrade()
-                    .is_some_and(|panel| panel.read(cx).saved_text() == text);
+                this.documents.checkpoint_saves -= 1;
+                let saved = saved
+                    && editor
+                        .upgrade()
+                        .is_some_and(|panel| panel.read(cx).saved_text() == text);
                 if saved && this.root.as_ref() == Some(&root) {
-                    this.record_checkpoint(path, text);
+                    this.record_checkpoint(root, path, text);
                 }
             })
             .ok();
@@ -643,8 +650,8 @@ impl OverleafBridge {
         .detach();
     }
 
-    fn record_checkpoint(&mut self, path: String, text: String) {
-        self.documents.checkpoints.push((path, text));
+    fn record_checkpoint(&mut self, root: PathBuf, path: String, text: String) {
+        self.documents.checkpoints.push(root, path, text);
         if !self.syncing {
             self.write_checkpoints();
         }
@@ -653,10 +660,10 @@ impl OverleafBridge {
     /// Record the agreed copies waiting for the sync to be over.
     fn write_checkpoints(&mut self) {
         let Some(root) = self.root.clone() else {
-            self.documents.checkpoints.clear();
+            self.documents.checkpoints.take_for(None);
             return;
         };
-        for (path, text) in self.documents.checkpoints.drain(..) {
+        for (path, text) in self.documents.checkpoints.take_for(Some(&root)) {
             if let Err(error) =
                 lattice_core::overleaf::checkpoint_realtime_text(&root, &path, &text)
             {
