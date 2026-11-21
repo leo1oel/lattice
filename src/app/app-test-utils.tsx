@@ -15,7 +15,6 @@ import { invoke, type InvokeArgs } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { EditorView } from "@codemirror/view";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist";
@@ -32,6 +31,7 @@ import type { FileNode, ProjectManifest, ProjectSnapshot } from "../app-types";
 import type { OpenSlideMutation, OpenSlideSyncOperation } from "../editor/presentation/open-slide-bridge";
 import type { OpenSlideAgentRequest } from "../editor/presentation/open-slide-agent-request";
 import { mockAppCommand } from "./app-test-startup-commands";
+import { findFrame } from "./app-test-dom";
 
 
 const windowApi = vi.hoisted(() => ({
@@ -544,47 +544,7 @@ export function emitTauriEvent(event: string, payload: unknown) {
   act(() => { tauriEventApi.handlers.get(event)?.forEach((handler) => handler({ payload })); });
 }
 
-/** Waits for `selector` to match and returns the element. */
-export function findElement<T extends Element = HTMLElement>(selector: string, options?: Parameters<typeof waitFor>[1]) {
-  return waitFor(() => {
-    const element = document.querySelector<T>(selector);
-    expect(element).not.toBeNull();
-    return element!;
-  }, options);
-}
-
-export const findFrame = (title = "Agent") => findElement<HTMLIFrameElement>(`iframe[title="${title}"]`);
-
-/** The CodeMirror view mounted at `selector` right now. */
-export function editorViewAt(selector = ".cm-editor") {
-  const element = document.querySelector<HTMLElement>(selector);
-  const view = element && EditorView.findFromDOM(element);
-  if (!view) throw new Error(`No CodeMirror view at ${selector}`);
-  return view;
-}
-
-/** Waits for the CodeMirror view mounted at `selector`. */
-export async function findEditorView(selector = ".cm-editor", options?: Parameters<typeof waitFor>[1]) {
-  const view = EditorView.findFromDOM(await findElement(selector, options));
-  if (!view) throw new Error(`No CodeMirror view at ${selector}`);
-  return view;
-}
-
-/** Waits for the CodeMirror view at `selector` and types `text` at its end. */
-export async function appendToEditor(text: string, selector?: string) {
-  const view = await findEditorView(selector);
-  view.dispatch({ changes: { from: view.state.doc.length, insert: text } });
-  return view;
-}
-
-/** Waits until the CodeMirror view at `selector` holds exactly `text`, and returns it. */
-export function expectEditorText(text: string, selector?: string, options?: Parameters<typeof waitFor>[1]) {
-  return waitFor(() => {
-    const view = editorViewAt(selector);
-    expect(view.state.doc.toString()).toBe(text);
-    return view;
-  }, options);
-}
+export { findElement, findFrame, editorViewAt, findEditorView, appendToEditor, expectEditorText } from "./app-test-dom";
 
 /** Delivers a window message from `source`, by default as the Synara origin. */
 export function postWindowMessage(source: MessageEventSource | null, data: unknown, origin = synaraHook.runtime.origin!) {

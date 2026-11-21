@@ -264,7 +264,11 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
       if (projectRootRef.current) persistSynaraThread(projectRootRef.current, snapshot.activeThreadId);
       host().post("agent:history", snapshot);
     },
-    onMinimumWidth: (width: number) => host().post("agent:minimum-width", { width }),
+  }), []);
+  // GPUI lays the panel out, so the width the composer needs goes to it.
+  const panel = useMemo(() => ({
+    showPanel: noop,
+    ui: { set: ({ agentMinWidth }: { agentMinWidth: number }) => host().post("agent:minimum-width", { width: agentMinWidth }) },
   }), []);
 
   const synara = useSynaraHost({
@@ -272,9 +276,15 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     projectRef,
     agentVisible,
     bridge,
+    trellis: panel,
     appearance: { theme, tint, accent: appearance.accent, translucency: appearance.translucency, translucent: appearance.translucent },
   });
-  const { latest, deliverable, postMessage, requestRuntime, origin, frameRef, sourceControlFrameRef } = synara;
+  const { setContextSnapshots, deliverable, postMessage, requestRuntime, origin, sourceControlFrameRef } = synara;
+  // The host keeps a frame per project; this page shows one project's.
+  const synaraRef = useRef(synara);
+  synaraRef.current = synara;
+  const agentFrameWindow = useCallback(() => synaraRef.current.frames
+    .find((frame) => frame.root === opened.projectRoot)?.ref.current?.contentWindow ?? null, [opened.projectRoot]);
   const dropActive = useAgentFileDrops(opened.surface === "agent", postMessage);
 
   // The Git workspace starts the runtime as the Tauri app's Git button does.
@@ -287,13 +297,13 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
   useEffect(() => {
     if (opened.surface !== "agent" || !origin) return;
     setDocumentToolTarget({
-      frame: () => frameRef.current?.contentWindow ?? null,
+      frame: agentFrameWindow,
       origin,
       projectRoot: opened.projectRoot,
       post: (message) => void postMessage(message),
     });
     return () => setDocumentToolTarget(null);
-  }, [frameRef, opened.projectRoot, opened.surface, origin, postMessage]);
+  }, [agentFrameWindow, opened.projectRoot, opened.surface, origin, postMessage]);
 
   // Open Slide's Ask AI, Apply comments and Draft a deck
   // (`onOpenSlideAgentRequest` in `use-document-surfaces.tsx`).
@@ -328,8 +338,8 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
   }), [opened.projectRoot, workspace]);
   const paperLibrary = useAgentPaperLibrary(opened.projectRoot);
   useEffect(() => {
-    Object.assign(latest.current, { hostContext, paperLibrary });
-  }, [hostContext, latest, paperLibrary]);
+    setContextSnapshots(hostContext, paperLibrary);
+  }, [hostContext, paperLibrary, setContextSnapshots]);
   useEffect(() => {
     if (!deliverable) return;
     const frame = window.requestAnimationFrame(() => void postMessage(hostContext));
@@ -343,11 +353,9 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
 
   // The window's other surfaces, and the frames' own messages the page
   // answers itself.
-  const synaraRef = useRef(synara);
-  synaraRef.current = synara;
   useEffect(() => {
     const bridgeHost = host();
-    const frameWindow = () => (opened.surface === "git" ? sourceControlFrameRef : frameRef).current?.contentWindow ?? null;
+    const frameWindow = () => (opened.surface === "git" ? sourceControlFrameRef.current?.contentWindow ?? null : agentFrameWindow());
     let popupOpen = false;
     const stops = [
       bridgeHost.on("agent:opened", () => synaraRef.current.notifyPanelOpened()),
@@ -418,7 +426,7 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
       for (const stop of stops) stop();
       window.removeEventListener("message", onMessage);
     };
-  }, [frameRef, opened.projectRoot, opened.surface, origin, sourceControlFrameRef]);
+  }, [agentFrameWindow, opened.projectRoot, opened.surface, origin, sourceControlFrameRef]);
 
   // The frame's permission mode, for the picker the owner draws in the
   // panel's header; none while the runtime is not up, as the Tauri header

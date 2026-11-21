@@ -14,8 +14,14 @@
 import { useReducer, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
+import { msg } from "@lingui/core/macro";
 import { Folder, SquareArrowOutUpRight, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import { useProjectAgentStatus } from "../agent/project-agent-activity";
+import { projectHasActiveAgent } from "../agent/agent-turn-activity";
+import { confirmAction } from "../app-utils";
+import { i18n } from "../i18n";
+import { showNotice } from "./notify";
 import { windowProjects, type WindowProject } from "./window-projects";
 import type { useProjectLifecycle } from "./use-project-lifecycle";
 import "./project-tabs.css";
@@ -31,18 +37,37 @@ async function leave(root: string, active: string, actions: ProjectTabActions) {
   return Boolean(next) && await actions.openInThisWindow(next.root);
 }
 
-/** Take `root` out of this window. Suspended, it has nothing to save: its edits were saved as it was left. */
-async function closeWindowProject(root: string, active: string, actions: ProjectTabActions) {
+async function closeWindowProject(entry: WindowProject, active: string, actions: ProjectTabActions) {
+  const { root, name } = entry;
+  if (projectHasActiveAgent(root) && !await confirmAction({
+    title: i18n._(msg`Close “${name}”?`),
+    message: i18n._(msg`The Agent is still working in this project. Closing the tab may interrupt the turn.`),
+    confirmLabel: i18n._(msg`Close project`),
+    destructive: true,
+  })) return;
   if (await leave(root, active, actions)) windowProjects.remove(root);
 }
 
 /** Give `root` a window of its own; it leaves this one's tabs once that window is open. */
 async function moveWindowProject(root: string, active: string, actions: ProjectTabActions) {
+  if (projectHasActiveAgent(root)) {
+    showNotice(i18n._(msg`Wait for the Agent to finish before moving this project to a new window.`));
+    return;
+  }
   if (await leave(root, active, actions) && await actions.openProjectWindow(root) === null) windowProjects.remove(root);
 }
 
 type MenuAt = { entry: WindowProject; x: number; y: number } | null;
 const replaceMenu = (_: MenuAt, next: MenuAt) => next;
+
+function ProjectAgentLight({ root }: { root: string }) {
+  const { t } = useLingui();
+  const status = useProjectAgentStatus(root);
+  if (!status) return null;
+  const label = status === "waiting" ? t`Agent waiting for approval or input`
+    : status === "running" ? t`Agent running` : t`Agent completed · unread`;
+  return <span className="project-tab-agent-light" data-agent-status={status} role="img" aria-label={label} title={label} />;
+}
 
 export default function ProjectTabs({ projects, active, activeTab, actions, disabled }: {
   projects: readonly WindowProject[];
@@ -91,13 +116,14 @@ export default function ProjectTabs({ projects, active, activeTab, actions, disa
                 <span>{name}</span>
               </button>
             )}
+            <ProjectAgentLight root={entry.root} />
             <button
               type="button"
               className="project-tab-close"
               aria-label={t`Close ${name}`}
               title={t`Close ${name}`}
               disabled={disabled}
-              onClick={() => void closeWindowProject(entry.root, active, actions)}
+              onClick={() => void closeWindowProject(entry, active, actions)}
             >
               <X size={12} />
             </button>
@@ -116,7 +142,7 @@ export default function ProjectTabs({ projects, active, activeTab, actions, disa
             <DropdownMenuItem disabled={disabled} onSelect={() => void moveWindowProject(menuAt.entry.root, active, actions)}>
               <SquareArrowOutUpRight size={14} />{t`Open in New Window`}
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={disabled} onSelect={() => void closeWindowProject(menuAt.entry.root, active, actions)}>
+            <DropdownMenuItem disabled={disabled} onSelect={() => void closeWindowProject(menuAt.entry, active, actions)}>
               <X size={14} />{t`Close`}
             </DropdownMenuItem>
           </DropdownMenuContent>

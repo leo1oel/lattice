@@ -24,8 +24,9 @@ const PRESS_EVENTS = ["mousedown", "pointerup", "mouseup", "click", "auxclick", 
 export function useSynaraPopupDismissalBridge(options: {
   frameRef: RefObject<HTMLIFrameElement | null>;
   origin: string | null;
+  isActive?: () => boolean;
 }) {
-  const { frameRef, origin } = options;
+  const { frameRef, origin, isActive } = options;
   useEffect(() => {
     if (!origin) return;
     let popupOpen = false;
@@ -43,7 +44,7 @@ export function useSynaraPopupDismissalBridge(options: {
     const onPointerDown = (event: PointerEvent) => {
       swallowingPress = false;
       const frameWindow = frameRef.current?.contentWindow;
-      if (!popupOpen || !frameWindow) return;
+      if (!popupOpen || !frameWindow || (isActive && !isActive())) return;
       popupOpen = false;
       frameWindow.postMessage({ type: LATTICE_OUTSIDE_POINTER_DOWN }, origin);
       swallowingPress = true;
@@ -62,5 +63,5 @@ export function useSynaraPopupDismissalBridge(options: {
       window.removeEventListener("pointerdown", onPointerDown, true);
       for (const type of PRESS_EVENTS) window.removeEventListener(type, onRestOfPress, true);
     };
-  }, [frameRef, origin]);
+  }, [frameRef, isActive, origin]);
 }

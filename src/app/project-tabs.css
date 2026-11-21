@@ -23,6 +23,21 @@
 .project-tab-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-tab .project-tab-icon { order: -1; flex: none; color: var(--text-secondary); }
 .project-tab-name:hover, .project-tab-name:focus-visible { color: var(--text-chrome); }
+.project-tab-agent-light {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  margin-inline: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--status-info);
+}
+.project-tab-agent-light[data-agent-status="waiting"] {
+  background: transparent;
+  border: 1px solid var(--status-warning);
+}
+.project-tab-agent-light[data-agent-status="completed"] { background: var(--status-success); }
+.project-tab-agent-light[data-agent-status="running"] { animation: project-agent-pulse 1.6s ease-in-out infinite; }
+@keyframes project-agent-pulse { 50% { opacity: 0.45; } }
 .project-tab-close { width: var(--space-10); height: var(--space-10); flex: none; margin-inline: 0 var(--space-2); border-radius: var(--radius-chrome); background: transparent; color: var(--text-tertiary); display: grid; place-items: center; opacity: 0; }
 .project-tab[data-active] .project-tab-close, .project-tab:hover .project-tab-close, .project-tab:focus-within .project-tab-close { opacity: 1; }
 .project-tab-close:hover, .project-tab-close:focus-visible { background: var(--chrome-hover-surface); color: var(--text-primary); }

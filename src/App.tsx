@@ -275,14 +275,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   const synara = useSynaraHost({
     project,
     projectRef,
-    agentVisible,
-    appearance: {
-      theme,
-      tint: appearance.tint,
-      accent: appearance.accent,
-      translucency: appearance.translucency,
-      translucent: windowBacking === "translucent",
-    },
+    agentVisible, trellis,
+    openProject: (root) => lifecycle.openInThisWindow(root),
+    appearance: { ...appearance, theme, translucent: windowBacking === "translucent" },
     bridge: {
       openProviderSettings: (target) => settingsWindow.openProviderSettings(target),
       openProjectPath: (path) => openMarkdownProjectPathRef.current(path),
@@ -295,7 +290,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       annotationTools: () => projectRootRef.current ? annotationRounds.toolHost : null,
       projectDocumentCreator: () => agentProjectDocumentCreatorRef.current,
       onHistorySnapshot: (snapshot) => agentCheckpoints.handleSnapshot(snapshot),
-      onMinimumWidth: (width) => trellis.ui.set({ agentMinWidth: width }),
     },
   });
   const { postMessage: postSynaraMessage, requestRuntime: requestSynaraRuntime } = synara;
@@ -518,6 +512,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   const lifecycle = useProjectLifecycle({
     projectState, documents, library, build: buildPipeline, cancelPrewarm: cancelPreviewPrewarm, loadCanvas: loadDocumentCanvas,
     resetCompileTracking: resetAgentCompileTracking,
+    retainBackgroundAgentProject: synara.retainBackgroundProject,
     overleafSync: {
       syncingRef: overleafSyncingRef, settledRef: overleafSyncSettledRef,
       flushWholeFilesRef: flushWholeFilesBeforeProjectTransitionRef, live: overleafRealtime,

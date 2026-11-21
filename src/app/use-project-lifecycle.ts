@@ -66,6 +66,7 @@ export type ProjectLifecycleDeps = {
   };
   /** Put per-project panels back to their defaults, synchronously, as the new project is published. */
   resetProjectUi: () => void;
+  retainBackgroundAgentProject: (root: string) => Promise<void>;
   /** The project's own scans, which run after its tabs are restored and before its Paper or asset surface opens. */
   scanProject: () => Promise<void>;
   /** Show the Get started checklist, once the tutorial's sample project is open. */
@@ -159,7 +160,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
    * never settles. Once claimed, live editing hands its documents back while
    * the window still shows their project, so their merge base is written.
    */
-  const startProjectTransition = useCallback(async () => {
+  const startProjectTransition = useCallback(async (retainAgent = false) => {
     if (syncingRef.current) {
       const settled = settledRef.current;
       if (settled) {
@@ -167,6 +168,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
         await settleWithin(settled);
       }
     }
+    const leavingRoot = projectRef.current?.root;
+    if (retainAgent && leavingRoot && !browserHosted) await depsRef.current.retainBackgroundAgentProject(leavingRoot);
     // The editor stayed live while Overleaf settled, so publish and durably
     // save any edit (including a just-finished IME composition) made during
     // that wait before invalidating the outgoing project's ownership.
@@ -178,7 +181,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     if (beginProjectTransition()) return depsRef.current.overleafSync.live.leaveProject().then(() => true);
     showNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
     return false;
-  }, [beginProjectTransition, depsRef, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);
+  }, [beginProjectTransition, browserHosted, depsRef, flush, flushWholeFilesRef, hasUnsavedEdits, projectRef, save, settledRef, syncingRef, t]);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
     setRecents((current) => ({ ...current, projects: rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }) }));
@@ -309,7 +312,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const switchProject = useCallback(async (label: string, path: string, onError?: () => void) => {
     setBusyLabel(label);
     const outcome = await (async () => {
-      if (!(await save()) || !await startProjectTransition()) return "refused";
+      if (!(await save()) || !await startProjectTransition(true)) return "refused";
       await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
       return "entered";
     })().catch((reason: unknown) => {
@@ -555,7 +558,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     }
     // Another project gets its own window once this one is in use, unless the
     // writer asks for this window. Replacing the project in place would close
-    // editors, cancel a build and reset the agent for work the writer never
+    // editors, cancel a build and stop terminal commands the writer never
     // asked to put away. With nothing open yet the window is empty, so it
     // takes the project itself rather than leaving a blank window behind.
     // One that would not open stays listed, its folder looked at again.
@@ -581,10 +584,10 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const moveProjectTab = useProjectTabTransfer({
     browserHosted, building, projectRef, holdWindow, startProjectTransition, cancelProjectTransition, enterProject,
     setMovingWorkspace, setBusyLabel,
-    forgetTransferredProject: () => {
+    forgetTransferredProject: (hasNeighbour) => {
       projectBeforeTransitionRef.current = null;
       clear();
-      setProject(null);
+      if (!hasNeighbour) setProject(null);
     },
   });
 

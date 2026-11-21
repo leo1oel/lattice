@@ -2,7 +2,7 @@
    language. Trellis rules are all :where(), so any selector here wins. */
 
 .workspace.trellis-workspace { display: flex; background: var(--surface-shell); padding: 0 var(--space-3) var(--space-3); }
-.workspace.trellis-workspace > .lattice-trellis { flex: 1 1 0; min-width: 0; min-height: 0; }
+.workspace.trellis-workspace > .lattice-trellis { isolation: isolate; flex: 1 1 0; min-width: 0; min-height: 0; }
 
 /* Lattice positions selection toolbars, popovers and drawers with
    position:fixed in viewport coordinates. Layout/paint containment on the root
@@ -585,6 +585,11 @@
 .trellis-tool-host { background: var(--surface-input); }
 .trellis-navigator-host > .navigator { width: 100%; min-height: 0; flex: 1; }
 .trellis-agent-host > .synara-frame-shell { flex: 1 1 0; min-height: 0; }
+/* Keep the iframe's DOM parent outside the workspace that is replaced on a
+   project switch. The Agent's slot supplies its position and visible bounds. */
+.workspace > .trellis-agent-layer { position: fixed; z-index: 1; }
+.trellis-agent-layer:not([data-positioned]) { visibility: hidden; pointer-events: none; }
+
 
 /* Drawers docked as tool panels fill the panel instead of sliding over the
    app. The panel's own header names it and closes it, so the drawer's title

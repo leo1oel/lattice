@@ -1,7 +1,7 @@
 // The harness's module mocks register as it loads: import it before anything it mocks.
 import {
   buildButton, buildResult, deferred, expectInvoked, expectNotification, invokeCalls, pause, projectCommands, projectSnapshot, ROOT, setAutoBuildMode,
-  waitForBuildIdle,
+  findFrame, openAgentFrame, postWindowMessage, waitForBuildIdle,
 } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -83,6 +83,51 @@ describe("projects in this window", () => {
     // ⌃Tab goes round the window's projects; ⌘1 to ⌘9 stay the layouts'.
     fireEvent.keyDown(window, { key: "Tab", ctrlKey: true });
     await waitFor(() => expect(invokeCalls("open_project", (args) => (args as { path: string }).path === NOTES)).toHaveLength(2));
+  });
+
+  it("keeps both project Agent documents live while switching away and back", async () => {
+    setAutoBuildMode("manual");
+    rememberRecents();
+    renderApp({ ...projectCommands(snapshots[ROOT]), open_project: openProject, project_shown_elsewhere: false }, { confirmations: true });
+    const { frame: paper, postMessage: toPaper } = await openAgentFrame({ ready: true });
+    const paperWindow = paper.contentWindow;
+    postWindowMessage(paperWindow, {
+      type: "synara:project-agent-activity", version: 1, workspaceRoot: ROOT,
+      running: true, waiting: false, completedUnread: false,
+    });
+    await waitForBuildIdle();
+    await openNotesHere();
+    await expectInvoked("retain_background_agent_project", { projectRoot: ROOT });
+    await expectInvoked("open_project", { path: NOTES });
+    const tabs = await screen.findByRole("group", { name: "Projects in this window" });
+    expect(screen.queryByRole("dialog", { name: /Switch away/ })).toBeNull();
+    expect(within(tabs).getByRole("img", { name: "Agent running" })).toBeInTheDocument();
+
+    const { frame: notes } = await openAgentFrame({ ready: true });
+    expect(notes).not.toBe(paper);
+    expect(paper.contentWindow).toBe(paperWindow);
+    expect(paper).toHaveAttribute("hidden");
+    postWindowMessage(notes.contentWindow, {
+      type: "synara:project-agent-activity", version: 1, workspaceRoot: NOTES,
+      running: true, waiting: false, completedUnread: false,
+    });
+    postWindowMessage(paperWindow, {
+      type: "synara:project-agent-activity", version: 1, workspaceRoot: ROOT,
+      running: false, waiting: true, completedUnread: false,
+    });
+    expect(await within(tabs).findByRole("img", { name: "Agent waiting for approval or input" })).toBeInTheDocument();
+    expect(within(tabs).getByRole("img", { name: "Agent running" })).toBeInTheDocument();
+
+    await waitForBuildIdle();
+    fireEvent.click(within(tabs).getByRole("button", { name: "Paper" }));
+    await expectInvoked("open_project", { path: ROOT });
+    await waitFor(() => expect(paper).not.toHaveAttribute("hidden"));
+    expect(await findFrame()).toBe(paper);
+    expect(paper.contentWindow).toBe(paperWindow);
+    expect(notes).toHaveAttribute("hidden");
+    await waitFor(() => expect(toPaper).toHaveBeenCalledWith(expect.objectContaining({
+      type: "lattice:agent-panel-visibility", visible: true,
+    }), expect.any(String)));
   });
 
   it("asks before a switch would stop the build running in the project it leaves", async () => {

@@ -2065,7 +2065,7 @@ msgstr "After"
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/app-overleaf-dialogs.tsx
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 #: src/history/history-drawer.tsx
 #: src/onboarding/get-started-panel.tsx
 #: src/settings/settings-dialog.tsx
@@ -2074,6 +2074,10 @@ msgstr "After"
 #: src/trellis/trellis-titles.ts
 msgid "Agent"
 msgstr "Agent"
+
+#: src/app/project-tabs.tsx
+msgid "Agent completed · unread"
+msgstr "Agent completed · unread"
 
 #. placeholder {0}: progress.answered
 #. placeholder {1}: progress.total
@@ -2092,6 +2096,10 @@ msgstr "Agent isn’t available on Windows yet"
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "Agent permissions: {label}"
+
+#: src/app/project-tabs.tsx
+msgid "Agent running"
+msgstr "Agent running"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Agent runtime"
@@ -2120,6 +2128,10 @@ msgstr "Agent unavailable"
 #: src/agent/synara-loading-surface.tsx
 msgid "Agent version {build}"
 msgstr "Agent version {build}"
+
+#: src/app/project-tabs.tsx
+msgid "Agent waiting for approval or input"
+msgstr "Agent waiting for approval or input"
 
 #. placeholder {0}: revision.reason
 #: src/canvas/annotation-review.tsx
@@ -3836,7 +3848,7 @@ msgstr "Choose a ZIP file to import."
 msgid "Choose abstract, paper, or rebuttal."
 msgstr "Choose abstract, paper, or rebuttal."
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 msgstr "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 
@@ -4226,6 +4238,10 @@ msgstr "Cloning…"
 msgid "Close"
 msgstr "Close"
 
+#: src/app/project-tabs.tsx
+msgid "Close “{name}”?"
+msgstr "Close “{name}”?"
+
 #: src/terminal/terminal-panel.tsx
 msgid "Close {label}"
 msgstr "Close {label}"
@@ -4260,6 +4276,10 @@ msgstr "Close panel"
 #: src/project/paper-inspector.tsx
 msgid "Close paper details"
 msgstr "Close paper details"
+
+#: src/app/project-tabs.tsx
+msgid "Close project"
+msgstr "Close project"
 
 #: src/editor/latex/search-panel.ts
 msgid "Close search"
@@ -4972,6 +4992,10 @@ msgstr "Could not inspect the TeX Live installer archive: {error}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not install rtex: {error}"
 msgstr "Could not install rtex: {error}"
+
+#: src/app/use-synara-project-frames.ts
+msgid "Could not keep this project's Agent connected while switching tabs."
+msgstr "Could not keep this project's Agent connected while switching tabs."
 
 #: src/canvas/paper-reader.tsx
 msgid "Could not load PDF"
@@ -16117,7 +16141,7 @@ msgstr "Symbolic links cannot be used for project file operations."
 msgid "Synara {synaraSettingsLabel} settings"
 msgstr "Synara {synaraSettingsLabel} settings"
 
-#: src/app/use-synara-host.ts
+#: src/trellis/trellis-agent-surface.tsx
 msgid "Synara agent"
 msgstr "Synara agent"
 
@@ -16624,11 +16648,15 @@ msgstr "The agent could not rewrite the selection: {detail}"
 msgid "The agent could not rewrite the selection."
 msgstr "The agent could not rewrite the selection."
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "The agent could not send the request. It is waiting in the agent's composer."
 msgstr "The agent could not send the request. It is waiting in the agent's composer."
 
-#: src/app/use-synara-host.ts
+#: src/app/project-tabs.tsx
+msgid "The Agent is still working in this project. Closing the tab may interrupt the turn."
+msgstr "The Agent is still working in this project. Closing the tab may interrupt the turn."
+
+#: src/app/synara-host-messages.ts
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 msgstr "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 
@@ -16675,10 +16703,6 @@ msgstr "The agent's reply did not contain a rewritten version of the selection."
 #: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "The agent's reply held neither a revision nor a question."
-
-#: src/app/leave-project.ts
-msgid "the agent’s turn"
-msgstr "the agent’s turn"
 
 #: src/platform/host-errors-papers.ts
 msgid "The alphaXiv paper was not found."
@@ -19433,6 +19457,11 @@ msgstr "Visual Markdown editor"
 #: src/papers/bibliography-audit.tsx
 msgid "Volume"
 msgstr "Volume"
+
+#: src/app/project-tab-moves.ts
+#: src/app/project-tabs.tsx
+msgid "Wait for the Agent to finish before moving this project to a new window."
+msgstr "Wait for the Agent to finish before moving this project to a new window."
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Waiting"

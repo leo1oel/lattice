@@ -628,6 +628,8 @@ pub fn run() {
             browser_host::dialogs::browser_dialog_save,
             macos_window::set_pdf_copy_text,
             ipc::agent::synara_ensure_ready,
+            ipc::agent::retain_background_agent_project,
+            ipc::agent::release_background_agent_project,
             ipc::agent::synara_open_skills_folder,
             ipc::agent::synara_open_log_folder,
             ipc::agent::synara_agent_environment,

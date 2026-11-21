@@ -32,8 +32,9 @@ export function parseSynaraConfirmationRequest(
 export function useSynaraConfirmationBridge(options: {
   frameRef: RefObject<HTMLIFrameElement | null>;
   origin: string | null;
+  canConfirm?: () => boolean;
 }) {
-  const { frameRef, origin } = options;
+  const { frameRef, origin, canConfirm } = options;
   useEffect(() => {
     if (!origin) return;
     const pendingIds = new Set<string>();
@@ -42,6 +43,10 @@ export function useSynaraConfirmationBridge(options: {
       if (!request) return;
       sourceWindow.postMessage({ type: LATTICE_CONFIRMATION_ACK, id: request.id }, origin);
       if (pendingIds.has(request.id)) return;
+      if (canConfirm && !canConfirm()) {
+        sourceWindow.postMessage({ type: LATTICE_CONFIRMATION_RESPONSE, id: request.id, confirmed: false }, origin);
+        return;
+      }
       pendingIds.add(request.id);
       // Synara asks only before destructive actions; a bare question carries
       // no warning of its own, and the shared dialog no longer adds one.
@@ -51,9 +56,13 @@ export function useSynaraConfirmationBridge(options: {
       void confirmAction(message)
         .catch(() => false)
         .then((confirmed) => {
-          sourceWindow.postMessage({ type: LATTICE_CONFIRMATION_RESPONSE, id: request.id, confirmed }, origin);
+          if (frameRef.current?.contentWindow === sourceWindow) {
+            sourceWindow.postMessage({
+              type: LATTICE_CONFIRMATION_RESPONSE, id: request.id, confirmed: confirmed && (!canConfirm || canConfirm()),
+            }, origin);
+          }
         })
         .finally(() => pendingIds.delete(request.id));
     });
-  }, [frameRef, origin]);
+  }, [canConfirm, frameRef, origin]);
 }

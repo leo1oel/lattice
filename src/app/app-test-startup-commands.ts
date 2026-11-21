@@ -7,6 +7,8 @@ export function mockAppCommand(command: string) {
   if (command === "list_local_templates") return [];
   // The palette lists enabled plugins' commands; none are installed.
   if (command === "plugins_commands") return [];
+  if (command === "retain_background_agent_project") return true;
+  if (command === "release_background_agent_project") return null;
   // Every project entry reads its annotations; an unanswered read would refuse annotation saves.
   if (command === "list_annotations") return { annotations: [], rounds: [] };
   // An English document, which Harper checks.

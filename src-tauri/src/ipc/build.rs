@@ -176,7 +176,12 @@ pub async fn preview_latex_figure(
     state: State<'_, AppState>, window: Window, project_root: String,
     request: latex::FigurePreviewRequest,
 ) -> Result<latex::FigurePreview, String> {
-    let root = pinned_root(&state, &window, &project_root, "the figure could be previewed")?;
+    let root = super::agent::agent_project_root(
+        &state,
+        &window,
+        &project_root,
+        "the figure could be previewed",
+    )?;
     run_blocking("Figure preview", move || latex::preview_figure(&root, &request)).await
 }
 

@@ -57,7 +57,8 @@ const ROUTES: readonly Route[] = [
   {
     family: "spreadsheet",
     parse: parseAgentSpreadsheetToolRequest,
-    local: executeAgentSpreadsheetToolRequest as Route["local"],
+    // Its second parameter is whether the project is still selected, not the root.
+    local: ((request: Parameters<typeof executeAgentSpreadsheetToolRequest>[0]) => executeAgentSpreadsheetToolRequest(request)) as Route["local"],
     resultType: "lattice:spreadsheet-tool-result",
     failure: "spreadsheet_tool_failed",
   },

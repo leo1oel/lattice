@@ -1,13 +1,41 @@
 //! The built-in agent: the Synara sidecar's supervisor (`synara`) and the
 //! custom model endpoint it may use (`model_endpoint`).
 
+use super::pinned_root;
+use crate::app_state::AppState;
 use crate::model_endpoint::{self, Endpoint, EndpointStatus, KeyUpdate, ProbeReport};
 use crate::synara::{
     EnvironmentReport, GuardOptions, GuardOptionsReport, SynaraRuntime, SynaraRuntimeInfo,
 };
-use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
+use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Manager, State, Window};
 use tauri_plugin_opener::OpenerExt;
+
+#[tauri::command]
+pub fn retain_background_agent_project(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> bool {
+    state.retain_background_agent_project(window.label(), Path::new(&project_root))
+}
+
+#[tauri::command]
+pub fn release_background_agent_project(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) {
+    state.release_background_agent_project(window.label(), Path::new(&project_root));
+}
+
+/// For Agent operations that only need project files. Editor and preview-surface
+/// IPC still resolves against the project's ordinary foreground binding.
+pub(super) fn agent_project_root(
+    state: &AppState, window: &Window, project_root: &str, action: &str,
+) -> Result<PathBuf, String> {
+    let root = Path::new(project_root);
+    if state.has_background_agent_project(window.label(), root) {
+        return Ok(root.to_path_buf());
+    }
+    pinned_root(state, window, project_root, action)
+}
 
 /// Start the agent service for the window's project, `workspace_root`, when
 /// it has one open: the bibliography guard has to cover that folder too.
@@ -21,7 +49,7 @@ pub async fn synara_ensure_ready(
     tauri::async_runtime::spawn_blocking(move || {
         let runtime = app.state::<SynaraRuntime>();
         match workspace_root.filter(|root| !root.is_empty()) {
-            Some(root) => runtime.ensure_ready_for(std::path::Path::new(&root)),
+            Some(root) => runtime.ensure_ready_for(Path::new(&root)),
             None => runtime.ensure_ready(),
         }
     })

@@ -2065,7 +2065,7 @@ msgstr "修改后"
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/app-overleaf-dialogs.tsx
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 #: src/history/history-drawer.tsx
 #: src/onboarding/get-started-panel.tsx
 #: src/settings/settings-dialog.tsx
@@ -2074,6 +2074,10 @@ msgstr "修改后"
 #: src/trellis/trellis-titles.ts
 msgid "Agent"
 msgstr "AI 助手"
+
+#: src/app/project-tabs.tsx
+msgid "Agent completed · unread"
+msgstr "Agent 已完成 · 未读"
 
 #. placeholder {0}: progress.answered
 #. placeholder {1}: progress.total
@@ -2092,6 +2096,10 @@ msgstr "Windows 暂不支持AI 助手"
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "AI 权限：{label}"
+
+#: src/app/project-tabs.tsx
+msgid "Agent running"
+msgstr "Agent 正在运行"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Agent runtime"
@@ -2120,6 +2128,10 @@ msgstr "AI 助手不可用"
 #: src/agent/synara-loading-surface.tsx
 msgid "Agent version {build}"
 msgstr "AI 助手版本 {build}"
+
+#: src/app/project-tabs.tsx
+msgid "Agent waiting for approval or input"
+msgstr "Agent 正在等待审批或输入"
 
 #. placeholder {0}: revision.reason
 #: src/canvas/annotation-review.tsx
@@ -3836,7 +3848,7 @@ msgstr "请选择要导入的 ZIP 文件"
 msgid "Choose abstract, paper, or rebuttal."
 msgstr "请选择摘要、全文或作者回复"
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 msgstr "请先在 AI 助手面板中选择 AI 提供商，再发送输入框里待发的请求。"
 
@@ -4226,6 +4238,10 @@ msgstr "正在克隆…"
 msgid "Close"
 msgstr "关闭"
 
+#: src/app/project-tabs.tsx
+msgid "Close “{name}”?"
+msgstr "关闭「{name}」？"
+
 #: src/terminal/terminal-panel.tsx
 msgid "Close {label}"
 msgstr "关闭 {label}"
@@ -4260,6 +4276,10 @@ msgstr "关闭"
 #: src/project/paper-inspector.tsx
 msgid "Close paper details"
 msgstr "关闭论文详情"
+
+#: src/app/project-tabs.tsx
+msgid "Close project"
+msgstr "关闭项目"
 
 #: src/editor/latex/search-panel.ts
 msgid "Close search"
@@ -4972,6 +4992,10 @@ msgstr "无法检查 TeX Live 安装程序压缩包：{error}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not install rtex: {error}"
 msgstr "无法安装 rtex：{error}"
+
+#: src/app/use-synara-project-frames.ts
+msgid "Could not keep this project's Agent connected while switching tabs."
+msgstr "切换标签页时无法保持此项目的 Agent 连接。"
 
 #: src/canvas/paper-reader.tsx
 msgid "Could not load PDF"
@@ -16117,7 +16141,7 @@ msgstr "项目文件操作不支持符号链接"
 msgid "Synara {synaraSettingsLabel} settings"
 msgstr "{synaraSettingsLabel}设置"
 
-#: src/app/use-synara-host.ts
+#: src/trellis/trellis-agent-surface.tsx
 msgid "Synara agent"
 msgstr "AI 助手"
 
@@ -16624,11 +16648,15 @@ msgstr "AI 改写失败：{detail}"
 msgid "The agent could not rewrite the selection."
 msgstr "AI 改写失败"
 
-#: src/app/use-synara-host.ts
+#: src/app/synara-host-messages.ts
 msgid "The agent could not send the request. It is waiting in the agent's composer."
 msgstr "AI 助手未能发送这条请求，它仍在输入框中等待发送。"
 
-#: src/app/use-synara-host.ts
+#: src/app/project-tabs.tsx
+msgid "The Agent is still working in this project. Closing the tab may interrupt the turn."
+msgstr "Agent 仍在此项目中运行。关闭标签页可能中断当前任务。"
+
+#: src/app/synara-host-messages.ts
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 msgstr "AI 助手正在等你回答。请求已放进输入框，回答后再发送。"
 
@@ -16675,10 +16703,6 @@ msgstr "AI 没返回改写结果"
 #: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "AI 助手的回复里既没有修改，也没有问题。"
-
-#: src/app/leave-project.ts
-msgid "the agent’s turn"
-msgstr "AI 助手正在进行的对话"
 
 #: src/platform/host-errors-papers.ts
 msgid "The alphaXiv paper was not found."
@@ -19433,6 +19457,11 @@ msgstr "可视化 Markdown 编辑器"
 #: src/papers/bibliography-audit.tsx
 msgid "Volume"
 msgstr "卷号"
+
+#: src/app/project-tab-moves.ts
+#: src/app/project-tabs.tsx
+msgid "Wait for the Agent to finish before moving this project to a new window."
+msgstr "请等 Agent 完成后，再将此项目移到新窗口。"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Waiting"

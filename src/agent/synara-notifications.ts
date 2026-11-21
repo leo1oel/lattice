@@ -82,15 +82,17 @@ export function useSynaraNotificationBridge(options: {
   frameRef: RefObject<HTMLIFrameElement | null>;
   origin: string | null;
   source: string;
+  beforeAction?: () => Promise<boolean>;
 }) {
-  const { frameRef, origin, source } = options;
+  const { frameRef, origin, source, beforeAction } = options;
   useEffect(() => {
     if (!origin) return;
     const notificationBySynaraId = new Map<string, { appLogId: string; hostTimeoutMs: number }>();
-    const postAction = (id: string, action: SynaraNotificationAction) => {
-      frameRef.current?.contentWindow?.postMessage({ type: LATTICE_EMBEDDED_NOTIFICATION_ACTION, id, action }, origin);
+    const postAction = (id: string, action: SynaraNotificationAction, sourceWindow: Window) => {
+      if (frameRef.current?.contentWindow !== sourceWindow) return;
+      sourceWindow.postMessage({ type: LATTICE_EMBEDDED_NOTIFICATION_ACTION, id, action }, origin);
     };
-    const stopListening = listenToSynaraFrame(frameRef, origin, (data) => {
+    const stopListening = listenToSynaraFrame(frameRef, origin, (data, sourceWindow) => {
       const message = parseSynaraNotificationMessage(data);
       if (!message) return;
       const existing = notificationBySynaraId.get(message.id);
@@ -106,7 +108,18 @@ export function useSynaraNotificationBridge(options: {
       }
       const hostTimeoutMs = hostNotificationTimeout(message);
       const action = (label: string | undefined, kind: SynaraNotificationAction) => (
-        label ? { label, onClick: () => postAction(message.id, kind) } : undefined
+        label ? {
+          label,
+          onClick: () => {
+            if (!beforeAction) {
+              postAction(message.id, kind, sourceWindow);
+              return;
+            }
+            void beforeAction().then((opened) => {
+              if (opened) postAction(message.id, kind, sourceWindow);
+            }).catch(() => undefined);
+          },
+        } : undefined
       );
       const primaryAction = action(message.primaryActionLabel, "primary");
       const secondaryAction = action(message.secondaryActionLabel, "secondary");
@@ -116,7 +129,7 @@ export function useSynaraNotificationBridge(options: {
         ...(message.copyText ? { copyText: message.copyText } : {}),
         ...(primaryAction ? { primaryAction } : {}),
         ...(secondaryAction ? { secondaryAction } : {}),
-        onDismiss: () => postAction(message.id, "dismiss"),
+        onDismiss: () => postAction(message.id, "dismiss", sourceWindow),
       };
       const entry = {
         level: message.level === "loading" ? "info" as const : message.level,
@@ -134,5 +147,5 @@ export function useSynaraNotificationBridge(options: {
         dismissAppToast(notification.appLogId, false);
       }
     };
-  }, [frameRef, origin, source]);
+  }, [beforeAction, frameRef, origin, source]);
 }
