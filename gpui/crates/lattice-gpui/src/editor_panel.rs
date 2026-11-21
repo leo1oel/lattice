@@ -94,6 +94,7 @@ mod spelling;
 mod strip;
 mod structured_view;
 pub(crate) mod symbol_palette;
+pub(crate) mod table_widths;
 pub mod views;
 pub(crate) mod vim_ex;
 pub use panel_actions::{ShowSourceView, ShowVisualView, ViewPreview, ViewSource, ViewSplit};
@@ -417,9 +418,13 @@ impl EditorPanel {
             cx.observe_global_in::<crate::settings::AppSettings>(window, |this, window, cx| {
                 this.sync_latex_view(window, cx)
             }),
-            cx.on_release(|_, _| place_memory::flush()),
+            cx.on_release(|_, _| {
+                place_memory::flush();
+                table_widths::flush();
+            }),
             cx.on_app_quit(|_, _| {
                 place_memory::flush();
+                table_widths::flush();
                 async {}
             }),
         ];

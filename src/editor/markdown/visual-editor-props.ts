@@ -10,6 +10,7 @@ import type { PresenceCursor, TrackedChangeTooltipActions } from "../../overleaf
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
 import type { EditorComment, NoteProgress } from "../comments/editor-comment-data";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
+import type { TableColumnWidths } from "./engine/table-column-widths";
 
 /** Where a jump sends the visual editor: a 1-based line of its text, or a comment's anchor. */
 export type VisualRevealTarget = { line: number } | { commentId: string };
@@ -60,4 +61,10 @@ export type VisualMarkdownEditorProps = {
    */
   revealRequest?: { id: string; target: VisualRevealTarget } | null;
   onRevealHandled?: (id: string) => void;
+  /**
+   * Tables' column widths the host keeps outside the file, by table index:
+   * with it, a column's border drags to resize and a double-click fits it
+   * (table-column-widths.ts). Without it, tables size to their content.
+   */
+  tableColumnWidths?: TableColumnWidths;
 };

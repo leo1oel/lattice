@@ -7,13 +7,14 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 /* eslint-disable react-refresh/only-export-components -- a registry of views, not a component module */
-import type { AnyExtension } from "@tiptap/core";
+import { mergeAttributes, type AnyExtension } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { CodeHighlight } from "./code-highlight";
 import { EngineKeymap, type ImeGuard } from "./engine-keymap";
 import {
-  Component, FootnoteDefinition, FootnoteReference, InlineMath, LatticeCodeBlock, LatticeImage, MathBlock, RawBlock,
+  Component, FootnoteDefinition, FootnoteReference, InlineMath, LatticeCodeBlock, LatticeImage, LatticeTable, MathBlock, RawBlock,
 } from "./engine-schema";
+import { SizedTableView } from "./table-column-widths";
 import { CodeBlockView } from "./views/code-block-view";
 import { ComponentView } from "./views/component-views";
 import { FootnoteDefinitionView, FootnoteNumbering, FootnoteReferenceView } from "./views/footnote-views";
@@ -43,6 +44,14 @@ export function engineNodeViews(options: { ime: ImeGuard }): AnyExtension[] {
     FootnoteReference.extend({ addNodeView: () => ReactNodeViewRenderer(FootnoteReferenceView, { as: "span" }) }),
     FootnoteDefinition.extend({ addNodeView: () => ReactNodeViewRenderer(FootnoteDefinitionView) }),
     RawBlock.extend({ addNodeView: () => ReactNodeViewRenderer(RawBlockView) }),
+    LatticeTable.extend({
+      addNodeView() {
+        const { cellMinWidth, HTMLAttributes: own } = this.options;
+        return ({ node, view, decorations, HTMLAttributes }) => (
+          new SizedTableView(node, cellMinWidth, view, mergeAttributes(own, HTMLAttributes), decorations)
+        );
+      },
+    }),
     CodeHighlight,
     ImageFigures,
     FootnoteNumbering,

@@ -298,6 +298,9 @@ const SourceText = Mark.create({
   renderHTML: ({ HTMLAttributes }) => ["span", { ...HTMLAttributes, "data-lattice-source": "" }, 0],
 });
 
+/** GFM tables: column alignment and merged-cell layout are attributes; widths are never the document's. */
+export const LatticeTable = Table.extend({ addAttributes: () => ({ align: { default: null, rendered: false }, ...style({ layout: null }) }) }).configure({ resizable: false });
+
 export type EngineSchemaOptions = { rawBlockLabels?: Partial<Record<RawBlockKind, string>> };
 
 /** Tiptap extensions that define the engine's schema (node views are added by the editor). */
@@ -331,7 +334,7 @@ export function engineSchemaExtensions(options: EngineSchemaOptions = {}): AnyEx
     LatticeCodeBlock,
     ...markExtensions(),
     LatticeImage.configure({ inline: true, allowBase64: true }),
-    Table.extend({ addAttributes: () => ({ align: { default: null, rendered: false }, ...style({ layout: null }) }) }).configure({ resizable: false }),
+    LatticeTable,
     TableRow,
     TableHeader.extend({ content: "paragraph" }),
     TableCell.extend({ content: "paragraph" }),
