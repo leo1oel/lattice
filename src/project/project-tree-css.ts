@@ -359,11 +359,12 @@ button[data-item-type="folder"]:is([aria-expanded="true"], [data-file-tree-stick
 }
 
 /* The name stays where it was when editing starts: the field's padding and
-   border sit outside the text's left edge. */
+   border sit outside the text's left edge, inside the row's gap after the
+   icon, so the field never touches the icon. */
 [data-item-rename-input] {
   height: 20px;
-  margin-inline-start: calc(-1 * (var(--space-2) + var(--field-control-border-width)));
-  padding: 0 var(--space-2);
+  margin-inline-start: calc(-1 * (var(--space-1) + var(--field-control-border-width)));
+  padding: 0 var(--space-2) 0 var(--space-1);
   border: var(--field-control-border-width) solid var(--field-control-interactive-border-color);
   border-radius: var(--radius-compact);
   outline: none;

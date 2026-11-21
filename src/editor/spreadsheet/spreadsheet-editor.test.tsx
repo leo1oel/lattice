@@ -82,6 +82,11 @@ function makeApi() {
   const api = {
     Event: Object.fromEntries(["SelectionChanged", "CellPointerMove", "SheetEditStarted", "SheetEditEnded", "ActiveSheetChanged"].map((name) => [name, name])),
     commandListener: undefined as ((command: MockCommand, options?: Record<string, unknown>) => void) | undefined,
+    beforeListener: undefined as ((command: MockCommand) => void) | undefined,
+    onBeforeCommandExecute: (listener: (command: MockCommand) => void) => {
+      api.beforeListener = listener;
+      return { dispose: () => { if (api.beforeListener === listener) api.beforeListener = undefined; } };
+    },
     createWorkbook: (data: SpreadsheetWorkbookData) => (active = makeWorkbook(data)),
     disposeUnit: vi.fn(() => { active = null; }),
     onCommandExecuted: (listener: (command: MockCommand, options?: Record<string, unknown>) => void) => {
@@ -89,8 +94,9 @@ function makeApi() {
       return { dispose: () => { if (api.commandListener === listener) api.commandListener = undefined; } };
     },
     addEvent: () => ({ dispose: vi.fn() }),
-    syncExecuteCommand: vi.fn((_command: string, params: { subUnitId: string; cellValue: CellValues }) => {
+    syncExecuteCommand: vi.fn((command: string, params: { subUnitId: string; cellValue: CellValues }) => {
       if (!active) return false;
+      api.beforeListener?.({ id: command, type: 2, params });
       const cells = active.data.sheets[params.subUnitId].cellData;
       for (const [row, columns] of Object.entries(params.cellValue)) {
         for (const [column, value] of Object.entries(columns)) {
@@ -233,6 +239,25 @@ async function savedWorkbook(onChange: Mock<(next: string) => void>): Promise<Sp
 const firstSheet = (workbook: SpreadsheetWorkbookData) => workbook.sheets[workbook.sheetOrder[0]];
 
 describe("SpreadsheetEditor", () => {
+  // Leo's A1 read "TiMtiMMIT□", and the cell editor opened on it empty:
+  // Univer's own rich-text markers (\x1f…\x1e a link's range, \b a block)
+  // inside a plain value. None reaches a cell, shown or written.
+  it("shows a value holding Univer's reserved characters as its plain text", () => {
+    const file = createDefaultSpreadsheet("Reserved");
+    firstSheet(file.workbook).cellData[0] = { 0: { v: "TiMtiMMIT\x1f", t: 1 }, 1: { v: "a\bb\x1e\tc\nd", t: 1 } };
+    const { workbook } = renderSheet({ file });
+    expect(firstSheet(workbook.data).cellData[0][0].v).toBe("TiMtiMMIT");
+    expect(firstSheet(workbook.data).cellData[0][1].v).toBe("ab\tc\nd");
+  });
+
+  it("keeps Univer's reserved characters out of what an edit writes into a cell", () => {
+    renderSheet();
+    const params = { cellValue: { 0: { 0: { v: "MIT\x1f", t: 1 }, 1: { v: 3 } } } };
+    univerMock.api?.beforeListener?.({ id: "sheet.mutation.set-range-values", type: 2, params });
+    expect(params.cellValue[0][0].v).toBe("MIT");
+    expect(params.cellValue[0][1].v).toBe(3);
+  });
+
   it("contains a malformed native file instead of crashing the workspace", () => {
     const { view } = renderSheet({ source: "{}" });
     expect(view.getByRole("alert")).toHaveTextContent("Couldn’t open this spreadsheet");

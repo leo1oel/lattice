@@ -163,7 +163,9 @@ impl Run {
 
         self.island_shot(cx, "sheet-island").await?;
 
-        // A word typed into a cell, with native keys, reaches the file.
+        // A word typed into a cell, with native keys, reaches the file; the
+        // arrows' characters an input method commits mid-word (U+F700–U+F703)
+        // do not.
         let typed = match cx.update(|cx| island.read(cx).bounds(cx)) {
             Some(bounds) => {
                 let native = self.native(cx)?;
@@ -173,7 +175,16 @@ impl Run {
                 })
                 .await;
                 self.pause(cx, Duration::from_millis(300)).await;
-                for character in "quokka\n".chars() {
+                for character in "quo".chars() {
+                    native::send_key(native, character, false)?;
+                    self.pause(cx, Duration::from_millis(40)).await;
+                }
+                cx.update(|cx| {
+                    island
+                        .read(cx)
+                        .insert_text("\u{F700}\u{F701}\u{F702}\u{F703}", cx)
+                });
+                for character in "kka\n".chars() {
                     native::send_key(native, character, false)?;
                     self.pause(cx, Duration::from_millis(40)).await;
                 }
@@ -184,14 +195,13 @@ impl Run {
             }
             None => false,
         };
-        let parses = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-            .is_some();
+        let saved = std::fs::read_to_string(&path).unwrap_or_default();
+        let parses = serde_json::from_str::<Value>(&saved).is_ok();
+        let arrows = saved.contains(|c| ('\u{F700}'..='\u{F703}').contains(&c));
         steps.check(
-            "a word typed into a cell with native keys is saved to the .lattice-sheet, which stays valid JSON",
-            typed && parses,
-            json!({ "typed": typed, "parses": parses }),
+            "a word typed into a cell with native keys, an input method's arrow characters committed mid-word, is saved to the .lattice-sheet as that word alone, which stays valid JSON",
+            typed && parses && !arrows,
+            json!({ "typed": typed, "parses": parses, "arrows": arrows }),
         );
 
         // The page's Excel export reaches lattice-core's checks: bytes that

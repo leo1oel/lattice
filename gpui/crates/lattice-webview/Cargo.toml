@@ -24,7 +24,7 @@ wry = { package = "lb-wry", version = "=0.53.3" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
+objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSRange", "NSString"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # The window's native handle, to build WebView2 outside GPUI's updates

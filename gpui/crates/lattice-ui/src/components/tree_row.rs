@@ -19,7 +19,7 @@
 //! half strength in the same lane.
 
 use gpui::{
-    AnyElement, App, ElementId, IntoElement, ParentElement as _, SharedString, Styled as _,
+    AnyElement, App, ElementId, IntoElement, ParentElement as _, Pixels, SharedString, Styled as _,
     Transformation, div, prelude::FluentBuilder as _, px, radians, svg,
 };
 use gpui_kit::component::list::ListItem;
@@ -33,6 +33,8 @@ use crate::{
 
 /// How far each level of nesting moves a row in.
 const INDENT: f32 = 14.;
+/// The space between a row's icon and its name.
+pub const TREE_ROW_LABEL_GAP: Pixels = px(6.);
 
 /// What Git says of a row's file (Pierre's `GitStatusEntry`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -309,7 +311,7 @@ impl TreeRow {
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(6.))
+                    .gap(TREE_ROW_LABEL_GAP)
                     .h(px(28.))
                     .pr(px(8.))
                     .child(lead)

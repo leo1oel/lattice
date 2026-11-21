@@ -180,6 +180,16 @@ impl FileTreePanel {
         self.reveal_pending(false, cx);
     }
 
+    /// A press on the tree's empty space: nothing stays selected, as in
+    /// Finder and the Tauri app's tree, so + makes the next file at the
+    /// project root. The open file stays open; its row is selected again
+    /// when another file comes to the front.
+    pub(super) fn clear_selection(&mut self, cx: &mut Context<Self>) {
+        self.selection.clear();
+        self.point_kit_at(None, cx);
+        self.redraw_rows(cx);
+    }
+
     /// A click on the row at `path`, before Kit's tree sees it: ⌘ and ⇧ pick
     /// rows and stop there, so the click neither opens nor toggles; a plain
     /// click selects the row alone and goes on to Kit's tree, which toggles a

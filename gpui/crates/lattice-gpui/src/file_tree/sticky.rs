@@ -9,8 +9,8 @@
 //! just under its own pinned folders. A wheel over them scrolls the tree.
 
 use gpui::{
-    AnyElement, App, Context, InteractiveElement as _, IntoElement as _, ParentElement as _,
-    StatefulInteractiveElement as _, Styled as _, Window, div, point, px,
+    AnyElement, App, Context, InteractiveElement as _, IntoElement as _, MouseButton,
+    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div, point, px,
 };
 use lattice_ui::{ActiveLattice as _, components::TreeRow};
 
@@ -129,6 +129,7 @@ impl FileTreePanel {
                 let id = entry.item().id.to_string();
                 let place = pin.depth as f32 * ROW;
                 let view = cx.entity().downgrade();
+                let pressed = self.pressed_row.clone();
                 let ix = pin.ix;
                 let row = TreeRow::folder(
                     ("file-tree-pinned", pin.ix),
@@ -149,6 +150,7 @@ impl FileTreePanel {
                         .overflow_hidden()
                         .bg(ground)
                         .block_mouse_except_scroll()
+                        .on_mouse_down(MouseButton::Left, move |_, _, _| pressed.set(true))
                         .on_click(move |_, window, cx| {
                             view.update(cx, |this, cx| this.click_pinned(ix, window, cx))
                                 .ok();

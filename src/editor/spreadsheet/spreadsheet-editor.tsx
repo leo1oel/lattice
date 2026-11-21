@@ -23,6 +23,8 @@ import {
   spreadsheetAppearance,
   withSpreadsheetAppearance,
 } from "./spreadsheet-univer";
+import { secondaryClickAsRightButton } from "./spreadsheet-secondary-click";
+import { stripReservedControls, withPlainCellText } from "./spreadsheet-plain-text";
 import {
   SPREADSHEET_DERIVED_ORIGIN,
   SPREADSHEET_LOCAL_ORIGIN,
@@ -299,6 +301,7 @@ function SpreadsheetEditorSurface({
       (message) => i18n._(message),
       () => exportExcelRef.current(),
     );
+    const stopSecondaryClick = secondaryClickAsRightButton(containerRef.current);
     let disposed = false;
     // Canvas chrome renders asynchronously; retry for ~30 frames until it exists.
     let renderAppearanceFrame: number | null = null;
@@ -312,10 +315,16 @@ function SpreadsheetEditorSurface({
       };
       apply();
     };
-    let workbook = univerAPI.createWorkbook(withSpreadsheetAppearance(
+    let workbook = univerAPI.createWorkbook(withPlainCellText(withSpreadsheetAppearance(
       withSheetViews(initialSnapshot, initialViewStateRef.current?.sheets ?? {}),
       appearance,
-    ) as unknown as IWorkbookData);
+    )) as unknown as IWorkbookData);
+    // Every value Univer writes into a cell (typing, paste, the Agent's and
+    // the file's changes patched in below) passes through this mutation, so a
+    // reserved character never reaches a cell or the file.
+    const plainTextGuard = univerAPI.onBeforeCommandExecute((command) => {
+      if (command.id === SET_RANGE_VALUES_MUTATION && isRecord(command.params)) stripReservedControls(command.params.cellValue);
+    });
     if (initialViewStateRef.current) restoreWorkbookViewState(workbook, initialViewStateRef.current);
     scheduleRenderAppearance();
     const renderCreatedSubscription = renderManager.created$.subscribe((render) => {
@@ -342,7 +351,7 @@ function SpreadsheetEditorSurface({
 
     const replaceWorkbook = (next: SpreadsheetWorkbookData) => asRemote(() => {
       const viewState = workbookViewState(workbook);
-      const display = withSpreadsheetAppearance(withSheetViews(next, commandSnapshot(workbook, renderedSnapshot).sheets), appearance);
+      const display = withPlainCellText(withSpreadsheetAppearance(withSheetViews(next, commandSnapshot(workbook, renderedSnapshot).sheets), appearance));
       univerAPI.disposeUnit(workbook.getId());
       workbook = univerAPI.createWorkbook(display as unknown as IWorkbookData);
       workbookRef.current = workbook;
@@ -447,6 +456,8 @@ function SpreadsheetEditorSurface({
       if (viewStateFrame !== null) cancelAnimationFrame(viewStateFrame);
       callbacks.current.onViewState?.(workbookViewState(workbook));
       disposed = true;
+      stopSecondaryClick();
+      plainTextGuard.dispose();
       for (const event of viewEvents) event.dispose();
       commandListener.dispose();
       appearanceObserver.disconnect();

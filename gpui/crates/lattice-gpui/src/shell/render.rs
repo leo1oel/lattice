@@ -35,7 +35,23 @@ impl Render for Shell {
             .on_action(cx.listener(Self::next_problem))
             .on_action(cx.listener(Self::previous_problem))
             .on_action(cx.listener(Self::open_tex_doctor))
-            .on_action(cx.listener(Self::install_latex_tools));
+            .on_action(cx.listener(Self::install_latex_tools))
+            // ⌘Z and ⌘⇧Z in a page arrive as the Edit menu's actions, which
+            // nothing under a focused island takes: the page gets the press.
+            .on_action(|_: &editor::actions::Undo, window, cx| {
+                log::warn!(
+                    "LATA65 undo island={:?}",
+                    lattice_webview::focused_island(window, cx).is_some()
+                );
+                if let Some(island) = lattice_webview::focused_island(window, cx) {
+                    island.read(cx).undo(false, cx);
+                }
+            })
+            .on_action(|_: &editor::actions::Redo, window, cx| {
+                if let Some(island) = lattice_webview::focused_island(window, cx) {
+                    island.read(cx).undo(true, cx);
+                }
+            });
         self.register_commands(shell, cx)
             .relative()
             .size_full()

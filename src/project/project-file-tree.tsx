@@ -495,6 +495,16 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
                   else trellisRef.current?.tabs.keep(node.path);
                 }}
                 onClickCapture={pointerDrag.onClickCapture}
+                // A click on the empty space below the rows clears the
+                // selection, as in Finder, so + makes the next file at the
+                // project root. The open document stays as it is.
+                onClick={(event) => {
+                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                  if (findPierreItemPath(event) || composedPathHas(event, (target) => (
+                    target instanceof HTMLInputElement || target instanceof HTMLButtonElement
+                  ))) return;
+                  for (const selected of model.getSelectedPaths()) model.getItem(selected)?.deselect();
+                }}
               />
               <ExternalScrollbar getViewport={getTreeScrollViewport} getHoverArea={treeScrollFrame} />
               <ProjectTreeHover getViewport={getTreeScrollViewport} />

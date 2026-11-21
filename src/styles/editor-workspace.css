@@ -1459,6 +1459,9 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .spreadsheet-univer-host button,
 .spreadsheet-univer-host input,
 .spreadsheet-univer-host textarea { font-family: inherit; }
+/* WebKit selects what a secondary click lands on. On Univer's canvases that
+   tinted the whole sheet, which read as every cell being selected. */
+.spreadsheet-univer-host canvas { -webkit-user-select: none; user-select: none; }
 /* Univer owns the spreadsheet sidebars, so they cannot use Lattice's React
    CloseButton or ScrollArea directly. Match those primitives at this host seam
    for every sheet sidebar rather than special-casing the shortcut panel. */
